@@ -1,5 +1,5 @@
 node_modules/
-auth_info_baileys/
 !/build/.gitkeep
-build/
-!/build/.gitkeep
+build/*
+!/auth_info_baileys/.gitkeep
+auth_info_baileys/*
