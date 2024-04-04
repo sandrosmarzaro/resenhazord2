@@ -4,7 +4,7 @@ ___
 
 ## Index
 
-1. <a href="#index">Resume</a>
+1. <a href="#resume">Resume</a>
 2. <a href="#run">How To Run</a>
 3. <a href="#contribute">How To Contribute</a>
 
