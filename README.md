@@ -1,7 +1,5 @@
 <h1 align="center"><b>🗿 Resenhazord 2️⃣</b></h1>
 
-___
-
 ## Index
 
 1. <a href="#resume">Resume</a>
