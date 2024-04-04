@@ -1,20 +1,20 @@
 <h1 align="center"><b>🗿 Resenhazord 2️⃣</b></h1>
 
-## Index
+## 📑 Index
 
 1. <a href="#resume">Resume</a>
 2. <a href="#run">How To Run</a>
 3. <a href="#contribute">How To Contribute</a>
 
-## Resume <a id="resume"></a>
+## 📜 Resume <a id="resume"></a>
 
 Resenhazord 2 it's a funny Whatsapp chatbot make by [A Resenha](https://github.com/a-resenha) to Resenha. Your first discontinued version, the [Resenhazord](https://github.com/sandrosmarzaro/resenhazord-chatbot), was made by the [Venom](https://github.com/orkestral/venom) library, it was a side project at the beginning of the undergraduate program, which caused several defects. Due to this, this version was created, which seeks better readability and organization of the project, now using the [Baileys](https://github.com/WhiskeySockets/Baileys) library. Feel free to download, test, use, and contribute.
 
-## How To Run <a id="run"></a>
+## 💻 How To Run <a id="run"></a>
 
-### Ubuntu Requirements
+### 🐧 Ubuntu Requirements
 
-#### 1 - Installing NVM, NodeJS and NPM
+#### 1º Installing NVM, NodeJS and NPM
 First you need to [JavaScript](https://developer.mozilla.org/en-US/docs/Web/JavaScript) runtime, in this case, using [NodeJS](https://nodejs.org/en), in terminal run:
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -31,7 +31,7 @@ To see the NodeJS version installed, and the version of Node Package Manager ([N
 ```bash
 npm -v
 ```
-#### 2 - Insalling Yarn
+#### 2º Insalling Yarn
 But instead of using NPM to conrol the packages, we using [Yarn](https://yarnpkg.com/) globally, running this code:
 ```bash
 npm install --global yarn
@@ -41,7 +41,7 @@ Verifing the installation:
 yarn -v
 ```
 
-#### 3 - Installing Git, Clone App, Install and Run
+#### 3º Installing Git, Clone App, Install and Run
 
 Now you can clone the repository using [Git](https://git-scm.com/):
 ```bash
@@ -76,4 +76,4 @@ Or the to development cases:
 yarn dev
 ```
 
-## How To Contribute <a id="contribute"></a>
+## 🏗️ How To Contribute <a id="contribute"></a>
