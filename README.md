@@ -77,3 +77,57 @@ yarn dev
 ```
 
 ## 🏗️ How To Contribute <a id="contribute"></a>
+#### 1º Create a Git Branch
+First you need have the resenhazord2 repository downloaded, like was make in third pass of Ubuntu requirements section. With this, you must create a Git branch follows the [conventional commits pattern](https://medium.com/linkapi-solutions/conventional-commits-pattern-3778d1a1e657) in the name of branch.
+
+```bash
+git branch type/name-of-the-branch
+```
+
+The type are one of the following: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `revert`.
+<!-- faça uma tabela centralizada com cabeçalhos de tipo e descrição para cada tipo da convenção-->
+
+| Type | Description |
+|:----:|:-----------:|
+| feat | A new feature |
+| fix | A bug fix |
+| docs | Documentation only changes |
+| style | Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc) |
+| refactor | A code change that neither fixes a bug nor adds a feature |
+| perf | A code change that improves performance |
+| test | Adding missing tests or correcting existing tests |
+| chore | Changes to the build process or auxiliary tools and libraries such as documentation generation |
+| revert | Revert to a commit |
+
+And enter in this branch created running:
+
+```bash
+git checkout type/name-of-the-branch
+```
+
+#### 2º Commit Changes
+After you made your changes to the created branch, you must add to the commit and then again following the naming pattern mentioned:
+
+```bash
+git add path/to/file.extention
+```
+Is import that you make [atomic commits](https://community.revelo.com.br/commits-atomicos-o-que-sao/), that is, a commit for each modification made, using the command:
+
+```bash
+git commit -m "type: describe your modifications"
+```
+
+#### 3º Push Branch
+After you have made your commits, you must push the branch to the repository:
+
+```bash
+git push origin type/name-of-the-branch
+```
+
+#### 4º Create Pull Request
+After you have pushed the branch to the repository, you must create a pull request to the main branch, explaining what you did in your modifications.
+Follow the link created in the terminal or go to the repository on GitHub and click on the "Pull Request" button.
+
+#### 5º Wait for Review
+After creating the pull request, wait for the review of the project maintainers, who will analyze your modifications and approve or request changes.
+
