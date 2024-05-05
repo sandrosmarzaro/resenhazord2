@@ -1,35 +1,15 @@
-import makeWASocket, { DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys'
-import { Boom } from '@hapi/boom'
-import path from 'path'
+import { CreateAuthState } from './src/auth/CreateAuthState'
+import { CreateSock } from './src/infra/CreateSock'
+import { ConnectionUpdate } from './src/events/ConnectionUpdate'
+import { MessageUpsert } from './src/events/MessageUpsert';
 
 async function connectToWhatsApp () {
-    const auth_info_baileys = path.resolve(__dirname, './auth_info_baileys')
-    const { state, saveCreds } = await useMultiFileAuthState(auth_info_baileys)
 
-    const sock = makeWASocket({
-        auth: state,
-        printQRInTerminal: true
-    })
+    const { state, saveCreds } = await CreateAuthState.getAuthState()
+    const sock = await CreateSock.getSock(state);
 
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update
-        if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut
-            console.log('connection closed due to ', lastDisconnect.error, ', reconnecting ', shouldReconnect)
-
-            if (shouldReconnect) {
-                connectToWhatsApp()
-            }
-        }
-        else if (connection === 'open') {
-            console.log('opened connection')
-        }
-    })
-
-    sock.ev.on('messages.upsert', async m => {
-        console.log(JSON.stringify(m, undefined, 2))
-    })
-
+    sock.ev.on('connection.update', ConnectionUpdate.run)
+    sock.ev.on('messages.upsert', MessageUpsert.run)
     sock.ev.on('connection.update', saveCreds)
 }
 
