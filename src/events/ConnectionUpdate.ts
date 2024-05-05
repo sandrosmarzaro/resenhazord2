@@ -2,7 +2,7 @@ import { DisconnectReason } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 
 export class ConnectionUpdate {
-    public static async run"(){
+    public static async run() {
         return (update: any) => {
             const { connection, lastDisconnect } = update
 
