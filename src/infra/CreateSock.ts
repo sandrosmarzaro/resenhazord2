@@ -1,9 +1,11 @@
-import { makeWASocket } from "@whiskeysockets/baileys"
+import { Browsers, makeWASocket } from "@whiskeysockets/baileys"
 
 export class CreateSock {
 
     private static config = {
-        printQRInTerminal: true
+        printQRInTerminal: true,
+        browser: Browsers.windows(""),
+        syncFullHistory: true
     }
 
     public static async getSock(state: any) {
