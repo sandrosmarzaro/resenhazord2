@@ -1,6 +1,6 @@
 node_modules/
 build/*
-auth_info_baileys/*
+src/auth/session/*
 
 !/build/.gitkeep
-!/auth_info_baileys/.gitkeep
+!/src/auth/session/.gitkeep
