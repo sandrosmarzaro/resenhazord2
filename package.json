@@ -15,7 +15,8 @@
   "scripts": {
     "dev": "ts-node-dev index.ts",
     "build": "tsc",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "clean": "ts-node-dev src/scripts/clean_session.ts"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.1",
