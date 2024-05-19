@@ -12,18 +12,13 @@
   "homepage": "https://github.com/SandroSmarzaro/resenhazord2#readme",
   "author": "Sandro Smarzaro",
   "license": "MIT",
+  "type": "module",
   "scripts": {
-    "dev": "ts-node-dev index.ts",
-    "build": "tsc",
-    "start": "node build/index.js",
-    "clean": "ts-node-dev src/scripts/clean_session.ts"
+    "start": "node index.js",
+    "clean": "node src/scripts/clean_session.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.1",
     "qrcode-terminal": "^0.12.0"
-  },
-  "devDependencies": {
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.5"
   }
 }

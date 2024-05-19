@@ -63,17 +63,9 @@ Execute this command to install all dependencies of bot:
 ```bash
 yarn install
 ```
-Transpile the TypeScript files with:
-```bash
-yarn build
-```
 Towards the end, run the Resenhazord 2 running:
 ```bash
 yarn start
-```
-Or the to development cases:
-```bash
-yarn dev
 ```
 
 ## 🏗️ How To Contribute <a id="contribute"></a>

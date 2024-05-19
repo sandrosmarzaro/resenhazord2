@@ -1,6 +1,4 @@
 node_modules/
-build/*
 src/auth/session/*
 
-!/build/.gitkeep
 !/src/auth/session/.gitkeep
