@@ -1,4 +1,5 @@
 import OiCommand from '../commands/OiCommand.js';
+import MangosCommand from '../commands/MangosCommand.js';
 
 export default class CommandHandler {
     constructor() {}
@@ -6,7 +7,8 @@ export default class CommandHandler {
     static async run(data) {
         const message = data.message.conversation;
         const handler = {
-            ["^\s*\,\s*oi\s*$"]: OiCommand
+            ["^\s*\,\s*oi\s*$"]: OiCommand,
+            ["^\s*\,\s*mangos\s*$"]: MangosCommand,
         }
         for (const [regex, command] of Object.entries(handler)) {
             if (new RegExp(regex, 'i').test(message)) {
