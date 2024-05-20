@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.1",
+    "dotenv": "^16.4.5",
     "qrcode-terminal": "^0.12.0"
   }
 }
