@@ -18,7 +18,7 @@
     "clean": "node src/scripts/clean_session.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.1",
+    "@whiskeysockets/baileys": "^6.7.2",
     "dotenv": "^16.4.5",
     "qrcode-terminal": "^0.12.0"
   }
