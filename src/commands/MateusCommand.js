@@ -1,17 +1,18 @@
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class MangosCommand {
+export default class MateusCommand {
     constructor() {}
 
     static async run(data) {
-        console.log('MangosCommand.run');
+        console.log('MateusCommand.run');
 
-        const probability = Math.floor(Math.random() * 101).toFixed(2).replace('.', ',');
+        const sender_id = data.key.participant;
+        const probability = (Math.random() * 101).toFixed(2).replace('.', ',');
 
         Resenhazord2.sock.sendMessage(
             data.key.remoteJid,
             {
-                text: `A probabilidade de Mangos II nascer é de ${probability}%`,
+                text: `A probabilidade de Mateus nascer é de ${probability} %`,
                 mentions: [sender_id]
             },
             { quoted: data }
