@@ -12,7 +12,7 @@ export default class OiCommand {
         Resenhazord2.sock.sendMessage(
             data.key.remoteJid,
             {
-                text: `Vai se fuder @${sender_phone} filho da puta!`,
+                text: `Vai se fuder @${sender_phone} filho da puta! 🖕`,
                 mentions: [sender_id]
             },
             { quoted: data }

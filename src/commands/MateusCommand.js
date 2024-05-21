@@ -12,7 +12,7 @@ export default class MateusCommand {
         Resenhazord2.sock.sendMessage(
             data.key.remoteJid,
             {
-                text: `A probabilidade de Mateus nascer é de ${probability} %`,
+                text: `A probabilidade de Mateus nascer é de ${probability} % 🧐`,
                 mentions: [sender_id]
             },
             { quoted: data }
