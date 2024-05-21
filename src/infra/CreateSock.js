@@ -4,8 +4,7 @@ export default class CreateSock {
     constructor() {}
 
     static config = {
-        printQRInTerminal: true,
-        syncFullHistory: true
+        printQRInTerminal: true
     };
 
     static async getSock(state) {
