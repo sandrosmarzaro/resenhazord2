@@ -12,7 +12,7 @@ export default class CreateClient {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
             },
             webVersionCache: {
-                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2409.0-beta.html',
+                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2413.51-beta.html',
                 type: 'remote'
             },
             authStrategy: new LocalAuth({
