@@ -1,22 +1,23 @@
-import CreateAuthState from '../auth/CreateAuthState.js';
-import CreateSock from '../infra/CreateSock.js';
-import ConnectionUpdate from '../events/ConnectionUpdate.js';
-import MessageUpsert from '../events/MessageUpsert.js';
+import CreateClient from '../infra/CreateClient.js';
+import CreateQRCode from '../infra/CreateQRCode.js';
+import MessageEvent from '../events/MessageEvent.js';
 
 export default class Resenhazord2 {
-    constructor() {}
 
-    static sock = null;
-    static authState = null;
+    static client = null;
 
     static async connectToWhatsApp() {
-        Resenhazord2.authState = await CreateAuthState.getAuthState();
-        Resenhazord2.sock = await CreateSock.getSock(Resenhazord2.authState.state);
+        this.client = await CreateClient.getClient();
     }
 
     static async handlerEvents() {
-        Resenhazord2.sock.ev.on('connection.update', (update) => ConnectionUpdate.run(update));
-        Resenhazord2.sock.ev.on('messages.upsert', ({ messages, type }) => MessageUpsert.run(messages, type));
-        Resenhazord2.sock.ev.on('connection.update', Resenhazord2.authState.saveCreds);
+        this.client.initialize();
+        this.client.on('qr', qr => CreateQRCode.run(qr));
+        this.client.on('authenticated', session => console.log('AUTHENTICATED', session));
+        this.client.on('auth_failure', message => console.log('AUTH FAILURE', message));
+        this.client.on('loading_screen', (percent, message) => console.log('LOADING SCREEN', percent, message));
+        this.client.on('ready', () => console.log('CLIENT IS READY'));
+        this.client.on('message_create', message => MessageEvent.run(message));
+        this.client.on('disconnected', reason => console.log('CLIENT DISCONNECTED', reason));
     }
 }

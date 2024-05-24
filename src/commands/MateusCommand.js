@@ -1,21 +1,21 @@
-import Resenhazord2 from '../models/Resenhazord2.js';
-
 export default class MateusCommand {
-    constructor() {}
 
     static async run(data) {
-        console.log('MateusCommand.run');
+        console.log('MATEUS COMMAND');
 
-        const sender_id = data.key.participant;
+        const chat = await data.getChat();
         const probability = (Math.random() * 101).toFixed(2).replace('.', ',');
 
-        Resenhazord2.sock.sendMessage(
-            data.key.remoteJid,
-            {
-                text: `A probabilidade de Mateus nascer é de ${probability} % 🧐`,
-                mentions: [sender_id]
-            },
-            { quoted: data }
-        );
+        try {
+            chat.sendMessage(
+                `A probabilidade de Mateus nascer agora é de ${probability} % 🧐`,
+                {
+                    sendSeen: true,
+                    quotedMessageId: data.id._serialized
+                }
+            );
+        } catch (error) {
+            console.error('ERROR MATEUS COMMAND', error);
+        }
     }
 }
