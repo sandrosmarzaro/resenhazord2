@@ -5,7 +5,7 @@ export default class BanCommand {
         const chat = await data.getChat(data);
         if (!chat.isGroup) {
             chat.sendMessage(
-                `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️`,
+                `Burro burro! Você só pode remover alguém em um grupo! 🤦‍♂️`,
                 { sendSeen: true, quotedMessageId: data.id._serialized }
             );
             return;
