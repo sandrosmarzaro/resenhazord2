@@ -7,25 +7,24 @@ export default class AudioCommand {
         console.log('AUDIO COMMAND');
 
         const chat = await data.getChat();
-        const rest_command = data.body.replace(/\n*\s*\,\s*audio\s*/, '');
-        const is_language_inserted = rest_command.match(/^[A-Z][a-z]\s*\-\s*[A-Z]{2}/);
-        const language = is_language_inserted ? is_language_inserted[0] : 'Pt-BR';
+        const rest_command = data.body.replace(/\n*\s*\,\s*.udio\s*/, '');
+        const is_language_inserted = rest_command.match(/^[A-Za-z]{2}\s*\-\s*[A-Za-z]{2}/);
+        const language = is_language_inserted ? is_language_inserted[0] : 'pt-br';
         const languages = [
-            'Af-ZA', 'Sq-AL', 'Am-ET', 'Ar-DZ', 'Ar-BH', 'Ar-EG', 'Ar-IQ', 'Ar-IL', 'Ar-JO', 'Ar-KW', 'Ar-LB',
-            'Ar-MR', 'Ar-MA', 'Ar-OM', 'Ar-QA', 'Ar-SA', 'Ar-PS', 'Ar-TN', 'Ar-AE', 'Ar-YE', 'Hy-AM', 'Az-AZ',
-            'Eu-ES', 'Bn-BD', 'Bn-IN', 'Bs-BA', 'Bg-BG', 'My-MM', 'Ca-ES', 'Hr-HR', 'Cs-CZ', 'Da-DK', 'Nl-BE',
-            'Nl-NL', 'En-AU', 'En-CA', 'En-GH', 'En-HK', 'En-IN', 'En-IE', 'En-KE', 'En-NZ', 'En-NG', 'En-PK',
-            'En-PH', 'En-SG', 'En-ZA', 'En-TZ', 'En-GB', 'En-US', 'Et-EE', 'Fil-PH', 'Fi-FI', 'Fr-BE', 'Fr-CA',
-            'Fr-FR', 'Fr-CH', 'Gl-ES', 'Ka-GE', 'De-AT', 'De-DE', 'De-CH', 'El-GR', 'Gu-IN', 'Iw-IL', 'Hi-IN',
-            'Hu-HU', 'Is-IS', 'Id-ID', 'It-IT', 'It-CH', 'Ja-JP', 'Jv-ID', 'Kn-IN', 'Kk-KZ', 'Km-KH', 'Ko-KR',
-            'Lo-LA', 'Lv-LV', 'Lt-LT', 'Mk-MK', 'Ms-MY', 'Ml-IN', 'Mr-IN', 'Mn-MN', 'Ne-NP', 'No-NO', 'Fa-IR',
-            'Pl-PL', 'Pt-BR', 'Pt-PT', 'Ro-RO', 'Ru-RU', 'Sr-RS', 'Si-LK', 'Sk-SK', 'Sl-SI', 'Es-AR', 'Es-BO',
-            'Es-CL', 'Es-CO', 'Es-CR', 'Es-DO', 'Es-EC', 'Es-SV', 'Es-GT', 'Es-HN', 'Es-MX', 'Es-NI', 'Es-PA',
-            'Es-PY', 'Es-PE', 'Es-PR', 'Es-ES', 'Es-US', 'Es-UY', 'Es-VE', 'Su-ID', 'Sw-KE', 'Sw-TZ', 'Sv-SE',
-            'Ta-IN', 'Ta-MY', 'Ta-SG', 'Ta-LK', 'Te-IN', 'Th-TH', 'Tr-TR', 'Uk-UA', 'Ur-IN', 'Ur-PK', 'Uz-UZ',
-            'Vi-VN', 'Zu-ZA', 'Zh-TW (cmn-Hant-TW)', 'Zh (cmn-Hans-CN)', 'Yue-Hant-HK', 'Pa-Guru-IN'
+            'af-za', 'sq-al', 'am-et', 'ar-dz', 'ar-bh', 'ar-eg', 'ar-iq', 'ar-il', 'ar-jo', 'ar-kw', 'ar-lb', 'ar-mr',
+            'ar-ma', 'ar-om', 'ar-qa', 'ar-sa', 'ar-ps', 'ar-tn', 'ar-ae', 'ar-ye', 'hy-am', 'az-az', 'eu-es', 'bn-bd',
+            'bn-in', 'bs-ba', 'bg-bg', 'my-mm', 'ca-es', 'hr-hr', 'cs-cz', 'da-dk', 'nl-be', 'nl-nl', 'en-au', 'en-ca',
+            'en-gh', 'en-hk', 'en-in', 'en-ie', 'en-ke', 'en-nz', 'en-ng', 'en-pk', 'en-ph', 'en-sg', 'en-za', 'en-tz',
+            'en-gb', 'en-us', 'et-ee', 'fil-ph', 'fi-fi', 'fr-be', 'fr-ca', 'fr-fr', 'fr-ch', 'gl-es', 'ka-ge', 'de-at',
+            'de-de', 'de-ch', 'el-gr', 'gu-in', 'iw-il', 'hi-in', 'hu-hu', 'is-is', 'id-id', 'it-it', 'it-ch', 'ja-jp',
+            'jv-id', 'kn-in', 'kk-kz', 'km-kh', 'ko-kr', 'lo-la', 'lv-lv', 'lt-lt', 'mk-mk', 'ms-my', 'ml-in', 'mr-in',
+            'mn-mn', 'ne-np', 'no-no', 'fa-ir', 'pl-pl', 'pt-br', 'pt-pt', 'ro-ro', 'ru-ru', 'sr-rs', 'si-lk', 'sk-sk',
+            'sl-si', 'es-ar', 'es-bo', 'es-cl', 'es-co', 'es-cr', 'es-do', 'es-ec', 'es-sv', 'es-gt', 'es-hn', 'es-mx',
+            'es-ni', 'es-pa', 'es-py', 'es-pe', 'es-pr', 'es-es', 'es-us', 'es-uy', 'es-ve', 'su-id', 'sw-ke', 'sw-tz',
+            'sv-se', 'ta-in', 'ta-my', 'ta-sg', 'ta-lk', 'te-in', 'th-th', 'tr-tr', 'uk-ua', 'ur-in', 'ur-pk', 'uz-uz',
+            'vi-vn', 'zu-za', 'zh-tw (cmn-hant-tw)', 'zh (cmn-hans-cn)', 'yue-hant-hk', 'pa-guru-in'
         ]
-        if (!languages.includes(language)) {
+        if (!languages.includes(language.toLowerCase())) {
             chat.sendMessage(
                 'Burro burro! O idioma 🏳️‍🌈 não existe!',
                 { sendSeen: true, quotedMessageId: data.id._serialized }

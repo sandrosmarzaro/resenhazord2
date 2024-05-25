@@ -19,7 +19,7 @@ export default class CommandHandler {
             ["^\\s*\\,\\s*add\\s*(?:\\d+)?\\s*$"]: AddCommand,
             ["^\\s*\\,\\s*adm\\s*$"]: AdmCommand,
             ["^\\s*\\,\\s*all\\s*"]: AllCommand,
-            ["^\\s*\\,\\s*audio\\s*(?:[A-Z][a-z]\\s*\\-\\s*[A-Z]{2})?"]: AudioCommand,
+            ["^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?"]: AudioCommand,
             ["^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$"]: BanCommand,
             ["^\\s*\\,\\s*mateus\\s*$"]: MateusCommand,
             ["^\\s*\\,\\s*oi\\s*$"]: OiCommand,
