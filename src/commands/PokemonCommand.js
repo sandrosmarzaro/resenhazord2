@@ -19,13 +19,24 @@ export default class PokemonCommand {
                 const pokemon = JSON.parse(body);
                 const types = pokemon.types.map(({ type }) => type.name);
                 const poke_caption = `Nome: ${pokemon.name}\nTipo: ${types.join(', ')}\nPokédex: #${pokemon.id}`;
+                let poke_image_url;
+                if (pokemon.sprites.other.showdown.front_default) {
+                    poke_image_url = pokemon.sprites.other.showdown.front_default;
+                }
+                else if (pokemon.sprites.other['official-artwork'].front_default) {
+                    poke_image_url = pokemon.sprites.other['official-artwork'].front_default;
+                }
+                else {
+                    poke_image_url = pokemon.sprites.front_default;
+                }
                 (async () => {
                     chat.sendMessage(
-                        await MessageMedia.fromUrl(pokemon.sprites.front_default),
+                        await MessageMedia.fromUrl(poke_image_url),
                         {
                             sendSeen: true,
+                            sendVideoAsGif: true,
+                            caption: poke_caption,
                             quotedMessageId: data.id._serialized,
-                            caption: `Aqui está seu Pokémon aleatório 🤗\n\n${poke_caption}`
                         }
                     );
                 })();
