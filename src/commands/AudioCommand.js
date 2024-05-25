@@ -38,18 +38,36 @@ export default class AudioCommand {
         else {
             text = rest_command;
         }
-        const audio_url = tts.getAudioUrl(text, {
+
+        const char_limit = 200;
+        if (!text.length > char_limit) {
+            await chat.sendMessage(
+                await MessageMedia.fromUrl(audio_urls[0].url, { unsafeMime: true }),
+                {
+                    sendSeen: true,
+                    sendAudioAsVoice: true,
+                    quotedMessageId: data.id._serialized,
+                }
+            );
+            return;
+        }
+
+        const audio_urls = tts.getAllAudioUrls(text, {
             lang: language,
             slow: false,
             host: 'https://translate.google.com',
+            splitPunct: '.!?;:'
         });
-        await chat.sendMessage(
-            await MessageMedia.fromUrl(audio_url, { unsafeMime: true }),
-            {
-                sendSeen: true,
-                sendAudioAsVoice: true,
-                quotedMessageId: data.id._serialized,
-            }
-        );
+
+        for (const audio_url of audio_urls) {
+            await chat.sendMessage(
+                await MessageMedia.fromUrl(audio_url.url, { unsafeMime: true }),
+                {
+                    sendSeen: true,
+                    sendAudioAsVoice: true,
+                    quotedMessageId: data.id._serialized,
+                }
+            );
+        }
     }
 }
