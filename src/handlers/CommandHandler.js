@@ -1,4 +1,5 @@
 import AddCommand from '../commands/AddCommand.js';
+import BanCommand from '../commands/BanCommand.js';
 import MateusCommand from '../commands/MateusCommand.js';
 import OiCommand from '../commands/OiCommand.js';
 import PokemonCommad from '../commands/PokemonCommand.js';
@@ -13,6 +14,7 @@ export default class CommandHandler {
         const message = data.body;
         const handler = {
             ["^\\s*\\,\\s*add\\s*(?:\\d+)?\\s*$"]: AddCommand,
+            ["^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$"]: BanCommand,
             ["^\\s*\\,\\s*mateus\\s*$"]: MateusCommand,
             ["^\\s*\\,\\s*oi\\s*$"]: OiCommand,
             ["^\\s*\\,\\s*pok.mon\\s*$"]: PokemonCommad,
