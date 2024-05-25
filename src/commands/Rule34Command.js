@@ -24,6 +24,7 @@ export default class Rule34Command {
                 await MessageMedia.fromUrl(rule34[0]['src']),
                 {
                     sendSeen: true,
+                    isViewOnce: true,
                     quotedMessageId: data.id._serialized,
                     caption: 'Aqui está a imagem que você pediu 🤗'
                 }
