@@ -45,6 +45,7 @@ export default class AudioCommand {
                 await MessageMedia.fromUrl(audio_urls[0].url, { unsafeMime: true }),
                 {
                     sendSeen: true,
+                    isViewOnce: true,
                     sendAudioAsVoice: true,
                     quotedMessageId: data.id._serialized,
                 }
@@ -65,6 +66,7 @@ export default class AudioCommand {
                 {
                     sendSeen: true,
                     sendAudioAsVoice: true,
+                    isViewOnce: true,
                     quotedMessageId: data.id._serialized,
                 }
             );
