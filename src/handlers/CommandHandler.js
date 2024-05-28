@@ -6,6 +6,7 @@ import BanCommand from '../commands/BanCommand.js';
 import D20Command from '../commands/D20Command.js';
 import FatoCommand from '../commands/FatoCommand.js';
 import FuckCommand from '../commands/FuckCommand.js';
+import MenuCommand from '../commands/MenuCommand.js';
 import MateusCommand from '../commands/MateusCommand.js';
 import OiCommand from '../commands/OiCommand.js';
 import PokemonCommad from '../commands/PokemonCommand.js';
@@ -28,6 +29,7 @@ export default class CommandHandler {
             ["^\\s*\\,\\s*fato\\s*(?:hoje)?\\s*$"]: FatoCommand,
             ["^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$"]: FuckCommand,
             ["^\\s*\\,\\s*mateus\\s*$"]: MateusCommand,
+            ["^\\s*\\,\\s*menu\\s*$"]: MenuCommand,
             ["^\\s*\\,\\s*oi\\s*$"]: OiCommand,
             ["^\\s*\\,\\s*pok.mon\\s*$"]: PokemonCommad,
             ["^\\s*\\,\\s*porno\\s*(?:ia)?\\s*$"]: PornoCommand,
