@@ -1,0 +1,19 @@
+export default class FatoCommand {
+    static async run(data) {
+        console.log('FATO COMMAND');
+
+        const chat = await data.getChat();
+        const rest_command = data.body.replace(/\n*\s*\,\s*fato\s*/, '');
+
+        let url = 'https://uselessfacts.jsph.pl/api/v2/facts/';
+        const rest_link = rest_command === 'hoje' ? 'today' : 'random';
+        url += rest_link;
+
+        const response = await fetch(url);
+        const fact = await response.json();
+        chat.sendMessage(
+            `FATO 🤓☝️\n${fact.text}\n\nFonte: ${fact.source_url}`,
+            { sendSeen: true, quotedMessageId: data.id._serialized }
+        );
+    }
+}
