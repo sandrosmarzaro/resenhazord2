@@ -8,6 +8,14 @@ export default class FuckCommand {
         console.log('FUCK COMMAND');
 
         const chat = await data.getChat();
+        if (!chat.isGroup) {
+            chat.sendMessage(
+                `Burro burro! Você só pode fuder com alguém do grupo em um! 🤦‍♂️`,
+                { sendSeen: true, quotedMessageId: data.id._serialized }
+            );
+            return;
+        }
+
         const sender_phone = data.author.replace('@c.us', '');
         const mentioned_phone = data.mentionedIds[0].replace('@c.us', '');
 
