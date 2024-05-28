@@ -38,6 +38,13 @@ export default class AudioCommand {
         else {
             text = rest_command;
         }
+        if (!text) {
+            chat.sendMessage(
+                'Burro burro! Você não inseriu nenhum texto! 🤦‍♂️',
+                { sendSeen: true, quotedMessageId: data.id._serialized }
+            );
+            return;
+        }
 
         const char_limit = 200;
         if (!text.length > char_limit) {
