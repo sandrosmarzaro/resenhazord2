@@ -3,6 +3,7 @@ import AdmCommand from '../commands/AdmCommand.js';
 import AllCommand from '../commands/AllCommand.js';
 import AudioCommand from '../commands/AudioCommand.js';
 import BanCommand from '../commands/BanCommand.js';
+import D20Command from '../commands/D20Command.js';
 import FuckCommand from '../commands/FuckCommand.js';
 import MateusCommand from '../commands/MateusCommand.js';
 import OiCommand from '../commands/OiCommand.js';
@@ -22,6 +23,7 @@ export default class CommandHandler {
             ["^\\s*\\,\\s*all\\s*"]: AllCommand,
             ["^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?"]: AudioCommand,
             ["^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$"]: BanCommand,
+            ["^\\s*\\,\\s*d20\\s*$"]: D20Command,
             ["^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$"]: FuckCommand,
             ["^\\s*\\,\\s*mateus\\s*$"]: MateusCommand,
             ["^\\s*\\,\\s*oi\\s*$"]: OiCommand,
