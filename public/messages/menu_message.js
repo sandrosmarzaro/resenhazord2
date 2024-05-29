@@ -42,7 +42,13 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,tts* _mensagem_ ou *,tts* _en-us_ _mensagem_
 > Converta texto em audio usando a voz do Google, podendo trocar a língua.
 
+- *,x* _link_de_twitter_video_
+> Baixe o vídeo do link especídficado do Twitter.
+
 🙂 FUNÇÕES NORMAIS 🙂
 - *,oi*
 > Apenas diga oi ao bot.
+
+- *,prompt* _mensagem_
+> Interaja e converse com a IA chatbot e assitente Resenhazord2.
 `
