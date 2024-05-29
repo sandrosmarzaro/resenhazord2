@@ -13,6 +13,7 @@ import PokemonCommad from '../commands/PokemonCommand.js';
 import PornoCommand from '../commands/PornoCommand.js';
 import PromptCommand from '../commands/PromptCommand.js';
 import Rule34Command from '../commands/Rule34Command.js';
+import TwitterCommand from '../commands/TwitterCommand.js';
 
 export default class CommandHandler {
 
@@ -34,8 +35,9 @@ export default class CommandHandler {
             ["^\\s*\\,\\s*oi\\s*$"]: OiCommand,
             ["^\\s*\\,\\s*pok.mon\\s*$"]: PokemonCommad,
             ["^\\s*\\,\\s*porno\\s*(?:ia)?\\s*$"]: PornoCommand,
-            ["^\\s*\\,\\s*prompt\\s*$"]: PromptCommand,
-            ["^\\s*\\,\\s*rule34\\s*$"]: Rule34Command
+            ["^\\s*\\,\\s*prompt\\s*"]: PromptCommand,
+            ["^\\s*\\,\\s*rule34\\s*$"]: Rule34Command,
+            ["^\\s*\\,\\s*x\\s*"]: TwitterCommand
         }
         for (const [regex, command] of Object.entries(handler)) {
             if (new RegExp(regex, 'i').test(message)) {
