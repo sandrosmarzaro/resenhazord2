@@ -1,32 +1,25 @@
 import pkg from 'nayan-media-downloader';
-const { twitterdown } = pkg;
+const { alldown } = pkg;
 import wa_pkg from 'whatsapp-web.js';
 const { MessageMedia } = wa_pkg;
 
-export default class TwitterCommand {
+export default class MediaCommand {
     static async run(data) {
-        console.log('TWITTER COMMAND');
+        console.log('MEDIA COMMAND');
 
         const chat = await data.getChat();
-        let url = data.body.replace(/\n*\s*\,\s*x\s*/, '');
+        let url = data.body.replace(/\n*\s*\,\s*media\s*/, '');
 
         if (url.length === 0) {
             chat.sendMessage(
-                `Burro burro! Você não enviou um link de tweet! 🤦‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
-            );
-            return;
-        }
-        if (!/https:\/\/(?:twitter|x)\.com\/.*\/status\/\d+/.test(url)) {
-            chat.sendMessage(
-                `Burro burro! Você tem enviar um link do Twitter! 🤦‍♂️`,
+                `Burro burro! Você não enviou um link de algum vídeo! 🤦‍♂️`,
                 { sendSeen: true, quotedMessageId: data.id._serialized }
             );
             return;
         }
         url = url.replace('x.com', 'twitter.com');
 
-        const response = await twitterdown(url);
+        const response = await alldown(url);
         console.log(response);
         if (!response.status) {
             chat.sendMessage(
@@ -35,17 +28,24 @@ export default class TwitterCommand {
             );
             return;
         }
-        let link = response.data.SD;
-        if (response.data.HD) {
-            response.data.link = response.data.HD;
+        let link;
+        response.data.high ? link = response.data.high : link = response.data.low;
+
+
+        let title;
+        if (response.data.title === 'undefined💔') {
+            title = 'Enfia seu video no cu! 🤬';
+        }
+        else {
+            title = response.data.title;
         }
 
         await chat.sendMessage(
-            await MessageMedia.fromUrl(link),
+            await MessageMedia.fromUrl(link, { unsafeMime: true }),
             {
                 sendSeen: true,
                 quotedMessageId: data.id._serialized,
-                caption: 'Aqui está o seu vídeo do 🐦'
+                caption: title
             }
         );
     }
