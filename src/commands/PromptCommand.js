@@ -1,11 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-const {GEMINI_API_KEY} = process.env;
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 
 export default class PromptCommand {
 
     static async run(data) {
+        const {GEMINI_API_KEY} = process.env;
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+
         console.log('PROMPT COMMAND');
 
         const chat = await data.getChat();
