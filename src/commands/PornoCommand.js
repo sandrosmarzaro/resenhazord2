@@ -48,30 +48,21 @@ export default class PornoCommand {
     }
 
     static async real_porn(data, chat) {
-        await chat.sendMessage(
-            'Burro burro! Função em manutenção 👷🏼‍♂️🏗\nao invés desse pode usar o ,porno ia 😈',
-            { sendSeen: true, quotedMessageId: data.id._serialized }
-        );
-        return;
         const client = new Client();
 
         const videos = await client.getShortVideos("random");
-        console.log('videos', videos);
         const video = videos[Math.floor(Math.random() * videos.length)];
-        console.log('video', video);
         try {
             console.log('SENDING VIDEO');
-            const message = await chat.sendMessage(
+            await chat.sendMessage(
                 await MessageMedia.fromUrl(video),
                 {
                     sendSeen: true,
-                    sendVideoAsGif: true,
+                    isViewOnce: true,
                     quotedMessageId: data.id._serialized,
                     caption: 'Aqui está o vídeo que você pediu 🤗',
                 }
             );
-            console.log('VIDEO SENT');
-            console.log('message', message);
         }
         catch (error) {
             console.error(`PORN COMMAND ERROR: ${error}`);
