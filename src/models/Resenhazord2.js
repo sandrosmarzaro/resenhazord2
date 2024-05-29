@@ -13,7 +13,7 @@ export default class Resenhazord2 {
     static async handlerEvents() {
         this.client.initialize();
         this.client.on('qr', qr => CreateQRCode.run(qr));
-        this.client.on('authenticated', session => console.log('AUTHENTICATED', session));
+        this.client.on('authenticated', () => console.log('AUTHENTICATED'));
         this.client.on('auth_failure', message => console.log('AUTH FAILURE', message));
         this.client.on('loading_screen', (percent, message) => console.log('LOADING SCREEN', percent, message));
         this.client.on('ready', () => console.log('CLIENT IS READY'));
