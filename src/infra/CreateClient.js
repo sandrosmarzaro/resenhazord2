@@ -13,17 +13,17 @@ export default class CreateClient {
         };
         const executablePath = EXECUTABLE_PATHS[process.platform];
 
-        const wa_version = '2.2413.51-beta';
-        const remote_path = `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${wa_version}.html`;
+        // const wa_version = '2.2413.51-beta';
+        // const remote_path = `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${wa_version}.html`;
 
         return new Client({
             puppeteer: {
                 executablePath: executablePath
             },
-            webVersionCache: {
-                remotePath: remote_path,
-                type: 'remote'
-            },
+            // webVersionCache: {
+            //     remotePath: remote_path,
+            //     type: 'remote'
+            // },
             authStrategy: new LocalAuth({
                 dataPath: auth_path
             })
