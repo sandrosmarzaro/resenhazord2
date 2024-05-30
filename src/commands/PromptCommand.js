@@ -24,7 +24,7 @@ export default class PromptCommand {
 
         const prompt = prePrompt + data.body.replace(/\n*\s*\,\s*prompt\s*/, '');
 
-        if (prompt.length) {
+        if (!prompt.length) {
             chat.sendMessage(
                 `Burro burro! Você não enviou um prompt! 🤦‍♂️`,
                 { sendSeen: true, quotedMessageId: data.id._serialized }
