@@ -2,6 +2,8 @@ import menu_message from '../../public/messages/menu_message.js'
 
 export default class MenuCommand {
 
+    static identifier = "^\\s*\\,\\s*menu\\s*$";
+
     static async run(data) {
         console.log('MENU COMMAND');
 

@@ -3,6 +3,9 @@ import pkg from 'whatsapp-web.js';
 const { MessageMedia } = pkg;
 
 export default class AudioCommand {
+
+    static identifier = "^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?";
+
     static async run(data) {
         console.log('AUDIO COMMAND');
 

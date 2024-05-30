@@ -1,4 +1,7 @@
 export default class AllCommand {
+
+    static identifier = "^\\s*\\,\\s*all\\s*";
+
     static async run(data) {
         console.log('ALL COMMAND');
 

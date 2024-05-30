@@ -1,19 +1,6 @@
-import AddCommand from '../commands/AddCommand.js';
-import AdmCommand from '../commands/AdmCommand.js';
-import AllCommand from '../commands/AllCommand.js';
-import AudioCommand from '../commands/AudioCommand.js';
-import BanCommand from '../commands/BanCommand.js';
-import D20Command from '../commands/D20Command.js';
-import FatoCommand from '../commands/FatoCommand.js';
-import FuckCommand from '../commands/FuckCommand.js';
-import MenuCommand from '../commands/MenuCommand.js';
-import MateusCommand from '../commands/MateusCommand.js';
-import OiCommand from '../commands/OiCommand.js';
-import PokemonCommad from '../commands/PokemonCommand.js';
-import PornoCommand from '../commands/PornoCommand.js';
-import PromptCommand from '../commands/PromptCommand.js';
-import Rule34Command from '../commands/Rule34Command.js';
-import MediaCommand from '../commands/MediaCommand.js';
+import { promises as fs } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 export default class CommandHandler {
 
@@ -21,28 +8,27 @@ export default class CommandHandler {
         console.log('COMMAND HANDLER');
 
         const message = data.body;
-        const handler = {
-            ["^\\s*\\,\\s*add\\s*(?:\\d+)?\\s*$"]: AddCommand,
-            ["^\\s*\\,\\s*adm\\s*$"]: AdmCommand,
-            ["^\\s*\\,\\s*all\\s*"]: AllCommand,
-            ["^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?"]: AudioCommand,
-            ["^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$"]: BanCommand,
-            ["^\\s*\\,\\s*d20\\s*$"]: D20Command,
-            ["^\\s*\\,\\s*fato\\s*(?:hoje)?\\s*$"]: FatoCommand,
-            ["^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$"]: FuckCommand,
-            ["^\\s*\\,\\s*mateus\\s*$"]: MateusCommand,
-            ["^\\s*\\,\\s*media\\s*"]: MediaCommand,
-            ["^\\s*\\,\\s*menu\\s*$"]: MenuCommand,
-            ["^\\s*\\,\\s*oi\\s*$"]: OiCommand,
-            ["^\\s*\\,\\s*pok.mon\\s*$"]: PokemonCommad,
-            ["^\\s*\\,\\s*porno\\s*(?:ia)?\\s*$"]: PornoCommand,
-            ["^\\s*\\,\\s*prompt\\s*"]: PromptCommand,
-            ["^\\s*\\,\\s*rule34\\s*$"]: Rule34Command
-        }
-        for (const [regex, command] of Object.entries(handler)) {
-            if (new RegExp(regex, 'i').test(message)) {
+        const handler = await this.import_comands();
+
+        for (const [identifier, command] of Object.entries(handler)) {
+            if (new RegExp(identifier, 'i').test(message)) {
                 command.run(data);
             }
         }
+    }
+
+    static async import_comands() {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        const commands_dir = path.resolve(__dirname, '../commands');
+        const files = await fs.readdir(commands_dir);
+        const handler = {};
+
+        for (const file of files) {
+            const { default: Command } = await import(`../commands/${file}`);
+            handler[Command.identifier] = Command;
+        }
+
+        return handler;
     }
 }

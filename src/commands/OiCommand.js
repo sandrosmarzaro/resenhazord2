@@ -1,11 +1,13 @@
 export default class OiCommand {
 
+    static identifier = "^\\s*\\,\\s*oi\\s*$";
+
     static async run(data) {
         console.log('OI COMMAND');
 
         const chat = await data.getChat();
         const sender_phone = data.author.replace('@c.us', '');
-        
+
         try {
             chat.sendMessage(
                 `Vai se fuder @${sender_phone} filho da puta! 🖕`,

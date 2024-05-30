@@ -1,5 +1,7 @@
 export default class D20Command {
 
+    static identifier = "^\\s*\\,\\s*d20\\s*$";
+
     static async run (data) {
         console.log('D20 COMMAND');
         const chat = await data.getChat();

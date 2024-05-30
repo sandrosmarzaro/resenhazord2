@@ -5,6 +5,8 @@ const { MessageMedia } = pkg;
 
 export default class PornoCommand {
 
+    static identifier = "^\\s*\\,\\s*porno\\s*(?:ia)?\\s*$";
+
     static async run(data) {
         console.log('PORNO COMMAND');
 

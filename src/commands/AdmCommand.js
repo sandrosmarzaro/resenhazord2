@@ -1,4 +1,7 @@
 export default class AdmCommand {
+
+    static identifier = "^\\s*\\,\\s*adm\\s*$";
+
     static async run(data) {
         console.log('ADM COMMAND');
 

@@ -1,4 +1,7 @@
 export default class FatoCommand {
+
+    static identifier = "^\\s*\\,\\s*fato\\s*(?:hoje)?\\s*$";
+
     static async run(data) {
         console.log('FATO COMMAND');
 

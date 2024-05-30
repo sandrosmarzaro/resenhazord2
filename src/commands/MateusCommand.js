@@ -1,5 +1,7 @@
 export default class MateusCommand {
 
+    static identifier = "^\\s*\\,\\s*mateus\\s*$";
+
     static async run(data) {
         console.log('MATEUS COMMAND');
 

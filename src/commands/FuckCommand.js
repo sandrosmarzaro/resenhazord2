@@ -4,6 +4,8 @@ const { MessageMedia } = pkg;
 
 export default class FuckCommand {
 
+    static identifier = "^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$";
+
     static async run(data) {
         console.log('FUCK COMMAND');
 

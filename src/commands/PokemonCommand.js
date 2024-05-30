@@ -5,41 +5,43 @@ const { MessageMedia } = pkg;
 
 export default class PokemonCommand {
 
-        static async run(data) {
-            console.log('POKEMON COMMAND');
+    static identifier = "^\\s*\\,\\s*pok.mon\\s*$";
 
-            const chat = await data.getChat();
-            const url = 'https://pokeapi.co/api/v2/pokemon/';
-            const pokemon_id = Math.floor(Math.random() * 1025) + 1;
-            request(`${url}${pokemon_id}`, (error, response, body) => {
-                if (error) {
-                    console.error('POKEMON COMMAND ERROR', error);
-                    return;
-                }
-                const pokemon = JSON.parse(body);
-                const types = pokemon.types.map(({ type }) => type.name);
-                const poke_caption = `Nome: ${pokemon.name}\nTipo: ${types.join(', ')}\nPokédex: #${pokemon.id}`;
-                let poke_image_url;
-                if (pokemon.sprites.other.showdown.front_default) {
-                    poke_image_url = pokemon.sprites.other.showdown.front_default;
-                }
-                else if (pokemon.sprites.other['official-artwork'].front_default) {
-                    poke_image_url = pokemon.sprites.other['official-artwork'].front_default;
-                }
-                else {
-                    poke_image_url = pokemon.sprites.front_default;
-                }
-                (async () => {
-                    chat.sendMessage(
-                        await MessageMedia.fromUrl(poke_image_url),
-                        {
-                            sendSeen: true,
-                            sendVideoAsGif: true,
-                            caption: poke_caption,
-                            quotedMessageId: data.id._serialized,
-                        }
-                    );
-                })();
-            });
-        }
+    static async run(data) {
+        console.log('POKEMON COMMAND');
+
+        const chat = await data.getChat();
+        const url = 'https://pokeapi.co/api/v2/pokemon/';
+        const pokemon_id = Math.floor(Math.random() * 1025) + 1;
+        request(`${url}${pokemon_id}`, (error, response, body) => {
+            if (error) {
+                console.error('POKEMON COMMAND ERROR', error);
+                return;
+            }
+            const pokemon = JSON.parse(body);
+            const types = pokemon.types.map(({ type }) => type.name);
+            const poke_caption = `Nome: ${pokemon.name}\nTipo: ${types.join(', ')}\nPokédex: #${pokemon.id}`;
+            let poke_image_url;
+            if (pokemon.sprites.other.showdown.front_default) {
+                poke_image_url = pokemon.sprites.other.showdown.front_default;
+            }
+            else if (pokemon.sprites.other['official-artwork'].front_default) {
+                poke_image_url = pokemon.sprites.other['official-artwork'].front_default;
+            }
+            else {
+                poke_image_url = pokemon.sprites.front_default;
+            }
+            console.log('pokemon', poke_image_url);
+            (async () => {
+                chat.sendMessage(
+                    await MessageMedia.fromUrl(poke_image_url),
+                    {
+                        sendSeen: true,
+                        caption: poke_caption,
+                        quotedMessageId: data.id._serialized,
+                    }
+                );
+            })();
+        });
+    }
 }

@@ -4,6 +4,8 @@ const { MessageMedia } = pkg;
 
 export default class Rule34Command {
 
+    static identifier = "^\\s*\\,\\s*rule34\\s*$";
+
     static async run(data) {
         console.log('RULE34 COMMAND');
 

@@ -4,6 +4,9 @@ import wa_pkg from 'whatsapp-web.js';
 const { MessageMedia } = wa_pkg;
 
 export default class MediaCommand {
+
+    static identifier = "^\\s*\\,\\s*media\\s*";
+
     static async run(data) {
         console.log('MEDIA COMMAND');
 

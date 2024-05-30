@@ -1,4 +1,7 @@
 export default class BanCommand {
+
+    static identifier = "^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$";
+
     static async run(data) {
         console.log('BAN COMMAND');
 
