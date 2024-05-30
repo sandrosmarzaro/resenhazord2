@@ -19,8 +19,8 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 
 🎲 FUNÇÕES ALEATÓRIAS 🎲
 
-- *,anime*
-> Receba uma arte aleatória de anime.
+- *,anime* _nfsw_
+> Receba uma imagem aleatória de anime, podendo ser +18.
 
 - *,d20*
 > Role um dado de vinte dimensões.
