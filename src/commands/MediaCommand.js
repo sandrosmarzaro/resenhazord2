@@ -32,7 +32,12 @@ export default class MediaCommand {
             return;
         }
         let link;
-        response.data.high ? link = response.data.high : link = response.data.low;
+        if (response.data.high && response.data.high.startsWith('http')) {
+            link = response.data.high;
+        }
+        else {
+            link = response.data.low;
+        }
 
 
         let title;
