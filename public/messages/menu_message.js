@@ -40,6 +40,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,rule34*
 > Receba uma imagem aleatória da Rule 34.
 
+- *,ygo*
+> Receba uma carta aleatória de Yu-Gi-Oh!.
+
 💾 FUNÇÕES DE DOWNLOAD 💾
 
 - *,audio* _mensagem_ ou *,audio* _en-us_ _mensagem_
