@@ -14,6 +14,7 @@ export default class FatoCommand {
 
         const response = await fetch(url);
         const fact = await response.json();
+        console.log('fato', fact);
         chat.sendMessage(
             `FATO 🤓☝️\n${fact.text}\n\nFonte: ${fact.source_url}`,
             { sendSeen: true, quotedMessageId: data.id._serialized }

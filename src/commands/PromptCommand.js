@@ -35,7 +35,7 @@ export default class PromptCommand {
         const result = await model.generateContent(prompt);
         const { response } = result;
         const text = response.text();
-
+        console.log('prompt', response);
         try {
             chat.sendMessage(
                 text,

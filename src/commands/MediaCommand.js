@@ -23,7 +23,7 @@ export default class MediaCommand {
         url = url.replace('x.com', 'twitter.com');
 
         const response = await alldown(url);
-        console.log(response);
+        console.log('media', response);
         if (!response.status) {
             chat.sendMessage(
                 `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈`,

@@ -22,6 +22,7 @@ export default class Rule34Command {
                 return imgArray.map( ({src}) => ({ src }));
             });
             await browser.close();
+            console.log('rule34', rule34[0]['src']);
             await chat.sendMessage(
                 await MessageMedia.fromUrl(rule34[0]['src']),
                 {

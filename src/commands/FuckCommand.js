@@ -23,7 +23,7 @@ export default class FuckCommand {
 
         const nsfw = new NSFW();
         const porn = await nsfw.fetch("fuck");
-        console.log(porn);
+        console.log('fuck', porn);
         try {
             chat.sendMessage(
                 await MessageMedia.fromUrl(porn.image.url),

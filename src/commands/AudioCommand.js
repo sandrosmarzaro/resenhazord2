@@ -48,7 +48,14 @@ export default class AudioCommand {
             );
             return;
         }
-
+        const audio_urls = tts.getAllAudioUrls(text, {
+            lang: language,
+            slow: false,
+            host: 'https://translate.google.com',
+            splitPunct: '.!?;:'
+        });
+        console.log('audio', audio_urls);
+        
         const char_limit = 200;
         if (!text.length > char_limit) {
             await chat.sendMessage(
@@ -62,13 +69,6 @@ export default class AudioCommand {
             );
             return;
         }
-
-        const audio_urls = tts.getAllAudioUrls(text, {
-            lang: language,
-            slow: false,
-            host: 'https://translate.google.com',
-            splitPunct: '.!?;:'
-        });
 
         for (const audio_url of audio_urls) {
             await chat.sendMessage(

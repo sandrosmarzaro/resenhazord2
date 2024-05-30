@@ -31,7 +31,7 @@ export default class PornoCommand {
         ];
         const tag = tags[Math.floor(Math.random() * tags.length)];
         const porn = await nsfw.fetch(tag);
-        console.log(porn);
+        console.log('porno', porn);
         try {
             await chat.sendMessage(
                 await MessageMedia.fromUrl(porn.image.url),
@@ -54,8 +54,8 @@ export default class PornoCommand {
 
         const videos = await client.getShortVideos("random");
         const video = videos[Math.floor(Math.random() * videos.length)];
+        console.log('porno', video);
         try {
-            console.log('SENDING VIDEO');
             await chat.sendMessage(
                 await MessageMedia.fromUrl(video),
                 {
