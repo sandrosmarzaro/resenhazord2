@@ -39,11 +39,11 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 
 💾 FUNÇÕES DE DOWNLOAD 💾
 
-- *,tts* _mensagem_ ou *,tts* _en-us_ _mensagem_
+- *,audio* _mensagem_ ou *,audio* _en-us_ _mensagem_
 > Converta texto em audio usando a voz do Google, podendo trocar a língua.
 
-- *,x* _link_de_twitter_video_
-> Baixe o vídeo do link especídficado do Twitter.
+- *,media* _link_de_um_video_
+> Baixe o vídeo do link especídficado de várias redes socias.
 
 🙂 FUNÇÕES NORMAIS 🙂
 - *,oi*
