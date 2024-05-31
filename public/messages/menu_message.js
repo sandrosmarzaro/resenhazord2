@@ -28,6 +28,12 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,fato* ou *,fato* _hoje_
 > Descubra um fato aleatório ou de hoje em inglês.
 
+- *,mal*
+> Receba uma anime aleatório e suas info do MyAnimeList.
+
+- *,manga*
+> Receba uma mangá aleatório e suas info do MyAnimeList.
+
 - *,mateus*
 > Descubra a probabilidade do Mateus nascer.
 
