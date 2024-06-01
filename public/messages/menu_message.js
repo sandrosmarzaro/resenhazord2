@@ -19,7 +19,7 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 
 🎲 FUNÇÕES ALEATÓRIAS 🎲
 
-- *,anime* _nfsw_
+- *,anime* ou *,anime* _nfsw_
 > Receba uma imagem aleatória de anime, podendo ser +18.
 
 - *,d20*
@@ -27,6 +27,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 
 - *,fato* ou *,fato* _hoje_
 > Descubra um fato aleatório ou de hoje em inglês.
+
+- *,hs*
+> Receba uma carta aleatória de Hearthstone.
 
 - *,mal*
 > Receba uma anime aleatório e suas info do MyAnimeList.
