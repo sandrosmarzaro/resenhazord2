@@ -22,6 +22,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,anime* ou *,anime* _nfsw_
 > Receba uma imagem aleatória de anime, podendo ser +18.
 
+- *,comida*
+> Receba aleatoriamente uma receita e suas intruções em inglês.
+
 - *,d20*
 > Role um dado de vinte dimensões.
 
@@ -60,9 +63,13 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,media* _link_de_um_video_
 > Baixe o vídeo do link especídficado de várias redes socias.
 
-🙂 FUNÇÕES NORMAIS 🙂
+🙂 OUTRAS FUNÇÕES 🙂
+
 - *,oi*
 > Apenas diga oi ao bot.
+
+- *,borges*
+> Descubra quantos nargas o Borges já fumou.
 
 - *,prompt* _mensagem_
 > Interaja e converse com a IA chatbot e assitente Resenhazord2.
