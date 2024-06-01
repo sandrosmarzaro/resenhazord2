@@ -46,8 +46,9 @@ export default class Heartstone {
 
             const card = response.data.cards[0];
             console.log('hearthstone', card);
-            const description = card.text.replace(/\<\/?b\>/g, '*');
-            const caption = `*${card.name}*\n\n_"${card.flavorText}"_\n\n${description}`;
+            let description = card.text.replace(/\<\/?b\>/g, '*');
+            description = description.replace(/\<\/?i\>/g, '_');
+            const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
             chat.sendMessage(
                 await MessageMedia.fromUrl(card.image),
                 { sendSeen: true, quotedMessageId: data.id._serialized, caption: caption }
