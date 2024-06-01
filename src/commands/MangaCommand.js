@@ -40,7 +40,12 @@ export default class MangaCommand {
             console.log('manga', manga);
             chat.sendMessage(
                 await MessageMedia.fromUrl(image),
-                { sendSeen: true, quotedMessageId: data.id._serialized, caption: caption }
+                {
+                    sendSeen: true,
+                    caption: caption,
+                    isViewOnce: true,
+                    quotedMessageId: data.id._serialized
+                }
             );
         });
     }

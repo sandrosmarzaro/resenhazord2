@@ -51,7 +51,12 @@ export default class Heartstone {
             const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
             chat.sendMessage(
                 await MessageMedia.fromUrl(card.image),
-                { sendSeen: true, quotedMessageId: data.id._serialized, caption: caption }
+                {
+                    sendSeen: true,
+                    caption: caption,
+                    isViewOnce: true,
+                    quotedMessageId: data.id._serialized
+                }
             );
         }
         catch (error) {

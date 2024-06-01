@@ -40,7 +40,12 @@ export default class MyAnimeListCommand {
             console.log('myanimelist', anime);
             chat.sendMessage(
                 await MessageMedia.fromUrl(image),
-                { sendSeen: true, quotedMessageId: data.id._serialized, caption: caption }
+                {
+                    sendSeen: true,
+                    caption: caption,
+                    isViewOnce: true,
+                    quotedMessageId: data.id._serialized,
+                }
             );
         });
     }

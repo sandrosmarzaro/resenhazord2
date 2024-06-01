@@ -22,10 +22,7 @@ export default class PokemonCommand {
             const types = pokemon.types.map(({ type }) => type.name);
             const poke_caption = `Nome: ${pokemon.name}\nTipo: ${types.join(', ')}\nPokédex: #${pokemon.id}`;
             let poke_image_url;
-            if (pokemon.sprites.other.showdown.front_default) {
-                poke_image_url = pokemon.sprites.other.showdown.front_default;
-            }
-            else if (pokemon.sprites.other['official-artwork'].front_default) {
+            if (pokemon.sprites.other['official-artwork'].front_default) {
                 poke_image_url = pokemon.sprites.other['official-artwork'].front_default;
             }
             else {
@@ -37,6 +34,7 @@ export default class PokemonCommand {
                     await MessageMedia.fromUrl(poke_image_url),
                     {
                         sendSeen: true,
+                        isViewOnce: true,
                         caption: poke_caption,
                         quotedMessageId: data.id._serialized,
                     }

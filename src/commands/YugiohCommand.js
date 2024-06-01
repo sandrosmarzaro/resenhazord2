@@ -26,6 +26,7 @@ export default class YugiohCommand {
                     await MessageMedia.fromUrl(card_image),
                     {
                         sendSeen: true,
+                        isViewOnce: true,
                         quotedMessageId: data.id._serialized,
                         caption: `${card.name}\n\n${card.desc}`
                     }
