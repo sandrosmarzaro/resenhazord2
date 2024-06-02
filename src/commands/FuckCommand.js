@@ -30,7 +30,6 @@ export default class FuckCommand {
                 {
                     sendSeen: true,
                     isViewOnce: true,
-                    sendVideoAsGif: true,
                     quotedMessageId: data.id._serialized,
                     mentions: [data.author, data.mentionedIds[0]],
                     caption: ` @${sender_phone} está fudendo @${mentioned_phone} 😩`
