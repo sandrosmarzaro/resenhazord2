@@ -11,7 +11,7 @@ export default class PornoCommand {
         console.log('PORNO COMMAND');
 
         const chat = await data.getChat();
-        const rest_command = data.body.replace(/\n*\s*\,\s*porno\s*/, '');
+        const rest_command = data.body.replace(/\n*\s*\,\s*porn.\s*/, '');
         const args_command = rest_command.replace(/\s|\n/, '');
         if (args_command) {
             this.ia_porn(data, chat)
