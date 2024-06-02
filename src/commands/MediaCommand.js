@@ -21,8 +21,11 @@ export default class MediaCommand {
             return;
         }
         url = url.replace('x.com', 'twitter.com');
+        url = url.replace('instagram.com/reel/', 'instagram.com/p/');
+        url = url.replace(/\/\?.*$/, '/');
 
         const response = await alldown(url);
+        console.log('url', url);
         console.log('media', response);
         if (!response.status) {
             chat.sendMessage(
