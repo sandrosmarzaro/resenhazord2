@@ -1,9 +1,12 @@
 import CommandHandler from '../handlers/CommandHandler.js';
 
-export default class MessageEvent {
+export default class MessageUpsertEvent {
 
-    static async run(message) {
+    static async run(data) {
         console.log('MESSAGE EVENT');
+        console.log(JSON.stringify(data, null, 2));
+        return;
+
         if (!message.fromMe) {
             console.log(JSON.stringify(message.body, null, 2));
         }
