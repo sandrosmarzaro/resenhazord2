@@ -15,7 +15,7 @@ export default class OiCommand {
                     text: `Vai se fuder @${sender_phone} filho da puta! 🖕`,
                     mentions: [data.key.participant]
                 },
-                { quoted: data }
+                {quoted: data}
             );
         } catch (error) {
             console.error('ERROR OI COMMAND', error);
