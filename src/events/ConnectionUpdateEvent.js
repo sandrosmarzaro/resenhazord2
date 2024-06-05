@@ -1,5 +1,6 @@
 import { isBoom } from '@hapi/boom';
 import { DisconnectReason } from '@whiskeysockets/baileys';
+import Resenhazord2 from '../models/Resenhazord2.js';
 
 export default class ConnectionUpdateEvent {
 
@@ -9,7 +10,7 @@ export default class ConnectionUpdateEvent {
         if (connection === 'close') {
             let shouldReconnect = false;
             if (isBoom(lastDisconnect.error)) {
-                const {statusCode} = lastDisconnect.error.output;
+                const { statusCode } = lastDisconnect.error.output;
                 if (statusCode!== DisconnectReason.loggedOut) {
                     shouldReconnect = true;
                 }
@@ -17,7 +18,7 @@ export default class ConnectionUpdateEvent {
             console.log('connection closed due to ', lastDisconnect.error, ', reconnecting ', shouldReconnect);
 
             if (shouldReconnect) {
-                // TODO: reconnect
+                Resenhazord2.connectToWhatsApp();
             }
         }
         else if (connection === 'open') {
