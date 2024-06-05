@@ -18,7 +18,8 @@ export default class ConnectionUpdateEvent {
             console.log('connection closed due to ', lastDisconnect.error, ', reconnecting ', shouldReconnect);
 
             if (shouldReconnect) {
-                Resenhazord2.connectToWhatsApp();
+                await Resenhazord2.connectToWhatsApp();
+                Resenhazord2.handlerEvents();
             }
         }
         else if (connection === 'open') {
