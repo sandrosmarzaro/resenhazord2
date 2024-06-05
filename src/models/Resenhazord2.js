@@ -16,6 +16,6 @@ export default class Resenhazord2 {
     static async handlerEvents() {
         this.socket.ev.on('connection.update', update => ConnectionUpdate.run(update));
         this.socket.ev.on('messages.upsert', data => MessageUpsertEvent.run(data));
-        this.socket.ev.on('connection.update', this.auth_state.saveCreds);
+        this.socket.ev.on('creds.update', this.auth_state.saveCreds);
     }
 }
