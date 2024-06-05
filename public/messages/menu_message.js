@@ -31,6 +31,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,fato* ou *,fato* _hoje_
 > Descubra um fato aleatório ou de hoje em inglês.
 
+- *,filme* ou *,filme* _top_
+> Receba aleatoriamente um filme top 500 em pouplaridade ou por nota.
+
 - *,hs*
 > Receba uma carta aleatória de Hearthstone.
 
@@ -52,6 +55,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,rule34*
 > Receba uma imagem aleatória da Rule 34.
 
+- *,serie* ou *,serie* _top_
+> Receba aleatoriamente um série top 500 em pouplaridade ou por nota.
+
 - *,ygo*
 > Receba uma carta aleatória de Yu-Gi-Oh!.
 
@@ -62,6 +68,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 
 - *,media* _link_de_um_video_
 > Baixe o vídeo do link especídficado de várias redes socias.
+
+- *,stic* _imagem_
+> Tranforme sua imagem enviada em sticker.
 
 🙂 OUTRAS FUNÇÕES 🙂
 
