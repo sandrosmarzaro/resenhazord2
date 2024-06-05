@@ -3,7 +3,8 @@ import { makeWASocket } from "@whiskeysockets/baileys";
 export default class CreateSocket {
 
     static config = {
-        printQRInTerminal: true
+        printQRInTerminal: true,
+        syncFullHistory: false
     };
 
     static async getSocket(state) {
