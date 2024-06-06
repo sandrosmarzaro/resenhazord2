@@ -1,7 +1,5 @@
-import pkg_wa from 'whatsapp-web.js';
-const { MessageMedia } = pkg_wa;
-import request_pkg from 'request';
-const request = request_pkg;
+import Resenhazord2 from '../models/Resenhazord2.js';
+import axios from 'axios';
 
 export default class AnimeCommand {
 
@@ -10,8 +8,6 @@ export default class AnimeCommand {
     static async run(data) {
         console.log('ANIME COMMAND');
 
-        const chat = await data.getChat();
-
         const sfw_tags = [
             'waifu', 'neko', 'shinobu', 'megumin', 'bully', 'cuddle', 'cry', 'hug', 'awoo', 'kiss', 'lick',
             'pat', 'smug', 'bonk', 'yeet', 'blush', 'smile', 'wave', 'highfive', 'handhold', 'nom', 'bite',
@@ -19,7 +15,7 @@ export default class AnimeCommand {
         ];
         const nsfw_tags = ['waifu', 'neko', 'trap', 'blowjob'];
 
-        const rest_command = data.body.replace(/^\s*\,\s*anime\s*/, '');
+        const rest_command = data.message.extendedTextMessage.text.replace(/^\s*\,\s*anime\s*/, '');
         const is_nsfw = rest_command.match(/nsfw/);
 
         let tag;
@@ -28,33 +24,27 @@ export default class AnimeCommand {
         is_nsfw ? type = 'nsfw' : type = 'sfw';
 
         const url = `https://api.waifu.pics/${type}/${tag}`;
-        try {
-            request(url, async (error, response, body) => {
-                const anime = JSON.parse(body);
+        axios.get(url)
+            .then(response => {
+                const anime = response.data;
                 console.log('anime', anime);
-
-                if (error) {
-                    console.error('POKEMON COMMAND ERROR', error);
-                    return;
-                }
-
-                chat.sendMessage(
-                    await MessageMedia.fromUrl(anime.url),
+                Resenhazord2.socket.sendMessage(
+                    data.key.remoteJid,
                     {
-                        sendSeen: true,
-                        isViewOnce: true,
-                        quotedMessageId: data.id._serialized,
+                        viewOnce: true,
+                        video: {url: anime.url},
                         caption: `Aqui está uma foto de anime para você! 😊`
-                    }
+                    },
+                    {quoted: data}
+                );
+            })
+            .catch(error => {
+                console.error('ERROR ANIME COMMAND', error);
+                Resenhazord2.socket.sendMessage(
+                    data.key.remoteJid,
+                    {text: 'Viiixxiii... Não consegui baixar a foto! 🥺👉👈'},
+                    {quoted: data}
                 );
             });
-        } catch (error) {
-            console.error('ERROR ANIME COMMAND', error);
-
-            chat.sendMessage(
-                'Viiixxiii... Não consegui baixar a foto! 🥺👉👈',
-                { sendSeen: true, quotedMessageId: data.id._serialized }
-            );
-        }
     }
 }

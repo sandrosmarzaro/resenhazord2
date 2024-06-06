@@ -7,7 +7,7 @@ export default class CommandHandler {
     static async run(data) {
         console.log('COMMAND HANDLER');
 
-        const { text } = data.message.extendedTextMessage;
+        const { text } = data.message?.extendedTextMessage?.text || '';
         const handler = await this.import_comands();
 
         for (const [identifier, command] of Object.entries(handler)) {

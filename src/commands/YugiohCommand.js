@@ -1,44 +1,40 @@
-import pkg_wa from 'whatsapp-web.js';
-const { MessageMedia } = pkg_wa;
-import request_pkg from 'request';
-const request = request_pkg;
+import Resenhazord2 from '../models/Resenhazord2.js';
+import axios from 'axios';
 
 export default class YugiohCommand {
 
     static identifier = "^\\s*\\,\\s*ygo\\s*$";
 
     static async run(data) {
+        console.log('YUGIOH COMMAND');
 
-        const chat = await data.getChat();
         const url = 'https://db.ygoprodeck.com/api/v7/randomcard.php';
-        try {
-            request(url, async (error, response, body) => {
-                const card = JSON.parse(body);
+        axios.get(url)
+            .then(response => {
+                const card = response.data;
                 const card_image = card.card_images[0].image_url;
                 console.log('yugioh', card_image);
 
-                if (error) {
-                    console.error('YUGIOH COMMAND ERROR', error);
-                    return;
-                }
+                card.desc = card.desc.replace(/\n/g, '\n> ');
 
-                chat.sendMessage(
-                    await MessageMedia.fromUrl(card_image),
+                Resenhazord2.socket.sendMessage(
+                    data.key.remoteJid,
                     {
-                        sendSeen: true,
-                        isViewOnce: true,
-                        quotedMessageId: data.id._serialized,
-                        caption: `${card.name}\n\n${card.desc}`
-                    }
+                        viewOnce: true,
+                        image: {url: card_image},
+                        caption: `*${card.name}*\n\n> ${card.desc}`
+                    },
+                    {quoted: data}
+                );
+            })
+            .catch(error => {
+                console.error('YUGIOH COMMAND ERROR', error);
+
+                Resenhazord2.socket.sendMessage(
+                    data.key.remoteJid,
+                    {text:'Viiixxiii... Não consegui baixar a carta! 🥺👉👈'},
+                    {quoted: data}
                 );
             });
-        } catch (error) {
-            console.error('ERROR ANIME COMMAND', error);
-
-            chat.sendMessage(
-                'Viiixxiii... Não consegui baixar a carta! 🥺👉👈',
-                { sendSeen: true, quotedMessageId: data.id._serialized }
-            );
-        }
     }
 }
