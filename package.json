@@ -27,6 +27,7 @@
     "nayan-media-downloader": "^2.3.2",
     "nsfwhub": "^0.0.2",
     "porn-x": "^1.0.54",
+    "puppeteer": "^22.10.0",
     "qrcode-terminal": "^0.12.0"
   }
 }
