@@ -1,3 +1,5 @@
+import Resenhazord2 from "../models/Resenhazord2.js";
+
 export default class AllCommand {
 
     static identifier = "^\\s*\\,\\s*all\\s*";
@@ -5,26 +7,27 @@ export default class AllCommand {
     static async run(data) {
         console.log('ALL COMMAND');
 
-        const chat = await data.getChat(data);
-        if (!chat.isGroup) {
-            chat.sendMessage(
-                `Burro burro! Você só pode marcar o grupo em um grupo! 🤦‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+        if (!data.key.remoteJid.match(/g.us/)) {
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Burro burro! Você só pode marcar o grupo em um grupo! 🤦‍♂️`},
+                {quoted: data}
             );
             return;
         }
 
-        const participants = await chat.participants;
-        const text_inserted = data.body.replace(/\n*\s*\,\s*all\s*/, '');
+        const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
+        const text_inserted = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*all\s*/, '');
         let message = text_inserted.length > 0 ? text_inserted : '';
         message += '\n\n';
         for (const participant of participants) {
-            message += `@${participant.id.user} `;
+            message += `@${participant.id.replace('@s.whatsapp.net', '')} `;
         }
-        const participants_ids = participants.map(participant => participant.id._serialized);
-        chat.sendMessage(
-            message,
-            { sendSeen: true, mentions: participants_ids}
+        const participants_ids = participants.map(participant => participant.id);
+        Resenhazord2.socket.sendMessage(
+            data.key.remoteJid,
+            {text: message, mentions: participants_ids},
+            {quoted: data}
         );
     }
 }

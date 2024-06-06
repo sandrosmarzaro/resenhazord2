@@ -1,3 +1,5 @@
+import Resenhazord2 from "../models/Resenhazord2.js";
+
 export default class AdmCommand {
 
     static identifier = "^\\s*\\,\\s*adm\\s*$";
@@ -5,11 +7,11 @@ export default class AdmCommand {
     static async run(data) {
         console.log('ADM COMMAND');
 
-        const chat = await data.getChat(data);
-        if (!chat.isGroup) {
-            chat.sendMessage(
-                `Burro burro! Você só pode xingar adminstração em um grupo! 🤦‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+        if (!data.key.remoteJid.match(/g.us/)) {
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Burro burro! Você só pode xingar adminstração em um grupo! 🤦‍♂️`},
+                {quoted: data}
             );
             return;
         }
@@ -33,14 +35,17 @@ export default class AdmCommand {
             "pau mandado"
         ];
 
-        const { participants } = chat;
-        const adms = participants.filter(participant => participant.isAdmin);
-        const adms_ids = adms.map(adm => adm.id._serialized);
-        const adm_mentions = adms.map(adm => `@${adm.id.user} `);
+        const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
+        const adms = participants.filter(participant => participant.admin);
+        const adms_ids = adms.map(adm => adm.id);
+        const adm_mentions = adms.map(adm => `@${adm.id.replace('@s.whatsapp.net', '')} `);
         const random_swearing = swearings[Math.floor(Math.random() * swearings.length)];
-        await chat.sendMessage(
-            `Vai se foder administração! 🖕\nvocê é ${random_swearing}\n${adm_mentions.join('')} `,
-            { sendSeen: true, quotedMessageId: data.id._serialized, mentions: adms_ids }
+        await Resenhazord2.socket.sendMessage(
+            data.key.remoteJid,
+            {
+                text: `Vai se foder administração! 🖕\nVocê é ${random_swearing}\n${adm_mentions.join('')}`, mentions: adms_ids
+            },
+            {quoted: data}
         );
     }
 }
