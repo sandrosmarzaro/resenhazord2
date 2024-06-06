@@ -1,6 +1,5 @@
+import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
-import pkg_wa from 'whatsapp-web.js';
-const { MessageMedia } = pkg_wa;
 
 export default class FilmeSerieCommand {
 
@@ -9,11 +8,9 @@ export default class FilmeSerieCommand {
     static async run(data) {
         console.log('FILME SERIE COMMAND');
 
-        const chat = await data.getChat();
-
-        const rest_command = data.body.replace(/\s*\,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
+        const rest_command = data.message.extendedTextMessage.text.replace(/\s*\,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
         const mode = rest_command.match(/top/i) ? 'top_rated' : 'popular';
-        const type = data.body.match(/filme/i) ? 'movie' : 'tv';
+        const type = data.message.extendedTextMessage.text.match(/filme/i) ? 'movie' : 'tv';
         const url = `https://api.themoviedb.org/3/${type}/${mode}`;
 
         const page = Math.floor(Math.random() * 25) + 1;
@@ -49,21 +46,19 @@ export default class FilmeSerieCommand {
             caption += `⭐ ${job.vote_average || 'Sem Nota'}\t📅 ${year || 'Sem Data'}\n\n`;
             caption += `> ${job.overview}`;
 
-            chat.sendMessage(
-                await MessageMedia.fromUrl(poster_url),
-                {
-                    sendSeen: true,
-                    caption: caption,
-                    isViewOnce: true,
-                    quotedMessageId: data.id._serialized
-                }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                { image: { url: poster_url }, caption: caption, viewOnce: true },
+                { quoted: data }
             );
         }
         catch (error) {
             console.error('ERROR FILME SERIE COMMAND', error);
-            chat.sendMessage(
-                `Viiixxiii... Não consegui buscar o seu filminho! 🥺👉👈`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            const message = type === 'movie' ? 'seu filminho' : 'sua seriezinha';
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                { text: `Viiixxiii... Não consegui buscar ${message}! 🥺👉👈`},
+                { quoted: data }
             );
         }
     }

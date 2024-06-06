@@ -1,3 +1,4 @@
+import Resenhazord2 from "../models/Resenhazord2.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default class PromptCommand {
@@ -11,13 +12,12 @@ export default class PromptCommand {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 
-        const chat = await data.getChat();
-
-        const rest_command = data.body.replace(/\n*\s*\,\s*prompt\s*/, '');
+        const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*prompt\s*/, '');
         if (!rest_command) {
-            chat.sendMessage(
-                `Burro burro! Você não enviou um texto para IA! 🤦‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Burro burro! Você não enviou um texto para IA! 🤦‍♂️`},
+                {quoted: data}
             );
             return;
         }
@@ -40,17 +40,13 @@ export default class PromptCommand {
         Resenhista: Quando o primeiro avião voou?
         Resenhazord2: Em 17 de dezembro de 1903, Wilbur e Orville Wright fizeram os primeiros voos. Eu gostaria que eles viessem e me levassem embora.`
 
-        const prompt = prePrompt + data.body.replace(/\n*\s*\,\s*prompt\s*/, '');
-
+        const prompt = prePrompt + rest_command
         const result = await model.generateContent(prompt);
         const { response } = result;
         const text = response.text();
         console.log('prompt', response);
         try {
-            chat.sendMessage(
-                text,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
-            );
+            Resenhazord2.socket.sendMessage(data.key.remoteJid, {text: text}, {quoted: data});
         } catch (error) {
             console.error('ERROR PROMPT COMMAND', error);
         }

@@ -15,80 +15,82 @@ export default class AddCommand {
     static async run(data) {
         console.log('ADD COMMAND');
 
-        const chat = await data.getChat();
-        if (!chat.isGroup) {
-            chat.sendMessage(
-                `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+        if (!data.key.remoteJid.match(/g.us/)) {
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️`},
+                {quoted: data}
             );
             return;
         }
 
-        const { participants } = chat;
+        const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
         const { RESENHAZORD2_ID } = process.env;
         const is_resenhazord2_admin = participants.find(
-            participant => participant.id._serialized === RESENHAZORD2_ID
-        ).isAdmin;
+            participant => participant.id === RESENHAZORD2_ID
+        ).admin;
         if (!is_resenhazord2_admin) {
-            chat.sendMessage(
-                `Vai se foder! Eu não sou admin! 🖕`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Vai se fuder! Eu não sou admin! 🖕`},
+                {quoted: data}
             );
             return;
         }
 
-        const rest_command = data.body.replace(/\n*\s*\,\s*add\s*/, '');
+        const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*add\s*/, '');
         const inserted_phone = rest_command.replace(/\s|\n/, '');
         if (inserted_phone.length == 0) {
-            this.build_and_send_phone(inserted_phone, chat);
+            this.build_and_send_phone(inserted_phone, data);
             return;
         }
 
         const is_valid_DDD = this.DDD_LIST.some(DDD => inserted_phone.startsWith(DDD));
         if (!is_valid_DDD) {
-            chat.sendMessage(
-                `Burro burro! O DDD do estado 🏳️‍🌈 não existe!`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Burro burro! O DDD do estado 🏳️‍🌈 não existe!`},
+                {quoted: data}
             );
             return;
         }
 
         if (inserted_phone.length > 11) {
-            chat.sendMessage(
-                `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`},
+                {quoted: data}
             );
         }
 
-        this.build_and_send_phone(inserted_phone, chat);
+        this.build_and_send_phone(inserted_phone, data);
     }
 
-    static async build_and_send_phone(initial_phone, chat) {
-        if (initial_phone.length == 0) {
-            const random_ddd = this.DDD_LIST[Math.floor(Math.random() * this.DDD_LIST.length)];
-            initial_phone += random_ddd;
-        }
-
-        if (initial_phone.length == 2) {
-            const ddds_starts_eith = ['31', '32', '34', '35', '61', '83']
-            if (ddds_starts_eith.some(prefix => initial_phone.startsWith(prefix))) {
-                initial_phone += '8';
-            }
-            else {
-                initial_phone += '9';
-            }
-        }
-
+    static async build_and_send_phone(initial_phone, data) {
         let is_sucefull = false;
         let tries = 0;
         const is_complete_phone = initial_phone.length >= 10;
-        console.log('initial phone:', initial_phone);
         console.log('is complete phone:', is_complete_phone);
         do {
             console.log('------------------- new loop -------------------');
-            console.log(`start phone: ${initial_phone}`);
-            let generated_phone = initial_phone;
+            let generated_phone = '';
+            if (initial_phone.length === 0) {
+                let random_ddd = this.DDD_LIST[Math.floor(Math.random() * this.DDD_LIST.length)];
+                generated_phone += initial_phone + random_ddd;
+            }
 
+            if (generated_phone.length == 2) {
+                const ddds_starts_eith = ['31', '32', '34', '35', '61', '83']
+                if (ddds_starts_eith.some(prefix => initial_phone.startsWith(prefix))) {
+
+                    generated_phone += initial_phone + '8';
+                }
+                else {
+                    generated_phone += initial_phone + '9';
+                }
+            }
+
+            console.log(`start phone: ${generated_phone}`);
             if (!is_complete_phone) {
                 let size_phone = Math.random() < 0.5 ? 11 : 10;
                 console.log('size:', size_phone);
@@ -102,10 +104,25 @@ export default class AddCommand {
                 is_sucefull = true;
             }
 
-            let has_wa = await Resenhazord2.client.isRegisteredUser(`55${generated_phone}@c.us`);
-            console.log('is registered:', has_wa);
-            if (has_wa) {
-                await chat.addParticipants([`55${generated_phone}@c.us`]);
+            const consult = await Resenhazord2.socket.onWhatsApp(`55${generated_phone}`);
+            console.log('consult:', consult);
+            if (consult[0]?.exists || is_complete_phone) {
+                try {
+                    const id = consult[0]?.exists ? consult[0]?.jid : '55' + initial_phone + '@s.whatsapp.net';
+                    await Resenhazord2.socket.groupParticipantsUpdate(
+                        data.key.remoteJid,
+                        [id],
+                        "add"
+                    );
+                }
+                catch (error) {
+                    console.error('ERROR ADD COMMAND', error);
+                    Resenhazord2.socket.sendMessage(
+                        data.key.remoteJid,
+                        {text: `Não consegui adicionar o número ${generated_phone} 😔`},
+                        {quoted: data}
+                    );
+                }
                 is_sucefull = true;
             }
             else {

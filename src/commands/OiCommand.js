@@ -1,3 +1,5 @@
+import Resenhazord2 from "../models/Resenhazord2.js";
+
 export default class OiCommand {
 
     static identifier = "^\\s*\\,\\s*oi\\s*$";
@@ -5,17 +7,15 @@ export default class OiCommand {
     static async run(data) {
         console.log('OI COMMAND');
 
-        const chat = await data.getChat();
-        const sender_phone = data.author.replace('@c.us', '');
-
+        const sender_phone = data.key.participant.replace('@s.whatsapp.net', '');
         try {
-            chat.sendMessage(
-                `Vai se fuder @${sender_phone} filho da puta! 🖕`,
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
                 {
-                    sendSeen: true,
-                    quotedMessageId: data.id._serialized,
-                    mentions: [data.author]
-                }
+                    text: `Vai se fuder @${sender_phone} filho da puta! 🖕`,
+                    mentions: [data.key.participant]
+                },
+                {quoted: data}
             );
         } catch (error) {
             console.error('ERROR OI COMMAND', error);

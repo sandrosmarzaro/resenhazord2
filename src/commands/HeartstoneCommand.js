@@ -1,6 +1,5 @@
+import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
-import pkg_wa from 'whatsapp-web.js';
-const { MessageMedia } = pkg_wa;
 
 export default class Heartstone {
 
@@ -11,17 +10,16 @@ export default class Heartstone {
 
         const { BNET_ID, BNET_SECRET } = process.env;
         const access_token = await this.get_access_token(BNET_ID, BNET_SECRET);
-        const chat = await data.getChat();
         if (!access_token) {
-            chat.sendMessage(
-                `Não consegui entrar na Battle.net, manda a Blizzard tomar no cu! 🤷‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Não consegui entrar na Battle.net, manda a Blizzard tomar no cu! 🤷‍♂️`},
+                {quoted: data}
             );
             return;
         }
 
         const api_url = 'https://us.api.blizzard.com/hearthstone/cards?locale=pt_BR';
-
         try {
             const first_response = await axios.get(api_url, {
                 headers: {
@@ -49,21 +47,18 @@ export default class Heartstone {
             let description = card.text.replace(/\<\/?b\>/g, '*');
             description = description.replace(/\<\/?i\>/g, '_');
             const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
-            chat.sendMessage(
-                await MessageMedia.fromUrl(card.image),
-                {
-                    sendSeen: true,
-                    caption: caption,
-                    isViewOnce: true,
-                    quotedMessageId: data.id._serialized
-                }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {image: {url: card.image}, caption: caption, viewOnce: true},
+                {quoted: data}
             );
         }
         catch (error) {
-            console.error('Error fetching Hearthstone cards:', error);
-            chat.sendMessage(
-                `Não consegui buscar as cartas do Hearthstone, manda a Blizzard tomar no cu! 🤷‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            console.error('HEARTHSTONE COMMAND ERROR ', error);
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Não consegui buscar as cartas do Hearthstone, manda a Blizzard tomar no cu! 🤷‍♂️`},
+                {quoted: data}
             );
         }
     }

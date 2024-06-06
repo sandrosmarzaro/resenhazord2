@@ -1,3 +1,4 @@
+import Resenhazord2 from '../models/Resenhazord2.js';
 import { MongoClient } from 'mongodb';
 
 export default class BorgesCommand {
@@ -8,7 +9,6 @@ export default class BorgesCommand {
 
         const uri = process.env.MONGODB_URI;
         const client = new MongoClient(uri);
-        const chat = await data.getChat();
         try {
             await client.connect();
             const database = client.db('resenhazord2');
@@ -19,9 +19,10 @@ export default class BorgesCommand {
                 { returnDocument: 'after', upsert: true }
             );
             console.log('borges', result);
-            chat.sendMessage(
-                `Borges já fumou ${result.nargas} nargas 🚬`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Borges já fumou ${result.nargas} nargas 🚬`},
+                {quoted: data}
             );
         }
         catch (error) {

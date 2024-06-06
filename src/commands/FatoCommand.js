@@ -1,3 +1,5 @@
+import Resenhazord2 from "../models/Resenhazord2.js";
+
 export default class FatoCommand {
 
     static identifier = "^\\s*\\,\\s*fato\\s*(?:hoje)?\\s*$";
@@ -5,19 +7,23 @@ export default class FatoCommand {
     static async run(data) {
         console.log('FATO COMMAND');
 
-        const chat = await data.getChat();
-        const rest_command = data.body.replace(/\n*\s*\,\s*fato\s*/, '');
-
-        let url = 'https://uselessfacts.jsph.pl/api/v2/facts/';
-        const rest_link = rest_command === 'hoje' ? 'today' : 'random';
-        url += rest_link;
+        const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*fato\s*/, '');
+        const rest_link = rest_command.match(/hoje/) ? 'today' : 'random';
+        let url = `https://uselessfacts.jsph.pl/api/v2/facts/${rest_link}`;
 
         const response = await fetch(url);
         const fact = await response.json();
         console.log('fato', fact);
-        chat.sendMessage(
-            `FATO 🤓☝️\n${fact.text}`,
-            { sendSeen: true, quotedMessageId: data.id._serialized }
-        );
+        try {
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `FATO 🤓☝️\n${fact.text}`},
+                {quoted: data}
+            );
+        }
+        catch (error) {
+            console.error('ERROR FATO COMMAND', error);
+        }
+
     }
 }

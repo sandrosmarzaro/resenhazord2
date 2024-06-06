@@ -1,7 +1,6 @@
+import Resenhazord2 from '../models/Resenhazord2.js';
 import pkg from 'nayan-media-downloader';
 const { alldown } = pkg;
-import wa_pkg from 'whatsapp-web.js';
-const { MessageMedia } = wa_pkg;
 
 export default class MediaCommand {
 
@@ -10,13 +9,12 @@ export default class MediaCommand {
     static async run(data) {
         console.log('MEDIA COMMAND');
 
-        const chat = await data.getChat();
-        let url = data.body.replace(/\n*\s*\,\s*media\s*/, '');
-
+        let url = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*media\s*/, '');
         if (url.length === 0) {
-            chat.sendMessage(
-                `Burro burro! Você não enviou um link de algum vídeo! 🤦‍♂️`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                { text: 'Me passa o link do vídeo que você quer baixar 🤗' },
+                { quoted: data }
             );
             return;
         }
@@ -28,9 +26,10 @@ export default class MediaCommand {
         console.log('url', url);
         console.log('media', response);
         if (!response.status) {
-            chat.sendMessage(
-                `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈`,
-                { sendSeen: true, quotedMessageId: data.id._serialized }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                { text: `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈` },
+                { quoted: data }
             );
             return;
         }
@@ -51,13 +50,14 @@ export default class MediaCommand {
             title = response.data.title;
         }
 
-        await chat.sendMessage(
-            await MessageMedia.fromUrl(link, { unsafeMime: true }),
+        await Resenhazord2.socket.sendMessage(
+            data.key.remoteJid,
             {
-                sendSeen: true,
-                quotedMessageId: data.id._serialized,
+                viewOnce: true,
+                video: { url: link },
                 caption: title
-            }
+            },
+            { quoted: data }
         );
     }
 }

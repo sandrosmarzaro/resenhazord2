@@ -1,6 +1,5 @@
+import Resenhazord2 from '../models/Resenhazord2.js';
 import puppeteer from 'puppeteer';
-import pkg from 'whatsapp-web.js';
-const { MessageMedia } = pkg;
 
 export default class Rule34Command {
 
@@ -9,7 +8,6 @@ export default class Rule34Command {
     static async run(data) {
         console.log('RULE34 COMMAND');
 
-        const chat = await data.getChat();
         (async () => {
             const browser = await puppeteer.launch({headless: true});
             const page = await browser.newPage();
@@ -23,25 +21,25 @@ export default class Rule34Command {
                     return imgArray.map( ({src}) => ({ src }));
                 });
                 console.log('rule34', rule34[0]['src']);
-                await chat.sendMessage(
-                    await MessageMedia.fromUrl(rule34[0]['src']),
+                Resenhazord2.socket.sendMessage(
+                    data.key.remoteJid,
                     {
-                        sendSeen: true,
-                        isViewOnce: true,
-                        quotedMessageId: data.id._serialized,
+                        viewOnce: true,
+                        image: { url: rule34[0]['src'] },
                         caption: 'Aqui está a imagem que você pediu 🤗'
-                    }
+                    },
+                    {quoted: data}
                 );
             }
             catch (error) {
                 console.error('RULE34 COMMAND ERROR', error);
-                chat.sendMessage(
-                    'Não consegui encontrar nada para você 😔',
-                    { sendSeen: true, quotedMessageId: data.id._serialized }
+                Resenhazord2.socket.sendMessage(
+                    data.key.remoteJid,
+                    {text: 'Não consegui encontrar nada para você 😔'},
+                    {quoted: data}
                 );
             }
             await browser.close();
-
         })();
     }
 }

@@ -1,3 +1,5 @@
+import Resenhazord2 from "../models/Resenhazord2.js";
+
 export default class MateusCommand {
 
     static identifier = "^\\s*\\,\\s*mateus\\s*$";
@@ -5,16 +7,12 @@ export default class MateusCommand {
     static async run(data) {
         console.log('MATEUS COMMAND');
 
-        const chat = await data.getChat();
         const probability = (Math.random() * 101).toFixed(2).replace('.', ',');
-
         try {
-            chat.sendMessage(
-                `A probabilidade de Mateus nascer agora é de ${probability} % 🧐`,
-                {
-                    sendSeen: true,
-                    quotedMessageId: data.id._serialized
-                }
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `A probabilidade de Mateus nascer agora é de ${probability} % 🧐`},
+                {quoted: data}
             );
         } catch (error) {
             console.error('ERROR MATEUS COMMAND', error);
