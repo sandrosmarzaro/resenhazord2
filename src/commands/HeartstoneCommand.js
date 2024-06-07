@@ -8,13 +8,16 @@ export default class Heartstone {
     static async run(data) {
         console.log('HEARTSTONE COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const { BNET_ID, BNET_SECRET } = process.env;
         const access_token = await this.get_access_token(BNET_ID, BNET_SECRET);
         if (!access_token) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui entrar na Battle.net, manda a Blizzard tomar no cu! 🤷‍♂️`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
             return;
         }
@@ -50,7 +53,7 @@ export default class Heartstone {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {image: {url: card.image}, caption: caption, viewOnce: true},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
         }
         catch (error) {
@@ -58,7 +61,7 @@ export default class Heartstone {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui buscar as cartas do Hearthstone, manda a Blizzard tomar no cu! 🤷‍♂️`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
         }
     }

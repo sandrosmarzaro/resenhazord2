@@ -7,11 +7,14 @@ export default class CommandHandler {
     static async run(data) {
         console.log('COMMAND HANDLER');
 
-        const { text } = data.message?.extendedTextMessage || '';
+        const input = data.message?.conversation ||
+                    data.message?.extendedTextMessage?.text ||
+                    data.message?.videoMessage?.caption ||
+                    data.message?.imageMessage?.caption || '';
         const handler = await this.import_comands();
 
         for (const [identifier, command] of Object.entries(handler)) {
-            if (new RegExp(identifier, 'i').test(text)) {
+            if (new RegExp(identifier, 'i').test(input)) {
                 command.run(data);
             }
         }

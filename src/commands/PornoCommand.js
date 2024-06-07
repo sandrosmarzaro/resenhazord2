@@ -20,6 +20,9 @@ export default class PornoCommand {
     }
 
     static async ia_porn(data) {
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const nsfw = new NSFW();
         const tags = [
             "ass", "sixtynine", "pussy", "dick", "anal", "boobs", "bdsm", "black", "easter", "bottomless",
@@ -38,7 +41,7 @@ export default class PornoCommand {
                     video: {url: porn.image.url},
                     caption: 'Aqui está seu vídeo 🤤'
                 },
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
         }
         catch (error) {
@@ -46,12 +49,15 @@ export default class PornoCommand {
             await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
         }
     }
 
     static async real_porn(data) {
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const client = new Client();
 
         const videos = await client.getShortVideos("random");
@@ -65,7 +71,7 @@ export default class PornoCommand {
                     video: {url: video},
                     caption: 'Aqui está seu vídeo 🤤'
                 },
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
         }
         catch (error) {
@@ -73,7 +79,7 @@ export default class PornoCommand {
             await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
         }
     }

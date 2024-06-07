@@ -8,6 +8,9 @@ export default class YugiohCommand {
     static async run(data) {
         console.log('YUGIOH COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const url = 'https://db.ygoprodeck.com/api/v7/randomcard.php';
         axios.get(url)
             .then(response => {
@@ -24,7 +27,7 @@ export default class YugiohCommand {
                         image: {url: card_image},
                         caption: `*${card.name}*\n\n> ${card.desc}`
                     },
-                    {quoted: data}
+                    {quoted: data, ephemeralExpiration: exp}
                 );
             })
             .catch(error => {
@@ -33,7 +36,7 @@ export default class YugiohCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text:'Viiixxiii... Não consegui baixar a carta! 🥺👉👈'},
-                    {quoted: data}
+                    {quoted: data, ephemeralExpiration: exp}
                 );
             });
     }

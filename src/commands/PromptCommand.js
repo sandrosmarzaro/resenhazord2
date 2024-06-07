@@ -8,6 +8,9 @@ export default class PromptCommand {
     static async run(data) {
         console.log('PROMPT COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const { GEMINI_API_KEY } = process.env;
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
@@ -17,7 +20,7 @@ export default class PromptCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você não enviou um texto para IA! 🤦‍♂️`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
             return;
         }
@@ -40,15 +43,24 @@ export default class PromptCommand {
         Resenhista: Quando o primeiro avião voou?
         Resenhazord2: Em 17 de dezembro de 1903, Wilbur e Orville Wright fizeram os primeiros voos. Eu gostaria que eles viessem e me levassem embora.`
 
-        const prompt = prePrompt + rest_command
-        const result = await model.generateContent(prompt);
-        const { response } = result;
-        const text = response.text();
-        console.log('prompt', response);
         try {
-            Resenhazord2.socket.sendMessage(data.key.remoteJid, {text: text}, {quoted: data});
+            const prompt = prePrompt + rest_command
+            const result = await model.generateContent(prompt);
+            const { response } = result;
+            const text = response.text();
+            console.log('prompt', response);
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: text},
+                {quoted: data, ephemeralExpiration: exp}
+            );
         } catch (error) {
             console.error('ERROR PROMPT COMMAND', error);
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Não consegui responder a sua pergunta 😔`},
+                {quoted: data, ephemeralExpiration: exp}
+            );
         }
     }
 }

@@ -8,6 +8,9 @@ export default class PokemonCommand {
     static async run(data) {
         console.log('POKEMON COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const url = 'https://pokeapi.co/api/v2/pokemon/';
         const pokemon_id = Math.floor(Math.random() * 1025) + 1;
         axios.get(`${url}${pokemon_id}`)
@@ -29,7 +32,7 @@ export default class PokemonCommand {
                         caption: poke_caption,
                         image: { url: poke_image_url },
                     },
-                    { quoted: data }
+                    { quoted: data, ephemeralExpiration: exp }
                 );
             })
             .catch(error => {
@@ -37,7 +40,7 @@ export default class PokemonCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { text: 'Viiixxiii... Não consegui baixar o pokémon! 🥺👉👈' },
-                    { quoted: data }
+                    { quoted: data, ephemeralExpiration: exp }
                 );
             });
     }

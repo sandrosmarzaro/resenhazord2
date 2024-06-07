@@ -8,6 +8,9 @@ export default class FilmeSerieCommand {
     static async run(data) {
         console.log('FILME SERIE COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const rest_command = data.message.extendedTextMessage.text.replace(/\s*\,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
         const mode = rest_command.match(/top/i) ? 'top_rated' : 'popular';
         const type = data.message.extendedTextMessage.text.match(/filme/i) ? 'movie' : 'tv';
@@ -49,7 +52,7 @@ export default class FilmeSerieCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 { image: { url: poster_url }, caption: caption, viewOnce: true },
-                { quoted: data }
+                { quoted: data, ephemeralExpiration: exp }
             );
         }
         catch (error) {
@@ -58,7 +61,7 @@ export default class FilmeSerieCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 { text: `Viiixxiii... Não consegui buscar ${message}! 🥺👉👈`},
-                { quoted: data }
+                { quoted: data, ephemeralExpiration: exp }
             );
         }
     }

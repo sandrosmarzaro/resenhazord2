@@ -7,11 +7,14 @@ export default class BanCommand {
     static async run(data) {
         console.log('BAN COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode remover alguém em um grupo! 🤦‍♂️`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
             return;
         }
@@ -26,7 +29,7 @@ export default class BanCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Vai se foder! Eu não sou admin! 🖕`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
             return;
         }
@@ -44,7 +47,7 @@ export default class BanCommand {
                             text: `Se fudeu! @${random_participant.id.replace('@s.whatsapp.net', '')} 🖕`,
                             mentions: [random_participant]
                         },
-                        {quoted: data}
+                        {quoted: data, ephemeralExpiration: exp}
                     ).then (async () => {
                         await Resenhazord2.socket.groupParticipantsUpdate(
                             data.key.remoteJid,
@@ -68,7 +71,7 @@ export default class BanCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: `Se fudeu! @${participant_phone} 🖕`, mentions: [participant]},
-                    {quoted: data}
+                    {quoted: data, ephemeralExpiration: exp}
                 ).then (async () => {
                     await Resenhazord2.socket.groupParticipantsUpdate(
                         data.key.remoteJid,

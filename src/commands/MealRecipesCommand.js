@@ -8,6 +8,9 @@ export default class MealRecipesCommand {
     static async run(data) {
         console.log('MEAL RECIPES COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         const url = 'https://www.themealdb.com/api/json/v1/1/random.php';
         axios.get(url)
             .then(response => {
@@ -38,7 +41,7 @@ export default class MealRecipesCommand {
                         linkPreview: false,
                         image: { url: meal.strMealThumb },
                     },
-                    {quoted: data}
+                    {quoted: data, ephemeralExpiration: exp}
                 );
             })
             .catch (error => {
@@ -47,7 +50,7 @@ export default class MealRecipesCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Viiixxiii... Não consegui te dar uma comida! 🥺👉👈'},
-                    {quoted: data}
+                    {quoted: data, ephemeralExpiration: exp}
                 );
             });
     }

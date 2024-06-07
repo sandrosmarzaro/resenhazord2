@@ -9,12 +9,15 @@ export default class MediaCommand {
     static async run(data) {
         console.log('MEDIA COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         let url = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*media\s*/, '');
         if (url.length === 0) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 { text: 'Me passa o link do vídeo que você quer baixar 🤗' },
-                { quoted: data }
+                { quoted: data, ephemeralExpiration: exp }
             );
             return;
         }
@@ -29,7 +32,7 @@ export default class MediaCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 { text: `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈` },
-                { quoted: data }
+                { quoted: data, ephemeralExpiration: exp }
             );
             return;
         }
@@ -57,7 +60,7 @@ export default class MediaCommand {
                 video: { url: link },
                 caption: title
             },
-            { quoted: data }
+            { quoted: data, ephemeralExpiration: exp }
         );
     }
 }

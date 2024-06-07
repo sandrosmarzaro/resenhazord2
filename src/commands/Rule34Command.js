@@ -8,6 +8,9 @@ export default class Rule34Command {
     static async run(data) {
         console.log('RULE34 COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         (async () => {
             const browser = await puppeteer.launch({headless: true});
             const page = await browser.newPage();
@@ -28,7 +31,7 @@ export default class Rule34Command {
                         image: { url: rule34[0]['src'] },
                         caption: 'Aqui está a imagem que você pediu 🤗'
                     },
-                    {quoted: data}
+                    {quoted: data, ephemeralExpiration: exp}
                 );
             }
             catch (error) {
@@ -36,7 +39,7 @@ export default class Rule34Command {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Não consegui encontrar nada para você 😔'},
-                    {quoted: data}
+                    {quoted: data, ephemeralExpiration: exp}
                 );
             }
             await browser.close();

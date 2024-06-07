@@ -15,11 +15,14 @@ export default class AddCommand {
     static async run(data) {
         console.log('ADD COMMAND');
 
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                    data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
             return;
         }
@@ -33,7 +36,7 @@ export default class AddCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Vai se fuder! Eu não sou admin! 🖕`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
             return;
         }
@@ -59,7 +62,7 @@ export default class AddCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`},
-                {quoted: data}
+                {quoted: data, ephemeralExpiration: exp}
             );
         }
 
@@ -67,6 +70,9 @@ export default class AddCommand {
     }
 
     static async build_and_send_phone(initial_phone, data) {
+        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
+                data.message?.extendedTextMessage?.contextInfo?.expiration;
+
         let is_sucefull = false;
         let tries = 0;
         const is_complete_phone = initial_phone.length >= 10;
@@ -120,7 +126,7 @@ export default class AddCommand {
                     Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {text: `Não consegui adicionar o número ${generated_phone} 😔`},
-                        {quoted: data}
+                        {quoted: data, ephemeralExpiration: exp}
                     );
                 }
                 is_sucefull = true;
