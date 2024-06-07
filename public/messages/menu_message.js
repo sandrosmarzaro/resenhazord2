@@ -69,6 +69,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,media* _link_de_um_video_
 > Baixe o vídeo do link especídficado de várias redes socias.
 
+- *,scarra* _imagem/video/audio_ _únicos_
+> Baixe a mídia de visualização única marcada.
+
 - *,stic* _imagem_
 > Tranforme sua imagem enviada em sticker.
 
