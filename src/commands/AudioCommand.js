@@ -57,12 +57,12 @@ export default class AudioCommand {
         console.log('audio', audio_urls);
 
         const char_limit = 200;
-        if (!text.length > char_limit) {
+        if (!(text.length > char_limit)) {
             await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {
                     viewOnce: true,
-                    audio: { url: audio_urls[0].url }
+                    audio: {url: audio_urls[0].url}
                 },
                 {quoted: data}
             );
@@ -74,7 +74,7 @@ export default class AudioCommand {
                 data.key.remoteJid,
                 {
                     viewOnce: true,
-                    audio: { url: audio_url.url }
+                    audio: {url: audio_url.url}
                 },
                 {quoted: data}
             );
