@@ -72,8 +72,8 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,scarra* _imagem/video/audio_ _únicos_
 > Baixe a mídia de visualização única marcada.
 
-- *,stic* _imagem_
-> Tranforme sua imagem enviada em sticker.
+- *,stic* _crop_ ou _circle_ ou _rounded_
+> Tranforme sua imagem anexada em sticker.
 
 🙂 OUTRAS FUNÇÕES 🙂
 
