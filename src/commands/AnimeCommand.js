@@ -8,9 +8,6 @@ export default class AnimeCommand {
     static async run(data) {
         console.log('ANIME COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         const sfw_tags = [
             'waifu', 'neko', 'shinobu', 'megumin', 'bully', 'cuddle', 'cry', 'hug', 'awoo', 'kiss', 'lick',
             'pat', 'smug', 'bonk', 'yeet', 'blush', 'smile', 'wave', 'highfive', 'handhold', 'nom', 'bite',
@@ -44,7 +41,7 @@ export default class AnimeCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     content,
-                    {quoted: data, ephemeralExpiration: exp}
+                    {quoted: data, ephemeralExpiration: data.expiration}
                 );
             })
             .catch(error => {
@@ -52,7 +49,7 @@ export default class AnimeCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Viiixxiii... Não consegui baixar a foto! 🥺👉👈'},
-                    {quoted: data, ephemeralExpiration: exp}
+                    {quoted: data, ephemeralExpiration: data.expiration}
                 );
             });
     }

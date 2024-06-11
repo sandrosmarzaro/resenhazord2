@@ -15,14 +15,11 @@ export default class AddCommand {
     static async run(data) {
         console.log('ADD COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -36,7 +33,7 @@ export default class AddCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Vai se fuder! Eu não sou admin! 🖕`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -62,7 +59,7 @@ export default class AddCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
 
@@ -126,7 +123,7 @@ export default class AddCommand {
                     Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {text: `Não consegui adicionar o número ${generated_phone} 😔`},
-                        {quoted: data, ephemeralExpiration: exp}
+                        {quoted: data, ephemeralExpiration: data.expiration}
                     );
                 }
                 is_sucefull = true;

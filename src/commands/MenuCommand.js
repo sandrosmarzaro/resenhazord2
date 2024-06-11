@@ -8,15 +8,12 @@ export default class MenuCommand {
     static async run(data) {
         console.log('MENU COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         const menu = menu_message;
         try {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: menu},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
         catch (error) {
@@ -25,7 +22,7 @@ export default class MenuCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Viiixxiii.. Não consegui exibir o menu! 🥺👉👈'},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
     }

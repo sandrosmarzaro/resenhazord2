@@ -8,14 +8,11 @@ export default class FuckCommand {
     static async run(data) {
         console.log('FUCK COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode fuder com alguém do grupo em um! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -35,14 +32,14 @@ export default class FuckCommand {
                     mentions: [data.key.participant, data.message.extendedTextMessage.contextInfo.mentionedJid[0]],
                     caption: `@${sender_phone} está fudendo @${mentioned_phone} 😩`
                 },
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
             console.error('ERROR FUCK COMMAND', error);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui foder @${sender_phone} 😔`, mentions: [data.key.participant]},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
     }

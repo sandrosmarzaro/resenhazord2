@@ -8,9 +8,6 @@ export default class MangaCommand {
     static async run(data) {
         console.log('MANGA COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         const base_url = 'https://api.jikan.moe/v4/random/manga';
         axios.get(base_url)
             .then(response => {
@@ -32,7 +29,7 @@ export default class MangaCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {image: {url: image}, caption: caption, viewOnce: true},
-                    {quoted: data, ephemeralExpiration: exp}
+                    {quoted: data, ephemeralExpiration: data.expiration}
                 );
             })
             .catch(error => {
@@ -40,7 +37,7 @@ export default class MangaCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: `Viiixxiii... Não consegui encontrar seu manga! 🥺👉👈`},
-                    {quoted: data, ephemeralExpiration: exp}
+                    {quoted: data, ephemeralExpiration: data.expiration}
                 );
             });
     }

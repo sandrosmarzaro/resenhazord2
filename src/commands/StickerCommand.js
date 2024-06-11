@@ -11,9 +11,6 @@ export default class StickerCommand {
     static async run(data) {
         console.log('STICKER COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
         const has_quoted_media = data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
                                 data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
@@ -21,7 +18,7 @@ export default class StickerCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Burro burro! Você precisa enviar uma imagem ou gif para fazer um sticker! 🤦‍♂️'},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -64,7 +61,7 @@ export default class StickerCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {sticker},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
         catch (error) {
@@ -72,7 +69,7 @@ export default class StickerCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui criar a figurinha! 😔`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
     }

@@ -7,14 +7,11 @@ export default class AllCommand {
     static async run(data) {
         console.log('ALL COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode marcar o grupo em um grupo! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -30,7 +27,7 @@ export default class AllCommand {
         Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {text: message, mentions: participants_ids},
-            {quoted: data, ephemeralExpiration: exp}
+            {quoted: data, ephemeralExpiration: data.expiration}
         );
     }
 }

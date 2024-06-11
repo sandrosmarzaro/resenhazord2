@@ -7,9 +7,6 @@ export default class FatoCommand {
     static async run(data) {
         console.log('FATO COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*fato\s*/, '');
         const rest_link = rest_command.match(/hoje/) ? 'today' : 'random';
         let url = `https://uselessfacts.jsph.pl/api/v2/facts/${rest_link}`;
@@ -21,7 +18,7 @@ export default class FatoCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `FATO 🤓☝️\n${fact.text}`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
         catch (error) {
@@ -30,7 +27,7 @@ export default class FatoCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui te dar um fato... 😔'},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
 

@@ -7,14 +7,11 @@ export default class AdmCommand {
     static async run(data) {
         console.log('ADM COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode xingar adminstração em um grupo! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -48,7 +45,7 @@ export default class AdmCommand {
             {
                 text: `Vai se foder administração! 🖕\nVocê é ${random_swearing}\n${adm_mentions.join('')}`, mentions: adms_ids
             },
-            {quoted: data, ephemeralExpiration: exp}
+            {quoted: data, ephemeralExpiration: data.expiration}
         );
     }
 }

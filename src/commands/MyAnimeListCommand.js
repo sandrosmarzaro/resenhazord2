@@ -8,9 +8,6 @@ export default class MyAnimeListCommand {
     static async run(data) {
         console.log('MYANIMELIST COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         const url = 'https://api.jikan.moe/v4/random/anime';
         axios.get(url)
             .then(response => {
@@ -32,7 +29,7 @@ export default class MyAnimeListCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { image: { url: image }, caption: caption, viewOnce: true },
-                    { quoted: data, ephemeralExpiration: exp }
+                    { quoted: data, ephemeralExpiration: data.expiration }
                 );
             })
             .catch(error => {
@@ -40,7 +37,7 @@ export default class MyAnimeListCommand {
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { text: `Viiixxiii... Não consegui encontrar seu anime! 🥺👉👈` },
-                    { quoted: data, ephemeralExpiration: exp }
+                    { quoted: data, ephemeralExpiration: data.expiration }
                 );
             });
     }

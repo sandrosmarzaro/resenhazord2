@@ -10,9 +10,6 @@ export default class BorgesCommand {
         const uri = process.env.MONGODB_URI;
         const client = new MongoClient(uri);
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         try {
             await client.connect();
             const database = client.db('resenhazord2');
@@ -26,7 +23,7 @@ export default class BorgesCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Borges já fumou ${result.nargas} nargas 🚬`},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
         catch (error) {
@@ -34,7 +31,7 @@ export default class BorgesCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Eram muitas bitucas para contar e não consegui... 😔'},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
         finally {

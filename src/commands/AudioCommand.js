@@ -8,9 +8,6 @@ export default class AudioCommand {
     static async run(data) {
         console.log('AUDIO COMMAND');
 
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                    data.message?.extendedTextMessage?.contextInfo?.expiration;
-
         const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*.udio\s*/, '');
         const is_language_inserted = rest_command.match(/^[A-Za-z]{2}\s*\-\s*[A-Za-z]{2}/);
         const language = is_language_inserted ? is_language_inserted[0] : 'pt-br';
@@ -32,7 +29,7 @@ export default class AudioCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Burro burro! O idioma 🏳️‍🌈 não existe!'},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -47,7 +44,7 @@ export default class AudioCommand {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Burro burro! Cadê o texto? 🤨'},
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -67,7 +64,7 @@ export default class AudioCommand {
                     viewOnce: true,
                     audio: {url: audio_urls[0].url}
                 },
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
         }
@@ -79,7 +76,7 @@ export default class AudioCommand {
                     viewOnce: true,
                     audio: {url: audio_url.url}
                 },
-                {quoted: data, ephemeralExpiration: exp}
+                {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
     }
