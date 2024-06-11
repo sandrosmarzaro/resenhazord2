@@ -31,13 +31,19 @@ export default class AnimeCommand {
             .then(response => {
                 const anime = response.data;
                 console.log('anime', anime);
+                let content = {
+                    viewOnce: true,
+                    caption: `Aqui está uma foto de anime para você! 😊`
+                }
+                if (anime.url.endsWith('.gif')) {
+                    content.video = { url: anime.url }
+                }
+                else {
+                    content.image = { url: anime.url }
+                }
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
-                    {
-                        viewOnce: true,
-                        video: {url: anime.url},
-                        caption: `Aqui está uma foto de anime para você! 😊`
-                    },
+                    content,
                     {quoted: data, ephemeralExpiration: exp}
                 );
             })
