@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import ReactMessage from '../Utils/ReactMessage.js';
 
 export default class CommandHandler {
 
@@ -15,6 +16,7 @@ export default class CommandHandler {
 
         for (const [identifier, command] of Object.entries(handler)) {
             if (new RegExp(identifier, 'i').test(input)) {
+                ReactMessage.run(data);
                 command.run(data);
             }
         }
