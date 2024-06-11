@@ -30,6 +30,8 @@
     "mongodb": "^6.7.0",
     "nayan-media-downloader": "^2.3.2",
     "nsfwhub": "^0.0.2",
+    "pino": "^9.1.0",
+    "pino-pretty": "^11.2.0",
     "porn-x": "^1.0.54",
     "puppeteer": "^22.10.0",
     "qrcode-terminal": "^0.12.0",
