@@ -3,7 +3,7 @@ import { MongoClient } from 'mongodb';
 
 export default class GroupMentionsCommand {
 
-    static identifier = "^\\s*\\,\\s*group\\s*";
+    static identifier = "^\\s*\\,\\s*grupo\\s*";
     static client = new MongoClient(process.env.MONGODB_URI);
 
     static async run(data) {
@@ -18,7 +18,7 @@ export default class GroupMentionsCommand {
             return;
         }
         const functions = ['add', 'exit', 'create', 'delete', 'rename', 'list'];
-        const rest_command = data.text.replace(/\s*,\s*group\s*/, '');
+        const rest_command = data.text.replace(/\s*,\s*grupo\s*/, '');
 
         const has_function = functions.some(func => new RegExp(func, 'i').test(rest_command));
         if (!has_function) {

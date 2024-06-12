@@ -15,7 +15,7 @@ export default class CommandHandler {
 
         for (const [identifier, command] of Object.entries(handler)) {
             if (new RegExp(identifier, 'i').test(text)) {
-                ReactMessage.run(data);
+                await ReactMessage.run(data);
                 command.run({
                     ...data,
                     text: text,

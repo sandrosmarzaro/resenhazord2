@@ -17,6 +17,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,fuck* _@pessoa_
 > Foda a pessoa mencioada mandando uma foto de pornozão pra ela.
 
+- *,grupo*
+> Comando complexo. Use *,menu grupo* para detalhes.
+
 🎲 FUNÇÕES ALEATÓRIAS 🎲
 
 - *,anime* ou *,anime* _nfsw_

@@ -1,14 +1,15 @@
 import Resenhazord2 from '../models/Resenhazord2.js';
 import menu_message from '../../public/messages/menu_message.js'
+import menu_grupo_message from '../../public/messages/menu_grupo_message.js';
 
 export default class MenuCommand {
 
-    static identifier = "^\\s*\\,\\s*menu\\s*$";
+    static identifier = "^\\s*\\,\\s*menu\\s*(?:grupo)?\\s*$";
 
     static async run(data) {
         console.log('MENU COMMAND');
 
-        const menu = menu_message;
+        const menu = data.text.match(/grupo/) ? menu_grupo_message : menu_message;
         try {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
