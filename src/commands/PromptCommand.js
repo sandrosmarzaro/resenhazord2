@@ -12,7 +12,7 @@ export default class PromptCommand {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 
-        const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*prompt\s*/, '');
+        const rest_command = data.text.replace(/\n*\s*\,\s*prompt\s*/, '');
         if (!rest_command) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,

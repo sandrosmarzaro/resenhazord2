@@ -8,7 +8,7 @@ export default class FilmeSerieCommand {
     static async run(data) {
         console.log('FILME SERIE COMMAND');
 
-        const rest_command = data.message.extendedTextMessage.text.replace(/\s*\,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
+        const rest_command = data.text.replace(/\s*\,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
         const mode = rest_command.match(/top/i) ? 'top_rated' : 'popular';
         const type = data.message.extendedTextMessage.text.match(/filme/i) ? 'movie' : 'tv';
         const url = `https://api.themoviedb.org/3/${type}/${mode}`;

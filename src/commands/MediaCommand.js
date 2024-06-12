@@ -9,7 +9,7 @@ export default class MediaCommand {
     static async run(data) {
         console.log('MEDIA COMMAND');
 
-        let url = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*media\s*/, '');
+        let url = data.text.replace(/\n*\s*\,\s*media\s*/, '');
         if (url.length === 0) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,

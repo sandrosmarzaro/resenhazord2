@@ -17,7 +17,7 @@ export default class AllCommand {
         }
 
         const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
-        const text_inserted = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*all\s*/, '');
+        const text_inserted = data.text.replace(/\n*\s*\,\s*all\s*/, '');
         let message = text_inserted.length > 0 ? text_inserted : '';
         message += '\n\n';
         for (const participant of participants) {

@@ -7,7 +7,7 @@ export default class FatoCommand {
     static async run(data) {
         console.log('FATO COMMAND');
 
-        const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*fato\s*/, '');
+        const rest_command = data.text.replace(/\n*\s*\,\s*fato\s*/, '');
         const rest_link = rest_command.match(/hoje/) ? 'today' : 'random';
         let url = `https://uselessfacts.jsph.pl/api/v2/facts/${rest_link}`;
 

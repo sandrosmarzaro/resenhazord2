@@ -23,16 +23,7 @@ export default class StickerCommand {
             return;
         }
 
-        let rest_command = '';
-        if (data.message?.imageMessage?.caption) {
-            rest_command = data.message.imageMessage.caption.replace(/^\s*\,\s*stic\s*/, '');
-        }
-        if (data.message?.videoMessage?.caption) {
-            rest_command = data.message.videoMessage.caption.replace(/^\s*\,\s*stic\s*/, '');
-        }
-        if (has_quoted_media) {
-            rest_command = data.message.extendedTextMessage.text;
-        }
+        const rest_command = data.text.replace(/^\s*\,\s*stic\s*/, '');
         const type = rest_command.length > 0 ? rest_command : 'full';
 
         let message;

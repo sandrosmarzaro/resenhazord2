@@ -9,7 +9,7 @@ export default class PornoCommand {
     static async run(data) {
         console.log('PORNO COMMAND');
 
-        const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*porn.\s*/, '');
+        const rest_command = data.text.replace(/\n*\s*\,\s*porn.\s*/, '');
         const args_command = rest_command.replace(/\s|\n/, '');
         if (args_command) {
             this.ia_porn(data)

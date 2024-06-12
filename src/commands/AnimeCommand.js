@@ -15,7 +15,7 @@ export default class AnimeCommand {
         ];
         const nsfw_tags = ['waifu', 'neko', 'trap', 'blowjob'];
 
-        const rest_command = data.message.extendedTextMessage.text.replace(/^\s*\,\s*anime\s*/, '');
+        const rest_command = data.text.replace(/^\s*\,\s*anime\s*/, '');
         const is_nsfw = rest_command.match(/nsfw/);
 
         let tag;

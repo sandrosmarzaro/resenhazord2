@@ -1,24 +1,26 @@
 import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import ReactMessage from '../Utils/ReactMessage.js';
-import GetGroupExpiration from '../Utils/GetGroupExpiration.js';
+import GetTextMessage from '../utils/GetTextMessage.js';
+import ReactMessage from '../utils/ReactMessage.js';
+import GetGroupExpiration from '../utils/GetGroupExpiration.js';
 
 export default class CommandHandler {
 
     static async run(data) {
         console.log('COMMAND HANDLER');
 
-        const input = data.message?.conversation ||
-                    data.message?.extendedTextMessage?.text ||
-                    data.message?.videoMessage?.caption ||
-                    data.message?.imageMessage?.caption || '';
+        const text = GetTextMessage.run(data);
         const handler = await this.import_comands();
 
         for (const [identifier, command] of Object.entries(handler)) {
-            if (new RegExp(identifier, 'i').test(input)) {
+            if (new RegExp(identifier, 'i').test(text)) {
                 ReactMessage.run(data);
-                command.run({...data, expiration: await GetGroupExpiration.run(data)});
+                command.run({
+                    ...data,
+                    text: text,
+                    expiration: await GetGroupExpiration.run(data)
+                });
             }
         }
     }

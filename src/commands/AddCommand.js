@@ -38,7 +38,7 @@ export default class AddCommand {
             return;
         }
 
-        const rest_command = data.message.extendedTextMessage.text.replace(/\n*\s*\,\s*add\s*/, '');
+        const rest_command = data.text.replace(/\n*\s*\,\s*add\s*/, '');
         const inserted_phone = rest_command.replace(/\s|\n/, '');
         if (inserted_phone.length == 0) {
             this.build_and_send_phone(inserted_phone, data);
@@ -67,8 +67,6 @@ export default class AddCommand {
     }
 
     static async build_and_send_phone(initial_phone, data) {
-        const exp = await Resenhazord2.socket.groupMetadata?.ephemeralDuration ||
-                data.message?.extendedTextMessage?.contextInfo?.expiration;
 
         let is_sucefull = false;
         let tries = 0;
