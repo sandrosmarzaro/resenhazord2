@@ -5,7 +5,11 @@ import Resenhazord2 from '../models/Resenhazord2.js';
 export default class ConnectionUpdateEvent {
 
     static async run(update) {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+
+        if (qr) {
+            console.log('qr code', qr);
+        }
 
         if (connection === 'close') {
             let shouldReconnect = false;
