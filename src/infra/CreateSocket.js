@@ -4,6 +4,7 @@ import pino from "pino";
 export default class CreateSocket {
 
     static config = {
+        qrTimeout: 0,
         printQRInTerminal: false,
         syncFullHistory: false,
         logger: pino({
@@ -15,6 +16,7 @@ export default class CreateSocket {
                 }
             }
         }),
+        generateHighQualityLinkPreview: true
     };
 
     static async getSocket(state) {
