@@ -22,11 +22,13 @@ export default class Rule34Command {
 
                     return imgArray.map( ({src}) => ({ src }));
                 });
+                const banner_url = 'https://kanako.store/products/futa-body';
+                const url = rule34[0]['src'] === banner_url ? rule34[1]['src'] : rule34[0]['src'];
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {
                         viewOnce: true,
-                        image: { url: rule34[0]['src'] },
+                        image: { url: url },
                         caption: 'Aqui está a imagem que você pediu 🤗'
                     },
                     {quoted: data, ephemeralExpiration: data.expiration}
