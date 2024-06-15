@@ -1,0 +1,28 @@
+{
+    "name": "Resenhazord2",
+    "dockerFile": "../Dockerfile",
+    "context": "..",
+    "runArgs": ["--env-file", ".env"],
+    "mounts": [
+        "source=${localWorkspaceFolder}/src/auth/session,target=/workspace/src/auth/session,type=bind"
+    ],
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            },
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "mikestead.dotenv",
+                "Gruntfuggly.todo-tree",
+                "donjayamanne.githistory",
+                "mhutchie.git-graph",
+				"eamodio.gitlens",
+                "GitHub.copilot",
+				"GitHub.copilot-chat"
+            ]
+        }
+    },
+    "remoteUser": "node"
+}
