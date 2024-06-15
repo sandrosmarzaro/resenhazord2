@@ -1,13 +1,7 @@
 FROM node:20-alpine
 
 WORKDIR /app
-COPY package.json yarn.lock ./
 
-RUN yarn install
-
-COPY . .
-
-# Install Chromium and Git
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -19,7 +13,10 @@ RUN apk add --no-cache \
     git \
     bash
 
-# Set environment variables for Puppeteer
+COPY . .
+
+RUN yarn install
+
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
