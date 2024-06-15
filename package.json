@@ -28,7 +28,7 @@
     "google-tts-api": "^2.0.2",
     "link-preview-js": "^3.0.5",
     "mongodb": "^6.7.0",
-    "nayan-media-downloader": "^2.3.2",
+    "nayan-media-downloader": "^2.3.9",
     "nsfwhub": "^0.0.2",
     "pino": "^9.1.0",
     "pino-pretty": "^11.2.0",

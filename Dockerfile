@@ -7,7 +7,7 @@ RUN yarn install
 
 COPY . .
 
-# Install Chromium
+# Install Chromium and Git
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -15,7 +15,9 @@ RUN apk add --no-cache \
     freetype-dev \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    git \
+    bash
 
 # Set environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \

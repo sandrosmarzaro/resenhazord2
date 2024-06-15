@@ -1948,10 +1948,10 @@ napi-build-utils@^1.0.1:
   resolved "https://registry.yarnpkg.com/napi-build-utils/-/napi-build-utils-1.0.2.tgz#b1fddc0b2c46e380a0b7a76f984dd47c41a13806"
   integrity sha512-ONmRUqK7zj7DWX0D9ADe03wbwOBZxNAfF20PlGfCWQcD3+/MakShIHrMqx9YwPTfxDdF1zLeL+RGZiR9kGMLdg==
 
-nayan-media-downloader@^2.3.2:
-  version "2.3.7"
-  resolved "https://registry.yarnpkg.com/nayan-media-downloader/-/nayan-media-downloader-2.3.7.tgz#9e172137dfaebea3c6d22dee4900ebce362f35c4"
-  integrity sha512-SUex0LQAHefbnpX+b9w+5IADRUs5vVe6WZiLBcCkTdxG3cefCAHV4QFOsg0g4BIexUlcSnNbGV90ANJ+4YXC4g==
+nayan-media-downloader@^2.3.9:
+  version "2.3.9"
+  resolved "https://registry.yarnpkg.com/nayan-media-downloader/-/nayan-media-downloader-2.3.9.tgz#68facc8bd455f2bd32521991ad07726e384641fa"
+  integrity sha512-95eNphFLSZop8zvku/7wSTW6bu4IzJRFVvOuj0D0AwjxpTkgxZQZRxnN+FJNmKi+65SO9HKpQtlZHKFOUSt3MQ==
   dependencies:
     axios "^1.6.7"
     cheerio "~1.0.0-rc.5"
