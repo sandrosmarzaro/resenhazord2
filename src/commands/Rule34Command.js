@@ -8,7 +8,10 @@ export default class Rule34Command {
     static async run(data) {
 
         (async () => {
-            const browser = await puppeteer.launch({headless: true});
+            const browser = await puppeteer.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            });
             const page = await browser.newPage();
             await page.goto(`https://rule34.xxx/index.php?page=post&s=random`);
             let rule34;
