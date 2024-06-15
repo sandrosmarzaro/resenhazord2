@@ -6,7 +6,6 @@ export default class AnimeCommand {
     static identifier = "^\\s*\\,\\s*anime\\s*(?:nsfw|sfw)?\\s*$";
 
     static async run(data) {
-        console.log('ANIME COMMAND');
 
         const sfw_tags = [
             'waifu', 'neko', 'shinobu', 'megumin', 'bully', 'cuddle', 'cry', 'hug', 'awoo', 'kiss', 'lick',
@@ -27,7 +26,6 @@ export default class AnimeCommand {
         axios.get(url)
             .then(response => {
                 const anime = response.data;
-                console.log('anime', anime);
                 let content = {
                     viewOnce: true,
                     caption: `Aqui está uma foto de anime para você! 😊`
@@ -45,7 +43,7 @@ export default class AnimeCommand {
                 );
             })
             .catch(error => {
-                console.error('ERROR ANIME COMMAND', error);
+                Resenhazord2.bugsnag.notify(`ERROR ANIME COMMAND\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Viiixxiii... Não consegui baixar a foto! 🥺👉👈'},

@@ -7,7 +7,6 @@ export default class MenuCommand {
     static identifier = "^\\s*\\,\\s*menu\\s*(?:grupo)?\\s*$";
 
     static async run(data) {
-        console.log('MENU COMMAND');
 
         const menu = data.text.match(/grupo/) ? menu_grupo_message : menu_message;
         try {
@@ -18,8 +17,7 @@ export default class MenuCommand {
             );
         }
         catch (error) {
-            console.error('ERROR MENU COMMAND', error);
-
+            Resenhazord2.bugsnag.notify(`ERROR MENU COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Viiixxiii.. Não consegui exibir o menu! 🥺👉👈'},

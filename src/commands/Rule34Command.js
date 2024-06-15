@@ -6,7 +6,6 @@ export default class Rule34Command {
     static identifier = "^\\s*\\,\\s*rule34\\s*$";
 
     static async run(data) {
-        console.log('RULE34 COMMAND');
 
         (async () => {
             const browser = await puppeteer.launch({headless: true});
@@ -20,7 +19,6 @@ export default class Rule34Command {
 
                     return imgArray.map( ({src}) => ({ src }));
                 });
-                console.log('rule34', rule34[0]['src']);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {
@@ -32,7 +30,7 @@ export default class Rule34Command {
                 );
             }
             catch (error) {
-                console.error('RULE34 COMMAND ERROR', error);
+                Resenhazord2.bugsnag.notify(`RULE34 COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Não consegui encontrar nada para você 😔'},

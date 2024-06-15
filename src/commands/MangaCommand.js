@@ -6,7 +6,6 @@ export default class MangaCommand {
     static identifier = "^\\s*\\,\\s*manga\\s*$";
 
     static async run(data) {
-        console.log('MANGA COMMAND');
 
         const base_url = 'https://api.jikan.moe/v4/random/manga';
         axios.get(base_url)
@@ -25,7 +24,6 @@ export default class MangaCommand {
                 caption += `📚 Temas: ${themes || 'Nenhum'}\n`;
                 caption += `🖋 Autores: ${authors || 'Desconhecido'}`;
 
-                console.log('manga', manga);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {image: {url: image}, caption: caption, viewOnce: true},
@@ -33,7 +31,7 @@ export default class MangaCommand {
                 );
             })
             .catch(error => {
-                console.error('MANGA COMMAND ERROR', error);
+                Resenhazord2.bugsnag.notify(`MANGA COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: `Viiixxiii... Não consegui encontrar seu manga! 🥺👉👈`},

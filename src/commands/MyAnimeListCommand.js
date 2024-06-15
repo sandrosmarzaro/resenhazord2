@@ -6,7 +6,6 @@ export default class MyAnimeListCommand {
     static identifier = "^\\s*\\,\\s*mal\\s*$";
 
     static async run(data) {
-        console.log('MYANIMELIST COMMAND');
 
         const url = 'https://api.jikan.moe/v4/random/anime';
         axios.get(url)
@@ -25,7 +24,6 @@ export default class MyAnimeListCommand {
                 caption += `📚 Temas: ${themes || 'Nenhum'}\n`;
                 caption += `⛩ Estúdios: ${studios || 'Desconhecido'}`;
 
-                console.log('myanimelist', anime);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { image: { url: image }, caption: caption, viewOnce: true },
@@ -33,7 +31,7 @@ export default class MyAnimeListCommand {
                 );
             })
             .catch(error => {
-                console.error('MYANIMELIST COMMAND ERROR', error);
+                Resenhazord2.bugsnag.notify(`MYANIMELIST COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { text: `Viiixxiii... Não consegui encontrar seu anime! 🥺👉👈` },

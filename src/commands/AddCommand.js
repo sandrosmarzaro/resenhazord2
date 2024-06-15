@@ -13,7 +13,6 @@ export default class AddCommand {
     ];
 
     static async run(data) {
-        console.log('ADD COMMAND');
 
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
@@ -71,9 +70,7 @@ export default class AddCommand {
         let is_sucefull = false;
         let tries = 0;
         const is_complete_phone = initial_phone.length >= 10;
-        console.log('is complete phone:', is_complete_phone);
         do {
-            console.log('------------------- new loop -------------------');
             let generated_phone = '';
             if (initial_phone.length === 0) {
                 let random_ddd = this.DDD_LIST[Math.floor(Math.random() * this.DDD_LIST.length)];
@@ -91,22 +88,18 @@ export default class AddCommand {
                 }
             }
 
-            console.log(`start phone: ${generated_phone}`);
             if (!is_complete_phone) {
                 let size_phone = Math.random() < 0.5 ? 11 : 10;
-                console.log('size:', size_phone);
 
                 while (generated_phone.length != size_phone) {
                     generated_phone += Math.floor(Math.random() * 10);
                 }
-                console.log('generated phone:', generated_phone);
             }
             else {
                 is_sucefull = true;
             }
 
             const consult = await Resenhazord2.socket.onWhatsApp(`55${generated_phone}`);
-            console.log('consult:', consult);
             if (consult[0]?.exists || is_complete_phone) {
                 try {
                     const id = consult[0]?.exists ? consult[0]?.jid : '55' + initial_phone + '@s.whatsapp.net';
@@ -117,7 +110,7 @@ export default class AddCommand {
                     );
                 }
                 catch (error) {
-                    console.error('ERROR ADD COMMAND', error);
+                    Resenhazord2.bugsnag.notify(`ERROR ADD COMMAND\n${error}`);
                     Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {text: `Não consegui adicionar o número ${generated_phone} 😔`},
@@ -131,7 +124,5 @@ export default class AddCommand {
             }
             tries++;
         } while (!is_sucefull);
-        console.log('------------------- end loop -------------------')
-        console.log('tries:', tries);
     }
 }

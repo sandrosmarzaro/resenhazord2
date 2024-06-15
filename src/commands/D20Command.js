@@ -5,7 +5,6 @@ export default class D20Command {
     static identifier = "^\\s*\\,\\s*d20\\s*$";
 
     static async run (data) {
-        console.log('D20 COMMAND');
 
         const d20 = Math.floor(Math.random() * 20) + 1;
         try {
@@ -16,8 +15,7 @@ export default class D20Command {
             );
         }
         catch (error) {
-            console.error('ERROR D20 COMMAND', error);
-
+            Resenhazord2.bugsnag.notify(`ERROR D20 COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui te dar uma rolada... 😔'},

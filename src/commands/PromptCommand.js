@@ -6,7 +6,6 @@ export default class PromptCommand {
     static identifier = "^\\s*\\,\\s*prompt\\s*";
 
     static async run(data) {
-        console.log('PROMPT COMMAND');
 
         const { GEMINI_API_KEY } = process.env;
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -45,14 +44,13 @@ export default class PromptCommand {
             const result = await model.generateContent(prompt);
             const { response } = result;
             const text = response.text();
-            console.log('prompt', response);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: text},
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
-            console.error('ERROR PROMPT COMMAND', error);
+            Resenhazord2.bugsnag.notify(`ERROR PROMPT COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui responder a sua pergunta 😔`},

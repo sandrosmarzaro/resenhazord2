@@ -5,7 +5,6 @@ export default class OiCommand {
     static identifier = "^\\s*\\,\\s*oi\\s*$";
 
     static async run(data) {
-        console.log('OI COMMAND');
 
         const sender_phone = data.key.participant.replace('@s.whatsapp.net', '');
         try {
@@ -18,8 +17,7 @@ export default class OiCommand {
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
-            console.error('ERROR OI COMMAND', error);
-
+            Resenhazord2.bugsnag.notify(`ERROR OI COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui responder @${sender_phone} 😔`, mentions: [data.key.participant]},

@@ -6,13 +6,11 @@ export default class MealRecipesCommand {
     static identifier = "^\\s*\\,\\s*comida\\s*$";
 
     static async run(data) {
-        console.log('MEAL RECIPES COMMAND');
 
         const url = 'https://www.themealdb.com/api/json/v1/1/random.php';
         axios.get(url)
             .then(response => {
                 const meal = response.data.meals[0];
-                console.log('meal', meal);
 
                 let caption = '';
                 caption += `*${meal.strMeal}*\n\n`;
@@ -42,8 +40,7 @@ export default class MealRecipesCommand {
                 );
             })
             .catch (error => {
-                console.error('ERROR MEAL RECIPES COMMAND', error);
-
+                Resenhazord2.bugsnag.notify(`ERROR MEAL RECIPES COMMAND\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Viiixxiii... Não consegui te dar uma comida! 🥺👉👈'},

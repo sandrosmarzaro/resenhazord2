@@ -8,8 +8,6 @@ import GetGroupExpiration from '../utils/GetGroupExpiration.js';
 export default class CommandHandler {
 
     static async run(data) {
-        console.log('COMMAND HANDLER');
-
         const text = GetTextMessage.run(data);
         const handler = await this.import_comands();
 

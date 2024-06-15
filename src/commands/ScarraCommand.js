@@ -5,7 +5,6 @@ export default class ScarraCommand {
     static identifier = "^\\s*\\,\\s*scarra\\s*$";
 
     static async run(data) {
-        console.log('SCARRA COMMAND');
 
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
@@ -62,7 +61,7 @@ export default class ScarraCommand {
             }
         }
         Resenhazord2.socket.relayMessage(data.key.remoteJid, parsed_message, { }).catch(error => {
-            console.error('ERROR SCARRA COMMAND', error)
+            Resenhazord2.bugsnag.notify(`ERROR SCARRA COMMAND\n${error}`)
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui escarrar! 😔`},

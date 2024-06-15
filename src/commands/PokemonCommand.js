@@ -6,7 +6,6 @@ export default class PokemonCommand {
     static identifier = "^\\s*\\,\\s*pok.mon\\s*$";
 
     static async run(data) {
-        console.log('POKEMON COMMAND');
 
         const url = 'https://pokeapi.co/api/v2/pokemon/';
         const pokemon_id = Math.floor(Math.random() * 1025) + 1;
@@ -21,7 +20,6 @@ export default class PokemonCommand {
                 } else {
                     poke_image_url = pokemon.sprites.front_default;
                 }
-                console.log('pokemon', poke_image_url);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {
@@ -33,7 +31,7 @@ export default class PokemonCommand {
                 );
             })
             .catch(error => {
-                console.error('POKEMON COMMAND ERROR', error);
+                Resenhazord2.bugsnag.notify(`POKEMON COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { text: 'Viiixxiii... Não consegui baixar o pokémon! 🥺👉👈' },

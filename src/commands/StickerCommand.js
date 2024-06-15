@@ -9,7 +9,6 @@ export default class StickerCommand {
     static identifier = "^\\s*\\,\\s*stic\\s*(?:crop|full|circle|rounded)?\\s*$";
 
     static async run(data) {
-        console.log('STICKER COMMAND');
 
         const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
         const has_quoted_media = data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
@@ -56,7 +55,7 @@ export default class StickerCommand {
             );
         }
         catch (error) {
-            console.error('ERROR STICKER COMMAND', error);
+            Resenhazord2.bugsnag.notify(`ERROR STICKER COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui criar a figurinha! 😔`},

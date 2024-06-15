@@ -6,7 +6,6 @@ export default class AudioCommand {
     static identifier = "^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?";
 
     static async run(data) {
-        console.log('AUDIO COMMAND');
 
         const rest_command = data.text.replace(/\n*\s*\,\s*.udio\s*/, '');
         const is_language_inserted = rest_command.match(/^[A-Za-z]{2}\s*\-\s*[A-Za-z]{2}/);
@@ -54,7 +53,6 @@ export default class AudioCommand {
             host: 'https://translate.google.com',
             splitPunct: '.!?;:'
         });
-        console.log('audio', audio_urls);
 
         const char_limit = 200;
         if (!(text.length > char_limit)) {

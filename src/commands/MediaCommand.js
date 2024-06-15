@@ -7,7 +7,6 @@ export default class MediaCommand {
     static identifier = "^\\s*\\,\\s*media\\s*";
 
     static async run(data) {
-        console.log('MEDIA COMMAND');
 
         let url = data.text.replace(/\n*\s*\,\s*media\s*/, '');
         if (url.length === 0) {
@@ -23,8 +22,6 @@ export default class MediaCommand {
         url = url.replace(/\/\?.*$/, '/');
 
         const response = await alldown(url);
-        console.log('url', url);
-        console.log('media', response);
         if (!response.status) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,

@@ -6,7 +6,6 @@ export default class Heartstone {
     static identifier = "^\\s*\\,\\s*hs\\s*$";
 
     static async run(data) {
-        console.log('HEARTSTONE COMMAND');
 
         const { BNET_ID, BNET_SECRET } = process.env;
         const access_token = await this.get_access_token(BNET_ID, BNET_SECRET);
@@ -43,7 +42,6 @@ export default class Heartstone {
             });
 
             const card = response.data.cards[0];
-            console.log('hearthstone', card);
             let description = card.text.replace(/\<\/?b\>/g, '*');
             description = description.replace(/\<\/?i\>/g, '_');
             const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
@@ -54,7 +52,7 @@ export default class Heartstone {
             );
         }
         catch (error) {
-            console.error('HEARTHSTONE COMMAND ERROR ', error);
+            Resenhazord2.bugsnag.notify(`HEARTHSTONE COMMAND ERROR\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui buscar as cartas do Hearthstone, manda a Blizzard tomar no cu! 🤷‍♂️`},
@@ -78,7 +76,7 @@ export default class Heartstone {
             return response.data.access_token;
         }
         catch (error) {
-            console.error('Error fetching access token:', error);
+            Resenhazord2.bugsnag.notify(`ERROR HEARTHSTONE COMMAND\n${error}`);
             return null;
         }
     }

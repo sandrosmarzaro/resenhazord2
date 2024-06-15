@@ -6,15 +6,12 @@ export default class YugiohCommand {
     static identifier = "^\\s*\\,\\s*ygo\\s*$";
 
     static async run(data) {
-        console.log('YUGIOH COMMAND');
 
         const url = 'https://db.ygoprodeck.com/api/v7/randomcard.php';
         axios.get(url)
             .then(response => {
                 const card = response.data;
                 const card_image = card.card_images[0].image_url;
-                console.log('yugioh', card_image);
-
                 card.desc = card.desc.replace(/\n/g, '');
 
                 Resenhazord2.socket.sendMessage(
@@ -28,8 +25,7 @@ export default class YugiohCommand {
                 );
             })
             .catch(error => {
-                console.error('YUGIOH COMMAND ERROR', error);
-
+                Resenhazord2.bugsnag.notify(`YUGIOH COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text:'Viiixxiii... Não consegui baixar a carta! 🥺👉👈'},

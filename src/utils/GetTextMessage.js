@@ -1,5 +1,3 @@
-import Resenhazord2 from "../models/Resenhazord2.js";
-
 export default class GetTextMessage {
 
     static run(data) {

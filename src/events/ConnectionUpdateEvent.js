@@ -8,7 +8,7 @@ export default class ConnectionUpdateEvent {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log('qr code', qr);
+            Resenhazord2.bugsnag.notify(`qrcode: ${qr}`);
         }
 
         if (connection === 'close') {
@@ -19,15 +19,15 @@ export default class ConnectionUpdateEvent {
                     shouldReconnect = true;
                 }
             }
-            console.log('connection closed due to ', lastDisconnect.error, ', reconnecting ', shouldReconnect);
-
+            Resenhazord2.bugsnag.notify(`connection closed due to ${lastDisconnect.error}`);
+            Resenhazord2.bugsnag.notify(`reconnecting ${shouldReconnect}`)
             if (shouldReconnect) {
                 await Resenhazord2.connectToWhatsApp();
                 Resenhazord2.handlerEvents();
             }
         }
         else if (connection === 'open') {
-            console.log('opened connection');
+            Resenhazord2.bugsnag.notify('opened connection');
         }
     }
 }

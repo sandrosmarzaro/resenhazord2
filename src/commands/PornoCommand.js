@@ -7,15 +7,24 @@ export default class PornoCommand {
     static identifier = "^\\s*\\,\\s*porno\\s*(?:ia)?\\s*$";
 
     static async run(data) {
-        console.log('PORNO COMMAND');
 
         const rest_command = data.text.replace(/\n*\s*\,\s*porn.\s*/, '');
         const args_command = rest_command.replace(/\s|\n/, '');
-        if (args_command) {
-            this.ia_porn(data)
+        try {
+            if (args_command) {
+                this.ia_porn(data)
+            }
+            else {
+                this.real_porn(data)
+            }
         }
-        else {
-            this.real_porn(data)
+        catch (error) {
+            Resenhazord2.bugsnag.notify(`ERROR PORN COMMAND\n${error}`);
+            await Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
         }
     }
 
@@ -30,26 +39,15 @@ export default class PornoCommand {
         ];
         const tag = tags[Math.floor(Math.random() * tags.length)];
         const porn = await nsfw.fetch(tag);
-        console.log('porno', porn);
-        try {
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {
-                    viewOnce: true,
-                    video: {url: porn.image.url},
-                    caption: 'Aqui está seu vídeo 🤤'
-                },
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-        }
-        catch (error) {
-            console.error(`PORN COMMAND ERROR: ${error}`);
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-        }
+        await Resenhazord2.socket.sendMessage(
+            data.key.remoteJid,
+            {
+                viewOnce: true,
+                video: {url: porn.image.url},
+                caption: 'Aqui está seu vídeo 🤤'
+            },
+            {quoted: data, ephemeralExpiration: data.expiration}
+        );
     }
 
     static async real_porn(data) {
@@ -58,25 +56,15 @@ export default class PornoCommand {
 
         const videos = await client.getShortVideos("random");
         const video = videos[Math.floor(Math.random() * videos.length)];
-        console.log('porno', video);
-        try {
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {
-                    viewOnce: true,
-                    video: {url: video},
-                    caption: 'Aqui está seu vídeo 🤤'
-                },
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-        }
-        catch (error) {
-            console.error(`PORN COMMAND ERROR: ${error}`);
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-        }
+
+        await Resenhazord2.socket.sendMessage(
+            data.key.remoteJid,
+            {
+                viewOnce: true,
+                video: {url: video},
+                caption: 'Aqui está seu vídeo 🤤'
+            },
+            {quoted: data, ephemeralExpiration: data.expiration}
+        );
     }
 }

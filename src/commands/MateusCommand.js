@@ -5,7 +5,6 @@ export default class MateusCommand {
     static identifier = "^\\s*\\,\\s*mateus\\s*$";
 
     static async run(data) {
-        console.log('MATEUS COMMAND');
 
         const probability = (Math.random() * 101).toFixed(2).replace('.', ',');
         try {
@@ -15,7 +14,7 @@ export default class MateusCommand {
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
-            console.error('ERROR MATEUS COMMAND', error);
+            Resenhazord2.bugsnag.notify(`ERROR MATEUS COMMAND\n${error}`);
         }
     }
 }

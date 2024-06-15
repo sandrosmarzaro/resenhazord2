@@ -6,7 +6,6 @@ export default class FilmeSerieCommand {
     static identifier = "^\\s*\\,\\s*(?:filme|s.rie)\\s*(?:top|pop)?\\s*$";
 
     static async run(data) {
-        console.log('FILME SERIE COMMAND');
 
         const rest_command = data.text.replace(/\s*\,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
         const mode = rest_command.match(/top/i) ? 'top_rated' : 'popular';
@@ -25,7 +24,6 @@ export default class FilmeSerieCommand {
             const jobs = response.data.results;
             const job = jobs[Math.floor(Math.random() * jobs.length)];
             const poster_url = `https://image.tmdb.org/t/p/w500${job.poster_path}`
-            console.log('filme serie', poster_url);
 
             const genres_url = `https://api.themoviedb.org/3/genre/${type}/list`
             const genres_response = await axios.get(genres_url, {
@@ -53,7 +51,7 @@ export default class FilmeSerieCommand {
             );
         }
         catch (error) {
-            console.error('ERROR FILME SERIE COMMAND', error);
+            Resenhazord2.bugsnag.notify(`ERROR FILME SERIE COMMAND\n${error}`);
             const message = type === 'movie' ? 'seu filminho' : 'sua seriezinha';
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,

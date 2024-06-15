@@ -5,7 +5,6 @@ export default class AllCommand {
     static identifier = "^\\s*\\,\\s*all\\s*";
 
     static async run(data) {
-        console.log('ALL COMMAND');
 
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(

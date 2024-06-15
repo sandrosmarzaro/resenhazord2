@@ -6,7 +6,6 @@ export default class FuckCommand {
     static identifier = "^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$";
 
     static async run(data) {
-        console.log('FUCK COMMAND');
 
         if (!data.key.remoteJid.match(/g.us/)) {
             Resenhazord2.socket.sendMessage(
@@ -22,7 +21,6 @@ export default class FuckCommand {
 
         const nsfw = new NSFW();
         const porn = await nsfw.fetch("fuck");
-        console.log('fuck', porn);
         try {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
@@ -35,7 +33,7 @@ export default class FuckCommand {
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
-            console.error('ERROR FUCK COMMAND', error);
+            Resenhazord2.bugsnag.notify(`ERROR FUCK COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui foder @${sender_phone} 😔`, mentions: [data.key.participant]},
