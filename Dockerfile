@@ -1,7 +1,5 @@
 FROM node:20-alpine
 
-WORKDIR /app
-
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -15,6 +13,7 @@ RUN apk add --no-cache \
 
 COPY . .
 
+RUN yarn install
 RUN yarn add --platform=linuxmusl --arch=x64 sharp --legacy-peer-deps
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
