@@ -25,6 +25,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 - *,anime* ou *,anime* _nfsw_
 > Receba uma imagem aleatória de anime, podendo ser +18.
 
+- *,biblia*
+> Comando complexo. Use *,menu biblia* para detalhes.
+
 - *,comida*
 > Receba aleatoriamente uma receita e suas intruções em inglês.
 

@@ -47,9 +47,9 @@ export default class BibliaCommand {
         const book = rest_command
         const chapter = data.text.match(/\d{1,3}:/)[0].replace(':', '');
         const has_range = data.text.match(/-\s*\d{1,3}/);
-        const number = !has_range ?
-            data.text.match(/:\s*\d{1,3}/)[0].replace(':', '') :
-            data.text.match(/\d{1,3}\s*-\s*\d{1,3}/)[0].split('-').map(n => n.trim());
+        const number = has_range ?
+            data.text.match(/\d{1,3}\s*-\s*\d{1,3}/)[0].split('-').map(n => n.trim()) :
+            data.text.match(/:\s*\d{1,3}/)[0].replace(':', '');
 
         let abbrev;
         await axios.get(`${base_url}/books`, { headers })

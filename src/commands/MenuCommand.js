@@ -1,6 +1,7 @@
 import Resenhazord2 from '../models/Resenhazord2.js';
 import menu_message from '../../public/messages/menu_message.js'
 import menu_grupo_message from '../../public/messages/menu_grupo_message.js';
+import menu_biblia_message from '../../public/messages/menu_biblia_message.js';
 
 export default class MenuCommand {
 
@@ -8,7 +9,20 @@ export default class MenuCommand {
 
     static async run(data) {
 
-        const menu = data.text.match(/grupo/) ? menu_grupo_message : menu_message;
+        const menuMapping = {
+            grupo: menu_grupo_message,
+            biblia: menu_biblia_message
+        };
+        for (let key in menuMapping) {
+            if (data.text.match(new RegExp(key, 'i'))) {
+                menu = menuMapping[key];
+                break;
+            }
+        }
+        if (!menu) {
+            menu = menu_message;
+        }
+
         try {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
