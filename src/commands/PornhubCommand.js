@@ -14,7 +14,16 @@ export default class PornhubCommand {
         let tries = 0;
         do {
             video = await pornhub.randomVideo();
-            has_240p = video.mediaDefinitions.some(media => media.quality === 240 || media.quality.includes(240));
+            Resenhazord2.bugsnag.notify(`VIDEO\n${JSON.stringify(video)}`);
+            video.mediaDefinitions.forEach(media => {
+                if (typeof media.quality === 'number') {
+                    has_240p = media.quality === 240;
+                }
+                else {
+                    has_240p = media.quality.includes(240);
+                }
+            });
+
             if (!has_240p) {
                 tries++;
             }
