@@ -1,5 +1,6 @@
 import Resenhazord2 from "../models/Resenhazord2.js";
 import { PornHub } from "pornhub.js";
+import m3u8tomp4 from 'm3u8tomp4';
 
 export default class PornhubCommand {
 
@@ -12,15 +13,17 @@ export default class PornhubCommand {
         let video;
         let has_240p = false;
         let tries = 0;
-        let url;
+        let m3u8_url;
         do {
             video = await pornhub.randomVideo();
-            video.mediaDefinitions.forEach(media => {
-                if (typeof media.quality === 'number' && media.quality === 240) {
-                    has_240p = media.quality === 240;
-                    url = media.videoUrl;
-                }
-            });
+            if (!video.premium) {
+                video.mediaDefinitions.forEach(media => {
+                    if (typeof media.quality === 'number' && media.quality === 240) {
+                        has_240p = media.quality === 240;
+                        m3u8_url = media.videoUrl;
+                    }
+                });
+            }
 
             if (!has_240p) {
                 tries++;
@@ -35,15 +38,32 @@ export default class PornhubCommand {
             }
         } while (!has_240p);
 
-        const caption = `🔞 *${video.title || 'Aqui está seu vídeo 🤤'}* 🔞`;
-        Resenhazord2.socket.sendMessage(
-            data.key.remoteJid,
-            {
-                viewOnce: true,
-                caption: caption,
-                video: { url: url }
-            },
-            {quoted: data, ephemeralExpiration: data.expiration}
-        );
+        const converter = new m3u8tomp4();
+        try {
+            await converter
+                .setInputFile(m3u8_url)
+                .setOutputFile('../../public/videos/pornhub.mp4')
+                .start();
+
+            const caption = `🔞 *${video.title || 'Aqui está seu vídeo 🤤'}* 🔞`;
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {
+                    viewOnce: true,
+                    caption: caption,
+                    video: { url:  '../../public/videos/pornhub.mp4' }
+                },
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+        }
+        catch (error) {
+            Resenhazord2.bugsnag.notify(`ERROR PORNHUB COMMAND\n${error}`);
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+            return;
+        }
     }
 }
