@@ -56,7 +56,7 @@ export default class BibliaCommand {
         .then(response => {
             const books = response.data;
 
-            abbrev = books.find(b => b.name === book)?.abbrev?.pt;
+            abbrev = books.find(b => b.name.toLowerCase() === book.toLowerCase())?.abbrev?.pt;
             if (!abbrev) {
                 const book_names = books.map(b => `- ${b.name}`).join('\n');
                 let text = 'Não consegui encontrar o livro que você digitou... 😔'
@@ -70,7 +70,7 @@ export default class BibliaCommand {
                 return;
             }
         }).catch(error => {
-            this.raise_generic_error(data,error);
+            this.raise_generic_error(data, error);
         });
 
         if (!has_range) {
@@ -80,7 +80,7 @@ export default class BibliaCommand {
             .then(response => {
                 this.send_verse(data, response.data);
             }).catch(error => {
-                this.raise_generic_error(data,error);
+                this.raise_generic_error(data, error);
             });
             return;
         }
