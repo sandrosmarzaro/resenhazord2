@@ -678,9 +678,9 @@ bare-fs@^2.1.1:
     bare-stream "^2.0.0"
 
 bare-os@^2.1.0:
-  version "2.3.0"
-  resolved "https://registry.yarnpkg.com/bare-os/-/bare-os-2.3.0.tgz#718e680b139effff0624a7421c098e7a2c2d63da"
-  integrity sha512-oPb8oMM1xZbhRQBngTgpcQ5gXw6kjOaRsSWsIeNyRxGed2w/ARyP7ScBYpWR1qfX2E5rS3gBw6OWcSQo+s+kUg==
+  version "2.4.0"
+  resolved "https://registry.yarnpkg.com/bare-os/-/bare-os-2.4.0.tgz#5de5e3ba7704f459c9656629edca7cc736e06608"
+  integrity sha512-v8DTT08AS/G0F9xrhyLtepoo9EJBJ85FRSMbu1pQUlAf6A8T0tEEQGMVObWeqpjhSPXsE0VGlluFBJu2fdoTNg==
 
 bare-path@^2.0.0, bare-path@^2.1.0:
   version "2.1.3"
@@ -690,9 +690,9 @@ bare-path@^2.0.0, bare-path@^2.1.0:
     bare-os "^2.1.0"
 
 bare-stream@^2.0.0:
-  version "2.1.2"
-  resolved "https://registry.yarnpkg.com/bare-stream/-/bare-stream-2.1.2.tgz#46a1bec0a10946608ade369c170179706b9e8e1c"
-  integrity sha512-az/7TFOh4Gk9Tqs1/xMFq5FuFoeZ9hZ3orsM2x69u8NXVUDXZnpdhG8mZY/Pv6DF954MGn+iIt4rFrG34eQsvg==
+  version "2.1.3"
+  resolved "https://registry.yarnpkg.com/bare-stream/-/bare-stream-2.1.3.tgz#070b69919963a437cc9e20554ede079ce0a129b2"
+  integrity sha512-tiDAH9H/kP+tvNO5sczyn9ZAA7utrSMobyDchsnyyXBuUe2FSQWbxhtuHB8jwpHYYevVo2UJpcmvvjrbHboUUQ==
   dependencies:
     streamx "^2.18.0"
 
@@ -2955,9 +2955,9 @@ thread-stream@^0.15.1:
     real-require "^0.1.0"
 
 thread-stream@^3.0.0:
-  version "3.0.2"
-  resolved "https://registry.yarnpkg.com/thread-stream/-/thread-stream-3.0.2.tgz#ff6c557ed0cdd1f6c82b802481fbc22e11b8a006"
-  integrity sha512-cBL4xF2A3lSINV4rD5tyqnKH4z/TgWPvT+NaVhJDSwK962oo/Ye7cHSMbDzwcu7tAE1SfU6Q4XtV6Hucmi6Hlw==
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/thread-stream/-/thread-stream-3.1.0.tgz#4b2ef252a7c215064507d4ef70c05a5e2d34c4f1"
+  integrity sha512-OqyPZ9u96VohAyMfJykzmivOrY2wfMSf3C5TtFJVgN+Hm6aj+voFhlK+kZEIv2FBh1X6Xp3DlnCOfEQ3B2J86A==
   dependencies:
     real-require "^0.2.0"
 
