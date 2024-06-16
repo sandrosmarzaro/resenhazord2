@@ -9,13 +9,14 @@ export default class MenuCommand {
 
     static async run(data) {
 
-        const menuMapping = {
+        let menu;
+        const menu_handler = {
             grupo: menu_grupo_message,
             biblia: menu_biblia_message
         };
-        for (let key in menuMapping) {
+        for (let key in menu_handler) {
             if (data.text.match(new RegExp(key, 'i'))) {
-                menu = menuMapping[key];
+                menu = menu_handler[key];
                 break;
             }
         }
