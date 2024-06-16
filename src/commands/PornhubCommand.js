@@ -7,14 +7,25 @@ export default class PornhubCommand {
 
     static async run(data) {
 
-        const random_url = 'https://pt.pornhub.com/random';
         const pornhub = new PornHub();
 
         let video;
         let has_240p = false;
+        let tries = 0;
         do {
-            video = await pornhub.getVideo(random_url);
+            video = await pornhub.randomVideo();
             has_240p = video.mediaDefinitions.some(media => media.quality === 240 || media.quality.includes(240));
+            if (!has_240p) {
+                tries++;
+            }
+            if (tries > 500) {
+                Resenhazord2.socket.sendMessage(
+                    data.key.remoteJid,
+                    {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
+                    {quoted: data, ephemeralExpiration: data.expiration}
+                );
+                return;
+            }
         } while (!has_240p);
 
         const caption = `🔞 *${video.title || 'Aqui está seu vídeo 🤤'}* 🔞`;
