@@ -1,6 +1,6 @@
 import Resenhazord2 from "../models/Resenhazord2.js";
 import { PornHub } from "pornhub.js";
-import m3u8tomp4 from 'm3u8tomp4';
+import m3u8ToMp4 from "m3u8-to-mp4";
 
 export default class PornhubCommand {
 
@@ -38,7 +38,7 @@ export default class PornhubCommand {
             }
         } while (!has_240p);
 
-        const converter = new m3u8tomp4();
+        const converter = new m3u8ToMp4();
         try {
             await converter
                 .setInputFile(m3u8_url)

@@ -1536,6 +1536,11 @@ fs-extra@^11.2.0:
     jsonfile "^6.0.1"
     universalify "^2.0.0"
 
+fs@0.0.1-security:
+  version "0.0.1-security"
+  resolved "https://registry.yarnpkg.com/fs/-/fs-0.0.1-security.tgz#8a7bd37186b6dddf3813f23858b57ecaaf5e41d4"
+  integrity sha512-3XY9e1pP0CVEUCdj5BmfIZxRBTSDycnbqhIOGec9QYtmVH2fbLpj86CFWkrNOkt/Fvty4KZG5lTglL9j/gJ87w==
+
 function-bind@^1.1.2:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/function-bind/-/function-bind-1.1.2.tgz#2c02d864d97f3ea6c8830c464cbd11ab6eab7a1c"
@@ -2034,6 +2039,14 @@ m3u8-parser@^4.8.0:
     "@babel/runtime" "^7.12.5"
     "@videojs/vhs-utils" "^3.0.5"
     global "^4.4.0"
+
+m3u8-to-mp4@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/m3u8-to-mp4/-/m3u8-to-mp4-1.0.0.tgz#6510c8bc58f4135085dac5bc90328180f42f0a98"
+  integrity sha512-TWZgOuOzYFgLxRyl/971nvxZPx6of4hET1y+h/YZPEKIrla18M6cHZZk6pVBH1cZL2aDiCC2TRcS+YTL3blDWA==
+  dependencies:
+    fluent-ffmpeg "^2.1.2"
+    fs "0.0.1-security"
 
 m3u8stream@^0.8.6:
   version "0.8.6"
