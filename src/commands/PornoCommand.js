@@ -39,13 +39,19 @@ export default class PornoCommand {
         ];
         const tag = tags[Math.floor(Math.random() * tags.length)];
         const porn = await nsfw.fetch(tag);
+        let content = {
+            viewOnce: true,
+            caption: 'Aqui está seu vídeo 🤤'
+        }
+        if (porn.image.url.endsWith('.mp4') || porn.image.url.endsWith('.gif')) {
+            content.video = { url: porn.image.url }
+        }
+        else {
+            content.image = { url: porn.image.url }
+        }
         await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
-            {
-                viewOnce: true,
-                video: {url: porn.image.url},
-                caption: 'Aqui está seu vídeo 🤤'
-            },
+            content,
             {quoted: data, ephemeralExpiration: data.expiration}
         );
     }
