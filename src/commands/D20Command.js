@@ -15,7 +15,7 @@ export default class D20Command {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR D20 COMMAND\n${error}`);
+            console.log(`ERROR D20 COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui te dar uma rolada... 😔'},

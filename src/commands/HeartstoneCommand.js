@@ -52,7 +52,7 @@ export default class Heartstone {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`HEARTHSTONE COMMAND ERROR\n${error}`);
+            console.log(`HEARTHSTONE COMMAND ERROR\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui buscar as cartas do Hearthstone, manda a Blizzard tomar no cu! 🤷‍♂️`},
@@ -76,7 +76,7 @@ export default class Heartstone {
             return response.data.access_token;
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR HEARTHSTONE COMMAND\n${error}`);
+            console.log(`ERROR HEARTHSTONE COMMAND\n${error}`);
             return null;
         }
     }

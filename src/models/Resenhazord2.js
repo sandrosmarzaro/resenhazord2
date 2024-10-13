@@ -7,7 +7,6 @@ export default class Resenhazord2 {
 
     static auth_state = null;
     static socket = null;
-    static bugsnag = null;
 
     static async connectToWhatsApp() {
         this.auth_state = await CreateAuthState.getAuthState();

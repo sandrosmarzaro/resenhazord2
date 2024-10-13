@@ -33,7 +33,7 @@ export default class FuckCommand {
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR FUCK COMMAND\n${error}`);
+            console.log(`ERROR FUCK COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui foder @${sender_phone} 😔`, mentions: [data.key.participant]},

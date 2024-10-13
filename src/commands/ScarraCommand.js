@@ -61,7 +61,7 @@ export default class ScarraCommand {
             }
         }
         Resenhazord2.socket.relayMessage(data.key.remoteJid, parsed_message, { }).catch(error => {
-            Resenhazord2.bugsnag.notify(`ERROR SCARRA COMMAND\n${error}`)
+            console.log(`ERROR SCARRA COMMAND\n${error}`)
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui escarrar! 😔`},

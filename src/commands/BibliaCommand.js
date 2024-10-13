@@ -105,7 +105,7 @@ export default class BibliaCommand {
     }
 
     static async raise_generic_error(data, error) {
-        Resenhazord2.bugsnag.notify(`BIBLIA COMMAND ERROR\n${error}`);
+        console.log(`BIBLIA COMMAND ERROR\n${error}`);
         Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {text: 'Perdoa-me Senhor, não consegui buscar o versículo... 😔'},

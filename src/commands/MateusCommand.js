@@ -14,7 +14,7 @@ export default class MateusCommand {
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR MATEUS COMMAND\n${error}`);
+            console.log(`ERROR MATEUS COMMAND\n${error}`);
         }
     }
 }

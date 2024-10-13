@@ -19,7 +19,7 @@ export default class PornoCommand {
             }
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR PORN COMMAND\n${error}`);
+            console.log(`ERROR PORN COMMAND\n${error}`);
             await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},

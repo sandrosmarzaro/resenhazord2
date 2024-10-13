@@ -31,7 +31,7 @@ export default class PokemonCommand {
                 );
             })
             .catch(error => {
-                Resenhazord2.bugsnag.notify(`POKEMON COMMAND ERROR\n${error}`);
+                console.log(`POKEMON COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { text: 'Viiixxiii... Não consegui baixar o pokémon! 🥺👉👈' },

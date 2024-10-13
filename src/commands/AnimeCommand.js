@@ -43,7 +43,7 @@ export default class AnimeCommand {
                 );
             })
             .catch(error => {
-                Resenhazord2.bugsnag.notify(`ERROR ANIME COMMAND\n${error}`);
+                console.log(`ERROR ANIME COMMAND\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Viiixxiii... Não consegui baixar a foto! 🥺👉👈'},

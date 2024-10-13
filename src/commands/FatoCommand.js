@@ -20,7 +20,7 @@ export default class FatoCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR FATO COMMAND\n${error}`);
+            console.log(`ERROR FATO COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui te dar um fato... 😔'},

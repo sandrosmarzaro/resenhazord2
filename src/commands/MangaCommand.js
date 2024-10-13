@@ -31,7 +31,7 @@ export default class MangaCommand {
                 );
             })
             .catch(error => {
-                Resenhazord2.bugsnag.notify(`MANGA COMMAND ERROR\n${error}`);
+                console.log(`MANGA COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: `Viiixxiii... Não consegui encontrar seu manga! 🥺👉👈`},

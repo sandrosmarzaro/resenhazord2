@@ -32,7 +32,7 @@ export default class MenuCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR MENU COMMAND\n${error}`);
+            console.log(`ERROR MENU COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Viiixxiii.. Não consegui exibir o menu! 🥺👉👈'},

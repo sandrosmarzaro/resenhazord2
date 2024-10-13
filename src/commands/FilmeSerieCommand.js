@@ -51,7 +51,7 @@ export default class FilmeSerieCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR FILME SERIE COMMAND\n${error}`);
+            console.log(`ERROR FILME SERIE COMMAND\n${error}`);
             const message = type === 'movie' ? 'seu filminho' : 'sua seriezinha';
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,

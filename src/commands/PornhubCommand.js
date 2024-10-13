@@ -57,7 +57,7 @@ export default class PornhubCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR PORNHUB COMMAND\n${error}`);
+            console.log(`ERROR PORNHUB COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},

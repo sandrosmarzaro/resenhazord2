@@ -25,7 +25,7 @@ export default class YugiohCommand {
                 );
             })
             .catch(error => {
-                Resenhazord2.bugsnag.notify(`YUGIOH COMMAND ERROR\n${error}`);
+                console.log(`YUGIOH COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text:'Viiixxiii... Não consegui baixar a carta! 🥺👉👈'},

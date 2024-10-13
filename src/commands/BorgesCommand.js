@@ -26,7 +26,7 @@ export default class BorgesCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`BORGES COMMAND ERROR\n${error}`);
+            console.log(`BORGES COMMAND ERROR\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Eram muitas bitucas para contar e não consegui... 😔'},

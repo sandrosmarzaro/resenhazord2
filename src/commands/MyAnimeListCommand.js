@@ -31,7 +31,7 @@ export default class MyAnimeListCommand {
                 );
             })
             .catch(error => {
-                Resenhazord2.bugsnag.notify(`MYANIMELIST COMMAND ERROR\n${error}`);
+                console.log(`MYANIMELIST COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     { text: `Viiixxiii... Não consegui encontrar seu anime! 🥺👉👈` },

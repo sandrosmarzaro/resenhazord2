@@ -55,7 +55,7 @@ export default class StickerCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR STICKER COMMAND\n${error}`);
+            console.log(`ERROR STICKER COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui criar a figurinha! 😔`},

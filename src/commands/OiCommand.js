@@ -17,7 +17,7 @@ export default class OiCommand {
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR OI COMMAND\n${error}`);
+            console.log(`ERROR OI COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui responder @${sender_phone} 😔`, mentions: [data.key.participant]},

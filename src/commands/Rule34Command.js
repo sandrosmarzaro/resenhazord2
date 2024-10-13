@@ -35,7 +35,7 @@ export default class Rule34Command {
                 );
             }
             catch (error) {
-                Resenhazord2.bugsnag.notify(`RULE34 COMMAND ERROR\n${error}`);
+                console.log(`RULE34 COMMAND ERROR\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Não consegui encontrar nada para você 😔'},

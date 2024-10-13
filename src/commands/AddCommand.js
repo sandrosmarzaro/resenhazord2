@@ -110,7 +110,7 @@ export default class AddCommand {
                     );
                 }
                 catch (error) {
-                    Resenhazord2.bugsnag.notify(`ERROR ADD COMMAND\n${error}`);
+                    console.log(`ERROR ADD COMMAND\n${error}`);
                     Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {text: `Não consegui adicionar o número ${generated_phone} 😔`},

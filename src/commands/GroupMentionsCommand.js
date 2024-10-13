@@ -82,7 +82,7 @@ export default class GroupMentionsCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR GROUP MENTIONS COMMAND\n${error}`);
+            console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui criar o grupo *${group_name}* 😔`},
@@ -162,7 +162,7 @@ export default class GroupMentionsCommand {
 
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR GROUP MENTIONS COMMAND\n${error}`);
+            console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui renomear o grupo *${old_group_name}* 😔`},
@@ -224,7 +224,7 @@ export default class GroupMentionsCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR GROUP MENTIONS COMMAND\n${error}`);
+            console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui deletar o grupo *${group_name}* 😔`},
@@ -281,7 +281,7 @@ export default class GroupMentionsCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR GROUP MENTIONS COMMAND${error}`);
+            console.log(`ERROR GROUP MENTIONS COMMAND${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui listar os grupos 😔`},
@@ -360,7 +360,7 @@ export default class GroupMentionsCommand {
             }
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR GROUP MENTIONS COMMAND\n${error}`);
+            console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui adicionar os participantes 😔`},
@@ -439,7 +439,7 @@ export default class GroupMentionsCommand {
             }
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR GROUP MENTIONS COMMAND\n${error}`);
+            console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui remover os participantes 😔`},
@@ -489,7 +489,7 @@ export default class GroupMentionsCommand {
             );
         }
         catch (error) {
-            Resenhazord2.bugsnag.notify(`ERROR GROUP MENTIONS COMMAND\n${error}`);
+            console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui marcar os participantes 😔`},

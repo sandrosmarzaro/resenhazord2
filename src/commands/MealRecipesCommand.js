@@ -40,7 +40,7 @@ export default class MealRecipesCommand {
                 );
             })
             .catch (error => {
-                Resenhazord2.bugsnag.notify(`ERROR MEAL RECIPES COMMAND\n${error}`);
+                console.log(`ERROR MEAL RECIPES COMMAND\n${error}`);
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Viiixxiii... Não consegui te dar uma comida! 🥺👉👈'},
