@@ -1,5 +1,4 @@
 import Resenhazord2 from "../models/Resenhazord2.js";
-import { Client } from "porn-x";
 import { NSFW } from "nsfwhub";
 
 export default class PornoCommand {
@@ -58,18 +57,9 @@ export default class PornoCommand {
 
     static async real_porn(data) {
 
-        const client = new Client();
-
-        const videos = await client.getShortVideos("random");
-        const video = videos[Math.floor(Math.random() * videos.length)];
-
         await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
-            {
-                viewOnce: true,
-                video: {url: video},
-                caption: 'Aqui está seu vídeo 🤤'
-            },
+            {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
             {quoted: data, ephemeralExpiration: data.expiration}
         );
     }
