@@ -5,7 +5,7 @@ import menu_biblia_message from '../../public/messages/menu_biblia_message.js';
 
 export default class MenuCommand {
 
-    static identifier = "^\\s*\\,\\s*menu\\s*(?:grupo)?\\s*$";
+    static identifier = "^\\s*\\,\\s*menu\\s*(?:grupo|b.blia)?\\s*$";
 
     static async run(data) {
 
