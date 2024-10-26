@@ -74,7 +74,7 @@ export default class DriveCommand {
       );
     }
     catch (error) {
-      console.error('ERROR DRIVE COMMAND:', error);
+      console.log('ERROR DRIVE COMMAND:', error);
       await Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
         {text: 'Ocorreu um erro ao enviar a mídia para o Drive da Resenha ❌'},
