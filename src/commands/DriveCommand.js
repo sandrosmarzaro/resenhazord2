@@ -2,8 +2,12 @@ import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent } from "@whiskeysockets/baileys";
 import { google } from 'googleapis';
 import path from 'path';
-import { promises as fsPromises } from 'fs';
-import fs from 'fs';
+import { createReadStream, promises as fsPromises } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default class DriveCommand {
 
@@ -41,7 +45,7 @@ export default class DriveCommand {
       });
 
       const auth = new google.auth.GoogleAuth({
-        keyFile: path.resolve('../auth/google_secret.json'),
+        keyFile: path.resolve(__dirname, '../auth/google_secret.json'),
         scopes: ['https://www.googleapis.com/auth/drive.file'],
       });
 
@@ -62,7 +66,7 @@ export default class DriveCommand {
 
       const media = {
         mimeType: mimeType,
-        body: fs.createReadStream(tempFilePath),
+        body: createReadStream(tempFilePath),
       };
 
       await drive.files.create({
