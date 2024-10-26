@@ -1,5 +1,6 @@
 node_modules/
 src/auth/session/*
+src/auth/google_secrect.json
 .env
 .wwebjs_cache/
 
