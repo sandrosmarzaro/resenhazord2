@@ -2,8 +2,8 @@ import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent } from "@whiskeysockets/baileys";
 import { google } from 'googleapis';
 import path from 'path';
-import fs from 'fs/promises';
-
+import { promises as fsPromises } from 'fs';
+import fs from 'fs';
 
 export default class DriveCommand {
 
@@ -14,6 +14,7 @@ export default class DriveCommand {
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
     const has_quoted_media = data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
                              data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
+
     if (!has_upload_media && !has_quoted_media) {
       Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
@@ -35,7 +36,7 @@ export default class DriveCommand {
     }
 
     try {
-      const buffer = await downloadMediaMessage(message, 'buffer', {},  {
+      const buffer = await downloadMediaMessage(message, 'buffer', {}, {
         reuploadRequest: Resenhazord2.socket.updateMediaMessage
       });
 
@@ -52,20 +53,25 @@ export default class DriveCommand {
       const mimeType = isImage ? 'image/jpeg' : 'video/mp4';
 
       const tempFilePath = path.join('/tmp', fileName);
-      await fs.writeFile(tempFilePath, buffer);
+      await fsPromises.writeFile(tempFilePath, buffer);
+
+      const fileMetadata = {
+        name: fileName,
+        mimeType: mimeType,
+      };
+
+      const media = {
+        mimeType: mimeType,
+        body: fs.createReadStream(tempFilePath),
+      };
 
       await drive.files.create({
-        requestBody: {
-          name: fileName,
-          mimeType: mimeType,
-        },
-        media: {
-          mimeType: mimeType,
-          body: fs.createReadStream(tempFilePath),
-        },
+        requestBody: fileMetadata,
+        media: media,
+        fields: 'id',
       });
 
-      await fs.unlink(tempFilePath);
+      await fsPromises.unlink(tempFilePath);
 
       await Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
@@ -74,7 +80,7 @@ export default class DriveCommand {
       );
     }
     catch (error) {
-      console.log('ERROR DRIVE COMMAND:', error);
+      console.error('ERROR DRIVE COMMAND:', error);
       await Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
         {text: 'Ocorreu um erro ao enviar a mídia para o Drive da Resenha ❌'},
