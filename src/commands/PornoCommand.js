@@ -13,9 +13,7 @@ export default class PornoCommand {
             if (args_command) {
                 this.ia_porn(data)
             }
-            else {
-                this.real_porn(data)
-            }
+            this.real_porn(data)
         }
         catch (error) {
             console.log(`ERROR PORN COMMAND\n${error}`);
@@ -42,12 +40,11 @@ export default class PornoCommand {
             viewOnce: true,
             caption: 'Aqui está seu vídeo 🤤'
         }
-        if (porn.image.url.endsWith('.mp4') || porn.image.url.endsWith('.gif')) {
+        if (porn?.image?.url?.endsWith('.mp4') || porn?.image?.url?.endsWith('.gif')) {
             content.video = { url: porn.image.url }
         }
-        else {
-            content.image = { url: porn.image.url }
-        }
+        content.image = { url: porn.image.url }
+
         await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             content,
