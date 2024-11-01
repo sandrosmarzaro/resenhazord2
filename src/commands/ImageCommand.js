@@ -35,8 +35,8 @@ export default class ImageCommand {
         );
     }
 
-    static parseCommand(data) {
-        const text_without_prefix = data.text.replace(/^\s*\,\s*img\s*/, '');
+    static parseCommand(text) {
+        const text_without_prefix = text.replace(/^\s*\,\s*img\s*/, '');
 
         const resolution = text_without_prefix.match(/^(sd|hd|fhd|qhd|4k)/);
         const text_without_prefix_and_resolution = text_without_prefix.replace(/^(sd|hd|fhd|qhd|4k)/, '');
