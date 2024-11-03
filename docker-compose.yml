@@ -6,8 +6,14 @@ services:
       - node_modules:/app/node_modules
     tty: true
     stdin_open: true
-    command: sh -c "yarn install && yarn add --platform=linuxmusl --arch=x64 sharp --legacy-peer-deps && tail -f /dev/null"
     working_dir: /app
-
+    command: ["sh", "/app/startup.sh"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(process.pid > 0 ? 0 : 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 volumes:
   node_modules:
