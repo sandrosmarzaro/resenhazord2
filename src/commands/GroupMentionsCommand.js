@@ -94,19 +94,6 @@ export default class GroupMentionsCommand {
 
     static async rename(data, rest_command) {
 
-        const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
-        const sender_id = data.key.participant;
-        const sender_is_admin = participants.find(
-            participant => participant.id === sender_id
-        ).admin;
-        if (!sender_is_admin) {
-            Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `Burro burro! Você não é admin! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-            return;
-        }
         const has_two_groups = rest_command.match(/[\S]+\s+[\S]+/);
         if (!has_two_groups) {
             Resenhazord2.socket.sendMessage(
@@ -173,20 +160,6 @@ export default class GroupMentionsCommand {
     }
 
     static async delete(data, rest_command) {
-
-        const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
-        const sender_id = data.key.participant;
-        const sender_is_admin = participants.find(
-            participant => participant.id === sender_id
-        ).admin;
-        if (!sender_is_admin) {
-            Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `Burro burro! Você não é admin! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-            return;
-        }
 
         const group_name = rest_command;
         if (group_name?.length == 0) {
@@ -372,16 +345,12 @@ export default class GroupMentionsCommand {
 
     static async exit(data, rest_command) {
 
-        const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
         const sender_id = data.key.participant;
-        const sender_is_admin = participants.find(
-            participant => participant.id === sender_id
-        ).admin;
         const has_mention = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0;
-        if (!sender_is_admin && has_mention) {
+        if (has_mention) {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
-                {text: `Burro burro! Você não é admin! 🤦‍♂️`},
+                {text: `Burro burro! Você não marcou ninguém! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
             return;
