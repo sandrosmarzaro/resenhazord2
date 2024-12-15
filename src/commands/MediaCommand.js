@@ -1,6 +1,4 @@
 import Resenhazord2 from '../models/Resenhazord2.js';
-import pkg from 'nayan-media-downloader';
-const { alldown } = pkg;
 
 export default class MediaCommand {
 
@@ -21,39 +19,9 @@ export default class MediaCommand {
         url = url.replace('instagram.com/reel/', 'instagram.com/p/');
         url = url.replace(/\/\?.*$/, '/');
 
-        const response = await alldown(url);
-        if (!response.status) {
-            Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                { text: `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈` },
-                { quoted: data, ephemeralExpiration: data.expiration }
-            );
-            return;
-        }
-        let link;
-        if (response.data.high && response.data.high.startsWith('http')) {
-            link = response.data.high;
-        }
-        else {
-            link = response.data.low;
-        }
-
-
-        let title;
-        if (response.data.title === 'undefined💔') {
-            title = 'Enfia seu video no cu! 🤬';
-        }
-        else {
-            title = response.data.title;
-        }
-
-        await Resenhazord2.socket.sendMessage(
+        Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
-            {
-                viewOnce: true,
-                video: { url: link },
-                caption: title
-            },
+            { text: `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈` },
             { quoted: data, ephemeralExpiration: data.expiration }
         );
     }
