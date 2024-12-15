@@ -266,20 +266,7 @@ export default class GroupMentionsCommand {
 
     static async add(data, rest_command) {
 
-        const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
         const sender_id = data.key.participant;
-        const sender_is_admin = participants.find(
-            participant => participant.id === sender_id
-        ).admin;
-        const has_mention = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0;
-        if (!sender_is_admin && has_mention) {
-            Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `Burro burro! Você não é admin! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-            return;
-        }
 
         const group_name = rest_command.replace(/\s*\@\d+\s*/g, '');
         if (group_name?.length == 0) {
