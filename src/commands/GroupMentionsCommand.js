@@ -45,6 +45,23 @@ export default class GroupMentionsCommand {
             );
             return;
         }
+        if (group_name?.length > 15) {
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `O nome do grupo é desse tamanho! ✋    🤚`},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+            return;
+        }
+        const functions = ['add', 'exit', 'create', 'delete', 'rename', 'list'];
+        if (functions.some(func => new RegExp(func, 'i').test(group_name))) {
+            Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `O nome do grupo não pode ser um comando!`},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+            return;
+        }
 
         try {
             await this.client.connect();
