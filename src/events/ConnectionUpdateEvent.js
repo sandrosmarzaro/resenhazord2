@@ -11,8 +11,8 @@ export default class ConnectionUpdateEvent {
         //     console.log(`qrcode: ${qr}`);
         // }
         if (!Resenhazord2.socket.authState.creds.registered) {
-            const RESENHA_ID = process.env;
-            const RESENHA_NUMBER = RESENHA_ID.split('@')[0]
+            const { RESENHA_ID } = process.env;
+            const RESENHA_NUMBER = RESENHA_ID.replace('@s.whatsapp.net', '')
             const pair_code = await Resenhazord2.socket.requestPairingCode(RESENHA_NUMBER)
             console.log(`Pair Code: ${pair_code}`)
         }
