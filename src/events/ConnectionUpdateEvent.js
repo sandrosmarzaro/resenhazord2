@@ -10,7 +10,7 @@ export default class ConnectionUpdateEvent {
         // if (qr) {
         //     console.log(`qrcode: ${qr}`);
         // }
-        if (Resenhazord2.socket.authState.creds.registered) {
+        if (!Resenhazord2.socket.authState.creds.registered) {
             const RESENHA_ID = process.env;
             const RESENHA_NUMBER = RESENHA_ID.split('@')[0]
             const pair_code = await Resenhazord2.socket.requestPairingCode(RESENHA_NUMBER)
