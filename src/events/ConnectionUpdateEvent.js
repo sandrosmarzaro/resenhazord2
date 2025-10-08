@@ -7,8 +7,14 @@ export default class ConnectionUpdateEvent {
     static async run(update) {
         const { connection, lastDisconnect, qr } = update;
 
-        if (qr) {
-            console.log(`qrcode: ${qr}`);
+        // if (qr) {
+        //     console.log(`qrcode: ${qr}`);
+        // }
+        if (Resenhazord2.socket.authState.creds.registered) {
+            const RESENHA_ID = process.env;
+            const RESENHA_NUMBER = RESENHA_ID.split('@')[0]
+            const pair_code = await Resenhazord2.socket.requestPairingCode(RESENHA_NUMBER)
+            console.log(`Pair Code: ${pair_code}`)
         }
 
         if (connection === 'close') {
