@@ -28,10 +28,30 @@ export default class ConnectionUpdateEvent {
             if (lastDisconnect?.error) {
                 if (isBoom(lastDisconnect.error)) {
                     const { statusCode } = lastDisconnect.error.output;
-                    shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                    const {data} = lastDisconnect.error;
 
-                    if (statusCode === 428) {
-                        reconnectDelay = 10000;
+                    switch (statusCode) {
+                        case DisconnectReason.loggedOut:
+                            shouldReconnect = false;
+                            break;
+                        case 405:
+                            shouldReconnect = true;
+                            reconnectDelay = 15000;
+
+                            try {
+                                await Resenhazord2.auth_state.clearState();
+                                console.log('Auth state cleared due to 405 error');
+                            } catch (err) {
+                                console.error('Failed to clear auth state:', err);
+                            }
+                            break;
+                        case 428:
+                            shouldReconnect = true;
+                            reconnectDelay = 10000;
+                            break;
+                        default:
+                            shouldReconnect = true;
+                            break;
                     }
                 } else {
                     shouldReconnect = true;
