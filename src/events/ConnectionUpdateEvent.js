@@ -23,17 +23,38 @@ export default class ConnectionUpdateEvent {
 
         if (connection === 'close') {
             let shouldReconnect = false;
-            if (isBoom(lastDisconnect.error)) {
-                const { statusCode } = lastDisconnect.error.output;
-                if (statusCode!== DisconnectReason.loggedOut) {
+            let reconnectDelay = 5000;
+
+            if (lastDisconnect?.error) {
+                if (isBoom(lastDisconnect.error)) {
+                    const { statusCode } = lastDisconnect.error.output;
+                    shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+                    if (statusCode === 428) {
+                        reconnectDelay = 10000;
+                    }
+                } else {
                     shouldReconnect = true;
                 }
+
+                console.log('Connection closed due to:', {
+                    error: lastDisconnect.error.message || lastDisconnect.error,
+                    statusCode: lastDisconnect.error.output?.statusCode,
+                    shouldReconnect,
+                    reconnectDelay
+                });
             }
-            console.log(`Connection closed due to:`, lastDisconnect.error);
-            console.log(`Attempting reconnection: ${shouldReconnect}`);
+
             if (shouldReconnect) {
-                await Resenhazord2.connectToWhatsApp();
-                Resenhazord2.handlerEvents();
+                console.log(`Attempting reconnection in ${reconnectDelay/1000} seconds...`);
+                setTimeout(async () => {
+                    try {
+                        await Resenhazord2.connectToWhatsApp();
+                        await Resenhazord2.handlerEvents();
+                    } catch (error) {
+                        console.error('Reconnection failed:', error);
+                    }
+                }, reconnectDelay);
             }
         }
         else if (connection === 'open') {

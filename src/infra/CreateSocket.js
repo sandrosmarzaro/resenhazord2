@@ -15,9 +15,14 @@ export default class CreateSocket {
                     colorize: true,
                     colorizeObjects: true
                 }
-            }
+            },
+            level: 'error'
         }),
-        generateHighQualityLinkPreview: true
+        generateHighQualityLinkPreview: true,
+        retryRequestDelayMs: 2000,
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        emitOwnEvents: true
     };
 
     static async getSocket(state) {
