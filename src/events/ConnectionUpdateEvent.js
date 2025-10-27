@@ -10,11 +10,15 @@ export default class ConnectionUpdateEvent {
         // if (qr) {
         //     console.log(`qrcode: ${qr}`);
         // }
-        if (!Resenhazord2.socket.authState.creds.registered) {
-            const { RESENHA_ID } = process.env;
-            const RESENHA_NUMBER = RESENHA_ID.replace('@s.whatsapp.net', '')
-            const pair_code = await Resenhazord2.socket.requestPairingCode(RESENHA_NUMBER)
-            console.log(`Pair Code: ${pair_code}`)
+        if (connection === 'open' && !Resenhazord2.socket.authState.creds.registered) {
+            try {
+                const { RESENHA_ID } = process.env;
+                const RESENHA_NUMBER = RESENHA_ID.replace('@s.whatsapp.net', '');
+                const pair_code = await Resenhazord2.socket.requestPairingCode(RESENHA_NUMBER);
+                console.log(`Pair Code: ${pair_code}`);
+            } catch (error) {
+                console.error('Failed to request pairing code:', error);
+            }
         }
 
         if (connection === 'close') {
@@ -25,8 +29,8 @@ export default class ConnectionUpdateEvent {
                     shouldReconnect = true;
                 }
             }
-            console.log(`connection closed due to ${lastDisconnect.error}`);
-            console.log(`reconnecting ${shouldReconnect}`)
+            console.log(`Connection closed due to:`, lastDisconnect.error);
+            console.log(`Attempting reconnection: ${shouldReconnect}`);
             if (shouldReconnect) {
                 await Resenhazord2.connectToWhatsApp();
                 Resenhazord2.handlerEvents();
