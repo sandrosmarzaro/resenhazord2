@@ -4,9 +4,9 @@ export default class MessageUpsertEvent {
 
     static async run(data) {
         const [message] = data.messages;
-        const { RESENHA_ID, RESENHA_TEST_ID } = process.env;
+        const { RESENHA_ID, RESENHAZORD2_ID, RESENHA_TEST_ID } = process.env;
         const chat = message.key.remoteJid;
-        if (!chat.includes(RESENHA_ID) && !chat.includes(RESENHA_TEST_ID)) {
+        if (![RESENHA_ID, RESENHAZORD2_ID, RESENHA_TEST_ID].includes(chat)) {
             return;
         }
 
