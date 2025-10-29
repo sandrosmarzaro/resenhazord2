@@ -16,8 +16,8 @@ export default class FuckCommand {
             return;
         }
 
-        const sender_phone = data.key.participant.replace('@s.whatsapp.net', '');
-        const mentioned_phone = data.message.extendedTextMessage.contextInfo.mentionedJid[0].replace('@s.whatsapp.net', '');
+        const sender_phone = data.key.remoteJidAlt.replace('@lid', '');
+        const mentioned_phone = data.message.extendedTextMessage.contextInfo.mentionedJid[0].replace('@lid', '');
 
         const nsfw = new NSFW();
         const porn = await nsfw.fetch("fuck");
@@ -27,7 +27,7 @@ export default class FuckCommand {
                 {
                     viewOnce: true,
                     video: {url: porn.image.url},
-                    mentions: [data.key.participant, data.message.extendedTextMessage.contextInfo.mentionedJid[0]],
+                    mentions: [data.key.remoteJidAlt, data.message.extendedTextMessage.contextInfo.mentionedJid[0]],
                     caption: `@${sender_phone} está fudendo @${mentioned_phone} 😩`
                 },
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -36,7 +36,7 @@ export default class FuckCommand {
             console.log(`ERROR FUCK COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
-                {text: `Não consegui foder @${sender_phone} 😔`, mentions: [data.key.participant]},
+                {text: `Não consegui foder @${sender_phone} 😔`, mentions: [data.key.remoteJidAlt]},
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         }

@@ -40,7 +40,7 @@ export default class BanCommand {
                     Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {
-                            text: `Se fudeu! @${random_participant.id.replace('@s.whatsapp.net', '')} 🖕`,
+                            text: `Se fudeu! @${random_participant.id.replace('@lid', '')} 🖕`,
                             mentions: [random_participant]
                         },
                         {quoted: data, ephemeralExpiration: data.expiration}
@@ -63,7 +63,7 @@ export default class BanCommand {
                     (participant === group.owner ) && owner_is_admin) {
                     continue;
                 }
-                const participant_phone = participant.replace('@s.whatsapp.net', '');
+                const participant_phone = participant.replace('@lid', '');
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: `Se fudeu! @${participant_phone} 🖕`, mentions: [participant]},

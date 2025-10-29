@@ -102,7 +102,7 @@ export default class AddCommand {
             const consult = await Resenhazord2.socket.onWhatsApp(`55${generated_phone}`);
             if (consult[0]?.exists || is_complete_phone) {
                 try {
-                    const id = consult[0]?.exists ? consult[0]?.jid : '55' + initial_phone + '@s.whatsapp.net';
+                    const id = consult[0]?.exists ? consult[0]?.jid : '55' + initial_phone + '@lid';
                     await Resenhazord2.socket.groupParticipantsUpdate(
                         data.key.remoteJid,
                         [id],

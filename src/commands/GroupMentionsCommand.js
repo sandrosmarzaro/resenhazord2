@@ -34,7 +34,7 @@ export default class GroupMentionsCommand {
 
     static async create(data, rest_command) {
 
-        const sender_id = data.key.participant;
+        const sender_id = data.key.remoteJidAlt;
 
         const group_name = rest_command.replace(/\s*\@\d+\s*/g, '')
         if (group_name?.length == 0) {
@@ -253,7 +253,7 @@ export default class GroupMentionsCommand {
                     return;
                 }
                 const message = group.participants.map(
-                    participant => `- ${participant.replace('@s.whatsapp.net', '')}`)
+                    participant => `- ${participant.replace('@lid', '')}`)
                     .join('\n');
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
@@ -283,7 +283,7 @@ export default class GroupMentionsCommand {
 
     static async add(data, rest_command) {
 
-        const sender_id = data.key.participant;
+        const sender_id = data.key.remoteJidAlt;
 
         const group_name = rest_command.replace(/\s*\@\d+\s*/g, '');
         if (group_name?.length == 0) {
@@ -349,7 +349,7 @@ export default class GroupMentionsCommand {
 
     static async exit(data, rest_command) {
 
-        const sender_id = data.key.participant;
+        const sender_id = data.key.remoteJidAlt;
         const has_mention = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0;
         if (has_mention) {
             Resenhazord2.socket.sendMessage(
@@ -453,7 +453,7 @@ export default class GroupMentionsCommand {
             }
             const message = text.length > 0 ? `${text}\n\n` : '';
             const mentions = group.participants.map(
-                participant => `@${participant.replace('@s.whatsapp.net', '')}`
+                participant => `@${participant.replace('@lid', '')}`
             );
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,

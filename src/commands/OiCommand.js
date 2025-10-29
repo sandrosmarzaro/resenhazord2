@@ -6,13 +6,13 @@ export default class OiCommand {
 
     static async run(data) {
 
-        const sender_phone = data.key.participant.replace('@s.whatsapp.net', '');
+        const sender_phone = data.key.remoteJidAlt.replace('@lid', '');
         try {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {
                     text: `Vai se fuder @${sender_phone} filho da puta! 🖕`,
-                    mentions: [data.key.participant]
+                    mentions: [data.key.remoteJidAlt]
                 },
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
@@ -20,7 +20,7 @@ export default class OiCommand {
             console.log(`ERROR OI COMMAND\n${error}`);
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
-                {text: `Não consegui responder @${sender_phone} 😔`, mentions: [data.key.participant]},
+                {text: `Não consegui responder @${sender_phone} 😔`, mentions: [data.key.remoteJidAlt]},
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         }

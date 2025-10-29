@@ -20,7 +20,7 @@ export default class AllCommand {
         let message = text_inserted.length > 0 ? text_inserted : '';
         message += '\n\n';
         for (const participant of participants) {
-            message += `@${participant.id.replace('@s.whatsapp.net', '')} `;
+            message += `@${participant.id.replace('@lid', '')} `;
         }
         const participants_ids = participants.map(participant => participant.id);
         Resenhazord2.socket.sendMessage(
