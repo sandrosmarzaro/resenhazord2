@@ -3,82 +3,111 @@ import { DisconnectReason } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
 export default class ConnectionUpdateEvent {
+    static reconnectAttempts = 0;
+    static maxReconnectAttempts = 5;
+    static isReconnecting = false;
+    static reconnectTimer = null;
 
     static async run(update) {
         const { connection, lastDisconnect, qr } = update;
 
-        // if (qr) {
-        //     console.log(`qrcode: ${qr}`);
-        // }
-        if (connection === 'open' && !Resenhazord2.socket.authState.creds.registered) {
-            try {
-                const { RESENHA_ID } = process.env;
-                const RESENHA_NUMBER = RESENHA_ID.replace('@s.whatsapp.net', '');
-                const pair_code = await Resenhazord2.socket.requestPairingCode(RESENHA_NUMBER);
-                console.log(`Pair Code: ${pair_code}`);
-            } catch (error) {
-                console.error('Failed to request pairing code:', error);
-            }
+        if (qr) {
+            console.log(`QR Code received: ${qr}`);
         }
 
         if (connection === 'close') {
-            let shouldReconnect = false;
-            let reconnectDelay = 5000;
-
-            if (lastDisconnect?.error) {
-                if (isBoom(lastDisconnect.error)) {
-                    const { statusCode } = lastDisconnect.error.output;
-                    const {data} = lastDisconnect.error;
-
-                    switch (statusCode) {
-                        case DisconnectReason.loggedOut:
-                            shouldReconnect = false;
-                            break;
-                        case 405:
-                            shouldReconnect = true;
-                            reconnectDelay = 15000;
-
-                            try {
-                                await Resenhazord2.auth_state.clearState();
-                                console.log('Auth state cleared due to 405 error');
-                            } catch (err) {
-                                console.error('Failed to clear auth state:', err);
-                            }
-                            break;
-                        case 428:
-                            shouldReconnect = true;
-                            reconnectDelay = 10000;
-                            break;
-                        default:
-                            shouldReconnect = true;
-                            break;
-                    }
-                } else {
-                    shouldReconnect = true;
-                }
-
-                console.log('Connection closed due to:', {
-                    error: lastDisconnect.error.message || lastDisconnect.error,
-                    statusCode: lastDisconnect.error.output?.statusCode,
-                    shouldReconnect,
-                    reconnectDelay
-                });
+            if (this.reconnectTimer) {
+                clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
             }
+
+            const error = lastDisconnect?.error;
+            const statusCode = error && isBoom(error) ? error.output?.statusCode : null;
+
+            console.log(`Connection closed. Status code: ${statusCode || 'unknown'}`);
+            console.log(`Error: ${error?.message || 'Unknown error'}`);
+            console.log(`Reconnect attempts so far: ${this.reconnectAttempts}`);
+
+            if (statusCode === DisconnectReason.loggedOut) {
+                console.log('❌ Logged out. Please scan QR code again.');
+                this.reset();
+                return;
+            }
+
+            if (statusCode === DisconnectReason.badSession) {
+                console.log('❌ Bad session. Delete auth_session folder and restart.');
+                this.reset();
+                return;
+            }
+
+            const shouldReconnect = !statusCode || [
+                DisconnectReason.connectionClosed,
+                DisconnectReason.connectionLost,
+                DisconnectReason.connectionReplaced,
+                DisconnectReason.timedOut,
+                DisconnectReason.restartRequired
+            ].includes(statusCode);
 
             if (shouldReconnect) {
-                console.log(`Attempting reconnection in ${reconnectDelay/1000} seconds...`);
-                setTimeout(async () => {
-                    try {
-                        await Resenhazord2.connectToWhatsApp();
-                        await Resenhazord2.handlerEvents();
-                    } catch (error) {
-                        console.error('Reconnection failed:', error);
-                    }
-                }, reconnectDelay);
+                await this.scheduleReconnect();
+            } else {
+                console.log(`⚠️  Not reconnecting for status code: ${statusCode}`);
+                this.reset();
             }
+        } else if (connection === 'connecting') {
+            console.log('🔄 Connecting to WhatsApp...');
+        } else if (connection === 'open') {
+            console.log('✅ Connection opened successfully');
+            this.reset();
         }
-        else if (connection === 'open') {
-            console.log('opened connection');
+    }
+
+    static async scheduleReconnect() {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.log(`❌ Max reconnection attempts (${this.maxReconnectAttempts}) reached. Stopping.`);
+            this.reset();
+            return;
+        }
+
+        this.reconnectAttempts++;
+
+        const delay = Math.min(3000 * Math.pow(2, this.reconnectAttempts - 1), 48000);
+
+        console.log(`🔄 Reconnecting in ${delay / 1000}s... (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+        this.reconnectTimer = setTimeout(async () => {
+            if (this.isReconnecting) {
+                console.log('⚠️  Previous reconnection still in progress');
+                return;
+            }
+
+            this.isReconnecting = true;
+
+            try {
+                console.log('🔌 Attempting to reconnect...');
+
+                await Resenhazord2.cleanup?.();
+
+                await Resenhazord2.connectToWhatsApp();
+                Resenhazord2.handlerEvents();
+
+            } catch (error) {
+                console.error('❌ Reconnection failed:', error.message);
+                this.isReconnecting = false;
+
+                await this.scheduleReconnect();
+            } finally {
+                this.isReconnecting = false;
+            }
+        }, delay);
+    }
+
+    static reset() {
+        this.reconnectAttempts = 0;
+        this.isReconnecting = false;
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
         }
     }
 }
