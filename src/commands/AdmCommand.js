@@ -37,7 +37,8 @@ export default class AdmCommand {
         const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
         const adms = participants.filter(participant => participant.admin);
         const adms_ids = adms.map(adm => adm.id);
-        const adm_mentions = adms.map(adm => `@${adm.id.replace('@lid', '')} `);
+        const regex = /@lid|@s.whatsapp.net/gi;
+        const adm_mentions = adms.map(adm => `@${adm.id.replace(regex, '')} `);
         const random_swearing = swearings[Math.floor(Math.random() * swearings.length)];
         await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,

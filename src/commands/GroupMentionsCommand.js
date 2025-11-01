@@ -252,8 +252,9 @@ export default class GroupMentionsCommand {
                     );
                     return;
                 }
+                const regex = /@lid|@s.whatsapp.net/gi;
                 const message = group.participants.map(
-                    participant => `- ${participant.replace('@lid', '')}`)
+                    participant => `- ${participant.replace(regex, '')}`)
                     .join('\n');
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
@@ -451,9 +452,10 @@ export default class GroupMentionsCommand {
                 );
                 return;
             }
+            const regex = /@lid|@s.whatsapp.net/gi;
             const message = text.length > 0 ? `${text}\n\n` : '';
             const mentions = group.participants.map(
-                participant => `@${participant.replace('@lid', '')}`
+                participant => `@${participant.replace(regex, '')}`
             );
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,

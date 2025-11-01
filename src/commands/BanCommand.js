@@ -15,6 +15,7 @@ export default class BanCommand {
             return;
         }
 
+        const regex = /@lid|@s.whatsapp.net/gi;
         const group = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
         const { participants } = group;
         const { RESENHAZORD2_ID } = process.env;
@@ -40,7 +41,7 @@ export default class BanCommand {
                     Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {
-                            text: `Se fudeu! @${random_participant.id.replace('@lid', '')} 🖕`,
+                            text: `Se fudeu! @${random_participant.id.replace(regex, '')} 🖕`,
                             mentions: [random_participant]
                         },
                         {quoted: data, ephemeralExpiration: data.expiration}
@@ -63,7 +64,7 @@ export default class BanCommand {
                     (participant === group.owner ) && owner_is_admin) {
                     continue;
                 }
-                const participant_phone = participant.replace('@lid', '');
+                const participant_phone = participant.replace(regex, '');
                 Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: `Se fudeu! @${participant_phone} 🖕`, mentions: [participant]},

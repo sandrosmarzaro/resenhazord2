@@ -19,8 +19,9 @@ export default class AllCommand {
         const text_inserted = data.text.replace(/\n*\s*\,\s*all\s*/, '');
         let message = text_inserted.length > 0 ? text_inserted : '';
         message += '\n\n';
+        const regex = /@lid|@s.whatsapp.net/gi;
         for (const participant of participants) {
-            message += `@${participant.id.replace('@lid', '')} `;
+            message += `@${participant.id.replace(regex, '')} `;
         }
         const participants_ids = participants.map(participant => participant.id);
         Resenhazord2.socket.sendMessage(

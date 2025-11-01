@@ -15,9 +15,9 @@ export default class FuckCommand {
             );
             return;
         }
-
-        const sender_phone = data.key.remoteJidAlt.replace('@lid', '');
-        const mentioned_phone = data.message.extendedTextMessage.contextInfo.mentionedJid[0].replace('@lid', '');
+        const regex = /@lid|@s.whatsapp.net/gi;
+        const sender_phone = data.key.remoteJidAlt.replace(regex, '');
+        const mentioned_phone = data.message.extendedTextMessage.contextInfo.mentionedJid[0].replace(regex, '');
 
         const nsfw = new NSFW();
         const porn = await nsfw.fetch("fuck");

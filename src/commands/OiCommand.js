@@ -6,7 +6,8 @@ export default class OiCommand {
 
     static async run(data) {
 
-        const sender_phone = data.key.remoteJidAlt.replace('@lid', '');
+        const regex = /@lid|@s.whatsapp.net/gi;
+        const sender_phone = data.key.remoteJidAlt.replace(regex, '');
         try {
             Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
