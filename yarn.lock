@@ -431,18 +431,17 @@
   dependencies:
     "@types/node" "*"
 
-"@whiskeysockets/baileys@^7.0.0-rc.6":
-  version "7.0.0-rc.6"
-  resolved "https://registry.yarnpkg.com/@whiskeysockets/baileys/-/baileys-7.0.0-rc.6.tgz#1b25ca917c7526323cf3dd43be5437a055b27041"
-  integrity sha512-vSARE9ftvNwN2vttcFGhwqag2K8MRY35CD5zd1uMPSUQ0eomfAUVreNwXBUO1XO2eBExOW2N+mSmNGPn6mnqDQ==
+"@whiskeysockets/baileys@6.7.21":
+  version "6.7.21"
+  resolved "https://registry.yarnpkg.com/@whiskeysockets/baileys/-/baileys-6.7.21.tgz#126e093115f7c55a9a3850c0b5bcf56700de3784"
+  integrity sha512-xx9OHd6jlPiu5yZVuUdwEgFNAOXiEG8sULHxC6XfzNwssnwxnA9Lp44pR05H621GQcKyCfsH33TGy+Na6ygX4w==
   dependencies:
     "@cacheable/node-cache" "^1.4.0"
     "@hapi/boom" "^9.1.3"
     async-mutex "^0.5.0"
+    axios "^1.6.0"
     libsignal "git+https://github.com/whiskeysockets/libsignal-node"
-    lru-cache "^11.1.0"
     music-metadata "^11.7.0"
-    p-queue "^9.0.0"
     pino "^9.6"
     protobufjs "^7.2.4"
     ws "^8.13.0"
@@ -516,6 +515,15 @@ axios@^1.5.0, axios@^1.7.2:
   version "1.13.1"
   resolved "https://registry.yarnpkg.com/axios/-/axios-1.13.1.tgz#45b62dc8fe04e0e92274e08b98e910ba3d7963a7"
   integrity sha512-hU4EGxxt+j7TQijx1oYdAjw4xuIp1wRQSsbMFwSthCWeBQur1eF+qJ5iQ5sN3Tw8YRzQNKb8jszgBdMDVqwJcw==
+  dependencies:
+    follow-redirects "^1.15.6"
+    form-data "^4.0.4"
+    proxy-from-env "^1.1.0"
+
+axios@^1.6.0:
+  version "1.13.2"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-1.13.2.tgz#9ada120b7b5ab24509553ec3e40123521117f687"
+  integrity sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==
   dependencies:
     follow-redirects "^1.15.6"
     form-data "^4.0.4"
@@ -1000,11 +1008,6 @@ event-target-shim@^5.0.0:
   resolved "https://registry.yarnpkg.com/event-target-shim/-/event-target-shim-5.0.1.tgz#5d4d3ebdf9583d63a5333ce2deb7480ab2b05789"
   integrity sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==
 
-eventemitter3@^5.0.1:
-  version "5.0.1"
-  resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-5.0.1.tgz#53f5ffd0a492ac800721bb42c66b841de96423c4"
-  integrity sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==
-
 events-universal@^1.0.0:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/events-universal/-/events-universal-1.0.1.tgz#b56a84fd611b6610e0a2d0f09f80fdf931e2dfe6"
@@ -1478,11 +1481,6 @@ long@^5.0.0:
   resolved "https://registry.yarnpkg.com/long/-/long-5.3.2.tgz#1d84463095999262d7d7b7f8bfd4a8cc55167f83"
   integrity sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==
 
-lru-cache@^11.1.0:
-  version "11.2.2"
-  resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-11.2.2.tgz#40fd37edffcfae4b2940379c0722dc6eeaa75f24"
-  integrity sha512-F9ODfyqML2coTIsQpSkRHnLSZMtkU8Q+mSfcaIyKwy58u+8k5nvAYeiNhsyMARvzNcXJ9QfWVrcPsC9e9rAxtg==
-
 lru-cache@^7.14.1:
   version "7.18.3"
   resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-7.18.3.tgz#f793896e0fd0e954a59dfdd82f0773808df6aa89"
@@ -1644,19 +1642,6 @@ once@^1.3.1, once@^1.4.0:
   integrity sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==
   dependencies:
     wrappy "1"
-
-p-queue@^9.0.0:
-  version "9.0.1"
-  resolved "https://registry.yarnpkg.com/p-queue/-/p-queue-9.0.1.tgz#a9d4aaaf0251473615db14424be48e055f3e1db0"
-  integrity sha512-RhBdVhSwJb7Ocn3e8ULk4NMwBEuOxe+1zcgphUy9c2e5aR/xbEsdVXxHJ3lynw6Qiqu7OINEyHlZkiblEpaq7w==
-  dependencies:
-    eventemitter3 "^5.0.1"
-    p-timeout "^7.0.0"
-
-p-timeout@^7.0.0:
-  version "7.0.1"
-  resolved "https://registry.yarnpkg.com/p-timeout/-/p-timeout-7.0.1.tgz#95680a6aa693c530f14ac337b8bd32d4ec6ae4f0"
-  integrity sha512-AxTM2wDGORHGEkPCt8yqxOTMgpfbEHqF51f/5fJCmwFC3C/zNcGT63SymH2ttOAaiIws2zVg4+izQCjrakcwHg==
 
 pac-proxy-agent@^7.1.0:
   version "7.2.0"
