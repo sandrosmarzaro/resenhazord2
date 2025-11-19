@@ -3,7 +3,6 @@ services:
     build: .
     volumes:
       - .:/app
-      - node_modules:/app/node_modules
     tty: true
     stdin_open: true
     working_dir: /app
@@ -15,5 +14,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-volumes:
-  node_modules:
