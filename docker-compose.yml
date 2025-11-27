@@ -4,13 +4,11 @@ services:
     volumes:
       - .:/app
     tty: true
-    stdin_open: true
     working_dir: /app
-    command: ["sh", "/app/startup.sh"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "process.exit(process.pid > 0 ? 0 : 1)"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 120s

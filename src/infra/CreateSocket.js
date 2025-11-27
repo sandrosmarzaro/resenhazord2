@@ -13,6 +13,20 @@ export default class CreateSocket {
             syncFullHistory: false,
             markOnlineOnConnect: false,
             generateHighQualityLinkPreview: true,
+            puppeteerOptions: {
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-background-networking'
+                ]
+            }
         };
 
         return makeWASocket(config);
