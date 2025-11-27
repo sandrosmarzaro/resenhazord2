@@ -50,13 +50,16 @@ export default class ConnectionUpdateEvent {
 
             if (shouldReconnect) {
                 await this.scheduleReconnect();
-            } else {
+            }
+            else {
                 console.log(`⚠️  Not reconnecting for status code: ${statusCode}`);
                 this.reset();
             }
-        } else if (connection === 'connecting') {
+        }
+        else if (connection === 'connecting') {
             console.log('🔄 Connecting to WhatsApp...');
-        } else if (connection === 'open') {
+        }
+        else if (connection === 'open') {
             console.log('✅ Connection opened successfully');
             this.reset();
         }
