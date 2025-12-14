@@ -10,7 +10,8 @@ export default class YugiohCommand {
         const url = 'https://db.ygoprodeck.com/api/v7/randomcard.php';
         axios.get(url)
             .then(response => {
-                const card = response.data;
+                const card = response.data["data"][0];
+                console.log(JSON.stringify(card));
                 const card_image = card.card_images[0].image_url;
                 card.desc = card.desc.replace(/\n/g, '');
 
