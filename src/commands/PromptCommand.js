@@ -13,7 +13,7 @@ export default class PromptCommand {
 
         const rest_command = data.text.replace(/\n*\s*\,\s*prompt\s*/, '');
         if (!rest_command) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você não enviou um texto para IA! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -44,14 +44,14 @@ export default class PromptCommand {
             const result = await model.generateContent(prompt);
             const { response } = result;
             const text = response.text();
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: text},
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         } catch (error) {
             console.log(`ERROR PROMPT COMMAND\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui responder a sua pergunta 😔`},
                 {quoted: data, ephemeralExpiration: data.expiration}

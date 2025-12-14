@@ -20,7 +20,7 @@ export default class DriveCommand {
                              data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
 
     if (!has_upload_media && !has_quoted_media) {
-      Resenhazord2.socket.sendMessage(
+      await Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
         {text: 'Burro burro! Você precisa enviar uma mídia para botar no drive! 🤦‍♂️'},
         {quoted: data, ephemeralExpiration: data.expiration}
@@ -41,7 +41,7 @@ export default class DriveCommand {
 
     try {
       const buffer = await downloadMediaMessage(message, 'buffer', {}, {
-        reuploadRequest: Resenhazord2.socket.updateMediaMessage
+        reuploadRequest: await Resenhazord2.socket.updateMediaMessage
       });
 
       const auth = new google.auth.GoogleAuth({

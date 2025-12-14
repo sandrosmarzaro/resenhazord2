@@ -8,7 +8,7 @@ export default class FuckCommand {
     static async run(data) {
 
         if (!data.key.remoteJid.match(/g.us/)) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode fuder com alguém do grupo em um! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -22,7 +22,7 @@ export default class FuckCommand {
         const nsfw = new NSFW();
         const porn = await nsfw.fetch("fuck");
         try {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {
                     viewOnce: true,
@@ -34,7 +34,7 @@ export default class FuckCommand {
             );
         } catch (error) {
             console.log(`ERROR FUCK COMMAND\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui foder @${sender_phone} 😔`, mentions: [sender]},
                 {quoted: data, ephemeralExpiration: data.expiration}

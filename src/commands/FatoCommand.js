@@ -13,7 +13,7 @@ export default class FatoCommand {
         const response = await fetch(url);
         const fact = await response.json();
         try {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `FATO 🤓☝️\n${fact.text}`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -21,7 +21,7 @@ export default class FatoCommand {
         }
         catch (error) {
             console.log(`ERROR FATO COMMAND\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui te dar um fato... 😔'},
                 {quoted: data, ephemeralExpiration: data.expiration}

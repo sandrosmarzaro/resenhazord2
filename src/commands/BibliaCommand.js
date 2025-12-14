@@ -20,7 +20,7 @@ export default class BibliaCommand {
         if (!has_verse) {
             url = `${base_url}/verses/${version}/random`;
 
-            axios.get(url, { headers })
+            await axios.get(url, { headers })
             .then(response => {
                 this.send_verse(data, response.data);
             }).catch(error => {
@@ -36,7 +36,7 @@ export default class BibliaCommand {
                                 .trim();
 
         if (!rest_command || rest_command.match(/^\s*$/)){
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Por favor, digite o nome do livro da bíblia... 😔'},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -53,7 +53,7 @@ export default class BibliaCommand {
 
         let abbrev;
         await axios.get(`${base_url}/books`, { headers })
-        .then(response => {
+        .then(async response => {
             const books = response.data;
 
             abbrev = books.find(b => b.name.toLowerCase() === book.toLowerCase())?.abbrev?.pt;
@@ -62,7 +62,7 @@ export default class BibliaCommand {
                 let text = 'Não consegui encontrar o livro que você digitou... 😔'
                 text += '\n\n📚 *Livros Disponíveis* 📚\n';
                 text += book_names;
-                Resenhazord2.socket.sendMessage(
+                await Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: text},
                     {quoted: data, ephemeralExpiration: data.expiration}
@@ -97,7 +97,7 @@ export default class BibliaCommand {
             }
         }
         const text = `*${book} ${chapter}:${start}-${end}*\n\n${verses.join('\n')}`;
-        Resenhazord2.socket.sendMessage(
+        await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {text: text},
             {quoted: data, ephemeralExpiration: data.expiration}
@@ -106,7 +106,7 @@ export default class BibliaCommand {
 
     static async raise_generic_error(data, error) {
         console.log(`BIBLIA COMMAND ERROR\n${error}`);
-        Resenhazord2.socket.sendMessage(
+        await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {text: 'Perdoa-me Senhor, não consegui buscar o versículo... 😔'},
             {quoted: data, ephemeralExpiration: data.expiration}
@@ -114,7 +114,7 @@ export default class BibliaCommand {
     }
 
     static async send_verse(data, verse) {
-        Resenhazord2.socket.sendMessage(
+        await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {text: `*${verse.book.name} ${verse.chapter}:${verse.number}*\n\n> ${verse.text}`},
             {quoted: data, ephemeralExpiration: data.expiration}

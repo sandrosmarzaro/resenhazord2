@@ -3,7 +3,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 export default class Rule34Command {
-    static identifier = "^\\s*\\,\\s*rule34\\s*$";
+    static identifier = "^\\s*\\,\\s*rule\\s*34\\s*(?:show)?\\s*(?:dm)?$";
 
     static async run(data) {
         const TIMEOUT = 30000;
@@ -42,10 +42,15 @@ export default class Rule34Command {
                 throw new Error('URL da imagem inválida');
             }
 
+            const chat_id = data.key.remoteJid
+            const DM_FLAG_ACTIVE = data.text.match(/dm/)
+            if (DM_FLAG_ACTIVE && data.key.participantAlt) {
+                chat_id = data.key.participantAlt
+            }
             await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
+                chat_id,
                 {
-                    viewOnce: true,
+                    viewOnce: !(data.text.match(/show/)),
                     image: { url: url },
                     caption: 'Aqui está a imagem que você pediu 🤗'
                 },

@@ -3,14 +3,14 @@ import axios from 'axios';
 
 export default class Heartstone {
 
-    static identifier = "^\\s*\\,\\s*hs\\s*$";
+    static identifier = "^\\s*\\,\\s*hs\\s*(?:show)?\\s*(?:dm)?$";
 
     static async run(data) {
 
         const { BNET_ID, BNET_SECRET } = process.env;
         const access_token = await this.get_access_token(BNET_ID, BNET_SECRET);
         if (!access_token) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui entrar na Battle.net, manda a Blizzard tomar no cu! 🤷‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -45,15 +45,20 @@ export default class Heartstone {
             let description = card.text.replace(/\<\/?b\>/g, '*');
             description = description.replace(/\<\/?i\>/g, '_');
             const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
-            Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {image: {url: card.image}, caption: caption, viewOnce: true},
+            const chat_id = data.key.remoteJid
+            const DM_FLAG_ACTIVE = data.text.match(/dm/)
+            if (DM_FLAG_ACTIVE && data.key.participantAlt) {
+                chat_id = data.key.participantAlt
+            }
+            await Resenhazord2.socket.sendMessage(
+                chat_id,
+                {image: {url: card.image}, caption: caption, viewOnce: !(data.text.match(/show/))},
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
         }
         catch (error) {
             console.log(`HEARTHSTONE COMMAND ERROR\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui buscar as cartas do Hearthstone, manda a Blizzard tomar no cu! 🤷‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}

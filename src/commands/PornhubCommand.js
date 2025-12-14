@@ -29,7 +29,7 @@ export default class PornhubCommand {
                 tries++;
             }
             if (tries > 500) {
-                Resenhazord2.socket.sendMessage(
+                await Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
                     {quoted: data, ephemeralExpiration: data.expiration}
@@ -46,7 +46,7 @@ export default class PornhubCommand {
                 .start();
 
             const caption = `🔞 *${video.title || 'Aqui está seu vídeo 🤤'}* 🔞`;
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {
                     viewOnce: true,
@@ -58,7 +58,7 @@ export default class PornhubCommand {
         }
         catch (error) {
             console.log(`ERROR PORNHUB COMMAND\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
                 {quoted: data, ephemeralExpiration: data.expiration}

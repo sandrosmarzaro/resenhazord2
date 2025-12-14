@@ -9,7 +9,7 @@ export default class ImageCommand {
         const { resolution, model, prompt } = this.parseCommand(data.text);
 
         if (!prompt) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Você precisa informar um texto para a imagem! 🤷‍♂️'},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -28,7 +28,7 @@ export default class ImageCommand {
 
         const imageUrl = this.generateImageUrl(prompt, width, height, model, seed);
 
-        Resenhazord2.socket.sendMessage(
+        await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {image: {url: imageUrl}, viewOnce: true},
             {quoted: data, ephemeralExpiration: data.expiration}

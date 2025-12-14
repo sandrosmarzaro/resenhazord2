@@ -7,7 +7,7 @@ export default class BanCommand {
     static async run(data) {
 
         if (!data.key.remoteJid.match(/g.us/)) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode remover alguém em um grupo! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -23,7 +23,7 @@ export default class BanCommand {
             participant => participant.id === RESENHAZORD2_ID
         ).admin;
         if (!is_resenhazord2_admin) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Vai se foder! Eu não sou admin! 🖕`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -38,7 +38,7 @@ export default class BanCommand {
                 let random_participant = participants[Math.floor(Math.random() * participants.length)];
                 is_bot = (random_participant.id === RESENHAZORD2_ID) || random_participant.id === group.owner;
                 if (!is_bot) {
-                    Resenhazord2.socket.sendMessage(
+                    await Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {
                             text: `Se fudeu! @${random_participant.id.replace(regex, '')} 🖕`,
@@ -65,7 +65,7 @@ export default class BanCommand {
                     continue;
                 }
                 const participant_phone = participant.replace(regex, '');
-                Resenhazord2.socket.sendMessage(
+                await Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: `Se fudeu! @${participant_phone} 🖕`, mentions: [participant]},
                     {quoted: data, ephemeralExpiration: data.expiration}

@@ -19,7 +19,7 @@ export default class BorgesCommand {
                 { $inc: { nargas: 1 } },
                 { returnDocument: 'after', upsert: true }
             );
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Borges já fumou ${result.nargas} nargas 🚬`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -27,7 +27,7 @@ export default class BorgesCommand {
         }
         catch (error) {
             console.log(`BORGES COMMAND ERROR\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Eram muitas bitucas para contar e não consegui... 😔'},
                 {quoted: data, ephemeralExpiration: data.expiration}

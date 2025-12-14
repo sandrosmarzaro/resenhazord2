@@ -25,7 +25,7 @@ export default class AudioCommand {
             'vi-vn', 'zu-za', 'zh-tw (cmn-hant-tw)', 'zh (cmn-hans-cn)', 'yue-hant-hk', 'pa-guru-in'
         ]
         if (!languages.includes(language.toLowerCase())) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Burro burro! O idioma 🏳️‍🌈 não existe!'},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -40,7 +40,7 @@ export default class AudioCommand {
             text = rest_command;
         }
         if (!text) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Burro burro! Cadê o texto? 🤨'},
                 {quoted: data, ephemeralExpiration: data.expiration}

@@ -3,7 +3,7 @@ import axios from 'axios';
 
 export default class FilmeSerieCommand {
 
-    static identifier = "^\\s*\\,\\s*(?:filme|s.rie)\\s*(?:top|pop)?\\s*$";
+    static identifier = "^\\s*\\,\\s*(?:filme|s.rie)\\s*(?:top|pop)?\\s*(?:show)?\\s*(?:dm)?$";
 
     static async run(data) {
 
@@ -44,16 +44,21 @@ export default class FilmeSerieCommand {
             caption += `⭐ ${job.vote_average || 'Sem Nota'}\t📅 ${year || 'Sem Data'}\n\n`;
             caption += `> ${job.overview}`;
 
-            Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                { image: { url: poster_url }, caption: caption, viewOnce: true },
+            const chat_id = data.key.remoteJid
+            const DM_FLAG_ACTIVE = data.text.match(/dm/)
+            if (DM_FLAG_ACTIVE && data.key.participantAlt) {
+                chat_id = data.key.participantAlt
+            }
+            await Resenhazord2.socket.sendMessage(
+                chat_id,
+                { image: { url: poster_url }, caption: caption, viewOnce: !(data.text.match(/show/)) },
                 { quoted: data, ephemeralExpiration: data.expiration }
             );
         }
         catch (error) {
             console.log(`ERROR FILME SERIE COMMAND\n${error}`);
             const message = type === 'movie' ? 'seu filminho' : 'sua seriezinha';
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 { text: `Viiixxiii... Não consegui buscar ${message}! 🥺👉👈`},
                 { quoted: data, ephemeralExpiration: data.expiration }

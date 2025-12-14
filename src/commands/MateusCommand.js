@@ -8,7 +8,7 @@ export default class MateusCommand {
 
         const probability = (Math.random() * 101).toFixed(2).replace('.', ',');
         try {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `A probabilidade de Mateus nascer agora é de ${probability} % 🧐`},
                 {quoted: data, ephemeralExpiration: data.expiration}

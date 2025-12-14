@@ -9,7 +9,7 @@ export default class MealRecipesCommand {
 
         const url = 'https://www.themealdb.com/api/json/v1/1/random.php';
         axios.get(url)
-            .then(response => {
+            .then(async response => {
                 const meal = response.data.meals[0];
 
                 let caption = '';
@@ -29,7 +29,7 @@ export default class MealRecipesCommand {
                 caption += `${meal.strInstructions}\n\n`;
                 caption += `🎥 ${meal.strYoutube}\n`;
                 caption += `🔗 ${meal.strSource}\n`;
-                Resenhazord2.socket.sendMessage(
+                await Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {
                         caption: caption,
@@ -39,9 +39,9 @@ export default class MealRecipesCommand {
                     {quoted: data, ephemeralExpiration: data.expiration}
                 );
             })
-            .catch (error => {
+            .catch (async error => {
                 console.log(`ERROR MEAL RECIPES COMMAND\n${error}`);
-                Resenhazord2.socket.sendMessage(
+                await Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
                     {text: 'Viiixxiii... Não consegui te dar uma comida! 🥺👉👈'},
                     {quoted: data, ephemeralExpiration: data.expiration}

@@ -15,7 +15,7 @@ export default class AddCommand {
     static async run(data) {
 
         if (!data.key.remoteJid.match(/g.us/)) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -29,7 +29,7 @@ export default class AddCommand {
             participant => participant.id === RESENHAZORD2_ID
         ).admin;
         if (!is_resenhazord2_admin) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Vai se fuder! Eu não sou admin! 🖕`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -46,7 +46,7 @@ export default class AddCommand {
 
         const is_valid_DDD = this.DDD_LIST.some(DDD => inserted_phone.startsWith(DDD));
         if (!is_valid_DDD) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! O DDD do estado 🏳️‍🌈 não existe!`},
                 {quoted: data}
@@ -55,7 +55,7 @@ export default class AddCommand {
         }
 
         if (inserted_phone.length > 11) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -111,7 +111,7 @@ export default class AddCommand {
                 }
                 catch (error) {
                     console.log(`ERROR ADD COMMAND\n${error}`);
-                    Resenhazord2.socket.sendMessage(
+                    await Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
                         {text: `Não consegui adicionar o número ${generated_phone} 😔`},
                         {quoted: data, ephemeralExpiration: data.expiration}

@@ -8,7 +8,7 @@ export default class D20Command {
 
         const d20 = Math.floor(Math.random() * 20) + 1;
         try {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Aqui está sua rolada: ${d20} 🎲`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -16,7 +16,7 @@ export default class D20Command {
         }
         catch (error) {
             console.log(`ERROR D20 COMMAND\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Não consegui te dar uma rolada... 😔'},
                 {quoted: data, ephemeralExpiration: data.expiration}

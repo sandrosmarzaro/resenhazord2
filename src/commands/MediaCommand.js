@@ -8,7 +8,7 @@ export default class MediaCommand {
 
         let url = data.text.replace(/\n*\s*\,\s*media\s*/, '');
         if (url.length === 0) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 { text: 'Me passa o link do vídeo que você quer baixar 🤗' },
                 { quoted: data, ephemeralExpiration: data.expiration }
@@ -19,7 +19,7 @@ export default class MediaCommand {
         url = url.replace('instagram.com/reel/', 'instagram.com/p/');
         url = url.replace(/\/\?.*$/, '/');
 
-        Resenhazord2.socket.sendMessage(
+        await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             { text: `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈` },
             { quoted: data, ephemeralExpiration: data.expiration }

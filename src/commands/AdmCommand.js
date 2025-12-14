@@ -7,7 +7,7 @@ export default class AdmCommand {
     static async run(data) {
 
         if (!data.key.remoteJid.match(/g.us/)) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode xingar adminstração em um grupo! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -43,7 +43,8 @@ export default class AdmCommand {
         await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {
-                text: `Vai se foder administração! 🖕\nVocê é ${random_swearing}\n${adm_mentions.join('')}`, mentions: adms_ids
+                text: `Vai se foder administração! 🖕\nVocê é ${random_swearing}\n${adm_mentions.join('')}`,
+                mentions: adms_ids
             },
             {quoted: data, ephemeralExpiration: data.expiration}
         );

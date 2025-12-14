@@ -25,7 +25,7 @@ export default class MenuCommand {
         }
 
         try {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: menu},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -33,7 +33,7 @@ export default class MenuCommand {
         }
         catch (error) {
             console.log(`ERROR MENU COMMAND\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Viiixxiii.. Não consegui exibir o menu! 🥺👉👈'},
                 {quoted: data, ephemeralExpiration: data.expiration}

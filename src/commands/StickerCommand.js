@@ -14,7 +14,7 @@ export default class StickerCommand {
         const has_quoted_media = data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
                                 data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
         if (!has_upload_media && !has_quoted_media) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Burro burro! Você precisa enviar uma imagem ou gif para fazer um sticker! 🤦‍♂️'},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -39,7 +39,7 @@ export default class StickerCommand {
             ffmpeg.setFfmpegPath(ffmpegPath);
 
             const buffer = await downloadMediaMessage(message, 'buffer', {},  {
-                reuploadRequest: Resenhazord2.socket.updateMediaMessage
+                reuploadRequest: await Resenhazord2.socket.updateMediaMessage
             });
             const sticker = await new Sticker(buffer)
                 .setPack('Resenhazord2')
@@ -48,7 +48,7 @@ export default class StickerCommand {
                 .setCategories(['Resenha', 'Bot'])
                 .setQuality(50)
                 .build();
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {sticker},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -56,7 +56,7 @@ export default class StickerCommand {
         }
         catch (error) {
             console.log(`ERROR STICKER COMMAND\n${error}`);
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui criar a figurinha! 😔`},
                 {quoted: data, ephemeralExpiration: data.expiration}

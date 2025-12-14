@@ -7,7 +7,7 @@ export default class AllCommand {
     static async run(data) {
 
         if (!data.key.remoteJid.match(/g.us/)) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode marcar o grupo em um grupo! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -24,7 +24,7 @@ export default class AllCommand {
             message += `@${participant.id.replace(regex, '')} `;
         }
         const participants_ids = participants.map(participant => participant.id);
-        Resenhazord2.socket.sendMessage(
+        await Resenhazord2.socket.sendMessage(
             data.key.remoteJid,
             {text: message, mentions: participants_ids},
             {quoted: data, ephemeralExpiration: data.expiration}

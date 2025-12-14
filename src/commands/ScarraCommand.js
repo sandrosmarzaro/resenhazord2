@@ -7,7 +7,7 @@ export default class ScarraCommand {
     static async run(data) {
 
         if (!data.key.remoteJid.match(/g.us/)) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Burro burro! Você só pode escarrar alguém em um grupo! 🤦‍♂️`},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -17,7 +17,7 @@ export default class ScarraCommand {
 
         const message = data.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!message?.viewOnceMessage && !message?.viewOnceMessageV2 && !message?.viewOnceMessageV2Extension) {
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: 'Burro burro! Você precisa marcar uma mensagem única pra eu escarrar! 🤦‍♂️'},
                 {quoted: data, ephemeralExpiration: data.expiration}
@@ -60,9 +60,9 @@ export default class ScarraCommand {
                 break;
             }
         }
-        Resenhazord2.socket.relayMessage(data.key.remoteJid, parsed_message, { }).catch(error => {
+        await Resenhazord2.socket.relayMessage(data.key.remoteJid, parsed_message, { }).catch( async error => {
             console.log(`ERROR SCARRA COMMAND\n${error}`)
-            Resenhazord2.socket.sendMessage(
+            await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 {text: `Não consegui escarrar! 😔`},
                 {quoted: data, ephemeralExpiration: data.expiration}
