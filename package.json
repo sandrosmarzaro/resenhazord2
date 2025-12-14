@@ -23,6 +23,7 @@
     "@whiskeysockets/baileys": "7.0.0-rc.9",
     "axios": "^1.7.2",
     "cheerio": "^1.1.2",
+    "darksadas-yt-pornhub-scrape": "^1.0.0",
     "dotenv": "^16.4.5",
     "ffmpeg": "^0.0.4",
     "fluent-ffmpeg": "^2.1.3",

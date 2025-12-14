@@ -1,5 +1,7 @@
 import Resenhazord2 from "../models/Resenhazord2.js";
 import { NSFW } from "nsfwhub";
+import pkg from 'darksadas-yt-pornhub-scrape';
+const { phdl } = pkg;
 
 export default class PornoCommand {
 
@@ -7,11 +9,11 @@ export default class PornoCommand {
 
     static async run(data) {
 
-        const rest_command = data.text.replace(/\n*\s*\,\s*porn.\s*/, '');
-        const args_command = rest_command.replace(/\s|\n/, '');
+        const ia_activate = data.text.match(/ia/)
         try {
-            if (args_command) {
+            if (ia_activate) {
                 this.ia_porn(data)
+                return;
             }
             this.real_porn(data)
         }
@@ -36,7 +38,6 @@ export default class PornoCommand {
         ];
         const tag = tags[Math.floor(Math.random() * tags.length)];
         const porn = await nsfw.fetch(tag);
-        console.log(JSON.stringify(porn, undefined, 4))
         let content = {
             viewOnce: !(data.text.match(/show/)),
             caption: 'Aqui está seu vídeo 🤤'
@@ -58,7 +59,6 @@ export default class PornoCommand {
         if (DM_FLAG_ACTIVE && data.key.participant) {
             chat_id = data.key.participant
         }
-        console.log(JSON.stringify(content, undefined, 4))
         await Resenhazord2.socket.sendMessage(
             chat_id,
             content,
@@ -67,11 +67,32 @@ export default class PornoCommand {
     }
 
     static async real_porn(data) {
-
-        await Resenhazord2.socket.sendMessage(
-            data.key.remoteJid,
-            {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
-            {quoted: data, ephemeralExpiration: data.expiration}
-        );
+        await phdl("https://pt.pornhub.com/random")
+        .then(async (results) => {
+            let chat_id = data.key.remoteJid
+            const DM_FLAG_ACTIVE = data.text.match(/dm/)
+            if (DM_FLAG_ACTIVE && data.key.participant) {
+                chat_id = data.key.participant
+            }
+            await Resenhazord2.socket.sendMessage(
+                chat_id,
+                {
+                    video: {
+                        url: results.format[0].download_url
+                    },
+                    caption: results.video_title,
+                    viewOnce: !(data.text.match(/show/)),
+                },
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+        })
+        .catch(async (error) => {
+            console.log(`ERROR PORN COMMAND\n${error}`);
+            await Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+        });
     }
 }
