@@ -44,10 +44,10 @@ export default class FilmeSerieCommand {
             caption += `⭐ ${job.vote_average || 'Sem Nota'}\t📅 ${year || 'Sem Data'}\n\n`;
             caption += `> ${job.overview}`;
 
-            const chat_id = data.key.remoteJid
+            let chat_id = data.key.remoteJid
             const DM_FLAG_ACTIVE = data.text.match(/dm/)
-            if (DM_FLAG_ACTIVE && data.key.participantAlt) {
-                chat_id = data.key.participantAlt
+            if (DM_FLAG_ACTIVE && data.key.participant) {
+                chat_id = data.key.participant
             }
             await Resenhazord2.socket.sendMessage(
                 chat_id,

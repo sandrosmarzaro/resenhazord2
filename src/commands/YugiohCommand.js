@@ -14,10 +14,10 @@ export default class YugiohCommand {
                 const card_image = card.card_images[0].image_url;
                 card.desc = card.desc.replace(/\n/g, '');
 
-                const chat_id = data.key.remoteJid
+                let chat_id = data.key.remoteJid
                 const DM_FLAG_ACTIVE = data.text.match(/dm/)
-                if (DM_FLAG_ACTIVE && data.key.participantAlt) {
-                    chat_id = data.key.participantAlt
+                if (DM_FLAG_ACTIVE && data.key.participant) {
+                    chat_id = data.key.participant
                 }
                 await Resenhazord2.socket.sendMessage(
                     chat_id,

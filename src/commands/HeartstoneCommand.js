@@ -45,10 +45,11 @@ export default class Heartstone {
             let description = card.text.replace(/\<\/?b\>/g, '*');
             description = description.replace(/\<\/?i\>/g, '_');
             const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
-            const chat_id = data.key.remoteJid
+
+            let chat_id = data.key.remoteJid
             const DM_FLAG_ACTIVE = data.text.match(/dm/)
-            if (DM_FLAG_ACTIVE && data.key.participantAlt) {
-                chat_id = data.key.participantAlt
+            if (DM_FLAG_ACTIVE && data.key.participant) {
+                chat_id = data.key.participant
             }
             await Resenhazord2.socket.sendMessage(
                 chat_id,
