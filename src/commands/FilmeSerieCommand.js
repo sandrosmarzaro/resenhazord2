@@ -7,9 +7,9 @@ export default class FilmeSerieCommand {
 
     static async run(data) {
 
+        const type = data.text.match(/filme/i) ? 'movie' : 'tv';
         const rest_command = data.text.replace(/\s*\,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
         const mode = rest_command.match(/top/i) ? 'top_rated' : 'popular';
-        const type = data.message.extendedTextMessage.text.match(/filme/i) ? 'movie' : 'tv';
         const url = `https://api.themoviedb.org/3/${type}/${mode}`;
 
         const page = Math.floor(Math.random() * 25) + 1;
