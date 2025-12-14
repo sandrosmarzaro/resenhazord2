@@ -7,19 +7,30 @@ export default class Rule34Command {
     static async run(data) {
         const TIMEOUT = 60000;
         const NAVIGATION_TIMEOUT = 30000;
+        let browser;
 
         try {
-            const browser = await puppeteer.launch({
+            browser = await puppeteer.launch({
                 headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-background-networking'
+                ],
                 timeout: TIMEOUT
             });
-            const page = await browser.newPage();
 
+            const page = await browser.newPage();
             page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT);
             page.setDefaultTimeout(TIMEOUT);
 
-            await page.goto(`https://rule34.xxx/index.php?page=post&s=random`, {
+            await page.goto('https://rule34.xxx/index.php?page=post&s=random', {
                 waitUntil: 'networkidle0',
                 timeout: NAVIGATION_TIMEOUT
             });
@@ -48,7 +59,7 @@ export default class Rule34Command {
         catch (error) {
             console.log(`RULE34 COMMAND ERROR\n${error}`);
 
-            const errorMessage = error instanceof puppeteer.errors.TimeoutError
+            const errorMessage = error.name === 'TimeoutError' || error.message.includes('timeout')
                 ? 'Tempo limite excedido ao tentar acessar o site 😔'
                 : 'Não consegui encontrar nada para você 😔';
 
