@@ -3,7 +3,7 @@ import { NSFW } from "nsfwhub";
 
 export default class PornoCommand {
 
-    static identifier = "^\\s*\\,\\s*porno\\s*(?:ia)?\\s*$";
+    static identifier = "^\\s*\\,\\s*porno\\s*(?:ia)?\\s*(?:show)?\\s*(?:dm)?$";
 
     static async run(data) {
 
@@ -36,17 +36,31 @@ export default class PornoCommand {
         ];
         const tag = tags[Math.floor(Math.random() * tags.length)];
         const porn = await nsfw.fetch(tag);
+        console.log(JSON.stringify(porn, undefined, 4))
         let content = {
-            viewOnce: true,
+            viewOnce: !(data.text.match(/show/)),
             caption: 'Aqui está seu vídeo 🤤'
         }
-        if (porn?.image?.url?.endsWith('.mp4') || porn?.image?.url?.endsWith('.gif')) {
-            content.video = { url: porn.image.url }
-        }
-        content.image = { url: porn.image.url }
 
+        if (porn?.image?.url?.endsWith('.mp4')) {
+            content.video = { url: porn.image.url };
+        }
+        else if (porn?.image?.url?.endsWith('.gif')) {
+            content.image = { url: porn.image.url };
+            content.gifPlayback = true;
+        }
+        else {
+            content.image = { url: porn.image.url };
+        }
+
+        let chat_id = data.key.remoteJid
+        const DM_FLAG_ACTIVE = data.text.match(/dm/)
+        if (DM_FLAG_ACTIVE && data.key.participant) {
+            chat_id = data.key.participant
+        }
+        console.log(JSON.stringify(content, undefined, 4))
         await Resenhazord2.socket.sendMessage(
-            data.key.remoteJid,
+            chat_id,
             content,
             {quoted: data, ephemeralExpiration: data.expiration}
         );
