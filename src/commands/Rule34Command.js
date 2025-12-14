@@ -1,48 +1,46 @@
 import Resenhazord2 from '../models/Resenhazord2.js';
-import puppeteer from 'puppeteer';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 export default class Rule34Command {
     static identifier = "^\\s*\\,\\s*rule34\\s*$";
 
     static async run(data) {
-        const TIMEOUT = 60000;
-        const NAVIGATION_TIMEOUT = 30000;
-        let browser;
+        const TIMEOUT = 30000;
 
         try {
-            browser = await puppeteer.launch({
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--disable-gpu',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--single-process',
-                    '--disable-background-networking'
-                ],
-                timeout: TIMEOUT
+            const response = await axios.get('https://rule34.xxx/index.php?page=post&s=random', {
+                timeout: TIMEOUT,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Connection': 'keep-alive',
+                }
             });
 
-            const page = await browser.newPage();
-            page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT);
-            page.setDefaultTimeout(TIMEOUT);
+            const $ = cheerio.load(response.data);
+            const images = [];
 
-            await page.goto('https://rule34.xxx/index.php?page=post&s=random', {
-                waitUntil: 'networkidle0',
-                timeout: NAVIGATION_TIMEOUT
+            $('div.flexi img').each((i, elem) => {
+                const src = $(elem).attr('src');
+                if (src) {
+                    images.push({ src });
+                }
             });
 
-            const rule34 = await page.evaluate(() => {
-                const nodeList = document.querySelectorAll('div.flexi img');
-                const imgArray = [...nodeList];
-                return imgArray.map(({ src }) => ({ src }));
-            });
+            if (images.length === 0) {
+                throw new Error('Nenhuma imagem encontrada');
+            }
 
             const banner_url = 'https://kanako.store/products/futa-body';
-            const url = rule34[0]['src'] === banner_url ? rule34[1]['src'] : rule34[0]['src'];
+            const url = images[0]['src'] === banner_url && images.length > 1
+                ? images[1]['src']
+                : images[0]['src'];
+
+            if (!url) {
+                throw new Error('URL da imagem inválida');
+            }
 
             await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
@@ -53,25 +51,24 @@ export default class Rule34Command {
                 },
                 { quoted: data, ephemeralExpiration: data.expiration }
             );
-
-            await browser.close();
         }
         catch (error) {
             console.log(`RULE34 COMMAND ERROR\n${error}`);
 
-            const errorMessage = error.name === 'TimeoutError' || error.message.includes('timeout')
-                ? 'Tempo limite excedido ao tentar acessar o site 😔'
-                : 'Não consegui encontrar nada para você 😔';
+            let errorMessage = 'Não consegui encontrar nada para você 😔';
+
+            if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+                errorMessage = 'Tempo limite excedido ao tentar acessar o site 😔';
+            }
+            else if (error.response?.status) {
+                errorMessage = `Erro ao acessar o site (${error.response.status}) 😔`;
+            }
 
             await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
                 { text: errorMessage },
                 { quoted: data, ephemeralExpiration: data.expiration }
             );
-
-            if (browser) {
-                await browser.close();
-            }
         }
     }
 }
