@@ -32,6 +32,35 @@ export default class GroupMentionsCommand {
         }
     }
 
+    static async is_valid_group_name(group_name) {
+        if (group_name?.length > 15) {
+            await Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `O nome do grupo é desse tamanho! ✋    🤚`},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+            return false;
+        }
+        const functions = ['add', 'exit', 'create', 'delete', 'rename', 'list'];
+        if (functions.some(func => new RegExp(func, 'i').test(group_name))) {
+            await Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `O nome do grupo não pode ser um comando!`},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+            return false;
+        }
+        if (group_name.match(/\s/)) {
+            await Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `O nome do grupo não pode ter espaço!`},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
+            return false;
+        }
+        return true;
+    }
+
     static async create(data, rest_command) {
 
         const sender_id = data.key.remoteJidAlt;
@@ -45,21 +74,7 @@ export default class GroupMentionsCommand {
             );
             return;
         }
-        if (group_name?.length > 15) {
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `O nome do grupo é desse tamanho! ✋    🤚`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-            return;
-        }
-        const functions = ['add', 'exit', 'create', 'delete', 'rename', 'list'];
-        if (functions.some(func => new RegExp(func, 'i').test(group_name))) {
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `O nome do grupo não pode ser um comando!`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
+        if (!await this.is_valid_group_name(group_name)) {
             return;
         }
 
@@ -122,6 +137,9 @@ export default class GroupMentionsCommand {
         }
 
         const [old_group_name, new_group_name] = rest_command.split(/\s+/);
+        if (!await this.is_valid_group_name(new_group_name)) {
+            return;
+        }
         try {
 
             await this.client.connect();
@@ -253,12 +271,15 @@ export default class GroupMentionsCommand {
                     return;
                 }
                 const regex = /@lid|@s.whatsapp.net/gi;
-                const message = group.participants.map(
-                    participant => `- ${participant.replace(regex, '')}`)
-                    .join('\n');
+                let message = '';
+                for (const [index, participant_id] of group.participants.entries()) {
+                    const participant_number = participant_id.replace(regex, '');
+                    message += `- ${index + 1}: @${participant_number}\n`;
+                }
+
                 await Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
-                    {text: `📜 *${rest_command.toUpperCase()}* 📜\n\n${message}`},
+                    {text: `📜 *${rest_command.toUpperCase()}* 📜\n\n${message}`, mentions: group.participants},
                     {quoted: data, ephemeralExpiration: data.expiration}
                 );
                 return;
@@ -351,17 +372,8 @@ export default class GroupMentionsCommand {
     static async exit(data, rest_command) {
 
         const sender_id = data.key.remoteJidAlt;
-        const has_mention = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0;
-        if (has_mention) {
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `Burro burro! Você não marcou ninguém! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-            return;
-        }
 
-        const group_name = rest_command.replace(/\s*\@\d+\s*/g, '');
+        const group_name = rest_command.replace(/\s+\d+\s*/g, '');
         if (group_name?.length == 0) {
             await Resenhazord2.socket.sendMessage(
                 data.key.remoteJid,
@@ -386,8 +398,8 @@ export default class GroupMentionsCommand {
                 return;
             }
 
-            const mentioneds = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            if (mentioneds.length == 0) {
+            const has_indexes = new RegExp(/\s+\d+\s*/g, 'i').test(rest_command)
+            if (!has_indexes) {
                 await collection
                     .updateOne(
                         { _id: data.key.remoteJid, 'groups.name': group_name },
@@ -398,19 +410,38 @@ export default class GroupMentionsCommand {
                     {text: `Você foi removido do grupo *${group_name}* com sucesso! 🎉`},
                     {quoted: data, ephemeralExpiration: data.expiration}
                 );
+                return;
             }
-            else {
-                await collection
-                    .updateOne(
-                        { _id: data.key.remoteJid, 'groups.name': group_name },
-                        { $pull: { 'groups.$.participants': { $in: mentioneds } } }
-                    );
+            const indexes = rest_command.match(/\s+(\d+)\s*/g).map(index => parseInt(index.trim()));
+
+            const group = await collection.findOne(
+                { _id: data.key.remoteJid, 'groups.name': group_name },
+                { projection: { 'groups.$': 1 } }
+            );
+            const participants_to_remove = indexes
+                .map(index => group.groups[0].participants[index - 1])
+                .filter(participant => participant !== undefined);
+
+            if (participants_to_remove.length == 0) {
                 await Resenhazord2.socket.sendMessage(
                     data.key.remoteJid,
-                    {text: `Participantes removidos do grupo *${group_name}* com sucesso! 🎉`},
+                    {text: `Nenhum participante encontrado para os índices fornecidos 😔`},
                     {quoted: data, ephemeralExpiration: data.expiration}
                 );
+                return;
             }
+
+            await collection
+                .updateOne(
+                    { _id: data.key.remoteJid, 'groups.name': group_name },
+                    { $pull: { 'groups.$.participants': { $in: participants_to_remove } } }
+                );
+
+            await Resenhazord2.socket.sendMessage(
+                data.key.remoteJid,
+                {text: `Participantes removidos do grupo *${group_name}* com sucesso! 🎉`},
+                {quoted: data, ephemeralExpiration: data.expiration}
+            );
         }
         catch (error) {
             console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
