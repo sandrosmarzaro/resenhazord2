@@ -7,8 +7,8 @@ services:
     working_dir: /app
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "process.exit(process.pid > 0 ? 0 : 1)"]
+      test: ["CMD-SHELL", "pidof node || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 60s
