@@ -2,7 +2,7 @@ import Resenhazord2 from '../models/Resenhazord2.js';
 
 export default class ImageCommand {
 
-    static identifier = "^\\s*\\,\\s*img\\s*(?:sd|hd|fhd|qhd|4k)?\\s*(?:(?:flux)?(?:-pro|-realism|-anime|-3d|cablyai)?)?(?:turbo)?";
+    static identifier = "^\\s*\\,\\s*img\\s*(?:sd|hd|fhd|qhd|4k)?\\s*(?:(?:flux)?(?:-pro|-realism|-anime|-3d|cablyai)?)?(?:turbo)?\\s*(?:show)?\\s*(?:dm)?\\s*";
 
     static async run(data) {
         const seed = () => new Date().getTime() % 1000000;
@@ -28,9 +28,14 @@ export default class ImageCommand {
 
         const imageUrl = this.generateImageUrl(prompt, width, height, model, seed);
 
+        let chat_id = data.key.remoteJid
+        const DM_FLAG_ACTIVE = data.text.match(/dm/)
+        if (DM_FLAG_ACTIVE && data.key.participant) {
+            chat_id = data.key.participant
+        }
         await Resenhazord2.socket.sendMessage(
-            data.key.remoteJid,
-            {image: {url: imageUrl}, viewOnce: true},
+            chat_id,
+            {image: {url: imageUrl}, viewOnce: !(data.text.match(/show/))},
             {quoted: data, ephemeralExpiration: data.expiration}
         );
     }

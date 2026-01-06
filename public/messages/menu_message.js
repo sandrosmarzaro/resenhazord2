@@ -22,6 +22,8 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 
 🎲 FUNÇÕES ALEATÓRIAS 🎲
 
+_(use as opções *show* e/ou *dm* para enviar imagens no chat privado e sem visualização única respectivamente)_
+
 - *,anime* ou *,anime* _nfsw_
 > Receba uma anime aleatório do top 500 do MyAnimeList.
 
@@ -44,7 +46,7 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 > Receba uma carta aleatória de Hearthstone.
 
 - *,manga*
-> Receba uma mangá aleatório e suas info do MyAnimeList.
+> Receba uma mangá aleatório do top 500 e suas info do MyAnimeList.
 
 - *,mateus*
 > Descubra a probabilidade do Mateus nascer.
@@ -63,6 +65,9 @@ export default `\t\t\t📝 *MENU DE COMANDOS* 📝
 
 - *,ygo*
 > Receba uma carta aleatória de Yu-Gi-Oh!.
+
+- ,img* _[sd|hd|fhd|qhd|4k]_ _[flux-pro|flux-realism|flux-anime|flux-3d|cablyai]_ _prompt_
+> Gere uma imagem baseada no prompt usando IA com resolução e modelo opcionais.
 
 💾 FUNÇÕES DE DOWNLOAD 💾
 

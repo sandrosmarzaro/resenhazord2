@@ -5,7 +5,7 @@ import menu_biblia_message from '../../public/messages/menu_biblia_message.js';
 
 export default class MenuCommand {
 
-    static identifier = "^\\s*\\,\\s*menu\\s*(?:grupo|b.blia)?\\s*$";
+    static identifier = "^\\s*\\,\\s*menu\\s*(?:grupo|b.blia)?\\s*(?:dm)?$";
 
     static async run(data) {
 
@@ -25,8 +25,13 @@ export default class MenuCommand {
         }
 
         try {
+            let chat_id = data.key.remoteJid
+            const DM_FLAG_ACTIVE = data.text.match(/dm/)
+            if (DM_FLAG_ACTIVE && data.key.participant) {
+                chat_id = data.key.participant
+            }
             await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
+                chat_id,
                 {text: menu},
                 {quoted: data, ephemeralExpiration: data.expiration}
             );
