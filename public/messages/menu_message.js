@@ -27,38 +27,14 @@ _(use as opções *show* e/ou *dm* para enviar imagens no chat privado e sem vis
 - *,anime* ou *,anime* _nfsw_
 > Receba uma anime aleatório do top 500 do MyAnimeList.
 
-- *,biblia*
-> Comando complexo. Use *,menu biblia* para detalhes.
-
-- *,comida*
-> Receba aleatoriamente uma receita e suas intruções em inglês.
-
-- *,d20*
-> Role um dado de vinte dimensões.
-
-- *,fato* ou *,fato* _hoje_
-> Descubra um fato aleatório ou de hoje em inglês.
-
-- *,filme* ou *,filme* _top_
-> Receba aleatoriamente um filme top 500 em pouplaridade ou por nota.
-
-- *,hs*
-> Receba uma carta aleatória de Hearthstone.
-
 - *,manga*
 > Receba uma mangá aleatório do top 500 e suas info do MyAnimeList.
 
-- *,mateus*
-> Descubra a probabilidade do Mateus nascer.
+- *,biblia*
+> Comando complexo. Use *,menu biblia* para detalhes.
 
-- *,pokemon*
-> Receba uma imagem e dados de um pokémon aleatório.
-
-- *,porno* ou *,porno* _ia_
-> Receba um porno aleátório real ou feito por IA.
-
-- *,rule34*
-> Receba uma imagem aleatória da Rule 34.
+- *,filme* ou *,filme* _top_
+> Receba aleatoriamente um filme top 500 em pouplaridade ou por nota.
 
 - *,serie* ou *,serie* _top_
 > Receba aleatoriamente um série top 500 em pouplaridade ou por nota.
@@ -66,8 +42,35 @@ _(use as opções *show* e/ou *dm* para enviar imagens no chat privado e sem vis
 - *,ygo*
 > Receba uma carta aleatória de Yu-Gi-Oh!.
 
-- ,img* _[sd|hd|fhd|qhd|4k]_ _[flux-pro|flux-realism|flux-anime|flux-3d|cablyai]_ _prompt_
+- *,hs*
+> Receba uma carta aleatória de Hearthstone.
+
+- *,mtg*
+> Receba uma carta aleatória de Magic: The Gathering.
+
+- *,pokemon*
+> Receba uma imagem e dados de um pokémon aleatório.
+
+- *,img* _[sd|hd|fhd|qhd|4k]_ _[flux-pro|flux-realism|flux-anime|flux-3d|cablyai]_ _prompt_
 > Gere uma imagem baseada no prompt usando IA com resolução e modelo opcionais.
+
+- *,porno* ou *,porno* _ia_
+> Receba um porno aleátório real ou feito por IA.
+
+- *,rule34*
+> Receba uma imagem aleatória da Rule 34.
+
+- *,comida*
+> Receba aleatoriamente uma receita e suas intruções em inglês.
+
+- *,fato* ou *,fato* _hoje_
+> Descubra um fato aleatório ou de hoje em inglês.
+
+- *,d20*
+> Role um dado de vinte dimensões.
+
+- *,mateus*
+> Descubra a probabilidade do Mateus nascer.
 
 💾 FUNÇÕES DE DOWNLOAD 💾
 
