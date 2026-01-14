@@ -1,7 +1,8 @@
 import CreateSocket from '../infra/CreateSocket.js';
 import CreateAuthState from '../auth/CreateAuthState.js';
 import MessageUpsertEvent from '../events/MessageUpsertEvent.js';
-import ConnectionUpdate from '../events/ConnectionUpdateEvent.js';
+import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
+import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 
 export default class Resenhazord2 {
 
@@ -34,8 +35,9 @@ export default class Resenhazord2 {
         }
         this.socket.ev.removeAllListeners('connection.update');
 
-        this.socket.ev.on('connection.update', async (update) => { await ConnectionUpdate.run(update) });
+        this.socket.ev.on('connection.update', async (update) => { await ConnectionUpdateEvent.run(update) });
         this.socket.ev.on('messages.upsert', async (data) => { await MessageUpsertEvent.run(data) });
+        this.socket.ev.on('group-participants.update', async (data) => { await GroupParticipantsUpdateEvent.run(data)})
         await this.socket.ev.on('creds.update', this.auth_state.saveCreds);
     }
 
