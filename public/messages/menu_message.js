@@ -39,6 +39,9 @@ _(use as opções *show* e/ou *dm* para enviar imagens no chat privado e sem vis
 - *,serie* ou *,serie* _top_
 > Receba aleatoriamente um série top 500 em pouplaridade ou por nota.
 
+- *,pokemon*
+> Receba uma imagem e dados de um pokémon aleatório.
+
 - *,ygo*
 > Receba uma carta aleatória de Yu-Gi-Oh!.
 
@@ -48,8 +51,8 @@ _(use as opções *show* e/ou *dm* para enviar imagens no chat privado e sem vis
 - *,mtg*
 > Receba uma carta aleatória de Magic: The Gathering.
 
-- *,pokemon*
-> Receba uma imagem e dados de um pokémon aleatório.
+- *,carta*
+> Receba uma carta de baralho aleatória
 
 - *,img* _[sd|hd|fhd|qhd|4k]_ _[flux-pro|flux-realism|flux-anime|flux-3d|cablyai]_ _prompt_
 > Gere uma imagem baseada no prompt usando IA com resolução e modelo opcionais.
