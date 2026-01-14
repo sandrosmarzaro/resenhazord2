@@ -4,12 +4,12 @@ export default class MessageUpsertEvent {
 
     static async run(data) {
         const [message] = data.messages;
-        const { RESENHA_ID, RESENHAZORD2_ID, RESENHA_TEST_ID } = process.env;
+        const { RESENHA_JID, RESENHAZORD2_JID, RESENHA_TEST_LID } = process.env;
         const chat = message.key.remoteJid;
-        if (![RESENHA_ID, RESENHAZORD2_ID, RESENHA_TEST_ID].includes(chat)) {
+        if (![RESENHA_JID, RESENHAZORD2_JID, RESENHA_TEST_LID].includes(chat)) {
             return;
         }
 
-        CommandHandler.run(message);
+        await CommandHandler.run(message);
     }
 }
