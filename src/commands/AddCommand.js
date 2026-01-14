@@ -24,9 +24,9 @@ export default class AddCommand {
         }
 
         const { participants } = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
-        const { RESENHAZORD2_ID } = process.env;
+        const { RESENHAZORD2_JID } = process.env;
         const is_resenhazord2_admin = participants.find(
-            participant => participant.id === RESENHAZORD2_ID
+            participant => participant.id === RESENHAZORD2_JID
         ).admin;
         if (!is_resenhazord2_admin) {
             await Resenhazord2.socket.sendMessage(

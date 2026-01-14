@@ -18,9 +18,9 @@ export default class BanCommand {
         const regex = /@lid|@s.whatsapp.net/gi;
         const group = await Resenhazord2.socket.groupMetadata(data.key.remoteJid);
         const { participants } = group;
-        const { RESENHAZORD2_ID } = process.env;
+        const { RESENHAZORD2_JID } = process.env;
         const is_resenhazord2_admin = participants.find(
-            participant => participant.id === RESENHAZORD2_ID
+            participant => participant.id === RESENHAZORD2_JID
         ).admin;
         if (!is_resenhazord2_admin) {
             await Resenhazord2.socket.sendMessage(
@@ -36,7 +36,7 @@ export default class BanCommand {
             let is_bot = false;
             do {
                 let random_participant = participants[Math.floor(Math.random() * participants.length)];
-                is_bot = (random_participant.id === RESENHAZORD2_ID) || random_participant.id === group.owner;
+                is_bot = (random_participant.id === RESENHAZORD2_JID) || random_participant.id === group.owner;
                 if (!is_bot) {
                     await Resenhazord2.socket.sendMessage(
                         data.key.remoteJid,
@@ -60,7 +60,7 @@ export default class BanCommand {
                 participant => participant.id === group.owner
             ).admin;
             for (const participant of ban_list) {
-                if ((participant === RESENHAZORD2_ID) ||
+                if ((participant === RESENHAZORD2_JID) ||
                     (participant === group.owner ) && owner_is_admin) {
                     continue;
                 }
