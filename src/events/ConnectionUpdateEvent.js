@@ -45,7 +45,8 @@ export default class ConnectionUpdateEvent {
                 DisconnectReason.connectionLost,
                 DisconnectReason.connectionReplaced,
                 DisconnectReason.timedOut,
-                DisconnectReason.restartRequired
+                DisconnectReason.restartRequired,
+                DisconnectReason.unavailableService,
             ].includes(statusCode);
 
             if (shouldReconnect) {
