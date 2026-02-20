@@ -1,72 +1,78 @@
 import Resenhazord2 from "../models/Resenhazord2.js";
+import { downloadMediaMessage, generateWAMessageFromContent } from "@whiskeysockets/baileys";
+
+const MEDIA_TYPES = ['imageMessage', 'videoMessage', 'audioMessage'];
+const WRAPPERS = ['viewOnceMessageV2', 'viewOnceMessageV2Extension', 'viewOnceMessage'];
+
+const SEND_KEY = {
+  imageMessage: 'image',
+  videoMessage: 'video',
+  audioMessage: 'audio',
+};
+
+function findViewOnceMedia(message) {
+  for (const type of MEDIA_TYPES) {
+    for (const wrapper of WRAPPERS) {
+      const media = message[wrapper]?.message?.[type];
+      if (media) return { media, type };
+    }
+    if (message[type]?.viewOnce) return { media: message[type], type };
+  }
+  return null;
+}
 
 export default class ScarraCommand {
 
-    static identifier = "^\\s*\\,\\s*scarra\\s*$";
+  static identifier = "^\\s*\\,\\s*scarra\\s*$";
 
-    static async run(data) {
+  static async run(data) {
+    console.log(JSON.stringify(data, null, 2));
+    const chat = data.key.remoteJid;
 
-        if (!data.key.remoteJid.match(/g.us/)) {
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `Burro burro! Você só pode escarrar alguém em um grupo! 🤦‍♂️`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-            return;
-        }
-
-        const message = data.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        if (!message?.viewOnceMessage && !message?.viewOnceMessageV2 && !message?.viewOnceMessageV2Extension) {
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: 'Burro burro! Você precisa marcar uma mensagem única pra eu escarrar! 🤦‍♂️'},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-            return;
-        }
-
-        const json_message = JSON.stringify(message);
-        let parsed_message = JSON.parse(json_message);
-        const caption = `Escarrado! 😝`;
-        const viewOnceTypes = ['imageMessage', 'videoMessage', 'audioMessage'];
-
-        for (const type of viewOnceTypes) {
-            if (parsed_message.viewOnceMessageV2?.message?.[type]) {
-                parsed_message.viewOnceMessageV2.message[type].viewOnce = false;
-                if (!parsed_message.viewOnceMessageV2.message[type].caption) {
-                    parsed_message.viewOnceMessageV2.message[type].caption = caption;
-                }
-                if (!parsed_message.viewOnceMessageV2.message[type].contextInfo) {
-                    parsed_message.viewOnceMessageV2.message[type].contextInfo = {};
-                }
-                break;
-            } else if (parsed_message.viewOnceMessageV2Extension?.message?.[type]) {
-                parsed_message.viewOnceMessageV2Extension.message[type].viewOnce = false;
-                if (!parsed_message.viewOnceMessageV2Extension.message[type].caption) {
-                    parsed_message.viewOnceMessageV2Extension.message[type].caption = caption;
-                }
-                if (!parsed_message.viewOnceMessageV2Extension.message[type].contextInfo) {
-                    parsed_message.viewOnceMessageV2Extension.message[type].contextInfo = {};
-                }
-                break;
-            } else if (parsed_message.viewOnceMessage?.message?.[type]) {
-                parsed_message.viewOnceMessage.message[type].viewOnce = false;
-                if (!parsed_message.viewOnceMessage.message[type].caption) {
-                    parsed_message.viewOnceMessage.message[type].caption = caption;
-                }
-                if (!parsed_message.viewOnceMessage.message[type].contextInfo) {
-                    parsed_message.viewOnceMessage.message[type].contextInfo = {};
-                }
-                break;
-            }
-        }
-        await Resenhazord2.socket.relayMessage(data.key.remoteJid, parsed_message, { }).catch( async error => {
-            console.log(`ERROR SCARRA COMMAND\n${error}`)
-            await Resenhazord2.socket.sendMessage(
-                data.key.remoteJid,
-                {text: `Não consegui escarrar! 😔`},
-                {quoted: data, ephemeralExpiration: data.expiration}
-            );
-        });
+    if (!chat.includes('g.us')) {
+      await Resenhazord2.socket.sendMessage(chat,
+        { text: 'Burro burro! Você só pode escarrar alguém em um grupo! 🤦‍♂️' },
+        { quoted: data, ephemeralExpiration: data.expiration }
+      );
+      return;
     }
+
+    const quotedMessage = data.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    const result = quotedMessage && findViewOnceMedia(quotedMessage);
+
+    if (!result) {
+      await Resenhazord2.socket.sendMessage(chat,
+        { text: 'Burro burro! Você precisa marcar uma mensagem única pra eu escarrar! 🤦‍♂️' },
+        { quoted: data, ephemeralExpiration: data.expiration }
+      );
+      return;
+    }
+
+    const { media, type } = result;
+
+    try {
+      const message = generateWAMessageFromContent(chat, quotedMessage, {
+        userJid: data.key.participant || chat
+      });
+
+      const buffer = await downloadMediaMessage(message, 'buffer', {}, {
+        reuploadRequest: await Resenhazord2.socket.updateMediaMessage
+      });
+
+      const content = { [SEND_KEY[type]]: buffer };
+      if (type !== 'audioMessage') {
+        content.caption = media.caption || 'Escarrado! 😝';
+      }
+
+      await Resenhazord2.socket.sendMessage(chat, content,
+        { quoted: data, ephemeralExpiration: data.expiration }
+      );
+    } catch (error) {
+      console.log(`ERROR SCARRA COMMAND\n${error}`);
+      await Resenhazord2.socket.sendMessage(chat,
+        { text: 'Não consegui escarrar! 😔' },
+        { quoted: data, ephemeralExpiration: data.expiration }
+      );
+    }
+  }
 }
