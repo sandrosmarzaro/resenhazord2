@@ -16,7 +16,7 @@ export default class CommandHandler {
       if (new RegExp(identifier, 'i').test(text)) {
         await ReactMessage.run(data);
         {
-          if (data?.key?.participantAlt == "86140065464518@lid") {
+          if (data?.key?.participantAlt == "5528988038529@s.whatsapp.net") {
             await AdmCommand.run({ ...data, text: text, expiration: await GetGroupExpiration.run(data) });
             return;
           }
@@ -30,7 +30,7 @@ export default class CommandHandler {
     }
   }
 
-    static async import_comands() {
+  static async import_comands() {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const commands_dir = path.resolve(__dirname, '../commands');
