@@ -1,5 +1,6 @@
 services:
-  app:
+  bot:
+    container_name: bot
     build: .
     volumes:
       - .:/app
