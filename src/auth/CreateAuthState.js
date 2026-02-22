@@ -1,17 +1,11 @@
-import { join } from 'path';
-import { useMultiFileAuthState } from '@whiskeysockets/baileys';
-import { mkdir } from 'fs/promises';
+import { MongoClient } from 'mongodb';
+import { useMongoDBAuthState } from './MongoDBAuthState.js';
 
 export default class CreateAuthState {
     static async getAuthState() {
-        const session_path = join(process.cwd(), 'auth_session');
-
-        try {
-            await mkdir(session_path, { recursive: true });
-            return await useMultiFileAuthState(session_path);
-        } catch (error) {
-            console.error('Failed to create/load auth state:', error);
-            throw error;
-        }
+        const client = new MongoClient(process.env.MONGODB_URI);
+        await client.connect();
+        const collection = client.db('resenhazord2').collection('auth_state');
+        return useMongoDBAuthState(collection);
     }
 }
