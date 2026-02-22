@@ -93,7 +93,7 @@ export default class ConnectionUpdateEvent {
                 await Resenhazord2.cleanup?.();
 
                 await Resenhazord2.connectToWhatsApp();
-                Resenhazord2.handlerEvents();
+                await Resenhazord2.handlerEvents();
 
             } catch (error) {
                 console.error('❌ Reconnection failed:', error.message);

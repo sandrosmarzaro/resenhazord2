@@ -8,7 +8,7 @@ export default class MealRecipesCommand {
     static async run(data) {
 
         const url = 'https://www.themealdb.com/api/json/v1/1/random.php';
-        axios.get(url)
+        await axios.get(url)
             .then(async response => {
                 const meal = response.data.meals[0];
 

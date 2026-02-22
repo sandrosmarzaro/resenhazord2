@@ -9,7 +9,7 @@ export default class PokemonCommand {
 
         const url = 'https://pokeapi.co/api/v2/pokemon/';
         const pokemon_id = Math.floor(Math.random() * 1025) + 1;
-        axios.get(`${url}${pokemon_id}`)
+        await axios.get(`${url}${pokemon_id}`)
             .then(async response => {
                 const pokemon = response.data;
                 const poke_name = `*Nome*: ${pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}\n`;

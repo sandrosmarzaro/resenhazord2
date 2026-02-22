@@ -8,7 +8,7 @@ export default class YugiohCommand {
     static async run(data) {
 
         const url = 'https://db.ygoprodeck.com/api/v7/randomcard.php';
-        axios.get(url)
+        await axios.get(url)
             .then(async response => {
                 const card = response.data["data"][0];
                 const card_image = card.card_images[0].image_url;

@@ -40,7 +40,7 @@ export default class AddCommand {
         const rest_command = data.text.replace(/\n*\s*\,\s*add\s*/, '');
         const inserted_phone = rest_command.replace(/\s|\n/, '');
         if (inserted_phone.length == 0) {
-            this.build_and_send_phone(inserted_phone, data);
+            await this.build_and_send_phone(inserted_phone, data);
             return;
         }
 
@@ -62,7 +62,7 @@ export default class AddCommand {
             );
         }
 
-        this.build_and_send_phone(inserted_phone, data);
+        await this.build_and_send_phone(inserted_phone, data);
     }
 
     static async build_and_send_phone(initial_phone, data) {

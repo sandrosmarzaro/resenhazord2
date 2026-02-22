@@ -12,10 +12,10 @@ export default class PornoCommand {
         const ia_activate = data.text.match(/ia/)
         try {
             if (ia_activate) {
-                this.ia_porn(data)
+                await this.ia_porn(data)
                 return;
             }
-            this.real_porn(data)
+            await this.real_porn(data)
         }
         catch (error) {
             console.log(`ERROR PORN COMMAND\n${error}`);

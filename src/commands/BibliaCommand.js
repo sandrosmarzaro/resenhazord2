@@ -76,7 +76,7 @@ export default class BibliaCommand {
         if (!has_range) {
             url = `${base_url}/verses/${version}/${abbrev}/${chapter}/${number}`;
 
-            axios.get(url, { headers })
+            await axios.get(url, { headers })
             .then(response => {
                 this.send_verse(data, response.data);
             }).catch(error => {

@@ -21,13 +21,13 @@ export default class GroupMentionsCommand {
 
         const has_function = functions.some(func => new RegExp(func, 'i').test(rest_command));
         if (!has_function) {
-            this.mention(data, rest_command);
+            await this.mention(data, rest_command);
             return;
         }
 
         for (const func of functions) {
             if (new RegExp(func, 'i').test(rest_command)) {
-                this[func](data, rest_command.replace(func, '').replace(/\n/g, '').trim());
+                await this[func](data, rest_command.replace(func, '').replace(/\n/g, '').trim());
             }
         }
     }
