@@ -6,7 +6,6 @@ import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent
 import groupMetadataCache from '../utils/GroupMetadataCache.js';
 
 export default class Resenhazord2 {
-
   static auth_state = null;
   static socket = null;
   static isConnecting = false;
@@ -21,12 +20,10 @@ export default class Resenhazord2 {
       this.auth_state = await CreateAuthState.getAuthState();
       this.socket = await CreateSocket.getSocket(this.auth_state.state);
       console.log('Socket created successfully');
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to connect:', error.message);
       throw error;
-    }
-    finally {
+    } finally {
       this.isConnecting = false;
     }
   }
@@ -49,8 +46,9 @@ export default class Resenhazord2 {
     try {
       const meta = await Resenhazord2.socket.groupMetadata(data.id);
       groupMetadataCache.set(data.id, meta);
+    } catch {
+      // ignore
     }
-    catch (_) { }
     await GroupParticipantsUpdateEvent.run(data);
   }
 

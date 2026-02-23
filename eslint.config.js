@@ -9,6 +9,7 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
+        fetch: 'readonly',
         process: 'readonly',
         console: 'readonly',
         Buffer: 'readonly',

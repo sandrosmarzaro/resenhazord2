@@ -13,12 +13,12 @@ Resenhazord 2 it's a funny Whatsapp chatbot make by [A Resenha](https://github.c
 
 ## 💻 How To Install <a id="install"></a>
 
-* See the [INSTALLATION PAGE](https://github.com/a-resenha/resenhazord2/wiki/Install) in wiki file for details.
+- See the [INSTALLATION PAGE](https://github.com/a-resenha/resenhazord2/wiki/Install) in wiki file for details.
 
 ## 🚀 How To Run <a id="run"></a>
 
-* See the [RUNNING PAGE](https://github.com/a-resenha/resenhazord2/wiki/Run) in wiki file for details.
+- See the [RUNNING PAGE](https://github.com/a-resenha/resenhazord2/wiki/Run) in wiki file for details.
 
 ## 🏗️ How To Contribute <a id="contribute"></a>
 
-* See the [CONTRIBUTING PAGE](https://github.com/a-resenha/resenhazord2/wiki/Contribute) in wiki file for details.
+- See the [CONTRIBUTING PAGE](https://github.com/a-resenha/resenhazord2/wiki/Contribute) in wiki file for details.

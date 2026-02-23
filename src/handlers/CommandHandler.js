@@ -7,7 +7,6 @@ import GetGroupExpiration from '../utils/GetGroupExpiration.js';
 import AdmCommand from '../commands/AdmCommand.js';
 
 export default class CommandHandler {
-
   static async run(data) {
     const text = GetTextMessage.run(data);
     const handler = await this.import_comands();
@@ -15,17 +14,19 @@ export default class CommandHandler {
     for (const [identifier, command] of Object.entries(handler)) {
       if (new RegExp(identifier, 'i').test(text)) {
         await ReactMessage.run(data);
-        {
-          if (data?.key?.participantAlt == "5528988038529@s.whatsapp.net") {
-            await AdmCommand.run({ ...data, text: text, expiration: await GetGroupExpiration.run(data) });
-            return;
-          }
-          await command.run({
+        if (data?.key?.participantAlt == '5528988038529@s.whatsapp.net') {
+          await AdmCommand.run({
             ...data,
             text: text,
-            expiration: await GetGroupExpiration.run(data)
+            expiration: await GetGroupExpiration.run(data),
           });
+          return;
         }
+        await command.run({
+          ...data,
+          text: text,
+          expiration: await GetGroupExpiration.run(data),
+        });
       }
     }
   }

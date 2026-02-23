@@ -1,5 +1,5 @@
 import Resenhazord2 from '../models/Resenhazord2.js';
-import { downloadMediaMessage, generateWAMessageFromContent } from "@whiskeysockets/baileys";
+import { downloadMediaMessage, generateWAMessageFromContent } from '@whiskeysockets/baileys';
 import { google } from 'googleapis';
 import path from 'path';
 import { createReadStream, promises as fsPromises } from 'fs';
@@ -10,20 +10,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default class DriveCommand {
-
-  static identifier = "^\\s*\\,\\s*drive\\s*$";
+  static identifier = '^\\s*\\,\\s*drive\\s*$';
 
   static async run(data) {
-
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
-    const has_quoted_media = data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
-                             data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
+    const has_quoted_media =
+      data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
+      data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
 
     if (!has_upload_media && !has_quoted_media) {
       await Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
-        {text: 'Burro burro! Você precisa enviar uma mídia para botar no drive! 🤦‍♂️'},
-        {quoted: data, ephemeralExpiration: data.expiration}
+        { text: 'Burro burro! Você precisa enviar uma mídia para botar no drive! 🤦‍♂️' },
+        { quoted: data, ephemeralExpiration: data.expiration },
       );
       return;
     }
@@ -32,17 +31,21 @@ export default class DriveCommand {
     if (has_quoted_media) {
       const quoted_message = data.message.extendedTextMessage.contextInfo.quotedMessage;
       message = generateWAMessageFromContent(data.key.remoteJid, quoted_message, {
-        userJid: data.key?.remoteJid?.includes('@g.us') ? data.key.participant : data.key.remoteJid
+        userJid: data.key?.remoteJid?.includes('@g.us') ? data.key.participant : data.key.remoteJid,
       });
-    }
-    else {
+    } else {
       message = data;
     }
 
     try {
-      const buffer = await downloadMediaMessage(message, 'buffer', {}, {
-        reuploadRequest: await Resenhazord2.socket.updateMediaMessage
-      });
+      const buffer = await downloadMediaMessage(
+        message,
+        'buffer',
+        {},
+        {
+          reuploadRequest: await Resenhazord2.socket.updateMediaMessage,
+        },
+      );
 
       const auth = new google.auth.GoogleAuth({
         keyFile: path.resolve(__dirname, '../auth/google_secret.json'),
@@ -79,16 +82,15 @@ export default class DriveCommand {
 
       await Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
-        {text: `Mídia enviada com sucesso para o Drive da Resenha! 🐮🎣`},
-        {quoted: data, ephemeralExpiration: data.expiration}
+        { text: `Mídia enviada com sucesso para o Drive da Resenha! 🐮🎣` },
+        { quoted: data, ephemeralExpiration: data.expiration },
       );
-    }
-    catch (error) {
+    } catch (error) {
       console.error('ERROR DRIVE COMMAND:', error);
       await Resenhazord2.socket.sendMessage(
         data.key.remoteJid,
-        {text: 'Ocorreu um erro ao enviar a mídia para o Drive da Resenha ❌'},
-        {quoted: data, ephemeralExpiration: data.expiration}
+        { text: 'Ocorreu um erro ao enviar a mídia para o Drive da Resenha ❌' },
+        { quoted: data, ephemeralExpiration: data.expiration },
       );
     }
   }

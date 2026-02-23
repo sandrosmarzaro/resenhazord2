@@ -8,7 +8,7 @@ services:
     working_dir: /app
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pidof node || exit 1"]
+      test: ['CMD-SHELL', 'pidof node || exit 1']
       interval: 30s
       timeout: 10s
       retries: 3
