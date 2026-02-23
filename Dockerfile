@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM oven/bun:alpine AS builder
 
 RUN apk update && \
     apk add --no-cache \
@@ -13,11 +13,10 @@ RUN apk update && \
     bash
 
 WORKDIR /app
-COPY package.json yarn.lock* ./
-RUN yarn install --frozen-lockfile
-RUN yarn add --platform=linuxmusl --arch=x64 sharp --legacy-peer-deps
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile
 
-FROM node:20-alpine
+FROM oven/bun:alpine
 
 RUN apk update && \
     apk add --no-cache \
@@ -37,4 +36,4 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY . .
 
-CMD ["yarn", "start"]
+CMD ["bun", "run", "start"]

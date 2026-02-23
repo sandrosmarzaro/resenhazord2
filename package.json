@@ -14,8 +14,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dia": "node src/scripts/diagnostic.js",
+    "start": "bun index.js",
+    "dia": "bun src/scripts/diagnostic.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
