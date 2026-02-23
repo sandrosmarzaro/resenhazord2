@@ -43,5 +43,11 @@
     "puppeteer": "^22.10.0",
     "sharp": "^0.34.5",
     "wa-sticker-formatter": "^4.4.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.1",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1"
   }
 }
