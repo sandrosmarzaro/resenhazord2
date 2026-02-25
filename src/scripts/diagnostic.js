@@ -1,46 +1,57 @@
-import { readdir, rm } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { MongoClient } from 'mongodb';
+
+const MONGODB_URI = process.env.MONGODB_URI;
+const DB_NAME = 'resenhazord2';
+const COLLECTION_NAME = 'auth_state';
+
+function getClient() {
+  if (!MONGODB_URI) {
+    console.error('❌ MONGODB_URI environment variable is not set');
+    process.exit(1);
+  }
+  return new MongoClient(MONGODB_URI);
+}
 
 async function checkAuthSession() {
-  const sessionPath = join(process.cwd(), 'auth_session');
+  console.log('🔍 Checking MongoDB auth session...');
 
-  console.log('🔍 Checking auth session...');
-  console.log(`Session path: ${sessionPath}`);
-
-  if (!existsSync(sessionPath)) {
-    console.log('❌ No auth_session folder found');
-    return;
-  }
-
+  const client = getClient();
   try {
-    const files = await readdir(sessionPath);
-    console.log(`✅ Found ${files.length} files in session:`);
-    files.forEach((file) => console.log(`   - ${file}`));
+    await client.connect();
+    const collection = client.db(DB_NAME).collection(COLLECTION_NAME);
 
-    const requiredFiles = ['creds.json'];
-    const missingFiles = requiredFiles.filter((f) => !files.includes(f));
+    const total = await collection.countDocuments();
+    console.log(`✅ Found ${total} document(s) in ${DB_NAME}.${COLLECTION_NAME}`);
 
-    if (missingFiles.length > 0) {
-      console.log(`⚠️  Missing required files: ${missingFiles.join(', ')}`);
-      console.log('Session may be corrupted');
+    const creds = await collection.findOne({ _id: 'creds' });
+    if (creds) {
+      console.log('   - creds: present');
+    } else {
+      console.log('⚠️  Missing required document: creds');
+      console.log('Session may be corrupted or not initialized yet');
     }
   } catch (error) {
-    console.error('❌ Error reading session:', error.message);
+    console.error('❌ Error connecting to MongoDB:', error.message);
+  } finally {
+    await client.close();
   }
 }
 
 async function cleanSession() {
-  const sessionPath = join(process.cwd(), 'auth_session');
+  console.log('\n🧹 Cleaning MongoDB auth session...');
 
-  console.log('\n🧹 Cleaning auth session...');
-
+  const client = getClient();
   try {
-    await rm(sessionPath, { recursive: true, force: true });
-    console.log('✅ Session cleaned successfully');
+    await client.connect();
+    const collection = client.db(DB_NAME).collection(COLLECTION_NAME);
+
+    const result = await collection.deleteMany({});
+    console.log(`✅ Deleted ${result.deletedCount} document(s) from ${DB_NAME}.${COLLECTION_NAME}`);
     console.log('ℹ️  Please restart the app and scan QR code again');
   } catch (error) {
-    console.error('❌ Error cleaning session:', error.message);
+    console.error('❌ Error cleaning MongoDB session:', error.message);
+  } finally {
+    await client.close();
   }
 }
 
@@ -54,6 +65,7 @@ if (args.includes('--clean')) {
   await checkAuthSession();
   console.log('\n💡 Tips:');
   console.log('   - If session is corrupted, run: node diagnostic.js --clean');
+  console.log('   - Make sure MONGODB_URI is set in your environment');
   console.log('   - Make sure you have a stable internet connection');
   console.log('   - Check if WhatsApp Web is not open elsewhere');
   console.log('   - Try using a different phone number if issue persists');
