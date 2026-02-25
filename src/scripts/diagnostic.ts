@@ -23,7 +23,9 @@ async function checkAuthSession(): Promise<void> {
     const total = await collection.countDocuments();
     console.log(`✅ Found ${total} document(s) in ${DB_NAME}.${COLLECTION_NAME}`);
 
-    const creds = await collection.findOne({ _id: 'creds' as unknown as import('mongodb').ObjectId });
+    const creds = await collection.findOne({
+      _id: 'creds' as unknown as import('mongodb').ObjectId,
+    });
     if (creds) {
       console.log('   - creds: present');
     } else {
