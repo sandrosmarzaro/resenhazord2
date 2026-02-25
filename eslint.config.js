@@ -1,36 +1,18 @@
-import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
-export default [
-  { ...js.configs.recommended, files: ['**/*.js'] },
+export default tseslint.config(
+  ...tseslint.configs.recommended,
   {
-    files: ['**/*.js'],
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      globals: {
-        fetch: 'readonly',
-        process: 'readonly',
-        console: 'readonly',
-        Buffer: 'readonly',
-        URL: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-      },
-    },
+    files: ['**/*.ts'],
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': 'off',
-      'no-lone-blocks': 'warn',
-      'no-undef': 'error',
-      'no-var': 'error',
-      'prefer-const': 'warn',
     },
   },
   eslintConfigPrettier,
   {
     ignores: ['node_modules/**', 'auth_session/**', 'public/**', 'src/auth/session/**'],
   },
-];
+);
