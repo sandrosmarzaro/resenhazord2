@@ -2,6 +2,8 @@ import { isBoom } from '@hapi/boom';
 import { DisconnectReason } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
+const DISCONNECT_REASON_METHOD_NOT_ALLOWED = 405;
+
 export default class ConnectionUpdateEvent {
   static reconnectAttempts = 0;
   static maxReconnectAttempts = 5;
@@ -42,6 +44,7 @@ export default class ConnectionUpdateEvent {
 
       const shouldReconnect =
         !statusCode ||
+        statusCode === DISCONNECT_REASON_METHOD_NOT_ALLOWED ||
         [
           DisconnectReason.connectionClosed,
           DisconnectReason.connectionLost,
