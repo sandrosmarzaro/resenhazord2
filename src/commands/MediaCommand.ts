@@ -1,10 +1,12 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class MediaCommand {
-  static identifier: string = '^\\s*\\,\\s*media\\s*';
+export default class MediaCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*media\\s*';
+  readonly menuDescription = 'Baixe o vídeo do link especificado de várias redes sociais.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const url = data.text.replace(/\n*\s*,\s*media\s*/, '');
     if (url.length === 0) {
       await Resenhazord2.socket!.sendMessage(

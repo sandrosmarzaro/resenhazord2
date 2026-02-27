@@ -1,4 +1,5 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 // @ts-expect-error - plain JS data files without type declarations
 import menu_message from '../../public/messages/menu_message.js';
@@ -7,10 +8,11 @@ import menu_grupo_message from '../../public/messages/menu_grupo_message.js';
 // @ts-expect-error - plain JS data files without type declarations
 import menu_biblia_message from '../../public/messages/menu_biblia_message.js';
 
-export default class MenuCommand {
-  static identifier: string = '^\\s*\\,\\s*menu\\s*(?:grupo|b.blia)?\\s*(?:dm)?$';
+export default class MenuCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*menu\\s*(?:grupo|b.blia)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Exibe o menu de comandos.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     let menu: string;
     const menu_handler: Record<string, string> = {
       grupo: menu_grupo_message as string,

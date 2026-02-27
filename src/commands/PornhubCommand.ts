@@ -1,12 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { PornHub } from 'pornhub.js';
 import m3u8ToMp4 from 'm3u8-to-mp4';
 
-export default class PornhubCommand {
-  static identifier: string = '^\\s*\\,\\s*pornhub\\s*$';
+export default class PornhubCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*pornhub\\s*$';
+  readonly menuDescription = 'Receba um vídeo aleatório do Pornhub.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const pornhub = new PornHub();
 
     let video;

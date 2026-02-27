@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class MyAnimeListCommand {
-  static identifier: string = '^\\s*\\,\\s*(?:anime|manga)\\s*(?:show)?\\s*(?:dm)?$';
+export default class MyAnimeListCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*(?:anime|manga)\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba um anime ou mangá aleatório do top 500 do MyAnimeList.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const base_url = 'https://api.jikan.moe/v4';
     const type = data.text.match(/anime/) ? 'anime' : 'manga';
     const page = Math.floor(Math.random() * 20) + 1;

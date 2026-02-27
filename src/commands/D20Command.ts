@@ -1,10 +1,12 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class D20Command {
-  static identifier: string = '^\\s*\\,\\s*d20\\s*$';
+export default class D20Command extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*d20\\s*$';
+  readonly menuDescription = 'Role um dado de vinte dimensões.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const d20 = Math.floor(Math.random() * 20) + 1;
     try {
       await Resenhazord2.socket!.sendMessage(

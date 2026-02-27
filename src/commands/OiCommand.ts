@@ -1,10 +1,12 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class OiCommand {
-  static identifier: string = '^\\s*\\,\\s*oi\\s*$';
+export default class OiCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*oi\\s*$';
+  readonly menuDescription = 'Apenas diga oi ao bot.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const sender = (data.key.participant ?? data.key.remoteJid)!;
     const sender_phone = sender.replace(/@lid/, '');
     try {

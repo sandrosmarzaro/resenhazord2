@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { MongoClient } from 'mongodb';
 
-export default class BorgesCommand {
-  static identifier: string = '^\\s*\\,\\s*borges\\s*$';
+export default class BorgesCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*borges\\s*$';
+  readonly menuDescription = 'Descubra quantos nargas o Borges já fumou.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const uri = process.env.MONGODB_URI!;
     const client = new MongoClient(uri);
 

@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class PokemonCommand {
-  static identifier: string = '^\\s*\\,\\s*pok.mon\\s*(?:show)?\\s*(?:dm)?$';
+export default class PokemonCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*pok.mon\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba uma imagem e dados de um pokémon aleatório.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const url = 'https://pokeapi.co/api/v2/pokemon/';
     const pokemon_id = Math.floor(Math.random() * 1025) + 1;
     await axios

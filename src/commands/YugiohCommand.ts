@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class YugiohCommand {
-  static identifier: string = '^\\s*\\,\\s*ygo\\s*(?:show)?\\s*(?:dm)?$';
+export default class YugiohCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*ygo\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba uma carta aleatória de Yu-Gi-Oh!.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const url = 'https://db.ygoprodeck.com/api/v7/randomcard.php';
     await axios
       .get(url)

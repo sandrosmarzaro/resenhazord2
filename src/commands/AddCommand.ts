@@ -1,10 +1,12 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class AddCommand {
-  static identifier: string = '^\\s*\\,\\s*add\\s*(?:\\d+)?\\s*$';
+export default class AddCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*add\\s*(?:\\d+)?\\s*$';
+  readonly menuDescription = 'Adiciona um número ao grupo. Aleatório ou específico.';
 
-  static DDD_LIST = [
+  private readonly DDD_LIST = [
     '11',
     '12',
     '13',
@@ -74,7 +76,7 @@ export default class AddCommand {
     '99',
   ];
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     if (!data.key.remoteJid!.match(/g.us/)) {
       await Resenhazord2.socket!.sendMessage(
         data.key.remoteJid!,
@@ -126,7 +128,7 @@ export default class AddCommand {
     await this.build_and_send_phone(inserted_phone, data);
   }
 
-  static async build_and_send_phone(initial_phone: string, data: CommandData): Promise<void> {
+  private async build_and_send_phone(initial_phone: string, data: CommandData): Promise<void> {
     let is_sucefull = false;
     const is_complete_phone = initial_phone.length >= 10;
     do {

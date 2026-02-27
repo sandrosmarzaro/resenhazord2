@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { AnyMessageContent, WAMessage } from '@whiskeysockets/baileys';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
 import pino from 'pino';
@@ -34,10 +35,11 @@ function findViewOnceMedia(
   return null;
 }
 
-export default class ScarraCommand {
-  static identifier: string = '^\\s*\\,\\s*scarra\\s*$';
+export default class ScarraCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*scarra\\s*$';
+  readonly menuDescription = 'Baixe a mídia de visualização única marcada.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     console.log(JSON.stringify(data, null, 2));
     const chat = data.key.remoteJid!;
 

@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class Heartstone {
-  static identifier: string = '^\\s*\\,\\s*carta\\s*(?:show)?\\s*(?:dm)?$';
+export default class BaralhoCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*carta\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba uma carta de baralho aleatória.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const API_URL = 'https://deckofcardsapi.com/api/deck/new/draw/?count=1';
     try {
       const response = await axios.get(API_URL);
@@ -23,7 +25,7 @@ export default class Heartstone {
         { quoted: data, ephemeralExpiration: data.expiration },
       );
     } catch (error) {
-      console.log(`MAGICTHEGATHERING COMMAND ERROR\n${error}`);
+      console.log(`BARALHO COMMAND ERROR\n${error}`);
       await Resenhazord2.socket!.sendMessage(
         data.key.remoteJid!,
         { text: `Viiixxiii... Não consegui baixar a carta! 🥺👉👈` },

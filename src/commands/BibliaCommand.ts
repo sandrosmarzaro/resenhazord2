@@ -1,12 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class BibliaCommand {
-  static identifier: string =
+export default class BibliaCommand extends Command {
+  readonly regexIdentifier =
     '^\\s*,\\s*b.blia\\s*(?:pt|en)?\\s*(?:nvi|ra|acf|kjv|bbe|apee|rvr)?\\s*(?:.*\\s*\\d{1,3}\\s*:\\s*\\d{1,3}\\s*(?:-\\s*\\d{1,3})?)?$';
+  readonly menuDescription = 'Comando complexo. Use *,menu biblia* para detalhes.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const has_verse = data.text.match(/.+\s*\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?/);
     const version = data.text.match(/\b(nvi|ra|acf|kjv|bbe|apee|rvr)\b/i) || 'nvi';
     const token = process.env.BIBLIA_TOKEN;
@@ -116,7 +118,7 @@ export default class BibliaCommand {
     );
   }
 
-  static async raise_generic_error(data: CommandData, error: unknown): Promise<void> {
+  private async raise_generic_error(data: CommandData, error: unknown): Promise<void> {
     console.log(`BIBLIA COMMAND ERROR\n${error}`);
     await Resenhazord2.socket!.sendMessage(
       data.key.remoteJid!,
@@ -125,7 +127,7 @@ export default class BibliaCommand {
     );
   }
 
-  static async send_verse(
+  private async send_verse(
     data: CommandData,
     verse: { book: { name: string }; chapter: number; number: number; text: string },
   ): Promise<void> {

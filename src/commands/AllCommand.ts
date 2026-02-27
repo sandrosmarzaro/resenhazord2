@@ -1,10 +1,12 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class AllCommand {
-  static identifier: string = '^\\s*\\,\\s*all\\s*';
+export default class AllCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*all\\s*';
+  readonly menuDescription = 'Marca todos os participantes do grupo com ou sem uma mensagem.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     if (!data.key.remoteJid!.match(/g.us/)) {
       await Resenhazord2.socket!.sendMessage(
         data.key.remoteJid!,

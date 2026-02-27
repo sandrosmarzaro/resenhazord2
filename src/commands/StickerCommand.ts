@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { WAMessage } from '@whiskeysockets/baileys';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
 import { Sticker } from 'wa-sticker-formatter';
@@ -7,10 +8,11 @@ import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
 import ffmpeg from 'fluent-ffmpeg';
 import pino from 'pino';
 
-export default class StickerCommand {
-  static identifier: string = '^\\s*\\,\\s*stic\\s*(?:crop|full|circle|rounded)?\\s*$';
+export default class StickerCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*stic\\s*(?:crop|full|circle|rounded)?\\s*$';
+  readonly menuDescription = 'Transforme sua imagem anexada em sticker.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
     const has_quoted_media =
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||

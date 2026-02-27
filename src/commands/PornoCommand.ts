@@ -1,14 +1,16 @@
 import type { CommandData } from '../types/command.js';
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { NSFW } from 'nsfwhub';
 import pkg from 'darksadas-yt-pornhub-scrape';
 const { phdl } = pkg;
 
-export default class PornoCommand {
-  static identifier: string = '^\\s*\\,\\s*porno\\s*(?:ia)?\\s*(?:show)?\\s*(?:dm)?$';
+export default class PornoCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*porno\\s*(?:ia)?\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba um porno aleatório real ou feito por IA.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const ia_activate = data.text.match(/ia/);
     try {
       if (ia_activate) {
@@ -26,7 +28,7 @@ export default class PornoCommand {
     }
   }
 
-  static async ia_porn(data: CommandData): Promise<void> {
+  private async ia_porn(data: CommandData): Promise<void> {
     const nsfw = new NSFW();
     const tags = [
       'ass',
@@ -94,7 +96,7 @@ export default class PornoCommand {
     });
   }
 
-  static async real_porn(data: CommandData): Promise<void> {
+  private async real_porn(data: CommandData): Promise<void> {
     await phdl('https://pt.pornhub.com/random')
       .then(async (results: { format: Array<{ download_url: string }>; video_title: string }) => {
         let chat_id: string = data.key.remoteJid!;

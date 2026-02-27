@@ -1,14 +1,17 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { MongoClient } from 'mongodb';
 
 type GroupsDoc = { _id: string; groups: Array<{ name: string; participants: string[] }> };
 
-export default class GroupMentionsCommand {
-  static identifier: string = '^\\s*\\,\\s*grupo\\s*';
-  static client = new MongoClient(process.env.MONGODB_URI!);
+export default class GroupMentionsCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*grupo\\s*';
+  readonly menuDescription = 'Comando complexo. Use *,menu grupo* para detalhes.';
 
-  static async run(data: CommandData): Promise<void> {
+  private client = new MongoClient(process.env.MONGODB_URI!);
+
+  async run(data: CommandData): Promise<void> {
     if (!data.key.remoteJid!.match(/g.us/)) {
       await Resenhazord2.socket!.sendMessage(
         data.key.remoteJid!,
@@ -35,7 +38,7 @@ export default class GroupMentionsCommand {
     }
   }
 
-  static async is_valid_group_name(data: CommandData, group_name: string): Promise<boolean> {
+  private async is_valid_group_name(data: CommandData, group_name: string): Promise<boolean> {
     if (group_name?.length > 15) {
       await Resenhazord2.socket!.sendMessage(
         data.key.remoteJid!,
@@ -64,7 +67,7 @@ export default class GroupMentionsCommand {
     return true;
   }
 
-  static async create(data: CommandData, rest_command: string): Promise<void> {
+  private async create(data: CommandData, rest_command: string): Promise<void> {
     const sender_id = data.key.participant ?? data.key.remoteJid;
 
     const group_name = rest_command.replace(/\s*@\d+\s*/g, '');
@@ -131,7 +134,7 @@ export default class GroupMentionsCommand {
     }
   }
 
-  static async rename(data: CommandData, rest_command: string): Promise<void> {
+  private async rename(data: CommandData, rest_command: string): Promise<void> {
     const has_two_groups = rest_command.match(/[\S]+\s+[\S]+/);
     if (!has_two_groups) {
       await Resenhazord2.socket!.sendMessage(
@@ -197,7 +200,7 @@ export default class GroupMentionsCommand {
     }
   }
 
-  static async delete(data: CommandData, rest_command: string): Promise<void> {
+  private async delete(data: CommandData, rest_command: string): Promise<void> {
     const group_name = rest_command;
     if (group_name?.length == 0) {
       await Resenhazord2.socket!.sendMessage(
@@ -246,7 +249,7 @@ export default class GroupMentionsCommand {
     }
   }
 
-  static async list(data: CommandData, rest_command: string): Promise<void> {
+  private async list(data: CommandData, rest_command: string): Promise<void> {
     try {
       await this.client.connect();
       const database = this.client.db('resenhazord2');
@@ -310,7 +313,7 @@ export default class GroupMentionsCommand {
     }
   }
 
-  static async add(data: CommandData, rest_command: string): Promise<void> {
+  private async add(data: CommandData, rest_command: string): Promise<void> {
     const sender_id = data.key.participant ?? data.key.remoteJid;
 
     const group_name = rest_command.replace(/\s*@\d+\s*/g, '');
@@ -374,7 +377,7 @@ export default class GroupMentionsCommand {
     }
   }
 
-  static async exit(data: CommandData, rest_command: string): Promise<void> {
+  private async exit(data: CommandData, rest_command: string): Promise<void> {
     const sender_id = data.key.participant ?? data.key.remoteJid;
 
     const group_name = rest_command.replace(/\s+\d+\s*/g, '');
@@ -459,7 +462,7 @@ export default class GroupMentionsCommand {
     }
   }
 
-  static async mention(data: CommandData, rest_command: string): Promise<void> {
+  private async mention(data: CommandData, rest_command: string): Promise<void> {
     try {
       await this.client.connect();
       const database = this.client.db('resenhazord2');

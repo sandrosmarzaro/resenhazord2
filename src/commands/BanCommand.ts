@@ -1,10 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class BanCommand {
-  static identifier: string = '^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$';
+export default class BanCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$';
+  readonly menuDescription =
+    'Remove aleatoriamente um ou especificamente um ou mais participantes do grupo.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     if (!data.key.remoteJid!.match(/g.us/)) {
       await Resenhazord2.socket!.sendMessage(
         data.key.remoteJid!,

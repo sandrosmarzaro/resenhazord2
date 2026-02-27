@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { NSFW } from 'nsfwhub';
 
-export default class FuckCommand {
-  static identifier: string = '^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$';
+export default class FuckCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$';
+  readonly menuDescription = 'Foda a pessoa mencionada mandando uma foto de pornozão pra ela.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const regex = /@lid|@s.whatsapp.net/gi;
     if (!data.key.remoteJid!.match(/g.us/)) {
       await Resenhazord2.socket!.sendMessage(

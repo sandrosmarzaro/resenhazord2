@@ -1,11 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class ImageCommand {
-  static identifier: string =
+export default class ImageCommand extends Command {
+  readonly regexIdentifier =
     '^\\s*\\,\\s*img\\s*(?:sd|hd|fhd|qhd|4k)?\\s*(?:(?:flux)?(?:-pro|-realism|-anime|-3d|cablyai)?)?(?:turbo)?\\s*(?:show)?\\s*(?:dm)?\\s*';
+  readonly menuDescription =
+    'Gere uma imagem baseada no prompt usando IA com resolução e modelo opcionais.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const seed = (): number => new Date().getTime() % 1000000;
     const { resolution, model, prompt } = this.parseCommand(data.text);
 
@@ -41,7 +44,7 @@ export default class ImageCommand {
     );
   }
 
-  static parseCommand(text: string): {
+  private parseCommand(text: string): {
     resolution: string | null;
     model: string | null;
     prompt: string;
@@ -67,7 +70,7 @@ export default class ImageCommand {
     return { resolution, model, prompt };
   }
 
-  static generateImageUrl(
+  private generateImageUrl(
     prompt: string,
     width = 768,
     height = 768,

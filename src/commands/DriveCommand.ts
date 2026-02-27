@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { WAMessage } from '@whiskeysockets/baileys';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
 import { google } from 'googleapis';
@@ -12,10 +13,11 @@ import pino from 'pino';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default class DriveCommand {
-  static identifier: string = '^\\s*\\,\\s*drive\\s*$';
+export default class DriveCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*drive\\s*$';
+  readonly menuDescription = 'Envie uma mídia para o Drive da Resenha.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
     const has_quoted_media =
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||

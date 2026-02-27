@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class MealRecipesCommand {
-  static identifier: string = '^\\s*\\,\\s*comida\\s*$';
+export default class MealRecipesCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*comida\\s*$';
+  readonly menuDescription = 'Receba aleatoriamente uma receita e suas instruções em inglês.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const url = 'https://www.themealdb.com/api/json/v1/1/random.php';
     await axios
       .get(url)

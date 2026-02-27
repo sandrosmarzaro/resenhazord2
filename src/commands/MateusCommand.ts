@@ -1,10 +1,12 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class MateusCommand {
-  static identifier: string = '^\\s*\\,\\s*mateus\\s*$';
+export default class MateusCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*mateus\\s*$';
+  readonly menuDescription = 'Descubra a probabilidade do Mateus nascer.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const probability = (Math.random() * 101).toFixed(2).replace('.', ',');
     try {
       await Resenhazord2.socket!.sendMessage(

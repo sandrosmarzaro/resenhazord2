@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class Heartstone {
-  static identifier: string = '^\\s*\\,\\s*hs\\s*(?:show)?\\s*(?:dm)?$';
+export default class HeartstoneCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*hs\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba uma carta aleatória de Hearthstone.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const { BNET_ID, BNET_SECRET } = process.env;
     const access_token = await this.get_access_token(BNET_ID, BNET_SECRET);
     if (!access_token) {
@@ -65,7 +67,7 @@ export default class Heartstone {
     }
   }
 
-  static async get_access_token(
+  private async get_access_token(
     bnet_id: string | undefined,
     bnet_secret: string | undefined,
   ): Promise<string | null> {

@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-export default class PromptCommand {
-  static identifier: string = '^\\s*\\,\\s*prompt\\s*';
+export default class PromptCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*prompt\\s*';
+  readonly menuDescription = 'Interaja e converse com a IA chatbot e assistente Resenhazord2.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const { GEMINI_API_KEY } = process.env;
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });

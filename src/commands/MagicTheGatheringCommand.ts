@@ -1,11 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class Heartstone {
-  static identifier: string = '^\\s*\\,\\s*mtg\\s*(?:show)?\\s*(?:dm)?$';
+export default class MagicTheGatheringCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*mtg\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba uma carta aleatória de Magic: The Gathering.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const API_URL = 'https://api.magicthegathering.io/v1/cards';
     const PAGE_SIZE = 100;
     try {

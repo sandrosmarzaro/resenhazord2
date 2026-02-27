@@ -1,12 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
-export default class Rule34Command {
-  static identifier: string = '^\\s*\\,\\s*rule\\s*34\\s*(?:show)?\\s*(?:dm)?$';
+export default class Rule34Command extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*rule\\s*34\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription = 'Receba uma imagem aleatória da Rule 34.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const TIMEOUT = 30000;
 
     try {

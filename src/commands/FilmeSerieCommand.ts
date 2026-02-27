@@ -1,12 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 
-export default class FilmeSerieCommand {
-  static identifier: string =
-    '^\\s*\\,\\s*(?:filme|s.rie)\\s*(?:top|pop)?\\s*(?:show)?\\s*(?:dm)?$';
+export default class FilmeSerieCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*(?:filme|s.rie)\\s*(?:top|pop)?\\s*(?:show)?\\s*(?:dm)?$';
+  readonly menuDescription =
+    'Receba aleatoriamente um filme ou série top 500 em popularidade ou por nota.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const type = data.text.match(/filme/i) ? 'movie' : 'tv';
     const rest_command = data.text.replace(/\s*,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
     const mode = rest_command.match(/top/i) ? 'top_rated' : 'popular';

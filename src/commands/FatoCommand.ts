@@ -1,10 +1,12 @@
 import type { CommandData } from '../types/command.js';
+import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
-export default class FatoCommand {
-  static identifier: string = '^\\s*\\,\\s*fato\\s*(?:hoje)?\\s*$';
+export default class FatoCommand extends Command {
+  readonly regexIdentifier = '^\\s*\\,\\s*fato\\s*(?:hoje)?\\s*$';
+  readonly menuDescription = 'Descubra um fato aleatório ou de hoje em inglês.';
 
-  static async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<void> {
     const rest_command = data.text.replace(/\n*\s*,\s*fato\s*/, '');
     const rest_link = rest_command.match(/hoje/) ? 'today' : 'random';
     const url = `https://uselessfacts.jsph.pl/api/v2/facts/${rest_link}`;
