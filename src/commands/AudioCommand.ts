@@ -1,6 +1,6 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import tts from 'google-tts-api';
 
 export default class AudioCommand extends Command {
@@ -149,17 +149,18 @@ export default class AudioCommand extends Command {
     'pa-guru-in',
   ];
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const rest_command = data.text.replace(/\n*\s*,\s*.udio\s*/, '');
     const is_language_inserted = rest_command.match(/^[A-Za-z]{2}\s*-\s*[A-Za-z]{2}/);
     const language = is_language_inserted ? is_language_inserted[0] : 'pt-br';
     if (!this.languages.includes(language.toLowerCase())) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Burro burro! O idioma 🏳️‍🌈 não existe!' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: 'Burro burro! O idioma 🏳️‍🌈 não existe!' },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
     let text;
     if (is_language_inserted) {
@@ -168,12 +169,13 @@ export default class AudioCommand extends Command {
       text = rest_command;
     }
     if (!text) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Burro burro! Cadê o texto? 🤨' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: 'Burro burro! Cadê o texto? 🤨' },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
     const audio_urls = tts.getAllAudioUrls(text, {
       lang: language,
@@ -184,26 +186,25 @@ export default class AudioCommand extends Command {
 
     const char_limit = 200;
     if (!(text.length > char_limit)) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
+      return [
         {
-          viewOnce: true,
-          audio: { url: audio_urls[0].url },
+          jid: data.key.remoteJid!,
+          content: {
+            viewOnce: true,
+            audio: { url: audio_urls[0].url },
+          },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
         },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      ];
     }
 
-    for (const audio_url of audio_urls) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        {
-          viewOnce: true,
-          audio: { url: audio_url.url },
-        },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    }
+    return audio_urls.map((audio_url: { url: string }) => ({
+      jid: data.key.remoteJid!,
+      content: {
+        viewOnce: true,
+        audio: { url: audio_url.url },
+      },
+      options: { quoted: data, ephemeralExpiration: data.expiration },
+    }));
   }
 }

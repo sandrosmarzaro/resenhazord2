@@ -1,25 +1,26 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default class PromptCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*prompt\\s*';
   readonly menuDescription = 'Interaja e converse com a IA chatbot e assistente Resenhazord2.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const { GEMINI_API_KEY } = process.env;
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const rest_command = data.text.replace(/\n*\s*,\s*prompt\s*/, '');
     if (!rest_command) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Burro burro! Você não enviou um texto para IA! 🤦‍♂️` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Burro burro! Você não enviou um texto para IA! 🤦‍♂️` },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     const prePrompt = `
@@ -40,23 +41,16 @@ export default class PromptCommand extends Command {
         Resenhista: Quando o primeiro avião voou?
         Resenhazord2: Em 17 de dezembro de 1903, Wilbur e Orville Wright fizeram os primeiros voos. Eu gostaria que eles viessem e me levassem embora.`;
 
-    try {
-      const prompt = prePrompt + rest_command;
-      const result = await model.generateContent(prompt);
-      const { response } = result;
-      const text = response.text();
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: text },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    } catch (error) {
-      console.log(`ERROR PROMPT COMMAND\n${error}`);
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Não consegui responder a sua pergunta 😔` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    }
+    const prompt = prePrompt + rest_command;
+    const result = await model.generateContent(prompt);
+    const { response } = result;
+    const text = response.text();
+    return [
+      {
+        jid: data.key.remoteJid!,
+        content: { text: text },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 }

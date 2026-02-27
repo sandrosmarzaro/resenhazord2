@@ -1,13 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import { MongoClient } from 'mongodb';
 
 export default class BorgesCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*borges\\s*$';
   readonly menuDescription = 'Descubra quantos nargas o Borges já fumou.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const uri = process.env.MONGODB_URI!;
     const client = new MongoClient(uri);
 
@@ -20,18 +20,13 @@ export default class BorgesCommand extends Command {
         { $inc: { nargas: 1 } },
         { returnDocument: 'after', upsert: true },
       );
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Borges já fumou ${result!.nargas} nargas 🚬` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    } catch (error) {
-      console.log(`BORGES COMMAND ERROR\n${error}`);
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Eram muitas bitucas para contar e não consegui... 😔' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Borges já fumou ${result!.nargas} nargas 🚬` },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     } finally {
       await client.close();
     }

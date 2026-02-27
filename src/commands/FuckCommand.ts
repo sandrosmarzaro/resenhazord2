@@ -1,21 +1,22 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import { NSFW } from 'nsfwhub';
 
 export default class FuckCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$';
   readonly menuDescription = 'Foda a pessoa mencionada mandando uma foto de pornozão pra ela.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const regex = /@lid|@s.whatsapp.net/gi;
     if (!data.key.remoteJid!.match(/g.us/)) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Burro burro! Você só pode fuder com alguém do grupo em um! 🤦‍♂️` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Burro burro! Você só pode fuder com alguém do grupo em um! 🤦‍♂️` },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
     const sender = (data.key.participant ?? data.key.remoteJid)!;
     const sender_phone = sender.replace(/@lid/, '');
@@ -24,24 +25,17 @@ export default class FuckCommand extends Command {
 
     const nsfw = new NSFW();
     const porn = await nsfw.fetch('fuck');
-    try {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        {
+    return [
+      {
+        jid: data.key.remoteJid!,
+        content: {
           viewOnce: true,
           video: { url: porn.image.url },
           mentions: [sender, data.message!.extendedTextMessage!.contextInfo!.mentionedJid![0]],
           caption: `@${sender_phone} está fudendo @${mentioned_phone} 😩`,
         },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    } catch (error) {
-      console.log(`ERROR FUCK COMMAND\n${error}`);
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Não consegui foder @${sender_phone} 😔`, mentions: [sender] },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    }
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 }

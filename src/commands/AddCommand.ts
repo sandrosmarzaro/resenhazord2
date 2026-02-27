@@ -1,4 +1,5 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
@@ -76,14 +77,15 @@ export default class AddCommand extends Command {
     '99',
   ];
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     if (!data.key.remoteJid!.match(/g.us/)) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️` },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     const { participants } = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
@@ -92,43 +94,49 @@ export default class AddCommand extends Command {
       (participant) => participant.id === RESENHAZORD2_JID,
     )!.admin;
     if (!is_resenhazord2_admin) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Vai se fuder! Eu não sou admin! 🖕` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Vai se fuder! Eu não sou admin! 🖕` },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     const rest_command = data.text.replace(/\n*\s*,\s*add\s*/, '');
     const inserted_phone = rest_command.replace(/\s|\n/, '');
     if (inserted_phone.length == 0) {
-      await this.build_and_send_phone(inserted_phone, data);
-      return;
+      return await this.build_and_send_phone(inserted_phone, data);
     }
 
     const is_valid_DDD = this.DDD_LIST.some((DDD) => inserted_phone.startsWith(DDD));
     if (!is_valid_DDD) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Burro burro! O DDD do estado 🏳️‍🌈 não existe!` },
-        { quoted: data },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Burro burro! O DDD do estado 🏳️‍🌈 não existe!` },
+          options: { quoted: data },
+        },
+      ];
     }
 
+    const messages: Message[] = [];
     if (inserted_phone.length > 11) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
+      messages.push({
+        jid: data.key.remoteJid!,
+        content: {
+          text: `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`,
+        },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      });
     }
 
-    await this.build_and_send_phone(inserted_phone, data);
+    const buildMessages = await this.build_and_send_phone(inserted_phone, data);
+    messages.push(...buildMessages);
+    return messages;
   }
 
-  private async build_and_send_phone(initial_phone: string, data: CommandData): Promise<void> {
+  private async build_and_send_phone(initial_phone: string, data: CommandData): Promise<Message[]> {
     let is_sucefull = false;
     const is_complete_phone = initial_phone.length >= 10;
     do {
@@ -164,14 +172,17 @@ export default class AddCommand extends Command {
           await Resenhazord2.socket!.groupParticipantsUpdate(data.key.remoteJid!, [id!], 'add');
         } catch (error) {
           console.log(`ERROR ADD COMMAND\n${error}`);
-          await Resenhazord2.socket!.sendMessage(
-            data.key.remoteJid!,
-            { text: `Não consegui adicionar o número ${generated_phone} 😔` },
-            { quoted: data, ephemeralExpiration: data.expiration },
-          );
+          return [
+            {
+              jid: data.key.remoteJid!,
+              content: { text: `Não consegui adicionar o número ${generated_phone} 😔` },
+              options: { quoted: data, ephemeralExpiration: data.expiration },
+            },
+          ];
         }
         is_sucefull = true;
       }
     } while (!is_sucefull);
+    return [];
   }
 }

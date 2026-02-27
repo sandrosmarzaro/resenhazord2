@@ -1,6 +1,6 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 
 export default class ImageCommand extends Command {
   readonly regexIdentifier =
@@ -8,17 +8,18 @@ export default class ImageCommand extends Command {
   readonly menuDescription =
     'Gere uma imagem baseada no prompt usando IA com resolução e modelo opcionais.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const seed = (): number => new Date().getTime() % 1000000;
     const { resolution, model, prompt } = this.parseCommand(data.text);
 
     if (!prompt) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Você precisa informar um texto para a imagem! 🤷‍♂️' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: 'Você precisa informar um texto para a imagem! 🤷‍♂️' },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     const resolution_mappping: Record<string, [number, number]> = {
@@ -37,11 +38,13 @@ export default class ImageCommand extends Command {
     if (DM_FLAG_ACTIVE && data.key.participant) {
       chat_id = data.key.participant;
     }
-    await Resenhazord2.socket!.sendMessage(
-      chat_id,
-      { image: { url: imageUrl }, viewOnce: !data.text.match(/show/) },
-      { quoted: data, ephemeralExpiration: data.expiration },
-    );
+    return [
+      {
+        jid: chat_id,
+        content: { image: { url: imageUrl }, viewOnce: !data.text.match(/show/) },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 
   private parseCommand(text: string): {

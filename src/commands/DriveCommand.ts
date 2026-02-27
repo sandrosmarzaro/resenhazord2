@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { WAMessage } from '@whiskeysockets/baileys';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
@@ -17,19 +18,20 @@ export default class DriveCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*drive\\s*$';
   readonly menuDescription = 'Envie uma mídia para o Drive da Resenha.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
     const has_quoted_media =
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
 
     if (!has_upload_media && !has_quoted_media) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Burro burro! Você precisa enviar uma mídia para botar no drive! 🤦‍♂️' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: 'Burro burro! Você precisa enviar uma mídia para botar no drive! 🤦‍♂️' },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     let message: WAMessage;
@@ -48,62 +50,55 @@ export default class DriveCommand extends Command {
       message = data as WAMessage;
     }
 
-    try {
-      const buffer = await downloadMediaMessage(
-        message,
-        'buffer',
-        {},
-        {
-          reuploadRequest: Resenhazord2.socket!.updateMediaMessage,
-          logger: pino({ level: 'silent' }),
-        },
-      );
+    const buffer = await downloadMediaMessage(
+      message,
+      'buffer',
+      {},
+      {
+        reuploadRequest: Resenhazord2.socket!.updateMediaMessage,
+        logger: pino({ level: 'silent' }),
+      },
+    );
 
-      const auth = new google.auth.GoogleAuth({
-        keyFile: path.resolve(__dirname, '../auth/google_secret.json'),
-        scopes: ['https://www.googleapis.com/auth/drive.file'],
-      });
+    const auth = new google.auth.GoogleAuth({
+      keyFile: path.resolve(__dirname, '../auth/google_secret.json'),
+      scopes: ['https://www.googleapis.com/auth/drive.file'],
+    });
 
-      const drive = google.drive({ version: 'v3', auth });
+    const drive = google.drive({ version: 'v3', auth });
 
-      const isImage = message.message?.imageMessage;
-      const fileExtension = isImage ? '.jpg' : '.mp4';
-      const fileName = `whatsapp_media_${Date.now()}${fileExtension}`;
-      const mimeType = isImage ? 'image/jpeg' : 'video/mp4';
+    const isImage = message.message?.imageMessage;
+    const fileExtension = isImage ? '.jpg' : '.mp4';
+    const fileName = `whatsapp_media_${Date.now()}${fileExtension}`;
+    const mimeType = isImage ? 'image/jpeg' : 'video/mp4';
 
-      const tempFilePath = path.join('/tmp', fileName);
-      await fsPromises.writeFile(tempFilePath, buffer);
+    const tempFilePath = path.join('/tmp', fileName);
+    await fsPromises.writeFile(tempFilePath, buffer);
 
-      const fileMetadata = {
-        name: fileName,
-        mimeType: mimeType,
-      };
+    const fileMetadata = {
+      name: fileName,
+      mimeType: mimeType,
+    };
 
-      const media = {
-        mimeType: mimeType,
-        body: createReadStream(tempFilePath),
-      };
+    const media = {
+      mimeType: mimeType,
+      body: createReadStream(tempFilePath),
+    };
 
-      await drive.files.create({
-        requestBody: fileMetadata,
-        media: media,
-        fields: 'id',
-      });
+    await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id',
+    });
 
-      await fsPromises.unlink(tempFilePath);
+    await fsPromises.unlink(tempFilePath);
 
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Mídia enviada com sucesso para o Drive da Resenha! 🐮🎣` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    } catch (error) {
-      console.error('ERROR DRIVE COMMAND:', error);
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Ocorreu um erro ao enviar a mídia para o Drive da Resenha ❌' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    }
+    return [
+      {
+        jid: data.key.remoteJid!,
+        content: { text: `Mídia enviada com sucesso para o Drive da Resenha! 🐮🎣` },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 }

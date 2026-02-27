@@ -1,4 +1,5 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
@@ -6,14 +7,15 @@ export default class AllCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*all\\s*';
   readonly menuDescription = 'Marca todos os participantes do grupo com ou sem uma mensagem.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     if (!data.key.remoteJid!.match(/g.us/)) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Burro burro! Você só pode marcar o grupo em um grupo! 🤦‍♂️` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Burro burro! Você só pode marcar o grupo em um grupo! 🤦‍♂️` },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     const { participants } = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
@@ -25,10 +27,12 @@ export default class AllCommand extends Command {
       message += `@${participant.id.replace(regex, '')} `;
     }
     const participants_ids = participants.map((participant) => participant.id);
-    await Resenhazord2.socket!.sendMessage(
-      data.key.remoteJid!,
-      { text: message, mentions: participants_ids },
-      { quoted: data, ephemeralExpiration: data.expiration },
-    );
+    return [
+      {
+        jid: data.key.remoteJid!,
+        content: { text: message, mentions: participants_ids },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 }

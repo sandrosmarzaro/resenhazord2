@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { WAMessage } from '@whiskeysockets/baileys';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
@@ -12,18 +13,21 @@ export default class StickerCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*stic\\s*(?:crop|full|circle|rounded)?\\s*$';
   readonly menuDescription = 'Transforme sua imagem anexada em sticker.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
     const has_quoted_media =
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
     if (!has_upload_media && !has_quoted_media) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Burro burro! Você precisa enviar uma imagem ou gif para fazer um sticker! 🤦‍♂️' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: {
+            text: 'Burro burro! Você precisa enviar uma imagem ou gif para fazer um sticker! 🤦‍♂️',
+          },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     const rest_command = data.text.replace(/^\s*,\s*stic\s*/, '');
@@ -44,37 +48,30 @@ export default class StickerCommand extends Command {
     } else {
       message = data as WAMessage;
     }
-    try {
-      ffmpeg.setFfmpegPath(ffmpegPath);
+    ffmpeg.setFfmpegPath(ffmpegPath);
 
-      const buffer = await downloadMediaMessage(
-        message,
-        'buffer',
-        {},
-        {
-          reuploadRequest: Resenhazord2.socket!.updateMediaMessage,
-          logger: pino({ level: 'silent' }),
-        },
-      );
-      const sticker = await new Sticker(buffer)
-        .setPack('Resenhazord2')
-        .setAuthor('Resenha')
-        .setType(type)
-        .setCategories(['Resenha', 'Bot'])
-        .setQuality(50)
-        .build();
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { sticker },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    } catch (error) {
-      console.log(`ERROR STICKER COMMAND\n${error}`);
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Não consegui criar a figurinha! 😔` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    }
+    const buffer = await downloadMediaMessage(
+      message,
+      'buffer',
+      {},
+      {
+        reuploadRequest: Resenhazord2.socket!.updateMediaMessage,
+        logger: pino({ level: 'silent' }),
+      },
+    );
+    const sticker = await new Sticker(buffer)
+      .setPack('Resenhazord2')
+      .setAuthor('Resenha')
+      .setType(type)
+      .setCategories(['Resenha', 'Bot'])
+      .setQuality(50)
+      .build();
+    return [
+      {
+        jid: data.key.remoteJid!,
+        content: { sticker },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 }

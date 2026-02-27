@@ -1,4 +1,5 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
@@ -126,14 +127,15 @@ export default class AdmCommand extends Command {
     'pau mandado',
   ];
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     if (!data.key.remoteJid!.match(/g.us/)) {
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: `Burro burro! Você só pode xingar adminstração em um grupo! 🤦‍♂️` },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-      return;
+      return [
+        {
+          jid: data.key.remoteJid!,
+          content: { text: `Burro burro! Você só pode xingar adminstração em um grupo! 🤦‍♂️` },
+          options: { quoted: data, ephemeralExpiration: data.expiration },
+        },
+      ];
     }
 
     const { participants } = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
@@ -142,13 +144,15 @@ export default class AdmCommand extends Command {
     const regex = /@lid|@s.whatsapp.net/gi;
     const adm_mentions = adms.map((adm) => `@${adm.id.replace(regex, '')} `);
     const random_swearing = this.swearings[Math.floor(Math.random() * this.swearings.length)];
-    await Resenhazord2.socket!.sendMessage(
-      data.key.remoteJid!,
+    return [
       {
-        text: `Vai se foder administração! 🖕\nVocê é ${random_swearing}\n${adm_mentions.join('')}`,
-        mentions: adms_ids,
+        jid: data.key.remoteJid!,
+        content: {
+          text: `Vai se foder administração! 🖕\nVocê é ${random_swearing}\n${adm_mentions.join('')}`,
+          mentions: adms_ids,
+        },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
       },
-      { quoted: data, ephemeralExpiration: data.expiration },
-    );
+    ];
   }
 }

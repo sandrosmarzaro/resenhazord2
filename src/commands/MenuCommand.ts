@@ -1,6 +1,6 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 // @ts-expect-error - plain JS data files without type declarations
 import menu_message from '../../public/messages/menu_message.js';
 // @ts-expect-error - plain JS data files without type declarations
@@ -12,7 +12,7 @@ export default class MenuCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*menu\\s*(?:grupo|b.blia)?\\s*(?:dm)?$';
   readonly menuDescription = 'Exibe o menu de comandos.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     let menu: string;
     const menu_handler: Record<string, string> = {
       grupo: menu_grupo_message as string,
@@ -28,24 +28,17 @@ export default class MenuCommand extends Command {
       menu = menu_message as string;
     }
 
-    try {
-      let chat_id: string = data.key.remoteJid!;
-      const DM_FLAG_ACTIVE = data.text.match(/dm/);
-      if (DM_FLAG_ACTIVE && data.key.participant) {
-        chat_id = data.key.participant;
-      }
-      await Resenhazord2.socket!.sendMessage(
-        chat_id,
-        { text: menu },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    } catch (error) {
-      console.log(`ERROR MENU COMMAND\n${error}`);
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: 'Viiixxiii.. Não consegui exibir o menu! 🥺👉👈' },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
+    let chat_id: string = data.key.remoteJid!;
+    const DM_FLAG_ACTIVE = data.text.match(/dm/);
+    if (DM_FLAG_ACTIVE && data.key.participant) {
+      chat_id = data.key.participant;
     }
+    return [
+      {
+        jid: chat_id,
+        content: { text: menu },
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 }

@@ -1,6 +1,6 @@
 import type { CommandData } from '../types/command.js';
+import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -8,74 +8,57 @@ export default class Rule34Command extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*rule\\s*34\\s*(?:show)?\\s*(?:dm)?$';
   readonly menuDescription = 'Receba uma imagem aleatória da Rule 34.';
 
-  async run(data: CommandData): Promise<void> {
+  async run(data: CommandData): Promise<Message[]> {
     const TIMEOUT = 30000;
 
-    try {
-      const response = await axios.get('https://rule34.xxx/index.php?page=post&s=random', {
-        timeout: TIMEOUT,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          Connection: 'keep-alive',
-        },
-      });
+    const response = await axios.get('https://rule34.xxx/index.php?page=post&s=random', {
+      timeout: TIMEOUT,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        Connection: 'keep-alive',
+      },
+    });
 
-      const $ = cheerio.load(response.data);
-      const images: { src: string }[] = [];
+    const $ = cheerio.load(response.data);
+    const images: { src: string }[] = [];
 
-      $('div.flexi img').each((i, elem) => {
-        const src = $(elem).attr('src');
-        if (src) {
-          images.push({ src });
-        }
-      });
-
-      if (images.length === 0) {
-        throw new Error('Nenhuma imagem encontrada');
+    $('div.flexi img').each((i, elem) => {
+      const src = $(elem).attr('src');
+      if (src) {
+        images.push({ src });
       }
+    });
 
-      const banner_url = 'https://kanako.store/products/futa-body';
-      const url =
-        images[0]['src'] === banner_url && images.length > 1 ? images[1]['src'] : images[0]['src'];
+    if (images.length === 0) {
+      throw new Error('Nenhuma imagem encontrada');
+    }
 
-      if (!url) {
-        throw new Error('URL da imagem inválida');
-      }
+    const banner_url = 'https://kanako.store/products/futa-body';
+    const url =
+      images[0]['src'] === banner_url && images.length > 1 ? images[1]['src'] : images[0]['src'];
 
-      let chat_id: string = data.key.remoteJid!;
-      const DM_FLAG_ACTIVE = data.text.match(/dm/);
-      if (DM_FLAG_ACTIVE && data.key.participant) {
-        chat_id = data.key.participant;
-      }
-      await Resenhazord2.socket!.sendMessage(
-        chat_id,
-        {
+    if (!url) {
+      throw new Error('URL da imagem inválida');
+    }
+
+    let chat_id: string = data.key.remoteJid!;
+    const DM_FLAG_ACTIVE = data.text.match(/dm/);
+    if (DM_FLAG_ACTIVE && data.key.participant) {
+      chat_id = data.key.participant;
+    }
+    return [
+      {
+        jid: chat_id,
+        content: {
           viewOnce: !data.text.match(/show/),
           image: { url: url },
           caption: 'Aqui está a imagem que você pediu 🤗',
         },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    } catch (error) {
-      console.log(`RULE34 COMMAND ERROR\n${error}`);
-
-      let errorMessage = 'Não consegui encontrar nada para você 😔';
-
-      const err = error as { code?: string; response?: { status?: number } };
-      if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
-        errorMessage = 'Tempo limite excedido ao tentar acessar o site 😔';
-      } else if (err.response?.status) {
-        errorMessage = `Erro ao acessar o site (${err.response.status}) 😔`;
-      }
-
-      await Resenhazord2.socket!.sendMessage(
-        data.key.remoteJid!,
-        { text: errorMessage },
-        { quoted: data, ephemeralExpiration: data.expiration },
-      );
-    }
+        options: { quoted: data, ephemeralExpiration: data.expiration },
+      },
+    ];
   }
 }
