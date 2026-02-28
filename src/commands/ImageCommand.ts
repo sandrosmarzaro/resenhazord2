@@ -1,6 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
+import { IMAGE_RESOLUTIONS } from '../data/imageResolutions.js';
 
 export default class ImageCommand extends Command {
   readonly regexIdentifier =
@@ -22,14 +23,7 @@ export default class ImageCommand extends Command {
       ];
     }
 
-    const resolution_mappping: Record<string, [number, number]> = {
-      sd: [768, 768],
-      hd: [720, 1280],
-      fhd: [1080, 1920],
-      qhd: [1440, 2560],
-      '4k': [2160, 3840],
-    };
-    const [width, height] = (resolution ? resolution_mappping[resolution] : null) || [768, 768];
+    const [width, height] = (resolution ? IMAGE_RESOLUTIONS[resolution] : null) || [768, 768];
 
     const imageUrl = this.generateImageUrl(prompt, width, height, model, seed());
 

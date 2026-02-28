@@ -5,6 +5,7 @@ import Command from './Command.js';
 import { NSFW } from 'nsfwhub';
 import pkg from 'darksadas-yt-pornhub-scrape';
 const { phdl } = pkg;
+import { NSFW_TAGS } from '../data/nsfwTags.js';
 
 export default class PornoCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*porno\\s*(?:ia)?\\s*(?:show)?\\s*(?:dm)?$';
@@ -20,46 +21,7 @@ export default class PornoCommand extends Command {
 
   private async ia_porn(data: CommandData): Promise<Message[]> {
     const nsfw = new NSFW();
-    const tags = [
-      'ass',
-      'sixtynine',
-      'pussy',
-      'dick',
-      'anal',
-      'boobs',
-      'bdsm',
-      'black',
-      'easter',
-      'bottomless',
-      'blowjub',
-      'collared',
-      'cum',
-      'cumsluts',
-      'dp',
-      'dom',
-      'extreme',
-      'feet',
-      'finger',
-      'fuck',
-      'futa',
-      'gay',
-      'gif',
-      'group',
-      'hentai',
-      'kiss',
-      'lesbian',
-      'lick',
-      'pegged',
-      'phgif',
-      'puffies',
-      'real',
-      'suck',
-      'tattoo',
-      'tiny',
-      'toys',
-      'xmas',
-    ];
-    const tag = tags[Math.floor(Math.random() * tags.length)];
+    const tag = NSFW_TAGS[Math.floor(Math.random() * NSFW_TAGS.length)];
     const porn = await nsfw.fetch(tag);
     const content: Record<string, unknown> = {
       viewOnce: !data.text.match(/show/),

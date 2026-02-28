@@ -2,6 +2,7 @@ import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import { POKEMON_TYPE_EMOJIS } from '../data/pokemonTypeEmojis.js';
 
 export default class PokemonCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*pok.mon\\s*(?:show)?\\s*(?:dm)?$';
@@ -22,28 +23,8 @@ export default class PokemonCommand extends Command {
     const response = await AxiosClient.get<PokemonResponse>(`${url}${pokemon_id}`);
     const pokemon = response.data;
     const poke_name = `*Nome*: ${pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}\n`;
-    const typeEmojis: Record<string, string> = {
-      normal: '👤',
-      fire: '🔥',
-      water: '💦',
-      electric: '⚡',
-      grass: '🍃',
-      ice: '❄️',
-      fighting: '🥊',
-      poison: '☠️',
-      ground: '⛰️',
-      flying: '🪽',
-      psychic: '🔮',
-      bug: '🪲',
-      rock: '🪨',
-      ghost: '👻',
-      dragon: '🐉',
-      dark: '🌑',
-      steel: '⛓️',
-      fairy: '🧚',
-    };
     const types = pokemon.types.map(
-      ({ type }: { type: { name: string } }) => typeEmojis[type.name] || type.name,
+      ({ type }: { type: { name: string } }) => POKEMON_TYPE_EMOJIS[type.name] || type.name,
     );
     const poke_type = `*Tipo*: ${types.join(' ')}\n`;
     const poke_dex = `*Pokédex*: #${pokemon.id}`;

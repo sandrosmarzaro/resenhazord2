@@ -2,80 +2,11 @@ import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
+import { DDD_LIST } from '../data/dddList.js';
 
 export default class AddCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*add\\s*(?:\\d+)?\\s*$';
   readonly menuDescription = 'Adiciona um número ao grupo. Aleatório ou específico.';
-
-  private readonly DDD_LIST = [
-    '11',
-    '12',
-    '13',
-    '14',
-    '15',
-    '16',
-    '17',
-    '18',
-    '19',
-    '21',
-    '22',
-    '24',
-    '27',
-    '28',
-    '31',
-    '32',
-    '33',
-    '34',
-    '35',
-    '37',
-    '38',
-    '41',
-    '42',
-    '43',
-    '44',
-    '45',
-    '46',
-    '47',
-    '48',
-    '49',
-    '51',
-    '53',
-    '54',
-    '55',
-    '61',
-    '62',
-    '63',
-    '64',
-    '65',
-    '66',
-    '67',
-    '68',
-    '69',
-    '71',
-    '73',
-    '74',
-    '75',
-    '77',
-    '79',
-    '81',
-    '82',
-    '83',
-    '84',
-    '85',
-    '86',
-    '87',
-    '88',
-    '89',
-    '91',
-    '92',
-    '93',
-    '94',
-    '95',
-    '96',
-    '97',
-    '98',
-    '99',
-  ];
 
   async run(data: CommandData): Promise<Message[]> {
     if (!data.key.remoteJid!.match(/g.us/)) {
@@ -109,7 +40,7 @@ export default class AddCommand extends Command {
       return await this.build_and_send_phone(inserted_phone, data);
     }
 
-    const is_valid_DDD = this.DDD_LIST.some((DDD) => inserted_phone.startsWith(DDD));
+    const is_valid_DDD = DDD_LIST.some((DDD) => inserted_phone.startsWith(DDD));
     if (!is_valid_DDD) {
       return [
         {
@@ -142,7 +73,7 @@ export default class AddCommand extends Command {
     do {
       let generated_phone = '';
       if (initial_phone.length === 0) {
-        const random_ddd = this.DDD_LIST[Math.floor(Math.random() * this.DDD_LIST.length)];
+        const random_ddd = DDD_LIST[Math.floor(Math.random() * DDD_LIST.length)];
         generated_phone += initial_phone + random_ddd;
       }
 
