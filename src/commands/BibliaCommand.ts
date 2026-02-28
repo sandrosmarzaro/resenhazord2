@@ -1,7 +1,19 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
+
+interface VerseData {
+  book: { name: string };
+  chapter: number;
+  number: number;
+  text: string;
+}
+
+interface BookData {
+  name: string;
+  abbrev?: { pt: string };
+}
 
 export default class BibliaCommand extends Command {
   readonly regexIdentifier =
@@ -21,7 +33,7 @@ export default class BibliaCommand extends Command {
     if (!has_verse) {
       url = `${base_url}/verses/${version}/random`;
 
-      const response = await axios.get(url, { headers });
+      const response = await AxiosClient.get<VerseData>(url, { headers });
       return [this.build_verse(data, response.data)];
     }
 
@@ -52,14 +64,12 @@ export default class BibliaCommand extends Command {
           .map((n) => n.trim())
       : data.text.match(/:\s*\d{1,3}/)![0].replace(':', '');
 
-    const booksResponse = await axios.get(`${base_url}/books`, { headers });
+    const booksResponse = await AxiosClient.get<BookData[]>(`${base_url}/books`, { headers });
     const books = booksResponse.data;
 
-    const abbrev = books.find(
-      (b: { name: string; abbrev?: { pt: string } }) => b.name.toLowerCase() === book.toLowerCase(),
-    )?.abbrev?.pt;
+    const abbrev = books.find((b) => b.name.toLowerCase() === book.toLowerCase())?.abbrev?.pt;
     if (!abbrev) {
-      const book_names = books.map((b: { name: string }) => `- ${b.name}`).join('\n');
+      const book_names = books.map((b) => `- ${b.name}`).join('\n');
       let text = 'Não consegui encontrar o livro que você digitou... 😔';
       text += '\n\n📚 *Livros Disponíveis* 📚\n';
       text += book_names;
@@ -75,14 +85,14 @@ export default class BibliaCommand extends Command {
     if (!has_range) {
       url = `${base_url}/verses/${version}/${abbrev}/${chapter}/${number}`;
 
-      const verseResponse = await axios.get(url, { headers });
+      const verseResponse = await AxiosClient.get<VerseData>(url, { headers });
       return [this.build_verse(data, verseResponse.data)];
     }
     const [start, end] = number as string[];
     const verses: string[] = [];
     for (let i = parseInt(start); i <= parseInt(end); i++) {
       const verseUrl = `${base_url}/verses/${version}/${abbrev}/${chapter}/${i}`;
-      const verseResponse = await axios.get(verseUrl, { headers });
+      const verseResponse = await AxiosClient.get<VerseData>(verseUrl, { headers });
       verses.push(`> ${verseResponse.data.text}`);
     }
     const text = `*${book} ${chapter}:${start}-${end}*\n\n${verses.join('\n')}`;
@@ -95,10 +105,7 @@ export default class BibliaCommand extends Command {
     ];
   }
 
-  private build_verse(
-    data: CommandData,
-    verse: { book: { name: string }; chapter: number; number: number; text: string },
-  ): Message {
+  private build_verse(data: CommandData, verse: VerseData): Message {
     return {
       jid: data.key.remoteJid!,
       content: { text: `*${verse.book.name} ${verse.chapter}:${verse.number}*\n\n> ${verse.text}` },

@@ -1,7 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 
 export default class MyAnimeListCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*(?:anime|manga)\\s*(?:show)?\\s*(?:dm)?$';
@@ -12,7 +12,24 @@ export default class MyAnimeListCommand extends Command {
     const type = data.text.match(/anime/) ? 'anime' : 'manga';
     const page = Math.floor(Math.random() * 20) + 1;
 
-    const response = await axios.get(base_url + `/top/${type}`, { params: { page: page } });
+    interface AnimeData {
+      images: { webp: { large_image_url: string } };
+      genres: { name: string }[];
+      themes: { name: string }[];
+      demographics: { name: string }[];
+      studios?: { name: string }[];
+      authors?: { name: string }[];
+      aired?: { prop: { from: { year: number } } };
+      published?: { prop: { from: { year: number } } };
+      episodes?: number;
+      chapters?: number;
+      title: string;
+      score?: number;
+      rank?: number;
+    }
+    const response = await AxiosClient.get<{ data: AnimeData[] }>(base_url + `/top/${type}`, {
+      params: { page: page },
+    });
     const animes = response.data.data;
     const anime = animes[Math.floor(Math.random() * animes.length)];
 
@@ -29,14 +46,14 @@ export default class MyAnimeListCommand extends Command {
     let size_emoji;
     if (data.text.match(/anime/)) {
       creator_emoji = '🎙️';
-      creators = anime.studios.map((studio: { name: string }) => studio.name).join(', ');
-      release_date = anime.aired.prop.from.year;
+      creators = anime.studios?.map((studio) => studio.name).join(', ');
+      release_date = anime.aired?.prop.from.year;
       size = anime.episodes;
       size_emoji = '🎥';
     } else {
       creator_emoji = '🖋';
-      creators = anime.authors.map((author: { name: string }) => author.name).join(', ');
-      release_date = anime.published.prop.from.year;
+      creators = anime.authors?.map((author) => author.name).join(', ');
+      release_date = anime.published?.prop.from.year;
       size = anime.chapters;
       size_emoji = '📚';
     }

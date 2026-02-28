@@ -1,7 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 
 export default class YugiohCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*ygo\\s*(?:show)?\\s*(?:dm)?$';
@@ -9,7 +9,9 @@ export default class YugiohCommand extends Command {
 
   async run(data: CommandData): Promise<Message[]> {
     const url = 'https://db.ygoprodeck.com/api/v7/randomcard.php';
-    const response = await axios.get(url);
+    const response = await AxiosClient.get<{
+      data: { card_images: { image_url: string }[]; desc: string; name: string }[];
+    }>(url);
     const card = response.data['data'][0];
     const card_image = card.card_images[0].image_url;
     card.desc = card.desc.replace(/\n/g, '');

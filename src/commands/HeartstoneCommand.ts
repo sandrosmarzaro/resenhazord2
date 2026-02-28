@@ -1,7 +1,19 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
+
+interface HearthstoneCard {
+  name: string;
+  text: string;
+  flavorText: string;
+  image: string;
+}
+
+interface HearthstoneResponse {
+  pageCount: number;
+  cards: HearthstoneCard[];
+}
 
 export default class HeartstoneCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*hs\\s*(?:show)?\\s*(?:dm)?$';
@@ -21,7 +33,7 @@ export default class HeartstoneCommand extends Command {
     }
 
     const api_url = 'https://us.api.blizzard.com/hearthstone/cards?locale=pt_BR';
-    const first_response = await axios.get(api_url, {
+    const first_response = await AxiosClient.get<HearthstoneResponse>(api_url, {
       headers: {
         Authorization: `Bearer ${access_token}`,
       },
@@ -32,7 +44,7 @@ export default class HeartstoneCommand extends Command {
     const { pageCount } = first_response.data;
     const random_page = Math.floor(Math.random() * pageCount) + 1;
 
-    const response = await axios.get(api_url, {
+    const response = await AxiosClient.get<HearthstoneResponse>(api_url, {
       headers: {
         Authorization: `Bearer ${access_token}`,
       },
@@ -73,14 +85,18 @@ export default class HeartstoneCommand extends Command {
     const auth = Buffer.from(`${bnet_id}:${bnet_secret}`).toString('base64');
 
     try {
-      const response = await axios.post(token_url, 'grant_type=client_credentials', {
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
+      const response = await AxiosClient.post<{ access_token: string }>(
+        token_url,
+        'grant_type=client_credentials',
+        {
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         },
-      });
+      );
 
-      return response.data.access_token as string;
+      return response.data.access_token;
     } catch (error) {
       console.log(`ERROR HEARTHSTONE COMMAND\n${error}`);
       return null;

@@ -1,7 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 
 export default class PokemonCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*pok.mon\\s*(?:show)?\\s*(?:dm)?$';
@@ -10,7 +10,16 @@ export default class PokemonCommand extends Command {
   async run(data: CommandData): Promise<Message[]> {
     const url = 'https://pokeapi.co/api/v2/pokemon/';
     const pokemon_id = Math.floor(Math.random() * 1025) + 1;
-    const response = await axios.get(`${url}${pokemon_id}`);
+    interface PokemonResponse {
+      name: string;
+      id: number;
+      types: { type: { name: string } }[];
+      sprites: {
+        front_default: string;
+        other: { 'official-artwork': { front_default: string | null } };
+      };
+    }
+    const response = await AxiosClient.get<PokemonResponse>(`${url}${pokemon_id}`);
     const pokemon = response.data;
     const poke_name = `*Nome*: ${pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}\n`;
     const typeEmojis: Record<string, string> = {

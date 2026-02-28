@@ -1,7 +1,7 @@
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 
 export default class StealGroupService {
   static async run(data: BaileysEventMap['group-participants.update']): Promise<void> {
@@ -77,10 +77,7 @@ export default class StealGroupService {
         data.id,
         'Este grupo pertece agora a Resenha 🔒',
       );
-      const image_response = await axios.get('https://loremflickr.com/900/900/', {
-        responseType: 'arraybuffer',
-      });
-      const image_buffer = Buffer.from(image_response.data as ArrayBuffer);
+      const image_buffer = await AxiosClient.getBuffer('https://loremflickr.com/900/900/');
       await Resenhazord2.socket!.updateProfilePicture(data.id, image_buffer);
     } catch {
       return;

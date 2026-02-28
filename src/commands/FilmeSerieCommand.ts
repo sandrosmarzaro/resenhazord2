@@ -1,7 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 
 export default class FilmeSerieCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*(?:filme|s.rie)\\s*(?:top|pop)?\\s*(?:show)?\\s*(?:dm)?$';
@@ -15,9 +15,19 @@ export default class FilmeSerieCommand extends Command {
     const url = `https://api.themoviedb.org/3/${type}/${mode}`;
 
     const page = Math.floor(Math.random() * 25) + 1;
-    const response = await axios.get(url, {
+    interface MovieResult {
+      poster_path: string;
+      genre_ids: number[];
+      release_date?: string;
+      first_air_date?: string;
+      title?: string;
+      name?: string;
+      vote_average?: number;
+      overview: string;
+    }
+    const response = await AxiosClient.get<{ results: MovieResult[] }>(url, {
       params: {
-        api_key: process.env.TMDB_API_KEY,
+        api_key: process.env.TMDB_API_KEY!,
         language: 'pt-BR',
         page: page,
       },
@@ -27,12 +37,15 @@ export default class FilmeSerieCommand extends Command {
     const poster_url = `https://image.tmdb.org/t/p/w500${job.poster_path}`;
 
     const genres_url = `https://api.themoviedb.org/3/genre/${type}/list`;
-    const genres_response = await axios.get(genres_url, {
-      params: {
-        api_key: process.env.TMDB_API_KEY,
-        language: 'pt-BR',
+    const genres_response = await AxiosClient.get<{ genres: { id: number; name: string }[] }>(
+      genres_url,
+      {
+        params: {
+          api_key: process.env.TMDB_API_KEY!,
+          language: 'pt-BR',
+        },
       },
-    });
+    );
     const { genres } = genres_response.data;
     const genres_names = job.genre_ids
       .map(
@@ -40,7 +53,7 @@ export default class FilmeSerieCommand extends Command {
       )
       .join(', ');
 
-    const year = type === 'movie' ? job.release_date.slice(0, 4) : job.first_air_date.slice(0, 4);
+    const year = type === 'movie' ? job.release_date?.slice(0, 4) : job.first_air_date?.slice(0, 4);
     const name = type === 'movie' ? job.title : job.name;
 
     let caption = '';

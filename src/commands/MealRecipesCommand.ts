@@ -2,7 +2,7 @@ import type { CommandData } from '../types/command.js';
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 
 export default class MealRecipesCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*comida\\s*$';
@@ -10,7 +10,7 @@ export default class MealRecipesCommand extends Command {
 
   async run(data: CommandData): Promise<Message[]> {
     const url = 'https://www.themealdb.com/api/json/v1/1/random.php';
-    const response = await axios.get(url);
+    const response = await AxiosClient.get<{ meals: Record<string, string>[] }>(url);
     const meal = response.data.meals[0];
 
     let caption = '';

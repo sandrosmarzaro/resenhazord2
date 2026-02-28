@@ -1,7 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 import * as cheerio from 'cheerio';
 
 export default class Rule34Command extends Command {
@@ -11,7 +11,7 @@ export default class Rule34Command extends Command {
   async run(data: CommandData): Promise<Message[]> {
     const TIMEOUT = 30000;
 
-    const response = await axios.get('https://rule34.xxx/index.php?page=post&s=random', {
+    const response = await AxiosClient.get('https://rule34.xxx/index.php?page=post&s=random', {
       timeout: TIMEOUT,
       headers: {
         'User-Agent':
@@ -22,7 +22,7 @@ export default class Rule34Command extends Command {
       },
     });
 
-    const $ = cheerio.load(response.data);
+    const $ = cheerio.load(response.data as string);
     const images: { src: string }[] = [];
 
     $('div.flexi img').each((i, elem) => {

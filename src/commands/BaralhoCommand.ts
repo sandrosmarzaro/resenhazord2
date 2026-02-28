@@ -1,7 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import axios from 'axios';
+import AxiosClient from '../infra/AxiosClient.js';
 
 export default class BaralhoCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*carta\\s*(?:show)?\\s*(?:dm)?$';
@@ -9,7 +9,7 @@ export default class BaralhoCommand extends Command {
 
   async run(data: CommandData): Promise<Message[]> {
     const API_URL = 'https://deckofcardsapi.com/api/deck/new/draw/?count=1';
-    const response = await axios.get(API_URL);
+    const response = await AxiosClient.get<{ cards: { image: string }[] }>(API_URL);
     const card = response.data.cards[0];
     const caption = 'Era essa sua carta? 😏';
 
