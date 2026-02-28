@@ -6,6 +6,7 @@ import MessageUpsertEvent from '../events/MessageUpsertEvent.js';
 import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 import groupMetadataCache from '../utils/GroupMetadataCache.js';
+import MongoDBConnection from '../infra/MongoDBConnection.js';
 
 export default class Resenhazord2 {
   static auth_state: MongoDBAuthResult | null = null;
@@ -83,5 +84,10 @@ export default class Resenhazord2 {
       this.socket = null;
     }
     this.isConnecting = false;
+
+    if (MongoDBConnection.isConnected()) {
+      console.log('Closing MongoDB connection...');
+      await MongoDBConnection.close();
+    }
   }
 }

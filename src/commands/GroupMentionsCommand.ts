@@ -1,15 +1,13 @@
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import { MongoClient } from 'mongodb';
+import MongoDBConnection from '../infra/MongoDBConnection.js';
 
 type GroupsDoc = { _id: string; groups: Array<{ name: string; participants: string[] }> };
 
 export default class GroupMentionsCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*grupo\\s*';
   readonly menuDescription = 'Comando complexo. Use *,menu grupo* para detalhes.';
-
-  private client = new MongoClient(process.env.MONGODB_URI!);
 
   async run(data: CommandData): Promise<Message[]> {
     if (!data.key.remoteJid!.match(/g.us/)) {
@@ -84,9 +82,7 @@ export default class GroupMentionsCommand extends Command {
     }
 
     try {
-      await this.client.connect();
-      const database = this.client.db('resenhazord2');
-      const collection = database.collection<GroupsDoc>('groups_mentions');
+      const collection = await MongoDBConnection.getCollection<GroupsDoc>('groups_mentions');
 
       const has_group = await collection.findOne({
         _id: data.key.remoteJid!,
@@ -156,9 +152,7 @@ export default class GroupMentionsCommand extends Command {
       return [validationError];
     }
     try {
-      await this.client.connect();
-      const database = this.client.db('resenhazord2');
-      const collection = database.collection<GroupsDoc>('groups_mentions');
+      const collection = await MongoDBConnection.getCollection<GroupsDoc>('groups_mentions');
 
       const has_old_group = await collection.findOne({
         _id: data.key.remoteJid!,
@@ -226,9 +220,7 @@ export default class GroupMentionsCommand extends Command {
     }
 
     try {
-      await this.client.connect();
-      const database = this.client.db('resenhazord2');
-      const collection = database.collection<GroupsDoc>('groups_mentions');
+      const collection = await MongoDBConnection.getCollection<GroupsDoc>('groups_mentions');
 
       const has_group = await collection.findOne({
         _id: data.key.remoteJid!,
@@ -269,9 +261,7 @@ export default class GroupMentionsCommand extends Command {
 
   private async list(data: CommandData, rest_command: string): Promise<Message[]> {
     try {
-      await this.client.connect();
-      const database = this.client.db('resenhazord2');
-      const collection = database.collection<GroupsDoc>('groups_mentions');
+      const collection = await MongoDBConnection.getCollection<GroupsDoc>('groups_mentions');
 
       const response = await collection.findOne({ _id: data.key.remoteJid! });
       const empty_groups = !response || response?.groups?.length == 0;
@@ -352,9 +342,7 @@ export default class GroupMentionsCommand extends Command {
     }
 
     try {
-      await this.client.connect();
-      const database = this.client.db('resenhazord2');
-      const collection = database.collection<GroupsDoc>('groups_mentions');
+      const collection = await MongoDBConnection.getCollection<GroupsDoc>('groups_mentions');
 
       const has_group = await collection.findOne({
         _id: data.key.remoteJid!,
@@ -423,9 +411,7 @@ export default class GroupMentionsCommand extends Command {
     }
 
     try {
-      await this.client.connect();
-      const database = this.client.db('resenhazord2');
-      const collection = database.collection<GroupsDoc>('groups_mentions');
+      const collection = await MongoDBConnection.getCollection<GroupsDoc>('groups_mentions');
 
       const has_group = await collection.findOne({
         _id: data.key.remoteJid!,
@@ -502,9 +488,7 @@ export default class GroupMentionsCommand extends Command {
 
   private async mention(data: CommandData, rest_command: string): Promise<Message[]> {
     try {
-      await this.client.connect();
-      const database = this.client.db('resenhazord2');
-      const collection = database.collection<GroupsDoc>('groups_mentions');
+      const collection = await MongoDBConnection.getCollection<GroupsDoc>('groups_mentions');
 
       const response = await collection.findOne({ _id: data.key.remoteJid! });
       const empty_groups = !response || response?.groups?.length == 0;

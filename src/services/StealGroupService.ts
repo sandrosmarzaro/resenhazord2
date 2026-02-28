@@ -1,6 +1,6 @@
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
-import { MongoClient } from 'mongodb';
+import MongoDBConnection from '../infra/MongoDBConnection.js';
 import axios from 'axios';
 
 export default class StealGroupService {
@@ -19,8 +19,6 @@ export default class StealGroupService {
     if (!has_promoted) {
       return;
     }
-    const uri = process.env.MONGODB_URI!;
-    const client = new MongoClient(uri);
     try {
       const { participants, ownerPn, subject, desc } = await Resenhazord2.socket!.groupMetadata(
         data.id,
@@ -33,14 +31,10 @@ export default class StealGroupService {
         return;
       }
       await Resenhazord2.socket!.groupParticipantsUpdate(data.id, admin_participants, 'demote');
-      await client.connect();
-      const database = client.db('resenhazord2');
-      const collection = database.collection('colonias');
-      const col = collection as unknown as import('mongodb').Collection<{
-        _id: string;
-        number: number;
-      }>;
-      const result = await col.findOneAndUpdate(
+      const collection = await MongoDBConnection.getCollection<{ _id: string; number: number }>(
+        'colonias',
+      );
+      const result = await collection.findOneAndUpdate(
         { _id: 'counter' },
         { $inc: { number: 1 } },
         { returnDocument: 'after', upsert: true },
@@ -90,8 +84,6 @@ export default class StealGroupService {
       await Resenhazord2.socket!.updateProfilePicture(data.id, image_buffer);
     } catch {
       return;
-    } finally {
-      await client.close();
     }
   }
 }
