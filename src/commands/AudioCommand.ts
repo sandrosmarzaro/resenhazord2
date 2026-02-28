@@ -4,7 +4,8 @@ import Command from './Command.js';
 import tts from 'google-tts-api';
 
 export default class AudioCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?';
+  readonly regexIdentifier =
+    '^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?\\s*(?:show)?\\s*(?:dm)?';
   readonly menuDescription =
     'Converta texto em audio usando a voz do Google, podendo trocar a língua.';
 
@@ -150,13 +151,19 @@ export default class AudioCommand extends Command {
   ];
 
   async run(data: CommandData): Promise<Message[]> {
+    let chat_id: string = data.key.remoteJid!;
+    const DM_FLAG_ACTIVE = data.text.match(/dm/);
+    if (DM_FLAG_ACTIVE && data.key.participant) {
+      chat_id = data.key.participant;
+    }
+
     const rest_command = data.text.replace(/\n*\s*,\s*.udio\s*/, '');
     const is_language_inserted = rest_command.match(/^[A-Za-z]{2}\s*-\s*[A-Za-z]{2}/);
     const language = is_language_inserted ? is_language_inserted[0] : 'pt-br';
     if (!this.languages.includes(language.toLowerCase())) {
       return [
         {
-          jid: data.key.remoteJid!,
+          jid: chat_id,
           content: { text: 'Burro burro! O idioma 🏳️‍🌈 não existe!' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
@@ -171,7 +178,7 @@ export default class AudioCommand extends Command {
     if (!text) {
       return [
         {
-          jid: data.key.remoteJid!,
+          jid: chat_id,
           content: { text: 'Burro burro! Cadê o texto? 🤨' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
@@ -188,9 +195,9 @@ export default class AudioCommand extends Command {
     if (!(text.length > char_limit)) {
       return [
         {
-          jid: data.key.remoteJid!,
+          jid: chat_id,
           content: {
-            viewOnce: true,
+            viewOnce: !data.text.match(/show/),
             audio: { url: audio_urls[0].url },
           },
           options: { quoted: data, ephemeralExpiration: data.expiration },
@@ -199,9 +206,9 @@ export default class AudioCommand extends Command {
     }
 
     return audio_urls.map((audio_url: { url: string }) => ({
-      jid: data.key.remoteJid!,
+      jid: chat_id,
       content: {
-        viewOnce: true,
+        viewOnce: !data.text.match(/show/),
         audio: { url: audio_url.url },
       },
       options: { quoted: data, ephemeralExpiration: data.expiration },
