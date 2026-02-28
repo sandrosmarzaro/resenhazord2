@@ -4,5 +4,6 @@ src/auth/session/*
 src/auth/google_secret.json
 .env
 .wwebjs_cache/
+coverage/
 
 !/src/auth/session/.gitkeep

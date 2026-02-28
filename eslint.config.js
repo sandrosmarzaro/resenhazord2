@@ -13,6 +13,6 @@ export default tseslint.config(
   },
   eslintConfigPrettier,
   {
-    ignores: ['node_modules/**', 'auth_session/**', 'public/**', 'src/auth/session/**'],
+    ignores: ['node_modules/**', 'auth_session/**', 'public/**', 'src/auth/session/**', 'coverage/**'],
   },
 );
