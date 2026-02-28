@@ -3,6 +3,8 @@ import { makeWASocket, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import groupMetadataCache from '../utils/GroupMetadataCache.js';
 
+const QR_CODE_TIMEOUT = 60000;
+
 export default class CreateSocket {
   static async getSocket(state: AuthenticationState): Promise<WASocket> {
     const { version } = await fetchLatestWaWebVersion();
@@ -12,7 +14,7 @@ export default class CreateSocket {
       logger: pino({
         level: 'silent',
       }),
-      qrTimeout: 60000,
+      qrTimeout: QR_CODE_TIMEOUT,
       syncFullHistory: false,
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: true,
