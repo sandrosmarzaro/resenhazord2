@@ -3,9 +3,8 @@ import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import { NSFW } from 'nsfwhub';
-import pkg from 'darksadas-yt-pornhub-scrape';
-const { phdl } = pkg;
 import { NSFW_TAGS } from '../data/nsfwTags.js';
+import XVideosScraper from '../services/XVideosScraper.js';
 
 export default class PornoCommand extends Command {
   readonly regexIdentifier = '^\\s*\\,\\s*porno\\s*(?:ia)?\\s*(?:show)?\\s*(?:dm)?$';
@@ -53,10 +52,7 @@ export default class PornoCommand extends Command {
 
   private async real_porn(data: CommandData): Promise<Message[]> {
     try {
-      const results = (await phdl('https://pt.pornhub.com/random')) as {
-        format: Array<{ download_url: string }>;
-        video_title: string;
-      };
+      const result = await XVideosScraper.getRandomVideo();
       let chat_id: string = data.key.remoteJid!;
       const DM_FLAG_ACTIVE = data.text.match(/dm/);
       if (DM_FLAG_ACTIVE && data.key.participant) {
@@ -67,9 +63,9 @@ export default class PornoCommand extends Command {
           jid: chat_id,
           content: {
             video: {
-              url: results.format[0].download_url,
+              url: result.videoUrl,
             },
-            caption: results.video_title,
+            caption: result.title,
             viewOnce: !data.text.match(/show/),
           },
           options: { quoted: data, ephemeralExpiration: data.expiration },
