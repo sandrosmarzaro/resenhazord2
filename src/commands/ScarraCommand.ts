@@ -41,7 +41,6 @@ export default class ScarraCommand extends Command {
   readonly menuDescription = 'Baixe a mídia de visualização única marcada.';
 
   async run(data: CommandData): Promise<Message[]> {
-    console.log(JSON.stringify(data, null, 2));
     const chat = data.key.remoteJid!;
 
     if (!chat.includes('g.us')) {
