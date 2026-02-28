@@ -1,9 +1,9 @@
 services:
   bot:
     container_name: bot
+    image: ghcr.io/sandrosmarzaro/resenhazord2:latest
     build: .
-    volumes:
-      - .:/app
+    env_file: .env
     tty: true
     working_dir: /app
     restart: unless-stopped

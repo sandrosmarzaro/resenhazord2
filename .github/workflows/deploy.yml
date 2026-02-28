@@ -34,30 +34,44 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test:run
 
-  deploy:
-    name: SSH deploy to Oracle VPS
+  build:
+    name: Build and push Docker image
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push'
-    timeout-minutes: 30
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/sandrosmarzaro/resenhazord2:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: SSH deploy to Oracle VPS
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Detect dependency changes
-        id: deps
-        run: |
-          if ! git rev-parse HEAD~1 > /dev/null 2>&1; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-          elif git diff --name-only HEAD~1 HEAD | grep -qE '^(package\.json|bun\.lock|Dockerfile|tsconfig\.json)$'; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Set up SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -66,16 +80,8 @@ jobs:
       - name: Add VPS to known hosts
         run: ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy (code-only)
-        if: steps.deps.outputs.changed == 'false'
+      - name: Deploy
         run: |
-          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=15 \
+          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=5 \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "bash ${{ secrets.VPS_APP_DIR }}/deploy.sh code-only"
-
-      - name: Deploy (full rebuild)
-        if: steps.deps.outputs.changed == 'true'
-        run: |
-          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=15 \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "bash ${{ secrets.VPS_APP_DIR }}/deploy.sh full-rebuild"
+            "cd ${{ secrets.VPS_APP_DIR }} && git pull && docker compose pull && docker compose up -d"
