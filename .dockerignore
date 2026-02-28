@@ -1,0 +1,11 @@
+node_modules
+auth_session
+coverage
+.git
+.github
+.vscode
+.claude
+.devcontainer
+.wwebjs_cache
+LICENSE
+README.md
