@@ -1,10 +1,11 @@
-FROM oven/bun:slim AS builder
+FROM oven/bun:1.3.9-slim AS builder
 
 WORKDIR /app
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-FROM oven/bun:slim
+FROM oven/bun:1.3.9-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
