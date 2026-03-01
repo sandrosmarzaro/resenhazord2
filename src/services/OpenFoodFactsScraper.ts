@@ -60,9 +60,7 @@ export default class OpenFoodFactsScraper {
       },
     );
 
-    const products = response.data.products.filter(
-      (p) => p.product_name && p.image_front_url,
-    );
+    const products = response.data.products.filter((p) => p.product_name && p.image_front_url);
 
     if (products.length === 0) {
       throw new Error('Nenhuma cerveja encontrada');
