@@ -18,6 +18,7 @@ import FuckCommand from '../commands/FuckCommand.js';
 import GroupMentionsCommand from '../commands/GroupMentionsCommand.js';
 import HeartstoneCommand from '../commands/HeartstoneCommand.js';
 import ImageCommand from '../commands/ImageCommand.js';
+import LeagueOfLegendsCommand from '../commands/LeagueOfLegendsCommand.js';
 import MagicTheGatheringCommand from '../commands/MagicTheGatheringCommand.js';
 import MateusCommand from '../commands/MateusCommand.js';
 import MealRecipesCommand from '../commands/MealRecipesCommand.js';
@@ -59,6 +60,7 @@ export default class CommandFactory {
       new GroupMentionsCommand(),
       new HeartstoneCommand(),
       new ImageCommand(),
+      new LeagueOfLegendsCommand(),
       new MagicTheGatheringCommand(),
       new MateusCommand(),
       new MealRecipesCommand(),
