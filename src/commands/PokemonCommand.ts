@@ -81,7 +81,10 @@ export default class PokemonCommand extends Command {
 
     const resizedBuffers = await Promise.all(
       imageBuffers.map((buf) =>
-        sharp(buf).resize(475, 475, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
+        sharp(buf)
+          .resize(475, 475, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png()
+          .toBuffer(),
       ),
     );
 
@@ -94,7 +97,9 @@ export default class PokemonCommand extends Command {
     const caption = pokemons
       .map((p, i) => {
         const name = p.name.charAt(0).toUpperCase() + p.name.slice(1);
-        const types = p.types.map(({ type }) => POKEMON_TYPE_EMOJIS[type.name] || type.name).join(' ');
+        const types = p.types
+          .map(({ type }) => POKEMON_TYPE_EMOJIS[type.name] || type.name)
+          .join(' ');
         return `*${i + 1}.* ${name} ${types} (#${p.id})`;
       })
       .join('\n');

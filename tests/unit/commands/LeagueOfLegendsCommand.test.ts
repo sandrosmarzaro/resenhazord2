@@ -77,7 +77,9 @@ describe('LeagueOfLegendsCommand', () => {
         caption: string;
         image: { url: string };
       };
-      expect(content.image.url).toMatch(/^https:\/\/ddragon\.leagueoflegends\.com\/cdn\/img\/champion\/splash\/.+_0\.jpg$/);
+      expect(content.image.url).toMatch(
+        /^https:\/\/ddragon\.leagueoflegends\.com\/cdn\/img\/champion\/splash\/.+_0\.jpg$/,
+      );
       expect(content.caption).toContain('Ataque:');
       expect(content.caption).toContain('Defesa:');
       expect(content.caption).toContain('Magia:');
@@ -182,15 +184,13 @@ describe('LeagueOfLegendsCommand', () => {
     });
 
     it('should display role emojis in caption', async () => {
-      mockGet
-        .mockResolvedValueOnce(mockVersionResponse)
-        .mockResolvedValueOnce({
+      mockGet.mockResolvedValueOnce(mockVersionResponse).mockResolvedValueOnce({
+        data: {
           data: {
-            data: {
-              Ahri: mockChampion,
-            },
+            Ahri: mockChampion,
           },
-        });
+        },
+      });
       const data = GroupCommandData.build({ text: ',lol' });
 
       const messages = await command.run(data);

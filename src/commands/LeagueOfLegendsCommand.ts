@@ -18,7 +18,9 @@ export default class LeagueOfLegendsCommand extends Command {
     try {
       const champion = await DataDragonService.getRandomChampion();
 
-      const rolesLine = champion.tags.map((tag) => `${LOL_ROLE_EMOJIS[tag] ?? '❓'} ${tag}`).join('  ');
+      const rolesLine = champion.tags
+        .map((tag) => `${LOL_ROLE_EMOJIS[tag] ?? '❓'} ${tag}`)
+        .join('  ');
 
       const lines = [
         `*${champion.name}*`,
