@@ -2,6 +2,7 @@ import type Command from '../commands/Command.js';
 
 import AddCommand from '../commands/AddCommand.js';
 import AdmCommand from '../commands/AdmCommand.js';
+import AlcoranCommand from '../commands/AlcoranCommand.js';
 import AllCommand from '../commands/AllCommand.js';
 import AudioCommand from '../commands/AudioCommand.js';
 import BanCommand from '../commands/BanCommand.js';
@@ -42,6 +43,7 @@ export default class CommandFactory {
     this.strategies = [
       new AddCommand(),
       new AdmCommand(),
+      new AlcoranCommand(),
       new AllCommand(),
       new AudioCommand(),
       new BanCommand(),
