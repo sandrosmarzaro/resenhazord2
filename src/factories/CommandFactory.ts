@@ -6,6 +6,7 @@ import AllCommand from '../commands/AllCommand.js';
 import AudioCommand from '../commands/AudioCommand.js';
 import BanCommand from '../commands/BanCommand.js';
 import BaralhoCommand from '../commands/BaralhoCommand.js';
+import BeerCommand from '../commands/BeerCommand.js';
 import BibliaCommand from '../commands/BibliaCommand.js';
 import BorgesCommand from '../commands/BorgesCommand.js';
 import D20Command from '../commands/D20Command.js';
@@ -45,6 +46,7 @@ export default class CommandFactory {
       new AudioCommand(),
       new BanCommand(),
       new BaralhoCommand(),
+      new BeerCommand(),
       new BibliaCommand(),
       new BorgesCommand(),
       new D20Command(),
