@@ -20,6 +20,7 @@ import MagicTheGatheringCommand from '../commands/MagicTheGatheringCommand.js';
 import MateusCommand from '../commands/MateusCommand.js';
 import MealRecipesCommand from '../commands/MealRecipesCommand.js';
 import MediaCommand from '../commands/MediaCommand.js';
+import MusicCommand from '../commands/MusicCommand.js';
 import MenuCommand from '../commands/MenuCommand.js';
 import MyAnimeListCommand from '../commands/MyAnimeListCommand.js';
 import OiCommand from '../commands/OiCommand.js';
@@ -58,6 +59,7 @@ export default class CommandFactory {
       new MateusCommand(),
       new MealRecipesCommand(),
       new MediaCommand(),
+      new MusicCommand(),
       new MenuCommand(),
       new MyAnimeListCommand(),
       new OiCommand(),
