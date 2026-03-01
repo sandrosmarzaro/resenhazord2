@@ -3,7 +3,7 @@ import MusicCommand from '../../../src/commands/MusicCommand.js';
 import { GroupCommandData, PrivateCommandData } from '../../fixtures/index.js';
 import AxiosClient from '../../../src/infra/AxiosClient.js';
 
-const mockTrack = {
+const mockJamendoTrack = {
   name: 'Test Song',
   artist_name: 'Test Artist',
   album_name: 'Test Album',
@@ -11,6 +11,14 @@ const mockTrack = {
   releasedate: '2024-01-15',
   image: 'https://example.com/image.jpg',
   audio: 'https://example.com/audio.mp3',
+};
+
+const mockDeezerTrack = {
+  title: 'Deezer Song',
+  artist: { name: 'Deezer Artist' },
+  album: { title: 'Deezer Album', cover_medium: 'https://example.com/cover.jpg' },
+  duration: 210,
+  preview: 'https://cdns-preview.dzcdn.net/stream/preview.mp3',
 };
 
 vi.mock('../../../src/infra/AxiosClient.js', () => ({
@@ -42,6 +50,9 @@ describe('MusicCommand', () => {
       [',musica rock show', true],
       [',musica rock dm', true],
       ['  ,  musica  ', true],
+      [',musica free', true],
+      [',musica free rock', true],
+      [',musica free rock show dm', true],
       ['musica', false],
       [',musica rock pop', false],
       ['hello', false],
@@ -50,10 +61,10 @@ describe('MusicCommand', () => {
     });
   });
 
-  describe('run()', () => {
+  describe('Deezer mode (default)', () => {
     it('should return 2 messages on success (image + audio)', async () => {
       vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
+        data: { data: [mockDeezerTrack] },
       } as never);
       const data = GroupCommandData.build({ text: ',musica' });
 
@@ -65,67 +76,71 @@ describe('MusicCommand', () => {
         caption: string;
         image: { url: string };
       };
-      expect(imageContent.image.url).toBe(mockTrack.image);
-      expect(imageContent.caption).toContain(mockTrack.name);
-      expect(imageContent.caption).toContain(mockTrack.artist_name);
-      expect(imageContent.caption).toContain(mockTrack.album_name);
+      expect(imageContent.image.url).toBe(mockDeezerTrack.album.cover_medium);
+      expect(imageContent.caption).toContain(mockDeezerTrack.title);
+      expect(imageContent.caption).toContain(mockDeezerTrack.artist.name);
+      expect(imageContent.caption).toContain(mockDeezerTrack.album.title);
       const audioContent = messages[1].content as {
         audio: { url: string };
         mimetype: string;
       };
-      expect(audioContent.audio.url).toBe(mockTrack.audio);
+      expect(audioContent.audio.url).toBe(mockDeezerTrack.preview);
       expect(audioContent.mimetype).toBe('audio/mp4');
     });
 
-    it('should set viewOnce to true by default', async () => {
+    it('should call Deezer chart API with correct genre ID', async () => {
       vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
+        data: { data: [mockDeezerTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica rock' });
+
+      await command.run(data);
+
+      expect(AxiosClient.get).toHaveBeenCalledWith(
+        'https://api.deezer.com/chart/152/tracks',
+        expect.objectContaining({ params: { limit: 200 } }),
+      );
+    });
+
+    it('should resolve new genre aliases to correct Deezer genre ID', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { data: [mockDeezerTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica africana' });
+
+      await command.run(data);
+
+      expect(AxiosClient.get).toHaveBeenCalledWith(
+        'https://api.deezer.com/chart/2/tracks',
+        expect.objectContaining({ params: { limit: 200 } }),
+      );
+    });
+
+    it('should fall back to genre 0 for invalid genre', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { data: [mockDeezerTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica invalidgenre' });
+
+      await command.run(data);
+
+      expect(AxiosClient.get).toHaveBeenCalledWith(
+        'https://api.deezer.com/chart/0/tracks',
+        expect.objectContaining({ params: { limit: 200 } }),
+      );
+    });
+
+    it('should return friendly message on empty results', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { data: [] },
       } as never);
       const data = GroupCommandData.build({ text: ',musica' });
 
       const messages = await command.run(data);
 
-      const content = messages[0].content as { viewOnce: boolean };
-      expect(content.viewOnce).toBe(true);
-      const audioContent = messages[1].content as { viewOnce: boolean };
-      expect(audioContent.viewOnce).toBe(true);
-    });
-
-    it('should set viewOnce to false with show flag', async () => {
-      vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
-      } as never);
-      const data = GroupCommandData.build({ text: ',musica show' });
-
-      const messages = await command.run(data);
-
-      const content = messages[0].content as { viewOnce: boolean };
-      expect(content.viewOnce).toBe(false);
-      const audioContent = messages[1].content as { viewOnce: boolean };
-      expect(audioContent.viewOnce).toBe(false);
-    });
-
-    it('should send to DM when dm flag is active in group', async () => {
-      vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
-      } as never);
-      const data = GroupCommandData.build({ text: ',musica dm' });
-
-      const messages = await command.run(data);
-
-      expect(messages[0].jid).toBe(data.key.participant);
-      expect(messages[1].jid).toBe(data.key.participant);
-    });
-
-    it('should not change jid when dm flag is active in private chat', async () => {
-      vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
-      } as never);
-      const data = PrivateCommandData.build({ text: ',musica dm' });
-
-      const messages = await command.run(data);
-
-      expect(messages[0].jid).toBe(data.key.remoteJid);
+      expect(messages).toHaveLength(1);
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('Não encontrei músicas');
     });
 
     it('should return error message on API failure', async () => {
@@ -139,24 +154,114 @@ describe('MusicCommand', () => {
       expect(content.text).toContain('Erro ao buscar música');
     });
 
-    it('should return friendly message on empty results', async () => {
+    it('should set viewOnce to true by default', async () => {
       vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [] },
+        data: { data: [mockDeezerTrack] },
       } as never);
       const data = GroupCommandData.build({ text: ',musica' });
 
       const messages = await command.run(data);
 
-      expect(messages).toHaveLength(1);
-      const content = messages[0].content as { text: string };
-      expect(content.text).toContain('Não encontrei músicas');
+      const content = messages[0].content as { viewOnce: boolean };
+      expect(content.viewOnce).toBe(true);
+      const audioContent = messages[1].content as { viewOnce: boolean };
+      expect(audioContent.viewOnce).toBe(true);
     });
 
-    it('should use specified genre when valid', async () => {
+    it('should set viewOnce to false with show flag', async () => {
       vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
+        data: { data: [mockDeezerTrack] },
       } as never);
-      const data = GroupCommandData.build({ text: ',musica rock' });
+      const data = GroupCommandData.build({ text: ',musica show' });
+
+      const messages = await command.run(data);
+
+      const content = messages[0].content as { viewOnce: boolean };
+      expect(content.viewOnce).toBe(false);
+      const audioContent = messages[1].content as { viewOnce: boolean };
+      expect(audioContent.viewOnce).toBe(false);
+    });
+
+    it('should send to DM when dm flag is active in group', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { data: [mockDeezerTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica dm' });
+
+      const messages = await command.run(data);
+
+      expect(messages[0].jid).toBe(data.key.participant);
+      expect(messages[1].jid).toBe(data.key.participant);
+    });
+
+    it('should not change jid when dm flag is active in private chat', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { data: [mockDeezerTrack] },
+      } as never);
+      const data = PrivateCommandData.build({ text: ',musica dm' });
+
+      const messages = await command.run(data);
+
+      expect(messages[0].jid).toBe(data.key.remoteJid);
+    });
+
+    it('should include ephemeral expiration from data', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { data: [mockDeezerTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica', expiration: 86400 });
+
+      const messages = await command.run(data);
+
+      expect(messages[0].options?.ephemeralExpiration).toBe(86400);
+      expect(messages[1].options?.ephemeralExpiration).toBe(86400);
+    });
+
+    it('should quote the original message', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { data: [mockDeezerTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica' });
+
+      const messages = await command.run(data);
+
+      expect(messages[0].options?.quoted).toBe(data);
+      expect(messages[1].options?.quoted).toBe(data);
+    });
+  });
+
+  describe('Jamendo mode (free flag)', () => {
+    it('should return 2 messages on success (image + audio)', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { results: [mockJamendoTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica free' });
+
+      const messages = await command.run(data);
+
+      expect(messages).toHaveLength(2);
+      const imageContent = messages[0].content as {
+        viewOnce: boolean;
+        caption: string;
+        image: { url: string };
+      };
+      expect(imageContent.image.url).toBe(mockJamendoTrack.image);
+      expect(imageContent.caption).toContain(mockJamendoTrack.name);
+      expect(imageContent.caption).toContain(mockJamendoTrack.artist_name);
+      expect(imageContent.caption).toContain(mockJamendoTrack.album_name);
+      const audioContent = messages[1].content as {
+        audio: { url: string };
+        mimetype: string;
+      };
+      expect(audioContent.audio.url).toBe(mockJamendoTrack.audio);
+      expect(audioContent.mimetype).toBe('audio/mp4');
+    });
+
+    it('should call Jamendo API when free flag is present', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { results: [mockJamendoTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica free rock' });
 
       await command.run(data);
 
@@ -170,9 +275,9 @@ describe('MusicCommand', () => {
 
     it('should fall back to random genre for invalid genre', async () => {
       vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
+        data: { results: [mockJamendoTrack] },
       } as never);
-      const data = GroupCommandData.build({ text: ',musica invalidgenre' });
+      const data = GroupCommandData.build({ text: ',musica free invalidgenre' });
 
       await command.run(data);
 
@@ -188,35 +293,49 @@ describe('MusicCommand', () => {
       );
     });
 
+    it('should return error message on API failure', async () => {
+      vi.mocked(AxiosClient.get).mockRejectedValue(new Error('API Error'));
+      const data = GroupCommandData.build({ text: ',musica free' });
+
+      const messages = await command.run(data);
+
+      expect(messages).toHaveLength(1);
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('Erro ao buscar música');
+    });
+
+    it('should return friendly message on empty results', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { results: [] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica free' });
+
+      const messages = await command.run(data);
+
+      expect(messages).toHaveLength(1);
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('Não encontrei músicas');
+    });
+
+    it('should send to DM when dm flag is active in group', async () => {
+      vi.mocked(AxiosClient.get).mockResolvedValue({
+        data: { results: [mockJamendoTrack] },
+      } as never);
+      const data = GroupCommandData.build({ text: ',musica free dm' });
+
+      const messages = await command.run(data);
+
+      expect(messages[0].jid).toBe(data.key.participant);
+      expect(messages[1].jid).toBe(data.key.participant);
+    });
+  });
+
+  describe('formatDuration()', () => {
     it('should format duration correctly', () => {
       expect(command.formatDuration(185)).toBe('3:05');
       expect(command.formatDuration(60)).toBe('1:00');
       expect(command.formatDuration(0)).toBe('0:00');
       expect(command.formatDuration(59)).toBe('0:59');
-    });
-
-    it('should include ephemeral expiration from data', async () => {
-      vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
-      } as never);
-      const data = GroupCommandData.build({ text: ',musica', expiration: 86400 });
-
-      const messages = await command.run(data);
-
-      expect(messages[0].options?.ephemeralExpiration).toBe(86400);
-      expect(messages[1].options?.ephemeralExpiration).toBe(86400);
-    });
-
-    it('should quote the original message', async () => {
-      vi.mocked(AxiosClient.get).mockResolvedValue({
-        data: { results: [mockTrack] },
-      } as never);
-      const data = GroupCommandData.build({ text: ',musica' });
-
-      const messages = await command.run(data);
-
-      expect(messages[0].options?.quoted).toBe(data);
-      expect(messages[1].options?.quoted).toBe(data);
     });
   });
 });

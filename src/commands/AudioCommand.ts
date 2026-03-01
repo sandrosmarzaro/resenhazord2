@@ -58,6 +58,7 @@ export default class AudioCommand extends Command {
           jid: chat_id,
           content: {
             viewOnce: !data.text.match(/show/),
+            mimetype: 'audio/mp4',
             audio: { url: audio_urls[0].url },
           },
           options: { quoted: data, ephemeralExpiration: data.expiration },
@@ -69,6 +70,7 @@ export default class AudioCommand extends Command {
       jid: chat_id,
       content: {
         viewOnce: !data.text.match(/show/),
+        mimetype: 'audio/mp4',
         audio: { url: audio_url.url },
       },
       options: { quoted: data, ephemeralExpiration: data.expiration },
