@@ -1,5 +1,7 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 
@@ -16,13 +18,20 @@ interface BookData {
 }
 
 export default class BibliaCommand extends Command {
-  readonly regexIdentifier =
-    '^\\s*,\\s*b.blia\\s*(?:pt|en)?\\s*(?:nvi|ra|acf|kjv|bbe|apee|rvr)?\\s*(?:.*\\s*\\d{1,3}\\s*:\\s*\\d{1,3}\\s*(?:-\\s*\\d{1,3})?)?$';
+  readonly config: CommandConfig = {
+    name: 'bíblia',
+    options: [
+      { name: 'lang', values: ['pt', 'en'] },
+      { name: 'version', values: ['nvi', 'ra', 'acf', 'kjv', 'bbe', 'apee', 'rvr'] },
+    ],
+    args: ArgType.Optional,
+  };
   readonly menuDescription = 'Comando complexo. Use *,menu biblia* para detalhes.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    const has_verse = data.text.match(/.+\s*\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?/);
-    const version = data.text.match(/\b(nvi|ra|acf|kjv|bbe|apee|rvr)\b/i) || 'nvi';
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    const rest = parsed.rest.trim();
+    const has_verse = rest.match(/\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?/);
+    const version = parsed.options.get('version') || 'nvi';
     const token = process.env.BIBLIA_TOKEN;
     const headers = {
       Authorization: `Bearer ${token}`,
@@ -37,14 +46,9 @@ export default class BibliaCommand extends Command {
       return [this.build_verse(data, response.data)];
     }
 
-    const rest_command = data.text
-      .replace(/\s*,\s*b.blia\s*/, '')
-      .replace(/(pt|en)/, '')
-      .replace(/(nvi|ra|acf|kjv|bbe|apee|rvr)/, '')
-      .replace(/\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?/, '')
-      .trim();
+    const book = rest.replace(/\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?/, '').trim();
 
-    if (!rest_command || rest_command.match(/^\s*$/)) {
+    if (!book) {
       return [
         {
           jid: data.key.remoteJid!,
@@ -54,15 +58,14 @@ export default class BibliaCommand extends Command {
       ];
     }
 
-    const book = rest_command;
-    const chapter = data.text.match(/\d{1,3}:/)![0].replace(':', '');
-    const has_range = data.text.match(/-\s*\d{1,3}/);
+    const chapter = rest.match(/\d{1,3}:/)![0].replace(':', '');
+    const has_range = rest.match(/-\s*\d{1,3}/);
     const number = has_range
-      ? data.text
+      ? rest
           .match(/\d{1,3}\s*-\s*\d{1,3}/)![0]
           .split('-')
           .map((n) => n.trim())
-      : data.text.match(/:\s*\d{1,3}/)![0].replace(':', '');
+      : rest.match(/:\s*\d{1,3}/)![0].replace(':', '');
 
     const booksResponse = await AxiosClient.get<BookData[]>(`${base_url}/books`, { headers });
     const books = booksResponse.data;

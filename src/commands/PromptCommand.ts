@@ -1,18 +1,20 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default class PromptCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*prompt\\s*';
+  readonly config: CommandConfig = { name: 'prompt', args: ArgType.Optional };
   readonly menuDescription = 'Interaja e converse com a IA chatbot e assistente Resenhazord2.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     const { GEMINI_API_KEY } = process.env;
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const rest_command = data.text.replace(/\n*\s*,\s*prompt\s*/, '');
+    const rest_command = parsed.rest.trim();
     if (!rest_command) {
       return [
         {

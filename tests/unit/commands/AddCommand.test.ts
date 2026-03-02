@@ -39,7 +39,6 @@ describe('AddCommand', () => {
 
       expect(messages).toHaveLength(1);
       const content = messages[0].content as { text: string };
-      expect(content.text).toContain('Burro burro');
       expect(content.text).toContain('grupo');
     });
 

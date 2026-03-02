@@ -1,12 +1,13 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 
 export default class OiCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*oi\\s*$';
+  readonly config: CommandConfig = { name: 'oi' };
   readonly menuDescription = 'Apenas diga oi ao bot.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const sender = (data.key.participant ?? data.key.remoteJid)!;
     const sender_phone = sender.replace(/@lid/, '');
     return [

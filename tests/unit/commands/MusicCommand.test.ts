@@ -54,7 +54,7 @@ describe('MusicCommand', () => {
       [',musica free rock', true],
       [',musica free rock show dm', true],
       ['musica', false],
-      [',musica rock pop', false],
+      [',musica rock pop', true],
       ['hello', false],
     ])('should return %s for "%s"', (input, expected) => {
       expect(command.matches(input)).toBe(expected);

@@ -1,24 +1,15 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { SWEARINGS } from '../data/swearings.js';
 
 export default class AdmCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*adm\\s*$';
+  readonly config: CommandConfig = { name: 'adm', groupOnly: true };
   readonly menuDescription = 'Xingue aleatoriamente todos os administradores do grupo.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    if (!data.key.remoteJid!.match(/g.us/)) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Burro burro! Você só pode xingar adminstração em um grupo! 🤦‍♂️` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
-    }
-
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const { participants } = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
     const adms = participants.filter((participant) => participant.admin);
     const adms_ids = adms.map((adm) => adm.id);

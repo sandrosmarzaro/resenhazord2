@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import { NSFW } from 'nsfwhub';
@@ -7,12 +8,11 @@ import { NSFW_TAGS } from '../data/nsfwTags.js';
 import XVideosScraper from '../services/XVideosScraper.js';
 
 export default class PornoCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*porno\\s*(?:ia)?\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = { name: 'porno', flags: ['ia', 'show', 'dm'] };
   readonly menuDescription = 'Receba um porno aleatório real ou feito por IA.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    const ia_activate = data.text.match(/ia/);
-    if (ia_activate) {
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    if (parsed.flags.has('ia')) {
       return await this.ia_porn(data);
     }
     return await this.real_porn(data);
@@ -23,7 +23,7 @@ export default class PornoCommand extends Command {
     const tag = NSFW_TAGS[Math.floor(Math.random() * NSFW_TAGS.length)];
     const porn = await nsfw.fetch(tag);
     const content: Record<string, unknown> = {
-      viewOnce: !data.text.match(/show/),
+      viewOnce: true,
       caption: 'Aqui está seu vídeo 🤤',
     };
 
@@ -36,14 +36,9 @@ export default class PornoCommand extends Command {
       content.image = { url: porn.image.url };
     }
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
+        jid: data.key.remoteJid!,
         content: content as AnyMessageContent,
         options: { quoted: data, ephemeralExpiration: data.expiration },
       },
@@ -53,20 +48,15 @@ export default class PornoCommand extends Command {
   private async real_porn(data: CommandData): Promise<Message[]> {
     try {
       const result = await XVideosScraper.getRandomVideo();
-      let chat_id: string = data.key.remoteJid!;
-      const DM_FLAG_ACTIVE = data.text.match(/dm/);
-      if (DM_FLAG_ACTIVE && data.key.participant) {
-        chat_id = data.key.participant;
-      }
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
             video: {
               url: result.videoUrl,
             },
             caption: result.title,
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
           },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },

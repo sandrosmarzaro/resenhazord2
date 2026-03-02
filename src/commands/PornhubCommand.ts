@@ -1,14 +1,15 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import { PornHub } from 'pornhub.js';
 import m3u8ToMp4 from 'm3u8-to-mp4';
 
 export default class PornhubCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*pornhub\\s*$';
+  readonly config: CommandConfig = { name: 'pornhub' };
   readonly menuDescription = 'Receba um vídeo aleatório do Pornhub.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const pornhub = new PornHub();
 
     let video;

@@ -1,49 +1,44 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import tts from 'google-tts-api';
 import { LANGUAGES } from '../data/languages.js';
 
 export default class AudioCommand extends Command {
-  readonly regexIdentifier =
-    '^\\s*\\,\\s*.udio\\s*(?:[A-Za-z]{2}\\s*\\-\\s*[A-Za-z]{2})?\\s*(?:show)?\\s*(?:dm)?';
+  readonly config: CommandConfig = {
+    name: 'áudio',
+    options: [{ name: 'lang', pattern: '[A-Za-z]{2}-[A-Za-z]{2}' }],
+    flags: ['show', 'dm'],
+    args: ArgType.Optional,
+  };
   readonly menuDescription =
     'Converta texto em audio usando a voz do Google, podendo trocar a língua.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
-
-    const rest_command = data.text.replace(/\n*\s*,\s*.udio\s*/, '');
-    const is_language_inserted = rest_command.match(/^[A-Za-z]{2}\s*-\s*[A-Za-z]{2}/);
-    const language = is_language_inserted ? is_language_inserted[0] : 'pt-br';
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    const language = parsed.options.get('lang') || 'pt-br';
     if (!LANGUAGES.includes(language.toLowerCase())) {
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: { text: 'Burro burro! O idioma 🏳️‍🌈 não existe!' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
       ];
     }
-    let text;
-    if (is_language_inserted) {
-      text = rest_command.replace(is_language_inserted[0], '');
-    } else {
-      text = rest_command;
-    }
+
+    const text = parsed.rest.trim();
     if (!text) {
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: { text: 'Burro burro! Cadê o texto? 🤨' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
       ];
     }
+
     const audio_urls = tts.getAllAudioUrls(text, {
       lang: language,
       slow: false,
@@ -55,9 +50,9 @@ export default class AudioCommand extends Command {
     if (!(text.length > char_limit)) {
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
             mimetype: 'audio/mp4',
             audio: { url: audio_urls[0].url },
           },
@@ -67,9 +62,9 @@ export default class AudioCommand extends Command {
     }
 
     return audio_urls.map((audio_url: { url: string }) => ({
-      jid: chat_id,
+      jid: data.key.remoteJid!,
       content: {
-        viewOnce: !data.text.match(/show/),
+        viewOnce: true,
         mimetype: 'audio/mp4',
         audio: { url: audio_url.url },
       },

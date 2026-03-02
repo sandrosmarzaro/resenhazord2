@@ -1,13 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
 
 export default class BorgesCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*borges\\s*$';
+  readonly config: CommandConfig = { name: 'borges' };
   readonly menuDescription = 'Descubra quantos nargas o Borges já fumou.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const collection = await MongoDBConnection.getCollection<{ _id: string; nargas: number }>(
       'borges',
     );

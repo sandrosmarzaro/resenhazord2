@@ -1,14 +1,15 @@
 import type { CommandData } from '../types/command.js';
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 
 export default class MealRecipesCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*comida\\s*$';
+  readonly config: CommandConfig = { name: 'comida' };
   readonly menuDescription = 'Receba aleatoriamente uma receita e suas instruções em inglês.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const url = 'https://www.themealdb.com/api/json/v1/1/random.php';
     const response = await AxiosClient.get<{ meals: Record<string, string>[] }>(url);
     const meal = response.data.meals[0];

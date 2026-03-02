@@ -1,23 +1,21 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import { NSFW } from 'nsfwhub';
 
 export default class FuckCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*fuck\\s*(?:\\@\\d+\\s*)$';
+  readonly config: CommandConfig = {
+    name: 'fuck',
+    args: ArgType.Required,
+    argsPattern: /^@\d+\s*$/,
+    groupOnly: true,
+  };
   readonly menuDescription = 'Foda a pessoa mencionada mandando uma foto de pornozão pra ela.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const regex = /@lid|@s.whatsapp.net/gi;
-    if (!data.key.remoteJid!.match(/g.us/)) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Burro burro! Você só pode fuder com alguém do grupo em um! 🤦‍♂️` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
-    }
     const sender = (data.key.participant ?? data.key.remoteJid)!;
     const sender_phone = sender.replace(/@lid/, '');
     const mentioned_phone =

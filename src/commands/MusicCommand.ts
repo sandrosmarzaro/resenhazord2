@@ -1,5 +1,7 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { MUSIC_GENRES } from '../data/musicGenres.js';
@@ -32,27 +34,23 @@ interface DeezerChartResponse {
 }
 
 export default class MusicCommand extends Command {
-  readonly regexIdentifier =
-    '^\\s*\\,\\s*m.sica\\s*(?:free)?\\s*(?:[a-z]+)?\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = {
+    name: 'música',
+    flags: ['free', 'show', 'dm'],
+    args: ArgType.Optional,
+  };
   readonly menuDescription =
     'Receba um preview de música popular (Deezer) ou use "free" para músicas completas gratuitas (Jamendo).';
 
-  async run(data: CommandData): Promise<Message[]> {
-    const isFree = /free/i.test(data.text);
-    if (isFree) {
-      return this.runJamendo(data);
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    if (parsed.flags.has('free')) {
+      return this.runJamendo(data, parsed);
     }
-    return this.runDeezer(data);
+    return this.runDeezer(data, parsed);
   }
 
-  private async runDeezer(data: CommandData): Promise<Message[]> {
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
-
-    const { tag, genreId } = this.parseDeezerGenre(data.text);
+  private async runDeezer(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    const { tag, genreId } = this.parseDeezerGenre(parsed.rest);
 
     try {
       const response = await AxiosClient.get<DeezerChartResponse>(
@@ -64,7 +62,7 @@ export default class MusicCommand extends Command {
       if (!tracks || tracks.length === 0) {
         return [
           {
-            jid: chat_id,
+            jid: data.key.remoteJid!,
             content: { text: 'Não encontrei músicas para esse gênero. Tente outro! 🎵' },
             options: { quoted: data, ephemeralExpiration: data.expiration },
           },
@@ -82,18 +80,18 @@ export default class MusicCommand extends Command {
 
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
             caption,
             image: { url: track.album.cover_medium },
           },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
             mimetype: 'audio/mp4',
             audio: { url: track.preview },
           },
@@ -103,7 +101,7 @@ export default class MusicCommand extends Command {
     } catch {
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: { text: 'Erro ao buscar música. Tente novamente mais tarde! 🎵' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
@@ -111,14 +109,8 @@ export default class MusicCommand extends Command {
     }
   }
 
-  private async runJamendo(data: CommandData): Promise<Message[]> {
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
-
-    const genre = this.parseJamendoGenre(data.text);
+  private async runJamendo(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    const genre = this.parseJamendoGenre(parsed.rest);
     const clientId = process.env.JAMENDO_CLIENT_ID;
 
     try {
@@ -141,7 +133,7 @@ export default class MusicCommand extends Command {
       if (!tracks || tracks.length === 0) {
         return [
           {
-            jid: chat_id,
+            jid: data.key.remoteJid!,
             content: { text: 'Não encontrei músicas para esse gênero. Tente outro! 🎵' },
             options: { quoted: data, ephemeralExpiration: data.expiration },
           },
@@ -160,18 +152,18 @@ export default class MusicCommand extends Command {
 
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
             caption,
             image: { url: track.image },
           },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
             mimetype: 'audio/mp4',
             audio: { url: track.audio },
           },
@@ -181,7 +173,7 @@ export default class MusicCommand extends Command {
     } catch {
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: { text: 'Erro ao buscar música. Tente novamente mais tarde! 🎵' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },
@@ -189,32 +181,19 @@ export default class MusicCommand extends Command {
     }
   }
 
-  private parseJamendoGenre(text: string): string {
-    const cleaned = text
-      .replace(/^\s*,\s*m.sica\s*/i, '')
-      .replace(/\s*free\s*/gi, '')
-      .replace(/\s*show\s*/gi, '')
-      .replace(/\s*dm\s*/gi, '')
-      .trim();
-
-    if (cleaned && MUSIC_GENRES.includes(cleaned.toLowerCase())) {
-      return cleaned.toLowerCase();
+  private parseJamendoGenre(rest: string): string {
+    const cleaned = rest.trim().toLowerCase();
+    if (cleaned && MUSIC_GENRES.includes(cleaned)) {
+      return cleaned;
     }
-
     return MUSIC_GENRES[Math.floor(Math.random() * MUSIC_GENRES.length)];
   }
 
-  private parseDeezerGenre(text: string): { tag: string; genreId: number } {
-    const cleaned = text
-      .replace(/^\s*,\s*m.sica\s*/i, '')
-      .replace(/\s*show\s*/gi, '')
-      .replace(/\s*dm\s*/gi, '')
-      .trim();
-
-    if (cleaned && cleaned.toLowerCase() in DEEZER_GENRES) {
-      return { tag: cleaned.toLowerCase(), genreId: DEEZER_GENRES[cleaned.toLowerCase()] };
+  private parseDeezerGenre(rest: string): { tag: string; genreId: number } {
+    const cleaned = rest.trim().toLowerCase();
+    if (cleaned && cleaned in DEEZER_GENRES) {
+      return { tag: cleaned, genreId: DEEZER_GENRES[cleaned] };
     }
-
     return { tag: 'all', genreId: 0 };
   }
 

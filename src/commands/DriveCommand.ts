@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { WAMessage } from '@whiskeysockets/baileys';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
@@ -15,10 +16,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default class DriveCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*drive\\s*$';
+  readonly config: CommandConfig = { name: 'drive' };
   readonly menuDescription = 'Envie uma mídia para o Drive da Resenha.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
     const has_quoted_media =
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||

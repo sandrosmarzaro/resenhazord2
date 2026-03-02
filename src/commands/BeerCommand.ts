@@ -1,19 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import OpenFoodFactsScraper from '../services/OpenFoodFactsScraper.js';
 
 export default class BeerCommand extends Command {
-  readonly regexIdentifier = '^\\s*,\\s*cerveja\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = { name: 'cerveja', flags: ['show', 'dm'] };
   readonly menuDescription = 'Receba uma cerveja aleatória com imagem.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
-
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     try {
       const beer = await OpenFoodFactsScraper.getRandomBeer();
       const lines = [`🍺 *${beer.name}*`, `🏭 _${beer.brand}_`];
@@ -31,9 +26,9 @@ export default class BeerCommand extends Command {
 
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
             caption,
             image: { url: beer.imageUrl },
           },
@@ -43,7 +38,7 @@ export default class BeerCommand extends Command {
     } catch {
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: { text: 'Erro ao buscar cerveja. Tente novamente mais tarde! 🍺' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },

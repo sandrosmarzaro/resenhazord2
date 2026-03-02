@@ -1,24 +1,21 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { DDD_LIST } from '../data/dddList.js';
 
 export default class AddCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*add\\s*(?:\\d+)?\\s*$';
+  readonly config: CommandConfig = {
+    name: 'add',
+    args: ArgType.Optional,
+    argsPattern: /^(?:\d+)?$/,
+    groupOnly: true,
+  };
   readonly menuDescription = 'Adiciona um número ao grupo. Aleatório ou específico.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    if (!data.key.remoteJid!.match(/g.us/)) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Burro burro! Você só pode adicionar alguém em um grupo! 🤦‍♂️` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
-    }
-
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     const { participants } = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
     const { RESENHAZORD2_JID } = process.env;
     const is_resenhazord2_admin = participants.find(
@@ -34,8 +31,7 @@ export default class AddCommand extends Command {
       ];
     }
 
-    const rest_command = data.text.replace(/\n*\s*,\s*add\s*/, '');
-    const inserted_phone = rest_command.replace(/\s|\n/, '');
+    const inserted_phone = parsed.rest.trim();
     if (inserted_phone.length == 0) {
       return await this.build_and_send_phone(inserted_phone, data);
     }

@@ -1,24 +1,21 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 
 export default class BanCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*ban\\s*(?:\\@\\d+\\s*)*\\s*$';
+  readonly config: CommandConfig = {
+    name: 'ban',
+    args: ArgType.Optional,
+    argsPattern: /^(?:@\d+\s*)*$/,
+    groupOnly: true,
+  };
   readonly menuDescription =
     'Remove aleatoriamente um ou especificamente um ou mais participantes do grupo.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    if (!data.key.remoteJid!.match(/g.us/)) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Burro burro! Você só pode remover alguém em um grupo! 🤦‍♂️` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
-    }
-
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const regex = /@lid|@s.whatsapp.net/gi;
     const group = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
     const { participants } = group;

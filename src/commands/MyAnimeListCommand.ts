@@ -1,15 +1,20 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 
 export default class MyAnimeListCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*(?:anime|manga)\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = {
+    name: 'anime',
+    aliases: ['manga'],
+    flags: ['show', 'dm'],
+  };
   readonly menuDescription = 'Receba um anime ou mangá aleatório do top 500 do MyAnimeList.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     const base_url = 'https://api.jikan.moe/v4';
-    const type = data.text.match(/anime/) ? 'anime' : 'manga';
+    const type = parsed.commandName === 'anime' ? 'anime' : 'manga';
     const page = Math.floor(Math.random() * 20) + 1;
 
     interface AnimeData {
@@ -44,7 +49,7 @@ export default class MyAnimeListCommand extends Command {
     let release_date;
     let size;
     let size_emoji;
-    if (data.text.match(/anime/)) {
+    if (type === 'anime') {
       creator_emoji = '🎙️';
       creators = anime.studios?.map((studio) => studio.name).join(', ');
       release_date = anime.aired?.prop.from.year;
@@ -67,15 +72,10 @@ export default class MyAnimeListCommand extends Command {
     caption += `📈 ${demos || 'Desconhecido'}\n`;
     caption += `${creator_emoji} ${creators || 'Desconhecido'}`;
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
-        content: { image: { url: image }, caption: caption, viewOnce: !data.text.match(/show/) },
+        jid: data.key.remoteJid!,
+        content: { image: { url: image }, caption: caption, viewOnce: true },
         options: { quoted: data, ephemeralExpiration: data.expiration },
       },
     ];

@@ -1,4 +1,5 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
@@ -16,10 +17,10 @@ interface HearthstoneResponse {
 }
 
 export default class HeartstoneCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*hs\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = { name: 'hs', flags: ['show', 'dm'] };
   readonly menuDescription = 'Receba uma carta aleatória de Hearthstone.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const { BNET_ID, BNET_SECRET } = process.env;
     const access_token = await this.get_access_token(BNET_ID, BNET_SECRET);
     if (!access_token) {
@@ -59,18 +60,13 @@ export default class HeartstoneCommand extends Command {
     description = description.replace(/<\/?i>/g, '_');
     const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
+        jid: data.key.remoteJid!,
         content: {
           image: { url: card.image },
           caption: caption,
-          viewOnce: !data.text.match(/show/),
+          viewOnce: true,
         },
         options: { quoted: data, ephemeralExpiration: data.expiration },
       },

@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { WAMessage } from '@whiskeysockets/baileys';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
@@ -10,10 +11,13 @@ import ffmpeg from 'fluent-ffmpeg';
 import pino from 'pino';
 
 export default class StickerCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*stic\\s*(?:crop|full|circle|rounded)?\\s*$';
+  readonly config: CommandConfig = {
+    name: 'stic',
+    options: [{ name: 'type', values: ['crop', 'full', 'circle', 'rounded'] }],
+  };
   readonly menuDescription = 'Transforme sua imagem anexada em sticker.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     const has_upload_media = data?.message?.imageMessage || data?.message?.videoMessage;
     const has_quoted_media =
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
@@ -30,8 +34,7 @@ export default class StickerCommand extends Command {
       ];
     }
 
-    const rest_command = data.text.replace(/^\s*,\s*stic\s*/, '');
-    const type = rest_command.length > 0 ? rest_command : 'full';
+    const type = parsed.options.get('type') || 'full';
 
     let message: WAMessage;
     if (has_quoted_media) {

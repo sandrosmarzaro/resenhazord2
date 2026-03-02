@@ -1,13 +1,14 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 
 export default class MagicTheGatheringCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*mtg\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = { name: 'mtg', flags: ['show', 'dm'] };
   readonly menuDescription = 'Receba uma carta aleatória de Magic: The Gathering.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const API_URL = 'https://api.magicthegathering.io/v1/cards';
     const PAGE_SIZE = 100;
     const initial_response = await AxiosClient.get(`${API_URL}?pageSize=${PAGE_SIZE}`);
@@ -25,18 +26,13 @@ export default class MagicTheGatheringCommand extends Command {
     const card = cards_on_page[Math.floor(Math.random() * cards_on_page.length)];
     const caption = `*${card.name}*\n\n> ${card.text}`;
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
+        jid: data.key.remoteJid!,
         content: {
           image: { url: card.imageUrl },
           caption: caption,
-          viewOnce: !data.text.match(/show/),
+          viewOnce: true,
         },
         options: { quoted: data, ephemeralExpiration: data.expiration },
       },

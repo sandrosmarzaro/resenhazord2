@@ -1,14 +1,15 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import * as cheerio from 'cheerio';
 
 export default class Rule34Command extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*rule\\s*34\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = { name: 'rule 34', flags: ['show', 'dm'] };
   readonly menuDescription = 'Receba uma imagem aleatória da Rule 34.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const TIMEOUT = 30000;
 
     const response = await AxiosClient.get('https://rule34.xxx/index.php?page=post&s=random', {
@@ -44,16 +45,11 @@ export default class Rule34Command extends Command {
       throw new Error('URL da imagem inválida');
     }
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
+        jid: data.key.remoteJid!,
         content: {
-          viewOnce: !data.text.match(/show/),
+          viewOnce: true,
           image: { url: url },
           caption: 'Aqui está a imagem que você pediu 🤗',
         },

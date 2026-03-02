@@ -1,17 +1,23 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 
 export default class FilmeSerieCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*(?:filme|s.rie)\\s*(?:top|pop)?\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = {
+    name: 'filme',
+    aliases: ['série'],
+    options: [{ name: 'mode', values: ['top', 'pop'] }],
+    flags: ['show', 'dm'],
+  };
   readonly menuDescription =
     'Receba aleatoriamente um filme ou série top 500 em popularidade ou por nota.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    const type = data.text.match(/filme/i) ? 'movie' : 'tv';
-    const rest_command = data.text.replace(/\s*,(?:filme|serie)\s*\s*/i, '').replace(/\s|\n/, '');
-    const mode = rest_command.match(/top/i) ? 'top_rated' : 'popular';
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    const type = parsed.commandName === 'filme' ? 'movie' : 'tv';
+    const modeValue = parsed.options.get('mode');
+    const mode = modeValue === 'top' ? 'top_rated' : 'popular';
     const url = `https://api.themoviedb.org/3/${type}/${mode}`;
 
     const page = Math.floor(Math.random() * 25) + 1;
@@ -62,18 +68,13 @@ export default class FilmeSerieCommand extends Command {
     caption += `⭐ ${job.vote_average || 'Sem Nota'}\t📅 ${year || 'Sem Data'}\n\n`;
     caption += `> ${job.overview}`;
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
+        jid: data.key.remoteJid!,
         content: {
           image: { url: poster_url },
           caption: caption,
-          viewOnce: !data.text.match(/show/),
+          viewOnce: true,
         },
         options: { quoted: data, ephemeralExpiration: data.expiration },
       },

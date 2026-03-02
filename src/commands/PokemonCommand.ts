@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
@@ -16,11 +17,11 @@ interface PokemonResponse {
 }
 
 export default class PokemonCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*pok.mon\\s*(?:team)?\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = { name: 'pokémon', flags: ['team', 'show', 'dm'] };
   readonly menuDescription = 'Receba uma imagem e dados de um pokémon aleatório.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    if (data.text.match(/team/i)) {
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    if (parsed.flags.has('team')) {
       return this.runTeam(data);
     }
     return this.runSingle(data);
@@ -45,16 +46,11 @@ export default class PokemonCommand extends Command {
       poke_image_url = pokemon.sprites.front_default;
     }
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
+        jid: data.key.remoteJid!,
         content: {
-          viewOnce: !data.text.match(/show/),
+          viewOnce: true,
           caption: poke_caption,
           image: { url: poke_image_url },
         },
@@ -104,16 +100,11 @@ export default class PokemonCommand extends Command {
       })
       .join('\n');
 
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
     return [
       {
-        jid: chat_id,
+        jid: data.key.remoteJid!,
         content: {
-          viewOnce: !data.text.match(/show/),
+          viewOnce: true,
           caption,
           image: gridBuffer,
         },

@@ -1,26 +1,19 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
 
 type GroupsDoc = { _id: string; groups: Array<{ name: string; participants: string[] }> };
 
 export default class GroupMentionsCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*grupo\\s*';
+  readonly config: CommandConfig = { name: 'grupo', args: ArgType.Optional, groupOnly: true };
   readonly menuDescription = 'Comando complexo. Use *,menu grupo* para detalhes.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    if (!data.key.remoteJid!.match(/g.us/)) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Burro burro! Você só pode marcar alguém em um grupo! 🤦‍♂️` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
-    }
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     const functions = ['add', 'exit', 'create', 'delete', 'rename', 'list'];
-    const rest_command = data.text.replace(/\s*,\s*grupo\s*/, '');
+    const rest_command = parsed.rest;
 
     const has_function = functions.some((func) => new RegExp(func, 'i').test(rest_command));
     if (!has_function) {

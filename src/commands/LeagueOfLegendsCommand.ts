@@ -1,20 +1,15 @@
 import type { CommandData } from '../types/command.js';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import DataDragonService from '../services/DataDragonService.js';
 import { LOL_ROLE_EMOJIS } from '../data/lolRoleEmojis.js';
 
 export default class LeagueOfLegendsCommand extends Command {
-  readonly regexIdentifier = '^\\s*,\\s*lol\\s*(?:show)?\\s*(?:dm)?$';
+  readonly config: CommandConfig = { name: 'lol', flags: ['show', 'dm'] };
   readonly menuDescription = 'Receba um campeão aleatório de League of Legends.';
 
-  async run(data: CommandData): Promise<Message[]> {
-    let chat_id: string = data.key.remoteJid!;
-    const DM_FLAG_ACTIVE = data.text.match(/dm/);
-    if (DM_FLAG_ACTIVE && data.key.participant) {
-      chat_id = data.key.participant;
-    }
-
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     try {
       const champion = await DataDragonService.getRandomChampion();
 
@@ -40,9 +35,9 @@ export default class LeagueOfLegendsCommand extends Command {
 
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: {
-            viewOnce: !data.text.match(/show/),
+            viewOnce: true,
             caption,
             image: { url: champion.splashUrl },
           },
@@ -52,7 +47,7 @@ export default class LeagueOfLegendsCommand extends Command {
     } catch {
       return [
         {
-          jid: chat_id,
+          jid: data.key.remoteJid!,
           content: { text: 'Erro ao buscar campeão de LoL. Tente novamente mais tarde! 🎮' },
           options: { quoted: data, ephemeralExpiration: data.expiration },
         },

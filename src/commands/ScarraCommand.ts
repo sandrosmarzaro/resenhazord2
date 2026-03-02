@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { AnyMessageContent, WAMessage } from '@whiskeysockets/baileys';
+import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
@@ -37,21 +38,11 @@ function findViewOnceMedia(
 }
 
 export default class ScarraCommand extends Command {
-  readonly regexIdentifier = '^\\s*\\,\\s*scarra\\s*$';
+  readonly config: CommandConfig = { name: 'scarra', groupOnly: true };
   readonly menuDescription = 'Baixe a mídia de visualização única marcada.';
 
-  async run(data: CommandData): Promise<Message[]> {
+  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const chat = data.key.remoteJid!;
-
-    if (!chat.includes('g.us')) {
-      return [
-        {
-          jid: chat,
-          content: { text: 'Burro burro! Você só pode escarrar alguém em um grupo! 🤦‍♂️' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
-    }
 
     const quotedMessage = data.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const result = quotedMessage && findViewOnceMedia(quotedMessage);
