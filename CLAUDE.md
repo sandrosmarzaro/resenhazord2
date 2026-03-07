@@ -125,6 +125,18 @@ Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for optio
 - `CommandConfig` — declarative config: name, aliases, flags, options, args, groupOnly
 - `ParsedCommand` — parser output: commandName, flags (`Set`), options (`Map`), rest (`string`)
 
+### Group Metadata Cache
+
+`src/cache/` implements a layered cache for `GroupMetadata` using the decorator pattern:
+
+- `CachePort<V>` (`src/cache/CachePort.ts`) — generic interface: `get(key): Promise<V | undefined>`, `set(key, value): Promise<void>`
+- `MemoryGroupMetadataCache` — `Map`-backed, always available, no TTL
+- `RedisGroupMetadataCache` — wraps `@upstash/redis`; TTL = 3600 s; `Redis` injected via constructor
+- `FallbackGroupMetadataCache` — decorator: `get` tries primary → falls back on miss or error; `set` writes fallback first (reliable), then primary (errors swallowed)
+- `src/cache/index.ts` — factory singleton: if `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, returns `FallbackGroupMetadataCache(Redis, Memory)`; otherwise `MemoryGroupMetadataCache`
+
+Populated in `Resenhazord2` via `groups.upsert` and `group-participants.update` events.
+
 ### Singletons
 
 `CommandFactory`, `MongoDBConnection`, `AxiosClient` all use the singleton pattern. `CommandFactory` has `reset()` for reconnection (new adapter → new factory instance).
