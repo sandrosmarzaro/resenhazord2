@@ -5,18 +5,21 @@ import {
   PrivateCommandData,
   GroupWithBotAdmin,
   GroupWithoutBotAdmin,
+  createMockWhatsAppPort,
 } from '../../fixtures/index.js';
-import Resenhazord2 from '../../../src/models/Resenhazord2.js';
 
 describe('AddCommand', () => {
   let command: AddCommand;
 
   beforeEach(() => {
-    command = new AddCommand();
     vi.restoreAllMocks();
   });
 
   describe('matches()', () => {
+    beforeEach(() => {
+      command = new AddCommand();
+    });
+
     it.each([
       [', add', true],
       [',add', true],
@@ -33,6 +36,7 @@ describe('AddCommand', () => {
 
   describe('run()', () => {
     it('should return error message when used in private chat', async () => {
+      command = new AddCommand();
       const data = PrivateCommandData.build({ text: ', add' });
 
       const messages = await command.run(data);
@@ -44,9 +48,10 @@ describe('AddCommand', () => {
 
     it('should return error when bot is not admin', async () => {
       const groupMetadata = GroupWithoutBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AddCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', add' });
 
@@ -63,11 +68,12 @@ describe('AddCommand', () => {
         .fn()
         .mockResolvedValue([{ exists: true, jid: '5511999999999@s.whatsapp.net' }]);
       const groupParticipantsUpdate = vi.fn().mockResolvedValue(undefined);
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         onWhatsApp,
         groupParticipantsUpdate,
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AddCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', add' });
 
@@ -83,11 +89,12 @@ describe('AddCommand', () => {
         .fn()
         .mockResolvedValue([{ exists: true, jid: '5511999999999@s.whatsapp.net' }]);
       const groupParticipantsUpdate = vi.fn().mockResolvedValue(undefined);
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         onWhatsApp,
         groupParticipantsUpdate,
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AddCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', add 11999999999' });
 
@@ -99,9 +106,10 @@ describe('AddCommand', () => {
 
     it('should return error for invalid DDD', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AddCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', add 00999999999' });
 
@@ -118,11 +126,12 @@ describe('AddCommand', () => {
         .fn()
         .mockResolvedValue([{ exists: true, jid: '5511999999999@s.whatsapp.net' }]);
       const groupParticipantsUpdate = vi.fn().mockResolvedValue(undefined);
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         onWhatsApp,
         groupParticipantsUpdate,
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AddCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', add 119999999999999' });
 

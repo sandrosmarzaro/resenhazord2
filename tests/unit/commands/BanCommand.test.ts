@@ -6,19 +6,22 @@ import {
   GroupWithBotAdmin,
   GroupWithoutBotAdmin,
   MentionCommandData,
+  createMockWhatsAppPort,
 } from '../../fixtures/index.js';
-import Resenhazord2 from '../../../src/models/Resenhazord2.js';
 
 describe('BanCommand', () => {
   let command: BanCommand;
   const botJid = process.env.RESENHAZORD2_JID!;
 
   beforeEach(() => {
-    command = new BanCommand();
     vi.restoreAllMocks();
   });
 
   describe('matches()', () => {
+    beforeEach(() => {
+      command = new BanCommand();
+    });
+
     it.each([
       [', ban', true],
       [',ban', true],
@@ -36,6 +39,7 @@ describe('BanCommand', () => {
 
   describe('run()', () => {
     it('should return error message when used in private chat', async () => {
+      command = new BanCommand();
       const data = PrivateCommandData.build({ text: ', ban' });
 
       const messages = await command.run(data);
@@ -48,9 +52,10 @@ describe('BanCommand', () => {
 
     it('should return error when bot is not admin', async () => {
       const groupMetadata = GroupWithoutBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new BanCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', ban' });
 
@@ -64,10 +69,11 @@ describe('BanCommand', () => {
     it('should randomly ban a participant when no mention provided', async () => {
       const groupMetadata = GroupWithBotAdmin.build({}, { transient: { participantCount: 3 } });
       const groupParticipantsUpdate = vi.fn().mockResolvedValue(undefined);
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         groupParticipantsUpdate,
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new BanCommand(mockWhatsApp);
       vi.spyOn(Math, 'random').mockReturnValueOnce(0.8).mockReturnValueOnce(0);
 
       const data = GroupCommandData.build({ text: ', ban' });
@@ -83,10 +89,11 @@ describe('BanCommand', () => {
     it('should not ban the bot itself when randomly selecting', async () => {
       const groupMetadata = GroupWithBotAdmin.build({}, { transient: { participantCount: 3 } });
       const groupParticipantsUpdate = vi.fn().mockResolvedValue(undefined);
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         groupParticipantsUpdate,
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new BanCommand(mockWhatsApp);
       vi.spyOn(Math, 'random').mockReturnValueOnce(0.8).mockReturnValueOnce(0);
 
       const data = GroupCommandData.build({ text: ', ban' });
@@ -103,10 +110,11 @@ describe('BanCommand', () => {
       const targetJid = '5511999999999@s.whatsapp.net';
       const groupMetadata = GroupWithBotAdmin.build();
       const groupParticipantsUpdate = vi.fn().mockResolvedValue(undefined);
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         groupParticipantsUpdate,
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new BanCommand(mockWhatsApp);
 
       const data = MentionCommandData([targetJid]).build({ text: ', ban @5511999999999' });
 
@@ -125,10 +133,11 @@ describe('BanCommand', () => {
     it('should not ban the bot even when explicitly mentioned', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
       const groupParticipantsUpdate = vi.fn().mockResolvedValue(undefined);
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         groupParticipantsUpdate,
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new BanCommand(mockWhatsApp);
 
       const data = MentionCommandData([botJid]).build({ text: `, ban @${botJid}` });
 
@@ -141,10 +150,11 @@ describe('BanCommand', () => {
     it('should quote the original message', async () => {
       const targetJid = '5511999999999@s.whatsapp.net';
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
         groupParticipantsUpdate: vi.fn().mockResolvedValue(undefined),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new BanCommand(mockWhatsApp);
 
       const data = MentionCommandData([targetJid]).build({ text: ', ban @5511999999999' });
 

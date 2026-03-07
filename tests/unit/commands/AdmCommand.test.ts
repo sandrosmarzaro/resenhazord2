@@ -1,17 +1,24 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import AdmCommand from '../../../src/commands/AdmCommand.js';
-import { GroupCommandData, PrivateCommandData, GroupWithBotAdmin } from '../../fixtures/index.js';
-import Resenhazord2 from '../../../src/models/Resenhazord2.js';
+import {
+  GroupCommandData,
+  PrivateCommandData,
+  GroupWithBotAdmin,
+  createMockWhatsAppPort,
+} from '../../fixtures/index.js';
 
 describe('AdmCommand', () => {
   let command: AdmCommand;
 
   beforeEach(() => {
-    command = new AdmCommand();
     vi.restoreAllMocks();
   });
 
   describe('matches()', () => {
+    beforeEach(() => {
+      command = new AdmCommand();
+    });
+
     it.each([
       [', adm', true],
       [',adm', true],
@@ -28,6 +35,7 @@ describe('AdmCommand', () => {
 
   describe('run()', () => {
     it('should return error message when used in private chat', async () => {
+      command = new AdmCommand();
       const data = PrivateCommandData.build({ text: ', adm' });
 
       const messages = await command.run(data);
@@ -39,9 +47,10 @@ describe('AdmCommand', () => {
 
     it('should fetch admins and mention them with random swearing', async () => {
       const groupMetadata = GroupWithBotAdmin.build({}, { transient: { participantCount: 3 } });
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AdmCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', adm' });
 
@@ -59,9 +68,10 @@ describe('AdmCommand', () => {
 
     it('should include @ mentions in text for each admin', async () => {
       const groupMetadata = GroupWithBotAdmin.build({}, { transient: { participantCount: 3 } });
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AdmCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', adm' });
 
@@ -75,9 +85,10 @@ describe('AdmCommand', () => {
 
     it('should quote the original message', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AdmCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', adm' });
 
@@ -88,9 +99,10 @@ describe('AdmCommand', () => {
 
     it('should include ephemeral expiration from data', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AdmCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', adm', expiration: 86400 });
 

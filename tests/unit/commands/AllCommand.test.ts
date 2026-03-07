@@ -1,17 +1,24 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import AllCommand from '../../../src/commands/AllCommand.js';
-import { GroupCommandData, PrivateCommandData, GroupWithBotAdmin } from '../../fixtures/index.js';
-import Resenhazord2 from '../../../src/models/Resenhazord2.js';
+import {
+  GroupCommandData,
+  PrivateCommandData,
+  GroupWithBotAdmin,
+  createMockWhatsAppPort,
+} from '../../fixtures/index.js';
 
 describe('AllCommand', () => {
   let command: AllCommand;
 
   beforeEach(() => {
-    command = new AllCommand();
     vi.restoreAllMocks();
   });
 
   describe('matches()', () => {
+    beforeEach(() => {
+      command = new AllCommand();
+    });
+
     it.each([
       [', all', true],
       [',all', true],
@@ -29,6 +36,7 @@ describe('AllCommand', () => {
 
   describe('run()', () => {
     it('should return error message when used in private chat', async () => {
+      command = new AllCommand();
       const data = PrivateCommandData.build({ text: ', all' });
 
       const messages = await command.run(data);
@@ -41,9 +49,10 @@ describe('AllCommand', () => {
 
     it('should mention all participants in group', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AllCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', all' });
 
@@ -59,9 +68,10 @@ describe('AllCommand', () => {
 
     it('should include custom message when provided', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AllCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', all Attention everyone!' });
 
@@ -73,9 +83,10 @@ describe('AllCommand', () => {
 
     it('should include @mentions in the text for each participant', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AllCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', all' });
 
@@ -88,9 +99,10 @@ describe('AllCommand', () => {
 
     it('should quote the original message', async () => {
       const groupMetadata = GroupWithBotAdmin.build();
-      vi.spyOn(Resenhazord2, 'socket', 'get').mockReturnValue({
+      const mockWhatsApp = createMockWhatsAppPort({
         groupMetadata: vi.fn().mockResolvedValue(groupMetadata),
-      } as unknown as typeof Resenhazord2.socket);
+      });
+      command = new AllCommand(mockWhatsApp);
 
       const data = GroupCommandData.build({ text: ', all' });
 

@@ -10,3 +10,4 @@ export {
   GroupWithBotAdmin,
   GroupWithoutBotAdmin,
 } from './GroupMetadataFactory.js';
+export { createMockWhatsAppPort } from './MockWhatsAppPort.js';
