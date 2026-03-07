@@ -30,39 +30,40 @@ export const useMongoDBAuthState = async (collection: Collection): Promise<Mongo
 
   const creds = (await readData('creds')) || initAuthCreds();
 
+  const getKeys: AuthenticationState['keys']['get'] = async (type, ids) => {
+    const data: Record<string, unknown> = {};
+    await Promise.all(
+      ids.map(async (id) => {
+        let value = await readData(`${type}-${id}`);
+        if (type === 'app-state-sync-key' && value) {
+          value = proto.Message.AppStateSyncKeyData.fromObject(value);
+        }
+        data[id] = value;
+      }),
+    );
+    return data as never;
+  };
+
+  const setKeys: AuthenticationState['keys']['set'] = async (data) => {
+    const tasks: Promise<void>[] = [];
+    for (const category in data) {
+      for (const id in (data as Record<string, Record<string, unknown>>)[category]) {
+        const value = (data as Record<string, Record<string, unknown>>)[category][id];
+        tasks.push(value ? writeData(value, `${category}-${id}`) : removeData(`${category}-${id}`));
+      }
+    }
+    await Promise.all(tasks);
+  };
+
+  const saveCreds = async () => {
+    await writeData(creds, 'creds');
+  };
+
   return {
     state: {
       creds,
-      keys: {
-        get: async (type, ids) => {
-          const data: Record<string, unknown> = {};
-          await Promise.all(
-            ids.map(async (id) => {
-              let value = await readData(`${type}-${id}`);
-              if (type === 'app-state-sync-key' && value) {
-                value = proto.Message.AppStateSyncKeyData.fromObject(value);
-              }
-              data[id] = value;
-            }),
-          );
-          return data as never;
-        },
-        set: async (data) => {
-          const tasks: Promise<void>[] = [];
-          for (const category in data) {
-            for (const id in (data as Record<string, Record<string, unknown>>)[category]) {
-              const value = (data as Record<string, Record<string, unknown>>)[category][id];
-              tasks.push(
-                value ? writeData(value, `${category}-${id}`) : removeData(`${category}-${id}`),
-              );
-            }
-          }
-          await Promise.all(tasks);
-        },
-      },
+      keys: { get: getKeys, set: setKeys },
     },
-    saveCreds: async () => {
-      await writeData(creds, 'creds');
-    },
+    saveCreds,
   };
 };
