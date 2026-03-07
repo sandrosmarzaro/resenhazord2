@@ -33,6 +33,10 @@ export default class Reply {
     return this.build({ video: { url }, viewOnce: true, ...(caption && { caption }) });
   }
 
+  videoBuffer(buffer: Buffer, caption?: string): Message {
+    return this.build({ video: buffer, viewOnce: true, ...(caption && { caption }) });
+  }
+
   audio(url: string): Message {
     return this.build({ audio: { url }, viewOnce: true, mimetype: 'audio/mp4' });
   }
