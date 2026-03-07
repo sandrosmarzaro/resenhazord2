@@ -43,6 +43,7 @@ Every command extends the abstract `Command` class (`src/commands/Command.ts`):
 - `execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]>` — command logic
 
 The base `Command.run()` is a template method that:
+
 1. Checks `groupOnly` and returns an error if used in a private chat
 2. Parses the message text via `CommandParser` into a `ParsedCommand`
 3. Calls the subclass `execute()` method
@@ -54,15 +55,15 @@ The base `Command.run()` is a template method that:
 
 ### CommandConfig (`src/types/commandConfig.ts`)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | `string` | Primary command name. Diacritics auto-handled (e.g., `'pokémon'` matches `,pokemon`) |
-| `aliases` | `string[]?` | Alternative names (e.g., `['série']` for FilmeSerieCommand) |
-| `flags` | `string[]?` | Boolean on/off toggles. `dm` and `show` are handled by the base class |
-| `options` | `OptionDef[]?` | Named parameters that select one value from a set or match a pattern |
-| `args` | `ArgType?` | `None` (default), `Required`, or `Optional` — free-text after command |
-| `argsPattern` | `RegExp?` | Validation regex for args (e.g., `/^(?:@\d+\s*)*$/`) |
-| `groupOnly` | `boolean?` | Restricts command to group chats (handled by base class) |
+| Field         | Type           | Description                                                                          |
+| ------------- | -------------- | ------------------------------------------------------------------------------------ |
+| `name`        | `string`       | Primary command name. Diacritics auto-handled (e.g., `'pokémon'` matches `,pokemon`) |
+| `aliases`     | `string[]?`    | Alternative names (e.g., `['série']` for FilmeSerieCommand)                          |
+| `flags`       | `string[]?`    | Boolean on/off toggles. `dm` and `show` are handled by the base class                |
+| `options`     | `OptionDef[]?` | Named parameters that select one value from a set or match a pattern                 |
+| `args`        | `ArgType?`     | `None` (default), `Required`, or `Optional` — free-text after command                |
+| `argsPattern` | `RegExp?`      | Validation regex for args (e.g., `/^(?:@\d+\s*)*$/`)                                 |
+| `groupOnly`   | `boolean?`     | Restricts command to group chats (handled by base class)                             |
 
 **Flags** = boolean toggles (present or absent): `,pokemon team`, `,musica free`
 **Options** = select one value from alternatives: `,img hd flux-pro`, `,biblia pt nvi`
@@ -70,6 +71,7 @@ The base `Command.run()` is a template method that:
 Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for options, and `parsed.rest` for free-text args.
 
 **Base class auto-handles:**
+
 - `groupOnly` — returns error message for private chats
 - `dm` flag — redirects response to sender's DM
 - `show` flag — sets `viewOnce: false` (commands set `viewOnce: true` by default)
