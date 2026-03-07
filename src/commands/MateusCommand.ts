@@ -5,7 +5,7 @@ import Command from './Command.js';
 import Reply from '../builders/Reply.js';
 
 export default class MateusCommand extends Command {
-  readonly config: CommandConfig = { name: 'mateus' };
+  readonly config: CommandConfig = { name: 'mateus', category: 'aleatórias' };
   readonly menuDescription = 'Descubra a probabilidade do Mateus nascer.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

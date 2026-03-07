@@ -5,7 +5,7 @@ import Command from './Command.js';
 import Reply from '../builders/Reply.js';
 
 export default class OiCommand extends Command {
-  readonly config: CommandConfig = { name: 'oi' };
+  readonly config: CommandConfig = { name: 'oi', category: 'outras' };
   readonly menuDescription = 'Apenas diga oi ao bot.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

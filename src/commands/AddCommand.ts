@@ -12,6 +12,7 @@ export default class AddCommand extends Command {
     args: ArgType.Optional,
     argsPattern: /^(?:\d+)?$/,
     groupOnly: true,
+    category: 'grupo',
   };
   readonly menuDescription = 'Adiciona um número ao grupo. Aleatório ou específico.';
 

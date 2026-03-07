@@ -10,6 +10,7 @@ export default class MyAnimeListCommand extends Command {
     name: 'anime',
     aliases: ['manga'],
     flags: ['show', 'dm'],
+    category: 'aleatórias',
   };
   readonly menuDescription = 'Receba um anime ou mangá aleatório do top 500 do MyAnimeList.';
 

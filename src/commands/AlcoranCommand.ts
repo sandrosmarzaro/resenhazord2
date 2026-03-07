@@ -17,7 +17,7 @@ interface AyahData {
 }
 
 export default class AlcoranCommand extends Command {
-  readonly config: CommandConfig = { name: 'alcorão' };
+  readonly config: CommandConfig = { name: 'alcorão', category: 'aleatórias' };
   readonly menuDescription = 'Receba um versículo aleatório do Alcorão em português.';
 
   private static readonly TOTAL_AYAHS = 6236;

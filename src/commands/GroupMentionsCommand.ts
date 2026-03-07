@@ -9,7 +9,12 @@ import Reply from '../builders/Reply.js';
 type GroupsDoc = { _id: string; groups: Array<{ name: string; participants: string[] }> };
 
 export default class GroupMentionsCommand extends Command {
-  readonly config: CommandConfig = { name: 'grupo', args: ArgType.Optional, groupOnly: true };
+  readonly config: CommandConfig = {
+    name: 'grupo',
+    args: ArgType.Optional,
+    groupOnly: true,
+    category: 'grupo',
+  };
   readonly menuDescription = 'Comando complexo. Use *,menu grupo* para detalhes.';
 
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {

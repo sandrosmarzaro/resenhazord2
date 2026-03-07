@@ -26,6 +26,7 @@ export default class BibliaCommand extends Command {
       { name: 'version', values: ['nvi', 'ra', 'acf', 'kjv', 'bbe', 'apee', 'rvr'] },
     ],
     args: ArgType.Optional,
+    category: 'aleatórias',
   };
   readonly menuDescription = 'Comando complexo. Use *,menu biblia* para detalhes.';
 

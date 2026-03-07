@@ -11,6 +11,7 @@ export default class FilmeSerieCommand extends Command {
     aliases: ['série'],
     options: [{ name: 'mode', values: ['top', 'pop'] }],
     flags: ['show', 'dm'],
+    category: 'aleatórias',
   };
   readonly menuDescription =
     'Receba aleatoriamente um filme ou série top 500 em popularidade ou por nota.';

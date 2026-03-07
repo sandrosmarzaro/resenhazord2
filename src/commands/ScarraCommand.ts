@@ -38,7 +38,7 @@ function findViewOnceMedia(
 }
 
 export default class ScarraCommand extends Command {
-  readonly config: CommandConfig = { name: 'scarra', groupOnly: true };
+  readonly config: CommandConfig = { name: 'scarra', groupOnly: true, category: 'download' };
   readonly menuDescription = 'Baixe a mídia de visualização única marcada.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

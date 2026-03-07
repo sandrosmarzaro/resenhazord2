@@ -11,6 +11,7 @@ export default class BanCommand extends Command {
     args: ArgType.Optional,
     argsPattern: /^(?:@\d+\s*)*$/,
     groupOnly: true,
+    category: 'grupo',
   };
   readonly menuDescription =
     'Remove aleatoriamente um ou especificamente um ou mais participantes do grupo.';

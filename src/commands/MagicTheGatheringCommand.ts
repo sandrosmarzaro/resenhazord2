@@ -6,7 +6,7 @@ import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 
 export default class MagicTheGatheringCommand extends Command {
-  readonly config: CommandConfig = { name: 'mtg', flags: ['show', 'dm'] };
+  readonly config: CommandConfig = { name: 'mtg', flags: ['show', 'dm'], category: 'aleatórias' };
   readonly menuDescription = 'Receba uma carta aleatória de Magic: The Gathering.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

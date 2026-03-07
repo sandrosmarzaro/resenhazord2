@@ -6,7 +6,11 @@ import OpenFoodFactsScraper from '../services/OpenFoodFactsScraper.js';
 import Reply from '../builders/Reply.js';
 
 export default class BeerCommand extends Command {
-  readonly config: CommandConfig = { name: 'cerveja', flags: ['show', 'dm'] };
+  readonly config: CommandConfig = {
+    name: 'cerveja',
+    flags: ['show', 'dm'],
+    category: 'aleatórias',
+  };
   readonly menuDescription = 'Receba uma cerveja aleatória com imagem.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

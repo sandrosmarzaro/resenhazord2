@@ -7,7 +7,11 @@ import * as cheerio from 'cheerio';
 import Reply from '../builders/Reply.js';
 
 export default class Rule34Command extends Command {
-  readonly config: CommandConfig = { name: 'rule 34', flags: ['show', 'dm'] };
+  readonly config: CommandConfig = {
+    name: 'rule 34',
+    flags: ['show', 'dm'],
+    category: 'aleatórias',
+  };
   readonly menuDescription = 'Receba uma imagem aleatória da Rule 34.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

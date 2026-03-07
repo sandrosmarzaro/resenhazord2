@@ -6,7 +6,7 @@ import { SWEARINGS } from '../data/swearings.js';
 import Reply from '../builders/Reply.js';
 
 export default class AdmCommand extends Command {
-  readonly config: CommandConfig = { name: 'adm', groupOnly: true };
+  readonly config: CommandConfig = { name: 'adm', groupOnly: true, category: 'grupo' };
   readonly menuDescription = 'Xingue aleatoriamente todos os administradores do grupo.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

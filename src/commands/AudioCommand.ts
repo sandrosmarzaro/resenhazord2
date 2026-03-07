@@ -13,6 +13,7 @@ export default class AudioCommand extends Command {
     options: [{ name: 'lang', pattern: '[A-Za-z]{2}-[A-Za-z]{2}' }],
     flags: ['show', 'dm'],
     args: ArgType.Optional,
+    category: 'download',
   };
   readonly menuDescription =
     'Converta texto em audio usando a voz do Google, podendo trocar a língua.';

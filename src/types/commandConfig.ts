@@ -4,6 +4,8 @@ export enum ArgType {
   Optional = 'optional',
 }
 
+export type CommandCategory = 'grupo' | 'aleatórias' | 'download' | 'outras';
+
 export interface OptionDef {
   name: string;
   values?: string[];
@@ -18,6 +20,7 @@ export interface CommandConfig {
   args?: ArgType;
   argsPattern?: RegExp;
   groupOnly?: boolean;
+  category?: CommandCategory;
 }
 
 export interface ParsedCommand {

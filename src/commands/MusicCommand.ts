@@ -39,6 +39,7 @@ export default class MusicCommand extends Command {
     name: 'música',
     flags: ['free', 'show', 'dm'],
     args: ArgType.Optional,
+    category: 'download',
   };
   readonly menuDescription =
     'Receba um preview de música popular (Deezer) ou use "free" para músicas completas gratuitas (Jamendo).';

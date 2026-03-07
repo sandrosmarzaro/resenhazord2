@@ -18,7 +18,7 @@ interface HearthstoneResponse {
 }
 
 export default class HeartstoneCommand extends Command {
-  readonly config: CommandConfig = { name: 'hs', flags: ['show', 'dm'] };
+  readonly config: CommandConfig = { name: 'hs', flags: ['show', 'dm'], category: 'aleatórias' };
   readonly menuDescription = 'Receba uma carta aleatória de Hearthstone.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

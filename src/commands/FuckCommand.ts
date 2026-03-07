@@ -12,6 +12,7 @@ export default class FuckCommand extends Command {
     args: ArgType.Required,
     argsPattern: /^@\d+\s*$/,
     groupOnly: true,
+    category: 'grupo',
   };
   readonly menuDescription = 'Foda a pessoa mencionada mandando uma foto de pornozão pra ela.';
 

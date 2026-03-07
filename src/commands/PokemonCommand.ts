@@ -18,7 +18,11 @@ interface PokemonResponse {
 }
 
 export default class PokemonCommand extends Command {
-  readonly config: CommandConfig = { name: 'pokémon', flags: ['team', 'show', 'dm'] };
+  readonly config: CommandConfig = {
+    name: 'pokémon',
+    flags: ['team', 'show', 'dm'],
+    category: 'aleatórias',
+  };
   readonly menuDescription = 'Receba uma imagem e dados de um pokémon aleatório.';
 
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {

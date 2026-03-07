@@ -5,7 +5,7 @@ import Command from './Command.js';
 import Reply from '../builders/Reply.js';
 
 export default class D20Command extends Command {
-  readonly config: CommandConfig = { name: 'd20' };
+  readonly config: CommandConfig = { name: 'd20', category: 'aleatórias' };
   readonly menuDescription = 'Role um dado de vinte dimensões.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

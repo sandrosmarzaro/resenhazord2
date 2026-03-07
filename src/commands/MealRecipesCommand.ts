@@ -7,7 +7,7 @@ import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 
 export default class MealRecipesCommand extends Command {
-  readonly config: CommandConfig = { name: 'comida' };
+  readonly config: CommandConfig = { name: 'comida', category: 'aleatórias' };
   readonly menuDescription = 'Receba aleatoriamente uma receita e suas instruções em inglês.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

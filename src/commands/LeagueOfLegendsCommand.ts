@@ -7,7 +7,7 @@ import { LOL_ROLE_EMOJIS } from '../data/lolRoleEmojis.js';
 import Reply from '../builders/Reply.js';
 
 export default class LeagueOfLegendsCommand extends Command {
-  readonly config: CommandConfig = { name: 'lol', flags: ['show', 'dm'] };
+  readonly config: CommandConfig = { name: 'lol', flags: ['show', 'dm'], category: 'aleatórias' };
   readonly menuDescription = 'Receba um campeão aleatório de League of Legends.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

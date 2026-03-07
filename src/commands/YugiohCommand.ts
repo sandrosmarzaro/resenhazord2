@@ -6,7 +6,7 @@ import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 
 export default class YugiohCommand extends Command {
-  readonly config: CommandConfig = { name: 'ygo', flags: ['show', 'dm'] };
+  readonly config: CommandConfig = { name: 'ygo', flags: ['show', 'dm'], category: 'aleatórias' };
   readonly menuDescription = 'Receba uma carta aleatória de Yu-Gi-Oh!.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

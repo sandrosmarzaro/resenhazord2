@@ -14,6 +14,7 @@ export default class StickerCommand extends Command {
   readonly config: CommandConfig = {
     name: 'stic',
     options: [{ name: 'type', values: ['crop', 'full', 'circle', 'rounded'] }],
+    category: 'download',
   };
   readonly menuDescription = 'Transforme sua imagem anexada em sticker.';
 

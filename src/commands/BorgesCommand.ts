@@ -6,7 +6,7 @@ import MongoDBConnection from '../infra/MongoDBConnection.js';
 import Reply from '../builders/Reply.js';
 
 export default class BorgesCommand extends Command {
-  readonly config: CommandConfig = { name: 'borges' };
+  readonly config: CommandConfig = { name: 'borges', category: 'outras' };
   readonly menuDescription = 'Descubra quantos nargas o Borges já fumou.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {

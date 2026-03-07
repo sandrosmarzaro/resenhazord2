@@ -6,7 +6,7 @@ import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 
 export default class FatoCommand extends Command {
-  readonly config: CommandConfig = { name: 'fato', flags: ['hoje'] };
+  readonly config: CommandConfig = { name: 'fato', flags: ['hoje'], category: 'aleatórias' };
   readonly menuDescription = 'Descubra um fato aleatório ou de hoje em inglês.';
 
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {

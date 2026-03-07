@@ -9,7 +9,11 @@ import XVideosScraper from '../services/XVideosScraper.js';
 import Reply from '../builders/Reply.js';
 
 export default class PornoCommand extends Command {
-  readonly config: CommandConfig = { name: 'porno', flags: ['ia', 'show', 'dm'] };
+  readonly config: CommandConfig = {
+    name: 'porno',
+    flags: ['ia', 'show', 'dm'],
+    category: 'aleatórias',
+  };
   readonly menuDescription = 'Receba um porno aleatório real ou feito por IA.';
 
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
