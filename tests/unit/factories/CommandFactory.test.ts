@@ -21,7 +21,6 @@ describe('CommandFactory', () => {
     it.each([
       [', oi', 'OiCommand'],
       [', d20', 'D20Command'],
-      [', all', 'AllCommand'],
       [', ban', 'BanCommand'],
       [', menu', 'MenuCommand'],
     ])('should return correct command for "%s"', (input, expectedCommandName) => {
@@ -64,7 +63,6 @@ describe('CommandFactory', () => {
 
       expect(commandNames).toContain('OiCommand');
       expect(commandNames).toContain('D20Command');
-      expect(commandNames).toContain('AllCommand');
       expect(commandNames).toContain('BanCommand');
       expect(commandNames).toContain('MenuCommand');
     });

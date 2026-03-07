@@ -1,16 +1,41 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import MenuCommand from '../../../src/commands/MenuCommand.js';
 import { GroupCommandData, PrivateCommandData } from '../../fixtures/index.js';
 
-vi.mock('../../../../public/messages/menu_message.js', () => ({
-  default: 'MOCK_MENU_DEFAULT',
-}));
 vi.mock('../../../../public/messages/menu_grupo_message.js', () => ({
   default: 'MOCK_MENU_GRUPO',
 }));
 vi.mock('../../../../public/messages/menu_biblia_message.js', () => ({
   default: 'MOCK_MENU_BIBLIA',
 }));
+
+const mockCommand = (
+  name: string,
+  menuDescription: string,
+  category: string,
+  aliases?: string[],
+) => ({
+  config: { name, aliases, category },
+  menuDescription,
+});
+
+vi.mock('../../../src/factories/CommandFactory.js', () => ({
+  default: {
+    getInstance: () => ({
+      getAllStrategies: () => [
+        mockCommand('add', 'Adiciona um número ao grupo.', 'grupo'),
+        mockCommand('adm', 'Xingue os admins.', 'grupo'),
+        mockCommand('filme', 'Receba um filme aleatório.', 'aleatórias', ['série']),
+        mockCommand('pokémon', 'Receba um pokémon aleatório.', 'aleatórias'),
+        mockCommand('áudio', 'Converta texto em audio.', 'download'),
+        mockCommand('stic', 'Transforme imagem em sticker.', 'download'),
+        mockCommand('oi', 'Apenas diga oi ao bot.', 'outras'),
+        mockCommand('menu', 'Exibe o menu de comandos.', 'outras'),
+      ],
+    }),
+  },
+}));
+
+import MenuCommand from '../../../src/commands/MenuCommand.js';
 
 describe('MenuCommand', () => {
   let command: MenuCommand;
@@ -39,7 +64,7 @@ describe('MenuCommand', () => {
   });
 
   describe('run()', () => {
-    it('should return default menu', async () => {
+    it('should return dynamically built default menu', async () => {
       const data = GroupCommandData.build({ text: ', menu' });
 
       const messages = await command.run(data);
@@ -47,7 +72,41 @@ describe('MenuCommand', () => {
       expect(messages).toHaveLength(1);
       expect(messages[0].jid).toBe(data.key.remoteJid);
       const content = messages[0].content as { text: string };
-      expect(content.text).toBeDefined();
+      expect(content.text).toContain('MENU DE COMANDOS');
+      expect(content.text).toContain('FUNÇÕES DE GRUPO');
+      expect(content.text).toContain('FUNÇÕES ALEATÓRIAS');
+      expect(content.text).toContain('FUNÇÕES DE DOWNLOAD');
+      expect(content.text).toContain('OUTRAS FUNÇÕES');
+    });
+
+    it('should include command names and descriptions in default menu', async () => {
+      const data = GroupCommandData.build({ text: ', menu' });
+
+      const messages = await command.run(data);
+
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('*,add*');
+      expect(content.text).toContain('Adiciona um número ao grupo.');
+      expect(content.text).toContain('*,pokémon*');
+      expect(content.text).toContain('Receba um pokémon aleatório.');
+    });
+
+    it('should include aliases in default menu', async () => {
+      const data = GroupCommandData.build({ text: ', menu' });
+
+      const messages = await command.run(data);
+
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('*,filme* ou *,série*');
+    });
+
+    it('should include show/dm note in aleatórias section', async () => {
+      const data = GroupCommandData.build({ text: ', menu' });
+
+      const messages = await command.run(data);
+
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('use as opções *show* e/ou *dm*');
     });
 
     it('should return grupo menu when grupo keyword is used', async () => {
