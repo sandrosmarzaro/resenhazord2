@@ -10,6 +10,7 @@ export default class BanCommand extends Command {
     name: 'ban',
     args: ArgType.Optional,
     argsPattern: /^(?:@\d+\s*)*$/,
+    argsLabel: '@número',
     groupOnly: true,
     category: 'grupo',
   };

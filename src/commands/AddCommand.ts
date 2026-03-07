@@ -11,6 +11,7 @@ export default class AddCommand extends Command {
     name: 'add',
     args: ArgType.Optional,
     argsPattern: /^(?:\d+)?$/,
+    argsLabel: 'número',
     groupOnly: true,
     category: 'grupo',
   };

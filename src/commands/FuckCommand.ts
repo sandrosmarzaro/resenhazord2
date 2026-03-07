@@ -11,6 +11,7 @@ export default class FuckCommand extends Command {
     name: 'fuck',
     args: ArgType.Required,
     argsPattern: /^@\d+\s*$/,
+    argsLabel: '@número',
     groupOnly: true,
     category: 'grupo',
   };

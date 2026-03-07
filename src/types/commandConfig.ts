@@ -19,6 +19,7 @@ export interface CommandConfig {
   options?: OptionDef[];
   args?: ArgType;
   argsPattern?: RegExp;
+  argsLabel?: string;
   groupOnly?: boolean;
   category?: CommandCategory;
 }

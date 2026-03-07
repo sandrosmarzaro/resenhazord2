@@ -1,5 +1,6 @@
 import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
+import { ArgType } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import type { CommandCategory } from '../types/commandConfig.js';
 import Command from './Command.js';
@@ -69,12 +70,34 @@ export default class MenuCommand extends Command {
       const entries = cmds.map((cmd) => {
         const names = [cmd.config.name, ...(cmd.config.aliases ?? [])];
         const namesFormatted = names.map((n) => `*,${n}*`).join(' ou ');
-        return `- ${namesFormatted}\n> ${cmd.menuDescription}`;
+        const options = this.formatCommandOptions(cmd.config);
+        return `- ${namesFormatted}${options}\n> ${cmd.menuDescription}`;
       });
 
       sections.push(`${header}\n\n${entries.join('\n\n')}`);
     }
 
     return sections.join('\n\n');
+  }
+
+  private formatCommandOptions(config: CommandConfig): string {
+    const parts: string[] = [];
+
+    for (const opt of config.options ?? []) {
+      if (opt.values && opt.values.length > 0) {
+        parts.push(`[${opt.values.join(' | ')}]`);
+      }
+    }
+
+    const extraFlags = (config.flags ?? []).filter((f) => f !== 'dm' && f !== 'show');
+    for (const flag of extraFlags) {
+      parts.push(`+${flag}`);
+    }
+
+    const label = config.argsLabel ?? 'texto';
+    if (config.args === ArgType.Required) parts.push(`<${label}>`);
+    else if (config.args === ArgType.Optional) parts.push(`[${label}]`);
+
+    return parts.length > 0 ? ` ${parts.join(' ')}` : '';
   }
 }
