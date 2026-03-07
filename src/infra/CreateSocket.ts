@@ -1,7 +1,7 @@
 import type { AuthenticationState, WASocket } from '@whiskeysockets/baileys';
 import { makeWASocket, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
-import groupMetadataCache from '../utils/GroupMetadataCache.js';
+import groupMetadataCache from '../cache/index.js';
 
 export default class CreateSocket {
   private static readonly QR_CODE_TIMEOUT = 60000;

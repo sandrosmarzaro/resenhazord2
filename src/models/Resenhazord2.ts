@@ -7,7 +7,7 @@ import BaileysAdapter from '../adapters/BaileysAdapter.js';
 import MessageUpsertEvent from '../events/MessageUpsertEvent.js';
 import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
-import groupMetadataCache from '../utils/GroupMetadataCache.js';
+import groupMetadataCache from '../cache/index.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
 
 export default class Resenhazord2 {
@@ -43,9 +43,9 @@ export default class Resenhazord2 {
     await MessageUpsertEvent.run(data);
   }
 
-  static onGroupsUpsert(groups: BaileysEventMap['groups.upsert']): void {
+  static async onGroupsUpsert(groups: BaileysEventMap['groups.upsert']): Promise<void> {
     for (const group of groups) {
-      groupMetadataCache.set(group.id, group);
+      await groupMetadataCache.set(group.id, group);
     }
   }
 
@@ -54,7 +54,7 @@ export default class Resenhazord2 {
   ): Promise<void> {
     try {
       const meta = await Resenhazord2.adapter!.groupMetadata(data.id);
-      groupMetadataCache.set(data.id, meta);
+      await groupMetadataCache.set(data.id, meta);
     } catch {
       // ignore
     }
