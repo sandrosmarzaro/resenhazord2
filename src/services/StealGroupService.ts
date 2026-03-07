@@ -1,10 +1,13 @@
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
-import Resenhazord2 from '../models/Resenhazord2.js';
+import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
 import AxiosClient from '../infra/AxiosClient.js';
 
 export default class StealGroupService {
-  static async run(data: BaileysEventMap['group-participants.update']): Promise<void> {
+  static async run(
+    data: BaileysEventMap['group-participants.update'],
+    whatsapp: WhatsAppPort,
+  ): Promise<void> {
     if (data.action != 'promote') {
       return;
     }
@@ -20,9 +23,7 @@ export default class StealGroupService {
       return;
     }
     try {
-      const { participants, ownerPn, subject, desc } = await Resenhazord2.socket!.groupMetadata(
-        data.id,
-      );
+      const { participants, ownerPn, subject, desc } = await whatsapp.groupMetadata(data.id);
       const admin_participants = participants
         .filter((participant) => participant.admin && participant.id != RESENHAZORD2_JID)
         .map((participant) => participant.id);
@@ -30,7 +31,7 @@ export default class StealGroupService {
       if (has_admin_owner) {
         return;
       }
-      await Resenhazord2.socket!.groupParticipantsUpdate(data.id, admin_participants, 'demote');
+      await whatsapp.groupParticipantsUpdate(data.id, admin_participants, 'demote');
       const collection = await MongoDBConnection.getCollection<{ _id: string; number: number }>(
         'colonias',
       );
@@ -64,21 +65,15 @@ export default class StealGroupService {
           colony_number -= value;
         }
       }
-      await Resenhazord2.socket!.groupUpdateSubject(
-        data.id,
-        `Colônia da Resenha ${roman_number} 🐮🎣🍆`,
-      );
-      await Resenhazord2.socket!.sendMessage(
+      await whatsapp.groupUpdateSubject(data.id, `Colônia da Resenha ${roman_number} 🐮🎣🍆`);
+      await whatsapp.sendMessage(
         RESENHA_JID!,
         { text: 'Colônia obtida!\n\n' + `*${subject}\n*` + desc },
         { ephemeralExpiration: 86400 },
       );
-      await Resenhazord2.socket!.groupUpdateDescription(
-        data.id,
-        'Este grupo pertece agora a Resenha 🔒',
-      );
+      await whatsapp.groupUpdateDescription(data.id, 'Este grupo pertece agora a Resenha 🔒');
       const image_buffer = await AxiosClient.getBuffer('https://loremflickr.com/900/900/');
-      await Resenhazord2.socket!.updateProfilePicture(data.id, image_buffer);
+      await whatsapp.updateProfilePicture(data.id, image_buffer);
     } catch {
       return;
     }

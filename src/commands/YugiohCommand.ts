@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 export default class YugiohCommand extends Command {
   readonly config: CommandConfig = { name: 'ygo', flags: ['show', 'dm'] };
@@ -17,16 +18,6 @@ export default class YugiohCommand extends Command {
     const card_image = card.card_images[0].image_url;
     card.desc = card.desc.replace(/\n/g, '');
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          viewOnce: true,
-          image: { url: card_image },
-          caption: `*${card.name}*\n\n> ${card.desc}`,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(card_image, `*${card.name}*\n\n> ${card.desc}`)];
   }
 }

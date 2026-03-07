@@ -2,6 +2,7 @@ import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
+import Reply from '../builders/Reply.js';
 // @ts-expect-error - plain JS data files without type declarations
 import menu_message from '../../public/messages/menu_message.js';
 // @ts-expect-error - plain JS data files without type declarations
@@ -29,12 +30,6 @@ export default class MenuCommand extends Command {
       menu = menu_message as string;
     }
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: menu },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).text(menu)];
   }
 }

@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import DataDragonService from '../services/DataDragonService.js';
 import { LOL_ROLE_EMOJIS } from '../data/lolRoleEmojis.js';
+import Reply from '../builders/Reply.js';
 
 export default class LeagueOfLegendsCommand extends Command {
   readonly config: CommandConfig = { name: 'lol', flags: ['show', 'dm'] };
@@ -33,25 +34,9 @@ export default class LeagueOfLegendsCommand extends Command {
 
       const caption = lines.join('\n');
 
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            viewOnce: true,
-            caption,
-            image: { url: champion.splashUrl },
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).image(champion.splashUrl, caption)];
     } catch {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Erro ao buscar campeão de LoL. Tente novamente mais tarde! 🎮' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Erro ao buscar campeão de LoL. Tente novamente mais tarde! 🎮')];
     }
   }
 }

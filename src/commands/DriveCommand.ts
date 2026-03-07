@@ -3,8 +3,8 @@ import type { WAMessage } from '@whiskeysockets/baileys';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
+import Reply from '../builders/Reply.js';
 import { google } from 'googleapis';
 import path from 'path';
 import { createReadStream, promises as fsPromises } from 'fs';
@@ -27,11 +27,7 @@ export default class DriveCommand extends Command {
 
     if (!has_upload_media && !has_quoted_media) {
       return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Burro burro! Você precisa enviar uma mídia para botar no drive! 🤦‍♂️' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).text('Burro burro! Você precisa enviar uma mídia para botar no drive! 🤦‍♂️'),
       ];
     }
 
@@ -56,7 +52,7 @@ export default class DriveCommand extends Command {
       'buffer',
       {},
       {
-        reuploadRequest: Resenhazord2.socket!.updateMediaMessage,
+        reuploadRequest: this.whatsapp!.updateMediaMessage,
         logger: pino({ level: 'silent' }),
       },
     );
@@ -94,12 +90,6 @@ export default class DriveCommand extends Command {
 
     await fsPromises.unlink(tempFilePath);
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: `Mídia enviada com sucesso para o Drive da Resenha! 🐮🎣` },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).text(`Mídia enviada com sucesso para o Drive da Resenha! 🐮🎣`)];
   }
 }

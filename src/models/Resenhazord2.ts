@@ -1,7 +1,9 @@
 import type { WASocket, BaileysEventMap } from '@whiskeysockets/baileys';
 import type { MongoDBAuthResult } from '../auth/MongoDBAuthState.js';
+import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import CreateSocket from '../infra/CreateSocket.js';
 import CreateAuthState from '../auth/CreateAuthState.js';
+import BaileysAdapter from '../adapters/BaileysAdapter.js';
 import MessageUpsertEvent from '../events/MessageUpsertEvent.js';
 import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
@@ -10,7 +12,8 @@ import MongoDBConnection from '../infra/MongoDBConnection.js';
 
 export default class Resenhazord2 {
   static auth_state: MongoDBAuthResult | null = null;
-  static socket: WASocket | null = null;
+  private static socket: WASocket | null = null;
+  static adapter: WhatsAppPort | null = null;
   static isConnecting = false;
 
   static async connectToWhatsApp(): Promise<void> {
@@ -22,6 +25,7 @@ export default class Resenhazord2 {
     try {
       this.auth_state = await CreateAuthState.getAuthState();
       this.socket = await CreateSocket.getSocket(this.auth_state.state);
+      this.adapter = new BaileysAdapter(this.socket);
       console.log('Socket created successfully');
     } catch (error) {
       console.error('Failed to connect:', (error as Error).message);
@@ -49,7 +53,7 @@ export default class Resenhazord2 {
     data: BaileysEventMap['group-participants.update'],
   ): Promise<void> {
     try {
-      const meta = await Resenhazord2.socket!.groupMetadata(data.id);
+      const meta = await Resenhazord2.adapter!.groupMetadata(data.id);
       groupMetadataCache.set(data.id, meta);
     } catch {
       // ignore
@@ -82,6 +86,7 @@ export default class Resenhazord2 {
         console.error('Error during cleanup:', (error as Error).message);
       }
       this.socket = null;
+      this.adapter = null;
     }
     this.isConnecting = false;
 

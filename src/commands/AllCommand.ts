@@ -3,14 +3,14 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
+import Reply from '../builders/Reply.js';
 
 export default class AllCommand extends Command {
   readonly config: CommandConfig = { name: 'all', args: ArgType.Optional, groupOnly: true };
   readonly menuDescription = 'Marca todos os participantes do grupo com ou sem uma mensagem.';
 
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
-    const { participants } = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
+    const { participants } = await this.whatsapp!.groupMetadata(data.key.remoteJid!);
     const text_inserted = parsed.rest.trim();
     let message = text_inserted.length > 0 ? text_inserted : '';
     message += '\n\n';
@@ -19,12 +19,6 @@ export default class AllCommand extends Command {
       message += `@${participant.id.replace(regex, '')} `;
     }
     const participants_ids = participants.map((participant) => participant.id);
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: message, mentions: participants_ids },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).textWith(message, participants_ids)];
   }
 }

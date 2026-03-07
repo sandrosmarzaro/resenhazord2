@@ -4,6 +4,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 export default class MealRecipesCommand extends Command {
   readonly config: CommandConfig = { name: 'comida' };
@@ -32,14 +33,10 @@ export default class MealRecipesCommand extends Command {
     caption += `🎥 ${meal.strYoutube}\n`;
     caption += `🔗 ${meal.strSource}\n`;
     return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          caption: caption,
-          image: { url: meal.strMealThumb },
-        } as AnyMessageContent,
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
+      Reply.to(data).raw({
+        caption: caption,
+        image: { url: meal.strMealThumb },
+      } as AnyMessageContent),
     ];
   }
 }

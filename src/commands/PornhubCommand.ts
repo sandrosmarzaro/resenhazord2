@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import { PornHub } from 'pornhub.js';
 import m3u8ToMp4 from 'm3u8-to-mp4';
+import Reply from '../builders/Reply.js';
 
 export default class PornhubCommand extends Command {
   readonly config: CommandConfig = { name: 'pornhub' };
@@ -32,11 +33,7 @@ export default class PornhubCommand extends Command {
       }
       if (tries > 500) {
         return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶' },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
+          Reply.to(data).text('Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'),
         ];
       }
     } while (!has_240p);
@@ -45,16 +42,6 @@ export default class PornhubCommand extends Command {
     await converter.setInputFile(m3u8_url).setOutputFile('../../public/videos/pornhub.mp4').start();
 
     const caption = `🔞 *${video.title || 'Aqui está seu vídeo 🤤'}* 🔞`;
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          viewOnce: true,
-          caption: caption,
-          video: { url: '../../public/videos/pornhub.mp4' },
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).video('../../public/videos/pornhub.mp4', caption)];
   }
 }

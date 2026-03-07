@@ -1,11 +1,18 @@
 import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import CommandParser from '../parsers/CommandParser.js';
+import Reply from '../builders/Reply.js';
 
 export default abstract class Command {
   abstract readonly config: CommandConfig;
   abstract readonly menuDescription: string;
+  protected readonly whatsapp?: WhatsAppPort;
+
+  constructor(whatsapp?: WhatsAppPort) {
+    this.whatsapp = whatsapp;
+  }
 
   private _parser?: CommandParser;
 
@@ -22,13 +29,7 @@ export default abstract class Command {
 
   async run(data: CommandData): Promise<Message[]> {
     if (this.config.groupOnly && !data.key.remoteJid?.includes('g.us')) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Esse comando só funciona em grupo! 🤦‍♂️' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Esse comando só funciona em grupo! 🤦‍♂️')];
     }
     const parsed = this.parser.parse(data.text);
     const messages = await this.execute(data, parsed);

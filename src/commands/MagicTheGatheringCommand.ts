@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 export default class MagicTheGatheringCommand extends Command {
   readonly config: CommandConfig = { name: 'mtg', flags: ['show', 'dm'] };
@@ -26,16 +27,6 @@ export default class MagicTheGatheringCommand extends Command {
     const card = cards_on_page[Math.floor(Math.random() * cards_on_page.length)];
     const caption = `*${card.name}*\n\n> ${card.text}`;
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          image: { url: card.imageUrl },
-          caption: caption,
-          viewOnce: true,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(card.imageUrl, caption)];
   }
 }

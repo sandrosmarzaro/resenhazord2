@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import { IMAGE_RESOLUTIONS } from '../data/imageResolutions.js';
+import Reply from '../builders/Reply.js';
 
 export default class ImageCommand extends Command {
   readonly config: CommandConfig = {
@@ -28,26 +29,14 @@ export default class ImageCommand extends Command {
     const prompt = parsed.rest.trim();
 
     if (!prompt) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Você precisa informar um texto para a imagem! 🤷‍♂️' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Você precisa informar um texto para a imagem! 🤷‍♂️')];
     }
 
     const [width, height] = (resolution ? IMAGE_RESOLUTIONS[resolution] : null) || [768, 768];
 
     const imageUrl = this.generateImageUrl(prompt, width, height, model, seed());
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { image: { url: imageUrl }, viewOnce: true },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(imageUrl)];
   }
 
   private generateImageUrl(

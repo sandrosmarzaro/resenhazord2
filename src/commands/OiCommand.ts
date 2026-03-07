@@ -2,6 +2,7 @@ import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
+import Reply from '../builders/Reply.js';
 
 export default class OiCommand extends Command {
   readonly config: CommandConfig = { name: 'oi' };
@@ -10,15 +11,6 @@ export default class OiCommand extends Command {
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const sender = (data.key.participant ?? data.key.remoteJid)!;
     const sender_phone = sender.replace(/@lid/, '');
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          text: `Vai se fuder @${sender_phone} filho da puta! 🖕`,
-          mentions: [sender],
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).textWith(`Vai se fuder @${sender_phone} filho da puta! 🖕`, [sender])];
   }
 }

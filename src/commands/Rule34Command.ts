@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import * as cheerio from 'cheerio';
+import Reply from '../builders/Reply.js';
 
 export default class Rule34Command extends Command {
   readonly config: CommandConfig = { name: 'rule 34', flags: ['show', 'dm'] };
@@ -45,16 +46,6 @@ export default class Rule34Command extends Command {
       throw new Error('URL da imagem inválida');
     }
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          viewOnce: true,
-          image: { url: url },
-          caption: 'Aqui está a imagem que você pediu 🤗',
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(url, 'Aqui está a imagem que você pediu 🤗')];
   }
 }

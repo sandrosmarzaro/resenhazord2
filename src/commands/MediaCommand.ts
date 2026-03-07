@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
+import Reply from '../builders/Reply.js';
 
 export default class MediaCommand extends Command {
   readonly config: CommandConfig = { name: 'media', args: ArgType.Optional };
@@ -11,20 +12,8 @@ export default class MediaCommand extends Command {
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     const url = parsed.rest.trim();
     if (url.length === 0) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Me passa o link do vídeo que você quer baixar 🤗' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Me passa o link do vídeo que você quer baixar 🤗')];
     }
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: `Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈` },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).text(`Viiixxiii... Não consegui baixar o vídeo! 🥺👉👈`)];
   }
 }

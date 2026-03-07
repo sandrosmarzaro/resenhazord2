@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 export default class FatoCommand extends Command {
   readonly config: CommandConfig = { name: 'fato', flags: ['hoje'] };
@@ -14,12 +15,6 @@ export default class FatoCommand extends Command {
 
     const response = await AxiosClient.get<{ text: string }>(url);
     const fact = response.data;
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: `FATO 🤓☝️\n${fact.text}` },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).text(`FATO 🤓☝️\n${fact.text}`)];
   }
 }

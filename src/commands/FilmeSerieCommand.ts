@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 export default class FilmeSerieCommand extends Command {
   readonly config: CommandConfig = {
@@ -68,16 +69,6 @@ export default class FilmeSerieCommand extends Command {
     caption += `⭐ ${job.vote_average || 'Sem Nota'}\t📅 ${year || 'Sem Data'}\n\n`;
     caption += `> ${job.overview}`;
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          image: { url: poster_url },
-          caption: caption,
-          viewOnce: true,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(poster_url, caption)];
   }
 }

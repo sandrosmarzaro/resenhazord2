@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Reply from '../builders/Reply.js';
 
 export default class PromptCommand extends Command {
   readonly config: CommandConfig = { name: 'prompt', args: ArgType.Optional };
@@ -16,13 +17,7 @@ export default class PromptCommand extends Command {
 
     const rest_command = parsed.rest.trim();
     if (!rest_command) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Burro burro! Você não enviou um texto para IA! 🤦‍♂️` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Burro burro! Você não enviou um texto para IA! 🤦‍♂️`)];
     }
 
     const prePrompt = `
@@ -47,12 +42,6 @@ export default class PromptCommand extends Command {
     const result = await model.generateContent(prompt);
     const { response } = result;
     const text = response.text();
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: text },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).text(text)];
   }
 }

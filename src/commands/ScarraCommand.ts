@@ -3,9 +3,9 @@ import type { AnyMessageContent, WAMessage } from '@whiskeysockets/baileys';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
 import pino from 'pino';
+import Reply from '../builders/Reply.js';
 
 const MEDIA_TYPES = ['imageMessage', 'videoMessage', 'audioMessage'] as const;
 type MediaType = (typeof MEDIA_TYPES)[number];
@@ -49,13 +49,9 @@ export default class ScarraCommand extends Command {
 
     if (!result) {
       return [
-        {
-          jid: chat,
-          content: {
-            text: 'Burro burro! Você precisa marcar uma mensagem única pra eu escarrar! 🤦‍♂️',
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).text(
+          'Burro burro! Você precisa marcar uma mensagem única pra eu escarrar! 🤦‍♂️',
+        ),
       ];
     }
 
@@ -70,7 +66,7 @@ export default class ScarraCommand extends Command {
       'buffer',
       {},
       {
-        reuploadRequest: Resenhazord2.socket!.updateMediaMessage,
+        reuploadRequest: this.whatsapp!.updateMediaMessage,
         logger: pino({ level: 'silent' }),
       },
     );
@@ -80,12 +76,6 @@ export default class ScarraCommand extends Command {
       content.caption = (media.caption as string | undefined) || 'Escarrado! 😝';
     }
 
-    return [
-      {
-        jid: chat,
-        content: content as AnyMessageContent,
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).raw(content as AnyMessageContent)];
   }
 }

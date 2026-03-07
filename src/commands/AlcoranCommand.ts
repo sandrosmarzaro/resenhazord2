@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 interface AyahData {
   text: string;
@@ -28,13 +29,9 @@ export default class AlcoranCommand extends Command {
     const ayah = response.data.data;
 
     return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          text: `*${ayah.surah.englishName} ${ayah.surah.number}:${ayah.numberInSurah}*\n\n> ${ayah.text}`,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
+      Reply.to(data).text(
+        `*${ayah.surah.englishName} ${ayah.surah.number}:${ayah.numberInSurah}*\n\n> ${ayah.text}`,
+      ),
     ];
   }
 }

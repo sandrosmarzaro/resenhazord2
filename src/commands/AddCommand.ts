@@ -3,8 +3,8 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import { DDD_LIST } from '../data/dddList.js';
+import Reply from '../builders/Reply.js';
 
 export default class AddCommand extends Command {
   readonly config: CommandConfig = {
@@ -16,19 +16,13 @@ export default class AddCommand extends Command {
   readonly menuDescription = 'Adiciona um número ao grupo. Aleatório ou específico.';
 
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
-    const { participants } = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
+    const { participants } = await this.whatsapp!.groupMetadata(data.key.remoteJid!);
     const { RESENHAZORD2_JID } = process.env;
     const is_resenhazord2_admin = participants.find(
       (participant) => participant.id === RESENHAZORD2_JID,
     )!.admin;
     if (!is_resenhazord2_admin) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Vai se fuder! Eu não sou admin! 🖕` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Vai se fuder! Eu não sou admin! 🖕`)];
     }
 
     const inserted_phone = parsed.rest.trim();
@@ -38,24 +32,16 @@ export default class AddCommand extends Command {
 
     const is_valid_DDD = DDD_LIST.some((DDD) => inserted_phone.startsWith(DDD));
     if (!is_valid_DDD) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Burro burro! O DDD do estado 🏳️‍🌈 não existe!` },
-          options: { quoted: data },
-        },
-      ];
+      return [Reply.to(data).text(`Burro burro! O DDD do estado 🏳️‍🌈 não existe!`)];
     }
 
     const messages: Message[] = [];
     if (inserted_phone.length > 11) {
-      messages.push({
-        jid: data.key.remoteJid!,
-        content: {
-          text: `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      });
+      messages.push(
+        Reply.to(data).text(
+          `Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm`,
+        ),
+      );
     }
 
     const buildMessages = await this.build_and_send_phone(inserted_phone, data);
@@ -92,20 +78,14 @@ export default class AddCommand extends Command {
         is_sucefull = true;
       }
 
-      const consult = await Resenhazord2.socket!.onWhatsApp(`55${generated_phone}`);
+      const consult = await this.whatsapp!.onWhatsApp(`55${generated_phone}`);
       if (consult?.[0]?.exists || is_complete_phone) {
         try {
           const id = consult?.[0]?.exists ? consult[0]?.jid : '55' + initial_phone + '@lid';
-          await Resenhazord2.socket!.groupParticipantsUpdate(data.key.remoteJid!, [id!], 'add');
+          await this.whatsapp!.groupParticipantsUpdate(data.key.remoteJid!, [id!], 'add');
         } catch (error) {
           console.log(`ERROR ADD COMMAND\n${error}`);
-          return [
-            {
-              jid: data.key.remoteJid!,
-              content: { text: `Não consegui adicionar o número ${generated_phone} 😔` },
-              options: { quoted: data, ephemeralExpiration: data.expiration },
-            },
-          ];
+          return [Reply.to(data).text(`Não consegui adicionar o número ${generated_phone} 😔`)];
         }
         is_sucefull = true;
       }

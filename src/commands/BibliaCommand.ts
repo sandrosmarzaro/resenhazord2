@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 interface VerseData {
   book: { name: string };
@@ -49,13 +50,7 @@ export default class BibliaCommand extends Command {
     const book = rest.replace(/\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?/, '').trim();
 
     if (!book) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Por favor, digite o nome do livro da bíblia... 😔' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Por favor, digite o nome do livro da bíblia... 😔')];
     }
 
     const chapter = rest.match(/\d{1,3}:/)![0].replace(':', '');
@@ -76,13 +71,7 @@ export default class BibliaCommand extends Command {
       let text = 'Não consegui encontrar o livro que você digitou... 😔';
       text += '\n\n📚 *Livros Disponíveis* 📚\n';
       text += book_names;
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: text },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(text)];
     }
 
     if (!has_range) {
@@ -99,20 +88,12 @@ export default class BibliaCommand extends Command {
       verses.push(`> ${verseResponse.data.text}`);
     }
     const text = `*${book} ${chapter}:${start}-${end}*\n\n${verses.join('\n')}`;
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: text },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).text(text)];
   }
 
   private build_verse(data: CommandData, verse: VerseData): Message {
-    return {
-      jid: data.key.remoteJid!,
-      content: { text: `*${verse.book.name} ${verse.chapter}:${verse.number}*\n\n> ${verse.text}` },
-      options: { quoted: data, ephemeralExpiration: data.expiration },
-    };
+    return Reply.to(data).text(
+      `*${verse.book.name} ${verse.chapter}:${verse.number}*\n\n> ${verse.text}`,
+    );
   }
 }

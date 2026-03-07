@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import OpenFoodFactsScraper from '../services/OpenFoodFactsScraper.js';
+import Reply from '../builders/Reply.js';
 
 export default class BeerCommand extends Command {
   readonly config: CommandConfig = { name: 'cerveja', flags: ['show', 'dm'] };
@@ -24,25 +25,9 @@ export default class BeerCommand extends Command {
 
       const caption = lines.join('\n');
 
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            viewOnce: true,
-            caption,
-            image: { url: beer.imageUrl },
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).image(beer.imageUrl, caption)];
     } catch {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Erro ao buscar cerveja. Tente novamente mais tarde! 🍺' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Erro ao buscar cerveja. Tente novamente mais tarde! 🍺')];
     }
   }
 }

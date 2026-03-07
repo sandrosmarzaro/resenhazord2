@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
+import Reply from '../builders/Reply.js';
 
 type GroupsDoc = { _id: string; groups: Array<{ name: string; participants: string[] }> };
 
@@ -32,26 +33,14 @@ export default class GroupMentionsCommand extends Command {
 
   private is_valid_group_name(data: CommandData, group_name: string): Message | null {
     if (group_name?.length > 15) {
-      return {
-        jid: data.key.remoteJid!,
-        content: { text: `O nome do grupo é desse tamanho! ✋    🤚` },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      };
+      return Reply.to(data).text(`O nome do grupo é desse tamanho! ✋    🤚`);
     }
     const functions = ['add', 'exit', 'create', 'delete', 'rename', 'list'];
     if (functions.some((func) => new RegExp(func, 'i').test(group_name))) {
-      return {
-        jid: data.key.remoteJid!,
-        content: { text: `O nome do grupo não pode ser um comando!` },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      };
+      return Reply.to(data).text(`O nome do grupo não pode ser um comando!`);
     }
     if (group_name.match(/\s/)) {
-      return {
-        jid: data.key.remoteJid!,
-        content: { text: `O nome do grupo não pode ter espaço!` },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      };
+      return Reply.to(data).text(`O nome do grupo não pode ter espaço!`);
     }
     return null;
   }
@@ -61,13 +50,7 @@ export default class GroupMentionsCommand extends Command {
 
     const group_name = rest_command.replace(/\s*@\d+\s*/g, '');
     if (group_name?.length == 0) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Cadê o nome do grupo? 🤔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Cadê o nome do grupo? 🤔`)];
     }
     const validationError = this.is_valid_group_name(data, group_name);
     if (validationError) {
@@ -82,13 +65,7 @@ export default class GroupMentionsCommand extends Command {
         'groups.name': group_name,
       });
       if (has_group) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Já existe um grupo com o nome *${group_name}* 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Já existe um grupo com o nome *${group_name}* 😔`)];
       }
 
       const mentioneds = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
@@ -108,35 +85,17 @@ export default class GroupMentionsCommand extends Command {
           },
         );
       }
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Grupo *${group_name}* criado com sucesso! 🎉` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Grupo *${group_name}* criado com sucesso! 🎉`)];
     } catch (error) {
       console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui criar o grupo *${group_name}* 😔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Não consegui criar o grupo *${group_name}* 😔`)];
     }
   }
 
   private async rename(data: CommandData, rest_command: string): Promise<Message[]> {
     const has_two_groups = rest_command.match(/[\S]+\s+[\S]+/);
     if (!has_two_groups) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Cadê os nomes dos grupos? 🤔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Cadê os nomes dos grupos? 🤔`)];
     }
 
     const [old_group_name, new_group_name] = rest_command.split(/\s+/);
@@ -152,13 +111,7 @@ export default class GroupMentionsCommand extends Command {
         'groups.name': old_group_name,
       });
       if (!has_old_group) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Não existe um grupo com o nome *${old_group_name}* 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Não existe um grupo com o nome *${old_group_name}* 😔`)];
       }
 
       const has_new_group = await collection.findOne({
@@ -166,13 +119,7 @@ export default class GroupMentionsCommand extends Command {
         'groups.name': new_group_name,
       });
       if (has_new_group) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Já existe um grupo com o nome *${new_group_name}* 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Já existe um grupo com o nome *${new_group_name}* 😔`)];
       }
 
       await collection.updateOne(
@@ -180,36 +127,20 @@ export default class GroupMentionsCommand extends Command {
         { $set: { 'groups.$.name': new_group_name } },
       );
       return [
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            text: `Grupo *${old_group_name}* renomeado para *${new_group_name}* com sucesso! 🎉`,
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).text(
+          `Grupo *${old_group_name}* renomeado para *${new_group_name}* com sucesso! 🎉`,
+        ),
       ];
     } catch (error) {
       console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui renomear o grupo *${old_group_name}* 😔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Não consegui renomear o grupo *${old_group_name}* 😔`)];
     }
   }
 
   private async delete(data: CommandData, rest_command: string): Promise<Message[]> {
     const group_name = rest_command;
     if (group_name?.length == 0) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Cadê o nome do grupo? 🤔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Cadê o nome do grupo? 🤔`)];
     }
 
     try {
@@ -220,35 +151,17 @@ export default class GroupMentionsCommand extends Command {
         'groups.name': group_name,
       });
       if (!has_group) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Não existe um grupo com o nome *${group_name}* 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Não existe um grupo com o nome *${group_name}* 😔`)];
       }
 
       await collection.updateOne(
         { _id: data.key.remoteJid! },
         { $pull: { groups: { name: group_name } } },
       );
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Grupo *${group_name}* deletado com sucesso! 🎉` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Grupo *${group_name}* deletado com sucesso! 🎉`)];
     } catch (error) {
       console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui deletar o grupo *${group_name}* 😔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Não consegui deletar o grupo *${group_name}* 😔`)];
     }
   }
 
@@ -259,13 +172,7 @@ export default class GroupMentionsCommand extends Command {
       const response = await collection.findOne({ _id: data.key.remoteJid! });
       const empty_groups = !response || response?.groups?.length == 0;
       if (empty_groups) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Você não tem grupos 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Você não tem grupos 😔`)];
       }
 
       const groups = response!.groups;
@@ -273,13 +180,7 @@ export default class GroupMentionsCommand extends Command {
       if (rest_command?.length > 0) {
         const group = groups.find((group) => group.name === rest_command);
         if (!group) {
-          return [
-            {
-              jid: data.key.remoteJid!,
-              content: { text: `Não existe um grupo com o nome *${rest_command}* 😔` },
-              options: { quoted: data, ephemeralExpiration: data.expiration },
-            },
-          ];
+          return [Reply.to(data).text(`Não existe um grupo com o nome *${rest_command}* 😔`)];
         }
         const regex = /@lid|@s.whatsapp.net/gi;
         let message = '';
@@ -289,34 +190,18 @@ export default class GroupMentionsCommand extends Command {
         }
 
         return [
-          {
-            jid: data.key.remoteJid!,
-            content: {
-              text: `📜 *${rest_command.toUpperCase()}* 📜\n\n${message}`,
-              mentions: group.participants,
-            },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
+          Reply.to(data).textWith(
+            `📜 *${rest_command.toUpperCase()}* 📜\n\n${message}`,
+            group.participants,
+          ),
         ];
       }
 
       const message = groups.map((group) => `- _${group.name}_`).join('\n');
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `📜 *GRUPOS* 📜\n\n${message}` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`📜 *GRUPOS* 📜\n\n${message}`)];
     } catch (error) {
       console.log(`ERROR GROUP MENTIONS COMMAND${error}`);
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui listar os grupos 😔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Não consegui listar os grupos 😔`)];
     }
   }
 
@@ -325,13 +210,7 @@ export default class GroupMentionsCommand extends Command {
 
     const group_name = rest_command.replace(/\s*@\d+\s*/g, '');
     if (group_name?.length == 0) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Cadê o nome do grupo? 🤔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Cadê o nome do grupo? 🤔`)];
     }
 
     try {
@@ -342,13 +221,7 @@ export default class GroupMentionsCommand extends Command {
         'groups.name': group_name,
       });
       if (!has_group) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Não existe um grupo com o nome *${group_name}* 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Não existe um grupo com o nome *${group_name}* 😔`)];
       }
 
       const participants = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
@@ -358,11 +231,7 @@ export default class GroupMentionsCommand extends Command {
           { $addToSet: { 'groups.$.participants': sender_id } },
         );
         return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Você foi adicionado ao grupo *${group_name}* com sucesso! 🎉` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
+          Reply.to(data).text(`Você foi adicionado ao grupo *${group_name}* com sucesso! 🎉`),
         ];
       } else {
         await collection.updateOne(
@@ -370,22 +239,12 @@ export default class GroupMentionsCommand extends Command {
           { $addToSet: { 'groups.$.participants': { $each: participants } } },
         );
         return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Participantes adicionados ao grupo *${group_name}* com sucesso! 🎉` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
+          Reply.to(data).text(`Participantes adicionados ao grupo *${group_name}* com sucesso! 🎉`),
         ];
       }
     } catch (error) {
       console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui adicionar os participantes 😔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Não consegui adicionar os participantes 😔`)];
     }
   }
 
@@ -394,13 +253,7 @@ export default class GroupMentionsCommand extends Command {
 
     const group_name = rest_command.replace(/\s+\d+\s*/g, '');
     if (group_name?.length == 0) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Cadê o nome do grupo? 🤔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Cadê o nome do grupo? 🤔`)];
     }
 
     try {
@@ -411,13 +264,7 @@ export default class GroupMentionsCommand extends Command {
         'groups.name': group_name,
       });
       if (!has_group) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Não existe um grupo com o nome *${group_name}* 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Não existe um grupo com o nome *${group_name}* 😔`)];
       }
 
       const has_indexes = new RegExp(/\s+\d+\s*/g, 'i').test(rest_command);
@@ -426,13 +273,7 @@ export default class GroupMentionsCommand extends Command {
           { _id: data.key.remoteJid!, 'groups.name': group_name },
           { $pull: { 'groups.$.participants': sender_id } },
         );
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Você foi removido do grupo *${group_name}* com sucesso! 🎉` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Você foi removido do grupo *${group_name}* com sucesso! 🎉`)];
       }
       const indexes = rest_command.match(/\s+(\d+)\s*/g)!.map((index) => parseInt(index.trim()));
 
@@ -447,11 +288,7 @@ export default class GroupMentionsCommand extends Command {
 
       if (participants_to_remove.length == 0) {
         return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Nenhum participante encontrado para os índices fornecidos 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
+          Reply.to(data).text(`Nenhum participante encontrado para os índices fornecidos 😔`),
         ];
       }
 
@@ -461,21 +298,11 @@ export default class GroupMentionsCommand extends Command {
       );
 
       return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Participantes removidos do grupo *${group_name}* com sucesso! 🎉` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).text(`Participantes removidos do grupo *${group_name}* com sucesso! 🎉`),
       ];
     } catch (error) {
       console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui remover os participantes 😔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Não consegui remover os participantes 😔`)];
     }
   }
 
@@ -486,13 +313,7 @@ export default class GroupMentionsCommand extends Command {
       const response = await collection.findOne({ _id: data.key.remoteJid! });
       const empty_groups = !response || response?.groups?.length == 0;
       if (empty_groups) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Você não tem grupos 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Você não tem grupos 😔`)];
       }
 
       const groups = response!.groups;
@@ -500,35 +321,17 @@ export default class GroupMentionsCommand extends Command {
       const text = rest_command.replace(group_name, '').trim();
       const group = groups.find((group) => group.name === group_name);
       if (!group) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: `Não existe um grupo com o nome *${rest_command}* 😔` },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text(`Não existe um grupo com o nome *${rest_command}* 😔`)];
       }
       const regex = /@lid|@s.whatsapp.net/gi;
       const message = text.length > 0 ? `${text}\n\n` : '';
       const mentions = group.participants.map(
         (participant) => `@${participant.replace(regex, '')}`,
       );
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `${message}${mentions.join(' ')}`, mentions: group.participants },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).textWith(`${message}${mentions.join(' ')}`, group.participants)];
     } catch (error) {
       console.log(`ERROR GROUP MENTIONS COMMAND\n${error}`);
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui marcar os participantes 😔` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Não consegui marcar os participantes 😔`)];
     }
   }
 }

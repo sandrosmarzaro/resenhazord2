@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
+import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { MUSIC_GENRES } from '../data/musicGenres.js';
 import { DEEZER_GENRES } from '../data/deezerGenres.js';
@@ -60,13 +61,7 @@ export default class MusicCommand extends Command {
 
       const tracks = response.data.data;
       if (!tracks || tracks.length === 0) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: 'Não encontrei músicas para esse gênero. Tente outro! 🎵' },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')];
       }
 
       const track = tracks[Math.floor(Math.random() * tracks.length)];
@@ -79,33 +74,11 @@ export default class MusicCommand extends Command {
         `> ⏱️ ${duration}`;
 
       return [
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            viewOnce: true,
-            caption,
-            image: { url: track.album.cover_medium },
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            viewOnce: true,
-            mimetype: 'audio/mp4',
-            audio: { url: track.preview },
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).image(track.album.cover_medium, caption),
+        Reply.to(data).audio(track.preview),
       ];
     } catch {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Erro ao buscar música. Tente novamente mais tarde! 🎵' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Erro ao buscar música. Tente novamente mais tarde! 🎵')];
     }
   }
 
@@ -131,13 +104,7 @@ export default class MusicCommand extends Command {
 
       const tracks = response.data.results;
       if (!tracks || tracks.length === 0) {
-        return [
-          {
-            jid: data.key.remoteJid!,
-            content: { text: 'Não encontrei músicas para esse gênero. Tente outro! 🎵' },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          },
-        ];
+        return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')];
       }
 
       const track = tracks[Math.floor(Math.random() * tracks.length)];
@@ -150,34 +117,9 @@ export default class MusicCommand extends Command {
         `> ⏱️ ${duration}\n` +
         `> 📅 ${track.releasedate}`;
 
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            viewOnce: true,
-            caption,
-            image: { url: track.image },
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            viewOnce: true,
-            mimetype: 'audio/mp4',
-            audio: { url: track.audio },
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).image(track.image, caption), Reply.to(data).audio(track.audio)];
     } catch {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Erro ao buscar música. Tente novamente mais tarde! 🎵' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text('Erro ao buscar música. Tente novamente mais tarde! 🎵')];
     }
   }
 

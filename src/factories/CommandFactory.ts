@@ -1,4 +1,5 @@
 import type Command from '../commands/Command.js';
+import type WhatsAppPort from '../ports/WhatsAppPort.js';
 
 import AddCommand from '../commands/AddCommand.js';
 import AdmCommand from '../commands/AdmCommand.js';
@@ -40,20 +41,20 @@ export default class CommandFactory {
   private static instance: CommandFactory | null = null;
   private readonly strategies: Command[];
 
-  private constructor() {
+  private constructor(whatsapp?: WhatsAppPort) {
     this.strategies = [
-      new AddCommand(),
-      new AdmCommand(),
+      new AddCommand(whatsapp),
+      new AdmCommand(whatsapp),
       new AlcoranCommand(),
-      new AllCommand(),
+      new AllCommand(whatsapp),
       new AudioCommand(),
-      new BanCommand(),
+      new BanCommand(whatsapp),
       new BaralhoCommand(),
       new BeerCommand(),
       new BibliaCommand(),
       new BorgesCommand(),
       new D20Command(),
-      new DriveCommand(),
+      new DriveCommand(whatsapp),
       new FatoCommand(),
       new FilmeSerieCommand(),
       new FuckCommand(),
@@ -74,17 +75,21 @@ export default class CommandFactory {
       new PornoCommand(),
       new PromptCommand(),
       new Rule34Command(),
-      new ScarraCommand(),
-      new StickerCommand(),
+      new ScarraCommand(whatsapp),
+      new StickerCommand(whatsapp),
       new YugiohCommand(),
     ];
   }
 
-  static getInstance(): CommandFactory {
+  static getInstance(whatsapp?: WhatsAppPort): CommandFactory {
     if (!this.instance) {
-      this.instance = new CommandFactory();
+      this.instance = new CommandFactory(whatsapp);
     }
     return this.instance;
+  }
+
+  static reset(): void {
+    this.instance = null;
   }
 
   getStrategy(text: string): Command | null {

@@ -3,8 +3,8 @@ import type { WAMessage } from '@whiskeysockets/baileys';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
+import Reply from '../builders/Reply.js';
 import { Sticker } from 'wa-sticker-formatter';
 import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
 import ffmpeg from 'fluent-ffmpeg';
@@ -24,13 +24,9 @@ export default class StickerCommand extends Command {
       data?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
     if (!has_upload_media && !has_quoted_media) {
       return [
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            text: 'Burro burro! Você precisa enviar uma imagem ou gif para fazer um sticker! 🤦‍♂️',
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).text(
+          'Burro burro! Você precisa enviar uma imagem ou gif para fazer um sticker! 🤦‍♂️',
+        ),
       ];
     }
 
@@ -58,7 +54,7 @@ export default class StickerCommand extends Command {
       'buffer',
       {},
       {
-        reuploadRequest: Resenhazord2.socket!.updateMediaMessage,
+        reuploadRequest: this.whatsapp!.updateMediaMessage,
         logger: pino({ level: 'silent' }),
       },
     );
@@ -69,12 +65,6 @@ export default class StickerCommand extends Command {
       .setCategories(['Resenha', 'Bot'])
       .setQuality(50)
       .build();
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { sticker },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).sticker(sticker)];
   }
 }

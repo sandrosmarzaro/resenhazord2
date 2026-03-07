@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 interface HearthstoneCard {
   name: string;
@@ -25,11 +26,7 @@ export default class HeartstoneCommand extends Command {
     const access_token = await this.get_access_token(BNET_ID, BNET_SECRET);
     if (!access_token) {
       return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Não consegui entrar na Battle.net, manda a Blizzard tomar no cu! 🤷‍♂️` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).text(`Não consegui entrar na Battle.net, manda a Blizzard tomar no cu! 🤷‍♂️`),
       ];
     }
 
@@ -60,17 +57,7 @@ export default class HeartstoneCommand extends Command {
     description = description.replace(/<\/?i>/g, '_');
     const caption = `*${card.name}*\n\n> "${card.flavorText}"\n\n${description}`;
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          image: { url: card.image },
-          caption: caption,
-          viewOnce: true,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(card.image, caption)];
   }
 
   private async get_access_token(

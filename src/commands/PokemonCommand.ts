@@ -3,6 +3,7 @@ import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
+import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { POKEMON_TYPE_EMOJIS } from '../data/pokemonTypeEmojis.js';
 
@@ -46,17 +47,7 @@ export default class PokemonCommand extends Command {
       poke_image_url = pokemon.sprites.front_default;
     }
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          viewOnce: true,
-          caption: poke_caption,
-          image: { url: poke_image_url },
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(poke_image_url, poke_caption)];
   }
 
   private async runTeam(data: CommandData): Promise<Message[]> {
@@ -100,16 +91,6 @@ export default class PokemonCommand extends Command {
       })
       .join('\n');
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          viewOnce: true,
-          caption,
-          image: gridBuffer,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).imageBuffer(gridBuffer, caption)];
   }
 }

@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import Reply from '../builders/Reply.js';
 
 export default class MyAnimeListCommand extends Command {
   readonly config: CommandConfig = {
@@ -72,12 +73,6 @@ export default class MyAnimeListCommand extends Command {
     caption += `📈 ${demos || 'Desconhecido'}\n`;
     caption += `${creator_emoji} ${creators || 'Desconhecido'}`;
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { image: { url: image }, caption: caption, viewOnce: true },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).image(image, caption)];
   }
 }

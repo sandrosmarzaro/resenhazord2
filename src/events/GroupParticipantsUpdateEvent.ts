@@ -1,5 +1,6 @@
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import StealGroupService from '../services/StealGroupService.js';
+import Resenhazord2 from '../models/Resenhazord2.js';
 
 export default class GroupParticipantsUpdateEvent {
   static async run(data: BaileysEventMap['group-participants.update']): Promise<void> {
@@ -7,6 +8,6 @@ export default class GroupParticipantsUpdateEvent {
     if (![RESENHA_JID, RESENHAZORD2_JID, RESENHA_TEST_LID].includes(data.id)) {
       return;
     }
-    await StealGroupService.run(data);
+    await StealGroupService.run(data, Resenhazord2.adapter!);
   }
 }

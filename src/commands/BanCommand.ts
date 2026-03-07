@@ -3,7 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
-import Resenhazord2 from '../models/Resenhazord2.js';
+import Reply from '../builders/Reply.js';
 
 export default class BanCommand extends Command {
   readonly config: CommandConfig = {
@@ -17,20 +17,14 @@ export default class BanCommand extends Command {
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const regex = /@lid|@s.whatsapp.net/gi;
-    const group = await Resenhazord2.socket!.groupMetadata(data.key.remoteJid!);
+    const group = await this.whatsapp!.groupMetadata(data.key.remoteJid!);
     const { participants } = group;
     const { RESENHAZORD2_JID } = process.env;
     const is_resenhazord2_admin = participants.find(
       (participant) => participant.id === RESENHAZORD2_JID,
     )?.admin;
     if (!is_resenhazord2_admin) {
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: `Vai se foder! Eu não sou admin! 🖕` },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).text(`Vai se foder! Eu não sou admin! 🖕`)];
     }
 
     const messages: Message[] = [];
@@ -42,19 +36,16 @@ export default class BanCommand extends Command {
         is_bot =
           random_participant.id === RESENHAZORD2_JID || random_participant.id === group.owner;
         if (!is_bot) {
-          await Resenhazord2.socket!.groupParticipantsUpdate(
+          await this.whatsapp!.groupParticipantsUpdate(
             data.key.remoteJid!,
             [random_participant.id],
             'remove',
           );
-          messages.push({
-            jid: data.key.remoteJid!,
-            content: {
-              text: `Se fudeu! @${random_participant.id.replace(regex, '')} 🖕`,
-              mentions: [random_participant.id],
-            },
-            options: { quoted: data, ephemeralExpiration: data.expiration },
-          });
+          messages.push(
+            Reply.to(data).textWith(`Se fudeu! @${random_participant.id.replace(regex, '')} 🖕`, [
+              random_participant.id,
+            ]),
+          );
         }
       } while (!is_bot);
     } else {
@@ -65,17 +56,9 @@ export default class BanCommand extends Command {
         if (participant === RESENHAZORD2_JID || (participant === group.owner && owner_is_admin)) {
           continue;
         }
-        await Resenhazord2.socket!.groupParticipantsUpdate(
-          data.key.remoteJid!,
-          [participant],
-          'remove',
-        );
+        await this.whatsapp!.groupParticipantsUpdate(data.key.remoteJid!, [participant], 'remove');
         const participant_phone = participant.replace(regex, '');
-        messages.push({
-          jid: data.key.remoteJid!,
-          content: { text: `Se fudeu! @${participant_phone} 🖕`, mentions: [participant] },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        });
+        messages.push(Reply.to(data).textWith(`Se fudeu! @${participant_phone} 🖕`, [participant]));
       }
     }
     return messages;

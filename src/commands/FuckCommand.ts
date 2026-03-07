@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import { NSFW } from 'nsfwhub';
+import Reply from '../builders/Reply.js';
 
 export default class FuckCommand extends Command {
   readonly config: CommandConfig = {
@@ -24,16 +25,12 @@ export default class FuckCommand extends Command {
     const nsfw = new NSFW();
     const porn = await nsfw.fetch('fuck');
     return [
-      {
-        jid: data.key.remoteJid!,
-        content: {
-          viewOnce: true,
-          video: { url: porn.image.url },
-          mentions: [sender, data.message!.extendedTextMessage!.contextInfo!.mentionedJid![0]],
-          caption: `@${sender_phone} está fudendo @${mentioned_phone} 😩`,
-        },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
+      Reply.to(data).raw({
+        viewOnce: true,
+        video: { url: porn.image.url },
+        mentions: [sender, data.message!.extendedTextMessage!.contextInfo!.mentionedJid![0]],
+        caption: `@${sender_phone} está fudendo @${mentioned_phone} 😩`,
+      }),
     ];
   }
 }

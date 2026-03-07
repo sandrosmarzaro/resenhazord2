@@ -30,7 +30,7 @@ export default class CommandHandler {
             await this.sendMessages(messages);
           } catch (error) {
             console.error(`ERROR ${admCommand.constructor.name}\n${error}`);
-            await Resenhazord2.socket!.sendMessage(
+            await Resenhazord2.adapter!.sendMessage(
               commandData.key.remoteJid!,
               { text: 'Ocorreu um erro ao processar o comando 😔' },
               { quoted: commandData, ephemeralExpiration: commandData.expiration },
@@ -45,7 +45,7 @@ export default class CommandHandler {
         await this.sendMessages(messages);
       } catch (error) {
         console.error(`ERROR ${command.constructor.name}\n${error}`);
-        await Resenhazord2.socket!.sendMessage(
+        await Resenhazord2.adapter!.sendMessage(
           commandData.key.remoteJid!,
           { text: 'Ocorreu um erro ao processar o comando 😔' },
           { quoted: commandData, ephemeralExpiration: commandData.expiration },
@@ -56,7 +56,7 @@ export default class CommandHandler {
 
   private static async sendMessages(messages: Message[]): Promise<void> {
     for (const msg of messages) {
-      await Resenhazord2.socket!.sendMessage(msg.jid, msg.content, msg.options);
+      await Resenhazord2.adapter!.sendMessage(msg.jid, msg.content, msg.options);
     }
   }
 }

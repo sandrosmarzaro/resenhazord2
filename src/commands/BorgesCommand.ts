@@ -3,6 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
+import Reply from '../builders/Reply.js';
 
 export default class BorgesCommand extends Command {
   readonly config: CommandConfig = { name: 'borges' };
@@ -17,12 +18,6 @@ export default class BorgesCommand extends Command {
       { $inc: { nargas: 1 } },
       { returnDocument: 'after', upsert: true },
     );
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: { text: `Borges já fumou ${result!.nargas} nargas 🚬` },
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).text(`Borges já fumou ${result!.nargas} nargas 🚬`)];
   }
 }

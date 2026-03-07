@@ -6,6 +6,7 @@ import Command from './Command.js';
 import { NSFW } from 'nsfwhub';
 import { NSFW_TAGS } from '../data/nsfwTags.js';
 import XVideosScraper from '../services/XVideosScraper.js';
+import Reply from '../builders/Reply.js';
 
 export default class PornoCommand extends Command {
   readonly config: CommandConfig = { name: 'porno', flags: ['ia', 'show', 'dm'] };
@@ -36,39 +37,17 @@ export default class PornoCommand extends Command {
       content.image = { url: porn.image.url };
     }
 
-    return [
-      {
-        jid: data.key.remoteJid!,
-        content: content as AnyMessageContent,
-        options: { quoted: data, ephemeralExpiration: data.expiration },
-      },
-    ];
+    return [Reply.to(data).raw(content as AnyMessageContent)];
   }
 
   private async real_porn(data: CommandData): Promise<Message[]> {
     try {
       const result = await XVideosScraper.getRandomVideo();
-      return [
-        {
-          jid: data.key.remoteJid!,
-          content: {
-            video: {
-              url: result.videoUrl,
-            },
-            caption: result.title,
-            viewOnce: true,
-          },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
-      ];
+      return [Reply.to(data).video(result.videoUrl, result.title)];
     } catch (error) {
       console.log(`ERROR PORN COMMAND\n${error}`);
       return [
-        {
-          jid: data.key.remoteJid!,
-          content: { text: 'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶' },
-          options: { quoted: data, ephemeralExpiration: data.expiration },
-        },
+        Reply.to(data).text('Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'),
       ];
     }
   }
