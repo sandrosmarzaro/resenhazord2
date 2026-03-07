@@ -9,6 +9,7 @@ import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 import groupMetadataCache from '../cache/index.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
+import CommandFactory from '../factories/CommandFactory.js';
 
 export default class Resenhazord2 {
   static auth_state: MongoDBAuthResult | null = null;
@@ -88,6 +89,7 @@ export default class Resenhazord2 {
       this.socket = null;
       this.adapter = null;
     }
+    CommandFactory.reset();
     this.isConnecting = false;
 
     if (MongoDBConnection.isConnected()) {

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import CommandFactory from '../../../src/factories/CommandFactory.js';
+import { createMockWhatsAppPort } from '../../fixtures/index.js';
 
 describe('CommandFactory', () => {
   let factory: CommandFactory;
@@ -14,6 +15,28 @@ describe('CommandFactory', () => {
       const instance2 = CommandFactory.getInstance();
 
       expect(instance1).toBe(instance2);
+    });
+
+    it('regression: passes whatsapp adapter to commands that require it', () => {
+      CommandFactory.reset();
+      const mockWhatsApp = createMockWhatsAppPort();
+      const factory = CommandFactory.getInstance(mockWhatsApp);
+
+      const whatsappCommands = [
+        'StickerCommand',
+        'BanCommand',
+        'AddCommand',
+        'AdmCommand',
+        'ScarraCommand',
+      ];
+      for (const name of whatsappCommands) {
+        const cmd = factory.getAllStrategies().find((c) => c.constructor.name === name);
+        expect(cmd, `${name} should be registered`).toBeDefined();
+        const whatsapp = (cmd as unknown as { whatsapp: unknown }).whatsapp;
+        expect(whatsapp, `${name}.whatsapp should not be undefined`).toBe(mockWhatsApp);
+      }
+
+      CommandFactory.reset();
     });
   });
 
