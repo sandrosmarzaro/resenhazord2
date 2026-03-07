@@ -32,7 +32,7 @@ Pre-push hook runs: lint, typecheck, format:check.
 3. `CommandHandler.run(message)` extracts text and finds a matching command
 4. `CommandFactory.getStrategy(text)` iterates registered commands, matching via regex
 5. The matched `Command.run(data)` executes and returns `Message[]`
-6. Messages are sent back via the Baileys socket
+6. Messages are sent back via the WhatsApp adapter
 
 ### Command System
 
@@ -52,6 +52,38 @@ The base `Command.run()` is a template method that:
 `CommandParser` (`src/parsers/CommandParser.ts`) auto-generates a regex from the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in names/flags/options are replaced with `.` in the regex.
 
 `CommandFactory` (`src/factories/CommandFactory.ts`) is a singleton that holds all command instances and selects the first match via `getStrategy(text)`.
+
+### Ports & Adapters
+
+`WhatsAppPort` (`src/ports/WhatsAppPort.ts`) abstracts WhatsApp operations behind an interface (sendMessage, groupMetadata, groupParticipantsUpdate, onWhatsApp, updateMediaMessage, etc.).
+
+`BaileysAdapter` (`src/adapters/BaileysAdapter.ts`) implements `WhatsAppPort` by wrapping the Baileys `WASocket`.
+
+`Resenhazord2.adapter` (static, public) is the entry point; `socket` is private. On reconnection, a new adapter is created.
+
+Commands that need WhatsApp operations receive `WhatsAppPort` via constructor injection (`this.whatsapp`). 7 commands use it: AddCommand, AdmCommand, AllCommand, BanCommand, StickerCommand, ScarraCommand, DriveCommand.
+
+### Reply Builder
+
+`Reply` (`src/builders/Reply.ts`) provides a fluent API for building `Message` objects:
+
+```ts
+Reply.to(data).text('hello')
+Reply.to(data).image(url, caption)
+```
+
+`Reply.to(data)` captures the `CommandData` context. Terminal methods return a `Message`:
+
+- `text(text)` — plain text
+- `textWith(text, mentions)` — text with mentions
+- `image(url, caption?)` — image from URL (viewOnce: true)
+- `imageBuffer(buffer, caption?)` — image from buffer (viewOnce: true)
+- `video(url, caption?)` — video from URL (viewOnce: true)
+- `audio(url)` — audio from URL
+- `sticker(buffer)` — sticker from buffer
+- `raw(content)` — arbitrary `AnyMessageContent`
+
+Automatically sets `jid`, `quoted`, and `ephemeralExpiration` from the `CommandData`. Media methods default to `viewOnce: true` (base class handles the `show` flag to override this).
 
 ### CommandConfig (`src/types/commandConfig.ts`)
 
@@ -81,8 +113,8 @@ Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for optio
 1. Create `src/commands/FooCommand.ts` extending `Command`
 2. Define `config: CommandConfig` with appropriate name, flags, options, args
 3. Implement `execute(data, parsed)` — use `parsed.flags`, `parsed.options`, `parsed.rest`
-4. Set `viewOnce: true` if returning media (base class handles `show` flag)
-5. Use `jid: data.key.remoteJid!` always (base class handles `dm` flag)
+4. Use `Reply.to(data)` to build responses (media methods default to `viewOnce: true`)
+5. If the command needs WhatsApp operations (group metadata, etc.), accept `WhatsAppPort` in constructor and register with it in `CommandFactory`
 6. Import and register it in `CommandFactory`'s constructor
 7. Create `tests/unit/commands/FooCommand.test.ts`
 
@@ -95,7 +127,7 @@ Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for optio
 
 ### Singletons
 
-`CommandFactory`, `MongoDBConnection`, `AxiosClient` all use the singleton pattern.
+`CommandFactory`, `MongoDBConnection`, `AxiosClient` all use the singleton pattern. `CommandFactory` has `reset()` for reconnection (new adapter → new factory instance).
 
 ## Code Conventions
 
@@ -112,6 +144,7 @@ Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for optio
 - **Fixtures**: `tests/fixtures/index.js` provides `GroupCommandData` and `PrivateCommandData` factories (using Fishery)
 - **Setup**: `tests/setup.ts` mocks external dependencies (google-tts-api, Gemini, sharp, pino, mongodb)
 - **Pattern**: Tests instantiate the command directly, use factories for `CommandData`, and assert on the returned `Message[]`
+- **WhatsApp mock**: `createMockWhatsAppPort()` from `tests/fixtures/factories/MockWhatsAppPort.ts` provides a mock `WhatsAppPort` for commands that need it (constructor-injected)
 
 ## Environment
 
