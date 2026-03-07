@@ -68,8 +68,8 @@ Commands that need WhatsApp operations receive `WhatsAppPort` via constructor in
 `Reply` (`src/builders/Reply.ts`) provides a fluent API for building `Message` objects:
 
 ```ts
-Reply.to(data).text('hello')
-Reply.to(data).image(url, caption)
+Reply.to(data).text('hello');
+Reply.to(data).image(url, caption);
 ```
 
 `Reply.to(data)` captures the `CommandData` context. Terminal methods return a `Message`:
@@ -145,6 +145,13 @@ Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for optio
 - **Setup**: `tests/setup.ts` mocks external dependencies (google-tts-api, Gemini, sharp, pino, mongodb)
 - **Pattern**: Tests instantiate the command directly, use factories for `CommandData`, and assert on the returned `Message[]`
 - **WhatsApp mock**: `createMockWhatsAppPort()` from `tests/fixtures/factories/MockWhatsAppPort.ts` provides a mock `WhatsAppPort` for commands that need it (constructor-injected)
+
+## AI Guidelines
+
+- Always run `bun format` after editing code and verify no lines exceed 100 characters
+- Always run `bun typecheck` after changes and distinguish between pre-existing vs newly introduced errors
+- Always run `bun test:run` after changes and verify all previously passing tests still pass
+- When adding fields to object literals in config blocks, prefer multi-line formatting if the single-line form would exceed 100 chars
 
 ## Environment
 
