@@ -3,6 +3,7 @@ import type WhatsAppPort from '../ports/WhatsAppPort.js';
 
 import AddCommand from '../commands/AddCommand.js';
 import AdmCommand from '../commands/AdmCommand.js';
+import DriveCommand from '../commands/DriveCommand.js';
 import AlcoranCommand from '../commands/AlcoranCommand.js';
 import AudioCommand from '../commands/AudioCommand.js';
 import BanCommand from '../commands/BanCommand.js';
@@ -31,12 +32,18 @@ import Rule34Command from '../commands/Rule34Command.js';
 import ScarraCommand from '../commands/ScarraCommand.js';
 import StickerCommand from '../commands/StickerCommand.js';
 import YugiohCommand from '../commands/YugiohCommand.js';
+import DiscordService from '../services/DiscordService.js';
 
 export default class CommandFactory {
   private static instance: CommandFactory | null = null;
   private readonly strategies: Command[];
 
   private constructor(whatsapp?: WhatsAppPort) {
+    const discordService =
+      process.env.DISCORD_TOKEN && process.env.DISCORD_GUILD_ID
+        ? new DiscordService(process.env.DISCORD_TOKEN, process.env.DISCORD_GUILD_ID)
+        : undefined;
+
     this.strategies = [
       new AddCommand(whatsapp),
       new AdmCommand(whatsapp),
@@ -49,6 +56,7 @@ export default class CommandFactory {
       new BorgesCommand(),
       new D20Command(),
       new DownloadCommand(),
+      new DriveCommand(whatsapp, discordService),
       new FatoCommand(),
       new FilmeSerieCommand(),
       new FuckCommand(),

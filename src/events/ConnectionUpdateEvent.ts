@@ -2,6 +2,7 @@ import { isBoom } from '@hapi/boom';
 import { DisconnectReason } from '@whiskeysockets/baileys';
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
+import { Sentry } from '../infra/Sentry.js';
 
 const DISCONNECT_REASON_METHOD_NOT_ALLOWED = 405;
 
@@ -33,6 +34,7 @@ export default class ConnectionUpdateEvent {
 
       if (statusCode === DisconnectReason.loggedOut) {
         console.log('❌ Logged out. Please scan QR code again.');
+        Sentry.captureMessage('Bot logged out', 'warning');
         this.reset();
         return;
       }
@@ -65,6 +67,11 @@ export default class ConnectionUpdateEvent {
       console.log('🔄 Connecting to WhatsApp...');
     } else if (connection === 'open') {
       console.log('✅ Connection opened successfully');
+      Sentry.addBreadcrumb({
+        category: 'whatsapp.connection',
+        message: `Status: ${connection}`,
+        level: 'info',
+      });
       this.reset();
     }
   }
@@ -72,6 +79,10 @@ export default class ConnectionUpdateEvent {
   static async scheduleReconnect(): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log(`❌ Max reconnection attempts (${this.maxReconnectAttempts}) reached. Stopping.`);
+      Sentry.captureMessage(
+        `Max reconnection attempts (${this.maxReconnectAttempts}) reached`,
+        'fatal',
+      );
       this.reset();
       return;
     }
@@ -100,6 +111,7 @@ export default class ConnectionUpdateEvent {
         await Resenhazord2.connectToWhatsApp();
         await Resenhazord2.handlerEvents();
       } catch (error) {
+        Sentry.captureException(error, { extra: { attempt: this.reconnectAttempts } });
         console.error('❌ Reconnection failed:', (error as Error).message);
         this.isReconnecting = false;
 

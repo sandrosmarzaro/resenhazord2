@@ -10,6 +10,7 @@ import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent
 import groupMetadataCache from '../cache/index.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
 import CommandFactory from '../factories/CommandFactory.js';
+import { Sentry } from '../infra/Sentry.js';
 
 export default class Resenhazord2 {
   static auth_state: MongoDBAuthResult | null = null;
@@ -29,6 +30,7 @@ export default class Resenhazord2 {
       this.adapter = new BaileysAdapter(this.socket);
       console.log('Socket created successfully');
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Failed to connect:', (error as Error).message);
       throw error;
     } finally {
@@ -56,8 +58,8 @@ export default class Resenhazord2 {
     try {
       const meta = await Resenhazord2.adapter!.groupMetadata(data.id);
       await groupMetadataCache.set(data.id, meta);
-    } catch {
-      // ignore
+    } catch (error) {
+      Sentry.logger.warn(Sentry.logger.fmt`Failed to update group metadata cache: ${error}`);
     }
     await GroupParticipantsUpdateEvent.run(data);
   }
@@ -84,6 +86,7 @@ export default class Resenhazord2 {
         (this.socket.ev as unknown as { removeAllListeners(): void }).removeAllListeners();
         await this.socket.end(undefined);
       } catch (error) {
+        Sentry.captureException(error);
         console.error('Error during cleanup:', (error as Error).message);
       }
       this.socket = null;

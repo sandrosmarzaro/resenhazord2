@@ -6,6 +6,7 @@ import Resenhazord2 from '../models/Resenhazord2.js';
 import GetTextMessage from '../utils/GetTextMessage.js';
 import ReactMessage from '../utils/ReactMessage.js';
 import GetGroupExpiration from '../utils/GetGroupExpiration.js';
+import { Sentry } from '../infra/Sentry.js';
 
 export default class CommandHandler {
   static async run(data: WAMessage): Promise<void> {
@@ -29,7 +30,13 @@ export default class CommandHandler {
             const messages = await admCommand.run(commandData);
             await this.sendMessages(messages);
           } catch (error) {
-            console.error(`ERROR ${admCommand.constructor.name}\n${error}`);
+            Sentry.withScope((scope) => {
+              scope.setTag('command', admCommand.constructor.name);
+              scope.setExtra('jid', commandData.key?.remoteJid);
+              scope.setExtra('participant', commandData.key?.participant);
+              scope.setExtra('text', commandData.text?.slice(0, 200));
+              Sentry.captureException(error);
+            });
             await Resenhazord2.adapter!.sendMessage(
               commandData.key.remoteJid!,
               { text: 'Ocorreu um erro ao processar o comando 😔' },
@@ -40,11 +47,24 @@ export default class CommandHandler {
         return;
       }
 
+      Sentry.addBreadcrumb({
+        category: 'command',
+        message: `Executing ${command.constructor.name}`,
+        level: 'info',
+        data: { commandName: command.config.name, remoteJid: commandData.key?.remoteJid },
+      });
+
       try {
         const messages = await command.run(commandData);
         await this.sendMessages(messages);
       } catch (error) {
-        console.error(`ERROR ${command.constructor.name}\n${error}`);
+        Sentry.withScope((scope) => {
+          scope.setTag('command', command.constructor.name);
+          scope.setExtra('jid', commandData.key?.remoteJid);
+          scope.setExtra('participant', commandData.key?.participant);
+          scope.setExtra('text', commandData.text?.slice(0, 200));
+          Sentry.captureException(error);
+        });
         await Resenhazord2.adapter!.sendMessage(
           commandData.key.remoteJid!,
           { text: 'Ocorreu um erro ao processar o comando 😔' },

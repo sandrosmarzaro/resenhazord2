@@ -1,4 +1,5 @@
 import MongoDBConnection from '../infra/MongoDBConnection.js';
+import { Sentry } from '../infra/Sentry.js';
 
 type GroupsDoc = { _id: string; groups: Array<GroupEntry> };
 
@@ -35,7 +36,8 @@ export default class GroupMentionsService {
         );
       }
       return { ok: true, data: { groupName } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'create', chatJid, groupName } });
       return { ok: false, message: `Não consegui criar o grupo *${groupName}* 😔` };
     }
   }
@@ -63,7 +65,8 @@ export default class GroupMentionsService {
         { $set: { 'groups.$.name': newName } },
       );
       return { ok: true, data: { oldName, newName } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'rename', chatJid, oldName, newName } });
       return { ok: false, message: `Não consegui renomear o grupo *${oldName}* 😔` };
     }
   }
@@ -79,7 +82,8 @@ export default class GroupMentionsService {
 
       await collection.updateOne({ _id: chatJid }, { $pull: { groups: { name: groupName } } });
       return { ok: true, data: { groupName } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'delete', chatJid, groupName } });
       return { ok: false, message: `Não consegui deletar o grupo *${groupName}* 😔` };
     }
   }
@@ -92,7 +96,8 @@ export default class GroupMentionsService {
         return { ok: false, message: `Você não tem grupos 😔` };
       }
       return { ok: true, data: { groups: response.groups } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'listAll', chatJid } });
       return { ok: false, message: `Não consegui listar os grupos 😔` };
     }
   }
@@ -109,7 +114,8 @@ export default class GroupMentionsService {
         return { ok: false, message: `Não existe um grupo com o nome *${groupName}* 😔` };
       }
       return { ok: true, data: { name: group.name, participants: group.participants } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'listOne', chatJid, groupName } });
       return { ok: false, message: `Não consegui listar os grupos 😔` };
     }
   }
@@ -141,7 +147,8 @@ export default class GroupMentionsService {
         { $addToSet: { 'groups.$.participants': { $each: participants } } },
       );
       return { ok: true, data: { groupName, selfOnly: false } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'add', chatJid, groupName } });
       return { ok: false, message: `Não consegui adicionar os participantes 😔` };
     }
   }
@@ -189,7 +196,8 @@ export default class GroupMentionsService {
         { $pull: { 'groups.$.participants': { $in: toRemove } } },
       );
       return { ok: true, data: { groupName, selfOnly: false } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'exit', chatJid, groupName } });
       return { ok: false, message: `Não consegui remover os participantes 😔` };
     }
   }
@@ -206,7 +214,8 @@ export default class GroupMentionsService {
         return { ok: false, message: `Não existe um grupo com o nome *${groupName}* 😔` };
       }
       return { ok: true, data: { participants: group.participants } };
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { method: 'mention', chatJid, groupName } });
       return { ok: false, message: `Não consegui marcar os participantes 😔` };
     }
   }

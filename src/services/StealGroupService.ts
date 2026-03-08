@@ -2,6 +2,7 @@ import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
 import AxiosClient from '../infra/AxiosClient.js';
+import { Sentry } from '../infra/Sentry.js';
 
 export default class StealGroupService {
   static async run(
@@ -74,7 +75,8 @@ export default class StealGroupService {
       await whatsapp.groupUpdateDescription(data.id, 'Este grupo pertece agora a Resenha 🔒');
       const image_buffer = await AxiosClient.getBuffer('https://loremflickr.com/900/900/');
       await whatsapp.updateProfilePicture(data.id, image_buffer);
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { groupId: data.id, action: data.action } });
       return;
     }
   }

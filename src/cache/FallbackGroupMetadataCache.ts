@@ -1,5 +1,6 @@
 import type { GroupMetadata } from '@whiskeysockets/baileys';
 import type { CachePort } from './CachePort.js';
+import { Sentry } from '../infra/Sentry.js';
 
 export default class FallbackGroupMetadataCache implements CachePort<GroupMetadata> {
   constructor(
@@ -11,8 +12,8 @@ export default class FallbackGroupMetadataCache implements CachePort<GroupMetada
     try {
       const value = await this.primary.get(key);
       if (value !== undefined) return value;
-    } catch {
-      // ignore
+    } catch (error) {
+      Sentry.logger.warn(Sentry.logger.fmt`Primary cache get failed for key ${key}: ${error}`);
     }
     return this.fallback.get(key);
   }
@@ -21,8 +22,8 @@ export default class FallbackGroupMetadataCache implements CachePort<GroupMetada
     await this.fallback.set(key, value);
     try {
       await this.primary.set(key, value);
-    } catch {
-      // ignore
+    } catch (error) {
+      Sentry.logger.warn(Sentry.logger.fmt`Primary cache set failed for key ${key}: ${error}`);
     }
   }
 }

@@ -3,6 +3,19 @@ import { vi } from 'vitest';
 process.env.RESENHAZORD2_JID = '5500000000000@s.whatsapp.net';
 process.env.MONGODB_URI = 'mongodb://localhost:27017/test';
 
+vi.mock('@sentry/bun', () => ({
+  init: vi.fn(),
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+  withScope: vi.fn((cb: (scope: unknown) => void) => cb({ setTag: vi.fn(), setExtra: vi.fn() })),
+  addBreadcrumb: vi.fn(),
+  logger: {
+    warn: vi.fn(),
+    fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
+      String.raw({ raw: strings }, ...values),
+  },
+}));
+
 vi.mock('google-tts-api', () => {
   const tts = vi.fn().mockResolvedValue('mocked-audio-base64');
   (tts as unknown as Record<string, unknown>).getAllAudioUrls = vi
