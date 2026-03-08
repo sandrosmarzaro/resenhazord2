@@ -2,8 +2,9 @@ import * as Sentry from '@sentry/bun';
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
+  integrations: [Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] })],
   tracesSampleRate: 0.1,
-  _experiments: { enableLogs: true },
+  enableLogs: true,
 });
 
 export { Sentry };
