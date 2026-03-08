@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import MealRecipesCommand from '../../../src/commands/MealRecipesCommand.js';
-import { GroupCommandData } from '../../fixtures/index.js';
+import { GroupCommandData, PrivateCommandData } from '../../fixtures/index.js';
 import AxiosClient from '../../../src/infra/AxiosClient.js';
 
 vi.mock('../../../src/infra/AxiosClient.js', () => ({
@@ -45,6 +45,8 @@ describe('MealRecipesCommand', () => {
       ['comida', false],
       ['hello', false],
       [', comida extra', false],
+      [',comida show', true],
+      [',comida dm', true],
     ])('should return %s for "%s"', (input, expected) => {
       expect(command.matches(input)).toBe(expected);
     });
@@ -94,6 +96,44 @@ describe('MealRecipesCommand', () => {
       const messages = await command.run(data);
 
       expect(messages[0].options?.ephemeralExpiration).toBe(86400);
+    });
+
+    it('should set viewOnce to true by default', async () => {
+      mockGet.mockResolvedValue({ data: { meals: [mockMeal] } });
+      const data = GroupCommandData.build({ text: ',comida' });
+
+      const messages = await command.run(data);
+
+      const content = messages[0].content as { viewOnce: boolean };
+      expect(content.viewOnce).toBe(true);
+    });
+
+    it('should set viewOnce to false with show flag', async () => {
+      mockGet.mockResolvedValue({ data: { meals: [mockMeal] } });
+      const data = GroupCommandData.build({ text: ',comida show' });
+
+      const messages = await command.run(data);
+
+      const content = messages[0].content as { viewOnce: boolean };
+      expect(content.viewOnce).toBe(false);
+    });
+
+    it('should send to DM when dm flag is active in group', async () => {
+      mockGet.mockResolvedValue({ data: { meals: [mockMeal] } });
+      const data = GroupCommandData.build({ text: ',comida dm' });
+
+      const messages = await command.run(data);
+
+      expect(messages[0].jid).toBe(data.key.participant);
+    });
+
+    it('should not change jid when dm flag is active in private chat', async () => {
+      mockGet.mockResolvedValue({ data: { meals: [mockMeal] } });
+      const data = PrivateCommandData.build({ text: ',comida dm' });
+
+      const messages = await command.run(data);
+
+      expect(messages[0].jid).toBe(data.key.remoteJid);
     });
   });
 });

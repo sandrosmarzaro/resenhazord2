@@ -1,5 +1,4 @@
 import type { CommandData } from '../types/command.js';
-import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import Command from './Command.js';
@@ -7,7 +6,11 @@ import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 
 export default class MealRecipesCommand extends Command {
-  readonly config: CommandConfig = { name: 'comida', category: 'aleatórias' };
+  readonly config: CommandConfig = {
+    name: 'comida',
+    flags: ['show', 'dm'],
+    category: 'aleatórias',
+  };
   readonly menuDescription = 'Receba aleatoriamente uma receita e suas instruções em inglês.';
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
@@ -32,11 +35,6 @@ export default class MealRecipesCommand extends Command {
     caption += `${meal.strInstructions}\n\n`;
     caption += `🎥 ${meal.strYoutube}\n`;
     caption += `🔗 ${meal.strSource}\n`;
-    return [
-      Reply.to(data).raw({
-        caption: caption,
-        image: { url: meal.strMealThumb },
-      } as AnyMessageContent),
-    ];
+    return [Reply.to(data).image(meal.strMealThumb, caption)];
   }
 }
