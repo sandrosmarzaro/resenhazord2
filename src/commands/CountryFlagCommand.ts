@@ -4,6 +4,7 @@ import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
+import { Sentry } from '../infra/Sentry.js';
 
 interface RestCountry {
   name: { common: string; official: string };
@@ -16,10 +17,6 @@ interface RestCountry {
   area: number;
   languages?: Record<string, string>;
   currencies?: Record<string, { name: string; symbol: string }>;
-  timezones: string[];
-  landlocked: boolean;
-  unMember: boolean;
-  car: { side: 'left' | 'right' };
 }
 
 const REGION_MAP: Record<string, { emoji: string; label: string }> = {
@@ -57,7 +54,7 @@ const SUBREGION_PT: Record<string, string> = {
 };
 
 const API_URL =
-  'https://restcountries.com/v3.1/all?fields=name,flags,flag,capital,region,subregion,population,area,languages,currencies,timezones,landlocked,unMember,car';
+  'https://restcountries.com/v3.1/all?fields=name,flags,flag,capital,region,subregion,population,area,languages,currencies';
 
 export default class CountryFlagCommand extends Command {
   readonly config: CommandConfig = {
@@ -74,7 +71,8 @@ export default class CountryFlagCommand extends Command {
       const country = countries[Math.floor(Math.random() * countries.length)];
       const caption = CountryFlagCommand.buildCaption(country);
       return [Reply.to(data).image(country.flags.png, caption)];
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error, { extra: { command: 'bandeira' } });
       return [Reply.to(data).text('Erro ao buscar bandeira. Tente novamente mais tarde! 🌍')];
     }
   }
@@ -97,12 +95,6 @@ export default class CountryFlagCommand extends Command {
         .map(([code, c]) => `${c.name} (${code})`)
         .join(' / ') || 'N/A';
 
-    const drivingSide = country.car.side === 'right' ? 'Direita' : 'Esquerda';
-    const tzLine =
-      country.timezones.length === 1
-        ? country.timezones[0]
-        : `${country.timezones[0]} a ${country.timezones[country.timezones.length - 1]}`;
-
     const lines: string[] = [];
     lines.push(`*${country.name.common}* ${country.flag}`);
     if (country.name.official !== country.name.common) {
@@ -115,10 +107,6 @@ export default class CountryFlagCommand extends Command {
     lines.push(`📐 ${area} km²`);
     lines.push(`🗣️ ${languages}`);
     lines.push(`💰 ${currencies}`);
-    lines.push(
-      `🌐 ONU: ${country.unMember ? '✅' : '❌'}  🏔️ Sem litoral: ${country.landlocked ? '✅' : '❌'}`,
-    );
-    lines.push(`🚗 ${drivingSide}  🕐 ${tzLine}`);
 
     return lines.join('\n');
   }

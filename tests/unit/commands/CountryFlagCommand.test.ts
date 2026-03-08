@@ -22,10 +22,6 @@ const mockBrazil = {
   area: 8515767,
   languages: { por: 'Portuguese' },
   currencies: { BRL: { name: 'Real', symbol: 'R$' } },
-  timezones: ['UTC-05:00', 'UTC-04:00', 'UTC-03:00', 'UTC-02:00'],
-  landlocked: false,
-  unMember: true,
-  car: { side: 'right' },
 };
 
 const mockAntarctica = {
@@ -39,10 +35,6 @@ const mockAntarctica = {
   area: 14000000,
   languages: undefined,
   currencies: undefined,
-  timezones: ['UTC+00:00'],
-  landlocked: false,
-  unMember: false,
-  car: { side: 'right' },
 };
 
 describe('CountryFlagCommand', () => {
@@ -183,59 +175,6 @@ describe('CountryFlagCommand', () => {
 
       const content = messages[0].content as { caption: string };
       expect(content.caption).toContain('Real (BRL)');
-    });
-
-    it('should include UN membership and landlocked status', async () => {
-      mockGet.mockResolvedValue({ data: [mockBrazil] });
-      const data = GroupCommandData.build({ text: ',bandeira' });
-
-      const messages = await command.run(data);
-
-      const content = messages[0].content as { caption: string };
-      expect(content.caption).toContain('ONU: ✅');
-      expect(content.caption).toContain('Sem litoral: ❌');
-    });
-
-    it('should show single timezone without separator', async () => {
-      mockGet.mockResolvedValue({ data: [mockAntarctica] });
-      const data = GroupCommandData.build({ text: ',bandeira' });
-
-      const messages = await command.run(data);
-
-      const content = messages[0].content as { caption: string };
-      expect(content.caption).toContain('UTC+00:00');
-      expect(content.caption).not.toContain(' a ');
-    });
-
-    it('should join multiple timezones with " a "', async () => {
-      mockGet.mockResolvedValue({ data: [mockBrazil] });
-      const data = GroupCommandData.build({ text: ',bandeira' });
-
-      const messages = await command.run(data);
-
-      const content = messages[0].content as { caption: string };
-      expect(content.caption).toContain('UTC-05:00 a UTC-02:00');
-    });
-
-    it('should show Direita for right-hand traffic', async () => {
-      mockGet.mockResolvedValue({ data: [mockBrazil] });
-      const data = GroupCommandData.build({ text: ',bandeira' });
-
-      const messages = await command.run(data);
-
-      const content = messages[0].content as { caption: string };
-      expect(content.caption).toContain('Direita');
-    });
-
-    it('should show Esquerda for left-hand traffic', async () => {
-      const mockLeftDrive = { ...mockBrazil, car: { side: 'left' as const } };
-      mockGet.mockResolvedValue({ data: [mockLeftDrive] });
-      const data = GroupCommandData.build({ text: ',bandeira' });
-
-      const messages = await command.run(data);
-
-      const content = messages[0].content as { caption: string };
-      expect(content.caption).toContain('Esquerda');
     });
 
     it('should set viewOnce to true by default', async () => {
