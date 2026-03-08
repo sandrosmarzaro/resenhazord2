@@ -1,4 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axiosRetry from 'axios-retry';
+import { Sentry } from './Sentry.js';
 
 export interface RequestConfig {
   params?: Record<string, string | number | boolean>;
@@ -15,6 +17,22 @@ export default class AxiosClient {
     if (!this.instance) {
       this.instance = axios.create({
         timeout: this.DEFAULT_TIMEOUT,
+      });
+      axiosRetry(this.instance, {
+        retries: 3,
+        retryDelay: axiosRetry.exponentialDelay,
+        retryCondition: (error) => {
+          if (error.code === 'ECONNABORTED' || error.code === 'ERR_CANCELED') return false;
+          return !error.response || error.response.status >= 500;
+        },
+        onRetry: (retryCount, error, requestConfig) => {
+          Sentry.addBreadcrumb({
+            category: 'http.retry',
+            message: Sentry.logger.fmt`Retrying ${requestConfig.url} (attempt ${retryCount})`,
+            level: 'warning',
+            data: { url: requestConfig.url, status: error.response?.status },
+          });
+        },
       });
     }
     return this.instance;
