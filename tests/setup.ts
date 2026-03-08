@@ -9,6 +9,7 @@ vi.mock('@sentry/bun', () => ({
   captureMessage: vi.fn(),
   withScope: vi.fn((cb: (scope: unknown) => void) => cb({ setTag: vi.fn(), setExtra: vi.fn() })),
   addBreadcrumb: vi.fn(),
+  consoleLoggingIntegration: vi.fn(() => ({})),
   logger: {
     warn: vi.fn(),
     fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
