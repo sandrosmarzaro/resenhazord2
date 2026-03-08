@@ -9,6 +9,8 @@ interface CommandDataTransientParams {
   hasAudioMessage: boolean;
   hasStickerMessage: boolean;
   hasQuotedMessage: boolean;
+  hasQuotedStickerMessage: boolean;
+  quotedStickerIsAnimated: boolean;
   mentionedJids: string[];
 }
 

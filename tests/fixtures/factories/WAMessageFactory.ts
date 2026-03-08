@@ -8,6 +8,8 @@ interface WAMessageTransientParams {
   hasAudioMessage: boolean;
   hasStickerMessage: boolean;
   hasQuotedMessage: boolean;
+  hasQuotedStickerMessage: boolean;
+  quotedStickerIsAnimated: boolean;
   mentionedJids: string[];
 }
 
@@ -20,6 +22,8 @@ export const WAMessageFactory = Factory.define<WAMessage, WAMessageTransientPara
       hasAudioMessage = false,
       hasStickerMessage = false,
       hasQuotedMessage = false,
+      hasQuotedStickerMessage = false,
+      quotedStickerIsAnimated = false,
       mentionedJids = [],
     } = transientParams;
 
@@ -72,16 +76,24 @@ export const WAMessageFactory = Factory.define<WAMessage, WAMessageTransientPara
         },
       };
     } else {
+      const quotedMessage = hasQuotedStickerMessage
+        ? {
+            stickerMessage: {
+              url: 'https://example.com/sticker.webp',
+              mimetype: 'image/webp',
+              isAnimated: quotedStickerIsAnimated,
+            },
+          }
+        : hasQuotedMessage
+          ? { conversation: 'quoted message' }
+          : undefined;
+
       message.message = {
         extendedTextMessage: {
           text: '',
           contextInfo: {
             mentionedJid: mentionedJids,
-            quotedMessage: hasQuotedMessage
-              ? {
-                  conversation: 'quoted message',
-                }
-              : undefined,
+            quotedMessage,
           },
         },
       };

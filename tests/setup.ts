@@ -49,6 +49,7 @@ vi.mock('sharp', () => {
   const sharpInstance = {
     resize: vi.fn().mockReturnThis(),
     png: vi.fn().mockReturnThis(),
+    gif: vi.fn().mockReturnThis(),
     toBuffer: vi.fn().mockResolvedValue(Buffer.from('mock-image')),
   };
   const sharpFn = vi.fn().mockReturnValue(sharpInstance);

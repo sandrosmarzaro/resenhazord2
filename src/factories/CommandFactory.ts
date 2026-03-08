@@ -4,6 +4,7 @@ import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import AddCommand from '../commands/AddCommand.js';
 import AdmCommand from '../commands/AdmCommand.js';
 import DriveCommand from '../commands/DriveCommand.js';
+import ExtrairCommand from '../commands/ExtrairCommand.js';
 import AlcoranCommand from '../commands/AlcoranCommand.js';
 import AudioCommand from '../commands/AudioCommand.js';
 import BanCommand from '../commands/BanCommand.js';
@@ -57,6 +58,7 @@ export default class CommandFactory {
       new D20Command(),
       new DownloadCommand(),
       new DriveCommand(whatsapp, discordService),
+      new ExtrairCommand(whatsapp),
       new FatoCommand(),
       new FilmeSerieCommand(),
       new FuckCommand(),
