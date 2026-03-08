@@ -141,6 +141,62 @@ Populated in `Resenhazord2` via `groups.upsert` and `group-participants.update` 
 
 `CommandFactory`, `MongoDBConnection`, `AxiosClient` all use the singleton pattern. `CommandFactory` has `reset()` for reconnection (new adapter → new factory instance).
 
+### Sentry
+
+`src/infra/Sentry.ts` initializes `@sentry/bun`. Always import as:
+
+```ts
+import { Sentry } from './src/infra/Sentry.js';
+```
+
+**Structured Logs** — `Sentry.logger.<level>()` with `fmt` tagged template for interpolation:
+
+```ts
+Sentry.logger.warn(Sentry.logger.fmt`Cache miss for key ${key}: ${error}`);
+```
+
+Levels (low → high): `trace` · `debug` · `info` · `warn` · `error` · `fatal`
+
+**Error capture** — always include `extra` context to aid debugging:
+
+```ts
+Sentry.captureException(error, { extra: { method: 'create', chatJid } });
+Sentry.captureMessage('Bot logged out', 'warning'); // levels: debug|info|log|warning|error|fatal
+```
+
+**Breadcrumbs** — trail of events before an error occurs:
+
+```ts
+Sentry.addBreadcrumb({ category: 'command', message: 'Executing FooCommand', level: 'info' });
+```
+
+**Scoped context** — tag errors with structured metadata:
+
+```ts
+Sentry.withScope((scope) => {
+  scope.setTag('command', command.constructor.name);
+  scope.setExtra('jid', jid);
+  Sentry.captureException(error);
+});
+```
+
+**Traces** — `tracesSampleRate: 0.1` (10%) configured in `Sentry.ts`; no manual spans currently.
+
+**Sentry CLI** — uses `SENTRY_TOKEN` from `.env` for releases and source maps:
+
+```bash
+SENTRY_AUTH_TOKEN=$SENTRY_TOKEN sentry-cli releases ...
+SENTRY_AUTH_TOKEN=$SENTRY_TOKEN sentry-cli sourcemaps upload ...
+```
+
+**Test mock** — all Sentry APIs are mocked in `tests/setup.ts`. When adding new `Sentry.logger` usage,
+ensure `fmt` is mocked as a tagged template literal:
+
+```ts
+fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
+  String.raw({ raw: strings }, ...values)
+```
+
 ## Code Conventions
 
 - **Runtime**: Bun (not Node.js)
@@ -154,7 +210,7 @@ Populated in `Resenhazord2` via `groups.upsert` and `group-participants.update` 
 
 - **Framework**: Vitest with globals enabled
 - **Fixtures**: `tests/fixtures/index.js` provides `GroupCommandData` and `PrivateCommandData` factories (using Fishery)
-- **Setup**: `tests/setup.ts` mocks external dependencies (google-tts-api, Gemini, sharp, pino, mongodb)
+- **Setup**: `tests/setup.ts` mocks external dependencies (google-tts-api, Gemini, sharp, pino, mongodb, @sentry/bun)
 - **Pattern**: Tests instantiate the command directly, use factories for `CommandData`, and assert on the returned `Message[]`
 - **WhatsApp mock**: `createMockWhatsAppPort()` from `tests/fixtures/factories/MockWhatsAppPort.ts` provides a mock `WhatsAppPort` for commands that need it (constructor-injected)
 
