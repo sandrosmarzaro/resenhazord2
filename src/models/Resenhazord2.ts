@@ -8,7 +8,6 @@ import MessageUpsertEvent from '../events/MessageUpsertEvent.js';
 import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 import groupMetadataCache from '../cache/index.js';
-import MongoDBConnection from '../infra/MongoDBConnection.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import { Sentry } from '../infra/Sentry.js';
 
@@ -94,10 +93,5 @@ export default class Resenhazord2 {
     }
     CommandFactory.reset();
     this.isConnecting = false;
-
-    if (MongoDBConnection.isConnected()) {
-      console.log('Closing MongoDB connection...');
-      await MongoDBConnection.close();
-    }
   }
 }
