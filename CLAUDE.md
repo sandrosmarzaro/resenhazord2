@@ -194,7 +194,7 @@ ensure `fmt` is mocked as a tagged template literal:
 
 ```ts
 fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
-  String.raw({ raw: strings }, ...values)
+  String.raw({ raw: strings }, ...values);
 ```
 
 ## Code Conventions
