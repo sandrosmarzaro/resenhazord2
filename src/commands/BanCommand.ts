@@ -9,7 +9,7 @@ export default class BanCommand extends Command {
   readonly config: CommandConfig = {
     name: 'ban',
     args: ArgType.Optional,
-    argsPattern: /^(?:@\d+\s*)*$/,
+    argsPattern: /^(?:@\d+(?:\s+@\d+)*)?$/,
     argsLabel: '@número',
     groupOnly: true,
     category: 'grupo',

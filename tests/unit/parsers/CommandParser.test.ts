@@ -283,7 +283,7 @@ describe('CommandParser', () => {
     const config: CommandConfig = {
       name: 'ban',
       args: ArgType.Optional,
-      argsPattern: /^(?:@\d+\s*)*$/,
+      argsPattern: /^(?:@\d+(?:\s+@\d+)*)?$/,
       groupOnly: true,
     };
     let parser: CommandParser;

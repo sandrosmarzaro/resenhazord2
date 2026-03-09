@@ -135,6 +135,6 @@ export default class CommandParser {
   }
 
   private replaceDiacritics(s: string): string {
-    return s.replace(/[^\x00-\x7F]/g, '.');
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[^\x00-\x7F]/g, '.');
   }
 }

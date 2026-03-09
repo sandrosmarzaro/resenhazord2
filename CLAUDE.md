@@ -98,7 +98,7 @@ Automatically sets `jid`, `quoted`, and `ephemeralExpiration` from the `CommandD
 | `flags`       | `string[]?`    | Boolean on/off toggles. `dm` and `show` are handled by the base class                |
 | `options`     | `OptionDef[]?` | Named parameters that select one value from a set or match a pattern                 |
 | `args`        | `ArgType?`     | `None` (default), `Required`, or `Optional` — free-text after command                |
-| `argsPattern` | `RegExp?`      | Validation regex for args (e.g., `/^(?:@\d+\s*)*$/`)                                 |
+| `argsPattern` | `RegExp?`      | Validation regex for args (e.g., `/^(?:@\d+(?:\s+@\d+)*)?$/`)                        |
 | `groupOnly`   | `boolean?`     | Restricts command to group chats (handled by base class)                             |
 
 **Flags** = boolean toggles (present or absent): `,pokemon team`, `,musica free`
@@ -224,6 +224,34 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 - Always run `bun typecheck` after changes and distinguish between pre-existing vs newly introduced errors
 - Always run `bun test:run` after changes and verify all previously passing tests still pass
 - When adding fields to object literals in config blocks, prefer multi-line formatting if the single-line form would exceed 100 chars
+
+## Security
+
+### CommandParser — regex safety
+
+`CommandParser.replaceDiacritics()` (`src/parsers/CommandParser.ts`) escapes ASCII regex metacharacters before replacing non-ASCII chars with `.`:
+
+```ts
+s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[^\x00-\x7F]/g, '.');
+```
+
+This means command `name`, `aliases`, `flags`, and `options[].values` are safe to use even if they contain chars like `+`, `|`, `(`, etc. Non-ASCII chars still intentionally become `.` (matches the unaccented equivalent).
+
+### argsPattern — avoid ReDoS
+
+Never use nested quantifiers inside repeating groups (e.g. `(?:@\d+\s*)*`). The outer `\s*` injected by `buildRegex()` creates overlap and causes catastrophic backtracking.
+
+**Safe pattern** — separate the whitespace outside the repeating unit:
+
+```ts
+// Bad — nested quantifiers cause ReDoS
+argsPattern: /^(?:@\d+\s*)*$/;
+
+// Good — no nested overlap
+argsPattern: /^(?:@\d+(?:\s+@\d+)*)?$/;
+```
+
+The outer `?` handles the optional/empty case. `\s+` between mentions eliminates ambiguity with the surrounding `\s*` injected by the parser.
 
 ## Environment
 
