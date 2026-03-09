@@ -10,6 +10,7 @@ import AudioCommand from '../commands/AudioCommand.js';
 import BanCommand from '../commands/BanCommand.js';
 import BaralhoCommand from '../commands/BaralhoCommand.js';
 import BeerCommand from '../commands/BeerCommand.js';
+import BichoCommand from '../commands/BichoCommand.js';
 import BibliaCommand from '../commands/BibliaCommand.js';
 import BorgesCommand from '../commands/BorgesCommand.js';
 import ClashRoyaleCommand from '../commands/ClashRoyaleCommand.js';
@@ -55,6 +56,7 @@ export default class CommandFactory {
       new BanCommand(whatsapp),
       new BaralhoCommand(),
       new BeerCommand(),
+      new BichoCommand(),
       new BibliaCommand(),
       new BorgesCommand(),
       new ClashRoyaleCommand(),
