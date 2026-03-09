@@ -12,6 +12,7 @@ import BaralhoCommand from '../commands/BaralhoCommand.js';
 import BeerCommand from '../commands/BeerCommand.js';
 import BibliaCommand from '../commands/BibliaCommand.js';
 import BorgesCommand from '../commands/BorgesCommand.js';
+import ClashRoyaleCommand from '../commands/ClashRoyaleCommand.js';
 import CountryFlagCommand from '../commands/CountryFlagCommand.js';
 import D20Command from '../commands/D20Command.js';
 import DownloadCommand from '../commands/DownloadCommand.js';
@@ -56,6 +57,7 @@ export default class CommandFactory {
       new BeerCommand(),
       new BibliaCommand(),
       new BorgesCommand(),
+      new ClashRoyaleCommand(),
       new CountryFlagCommand(),
       new D20Command(),
       new DownloadCommand(),
