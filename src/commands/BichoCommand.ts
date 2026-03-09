@@ -55,7 +55,7 @@ export default class BichoCommand extends Command {
         '',
         ...draw.prizes.map(
           (p, i) =>
-            `${PRIZE_EMOJIS[i] ?? `${i + 1}`}  ${p.milhar} · ${p.emoji} *${p.animal}* (grupo ${p.group})`,
+            `${PRIZE_EMOJIS[i] ?? `${i + 1}:`}  ${p.milhar} · ${p.emoji} *${p.animal}* (grupo ${p.group})`,
         ),
       ];
 
