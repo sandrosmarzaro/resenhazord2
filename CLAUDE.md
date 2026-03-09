@@ -207,6 +207,8 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 - **Modules**: ES modules with `.js` extensions in imports (even for `.ts` files)
 - **File naming**: PascalCase for classes (e.g., `OiCommand.ts`, `GetTextMessage.ts`)
 - **Exports**: Default exports for class files, named exports for data files
+- **Data files**: Large lookup tables, emoji maps, and static datasets belong in `src/data/` (e.g., `bichoAnimalEmojis.ts`, `pokemonTypeEmojis.ts`). Do not define big mappings inline in service or command files.
+- **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
 - **Formatting**: Prettier — single quotes, semicolons, 2-space indent, 100 char width
 - **Commit messages**: Conventional commits (`feat:`, `fix:`, `test:`, `refactor:`, `style:`, `ci:`, `chore:`)
 
