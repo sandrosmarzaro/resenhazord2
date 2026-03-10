@@ -70,7 +70,9 @@ export default class PokemonTCGCommand extends Command {
       return [Reply.to(data).image(card.images.large, caption)];
     } catch (error) {
       Sentry.captureException(error, { extra: { command: 'pokemontcg' } });
-      return [Reply.to(data).text('Não foi possível buscar uma carta no momento. Tente novamente.')];
+      return [
+        Reply.to(data).text('Não foi possível buscar uma carta no momento. Tente novamente.'),
+      ];
     }
   }
 
