@@ -145,6 +145,8 @@ Populated in `Resenhazord2` via `groups.upsert` and `group-participants.update` 
 
 `CommandFactory`, `MongoDBConnection`, `AxiosClient` all use the singleton pattern. `CommandFactory` has `reset()` for reconnection (new adapter → new factory instance).
 
+**Always use existing singletons** — never instantiate `axios`, `new MongoClient()`, or similar clients directly. Use `AxiosClient.get()` / `AxiosClient.post()` / `AxiosClient.getBuffer()` for all HTTP requests. These singletons provide centralized retry logic, timeout defaults, and Sentry breadcrumbs. Creating new instances bypasses these guarantees.
+
 ### Sentry
 
 `src/infra/Sentry.ts` initializes `@sentry/bun`. Always import as:
