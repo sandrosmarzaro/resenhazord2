@@ -45,8 +45,12 @@ describe('PokemonTCGCommand', () => {
       [',pokemontcg', true],
       [', pokemontcg', true],
       [', POKEMONTCG', true],
+      [', pokémontcg', true],
       [', pokemontcg show', true],
       [', pokemontcg dm', true],
+      [',ptcg', true],
+      [', ptcg', true],
+      [', ptcg show', true],
       ['pokemontcg', false],
       ['hello', false],
       [', pokemontcg extra', false],
@@ -172,7 +176,33 @@ describe('PokemonTCGCommand', () => {
 
       await command.run(data);
 
-      expect(mockGet).toHaveBeenCalledWith(expect.any(String), undefined);
+      expect(mockGet).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.not.objectContaining({ headers: expect.anything() }),
+      );
+    });
+
+    it('should always pass timeout in request config', async () => {
+      mockGet.mockResolvedValueOnce(mockCountResponse).mockResolvedValueOnce(mockCardResponse);
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      const data = GroupCommandData.build({ text: ',pokemontcg' });
+
+      await command.run(data);
+
+      expect(mockGet).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ timeout: 60000 }),
+      );
+    });
+
+    it('should return error text when API throws', async () => {
+      mockGet.mockRejectedValueOnce(new Error('timeout of 60000ms exceeded'));
+      const data = GroupCommandData.build({ text: ',pokemontcg' });
+
+      const messages = await command.run(data);
+
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('Não foi possível buscar');
     });
 
     it('should return fallback text when card has no image', async () => {

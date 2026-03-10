@@ -5,6 +5,7 @@ import Command from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 import { POKEMON_TYPE_EMOJIS } from '../data/pokemonTypeEmojis.js';
+import { Sentry } from '../infra/Sentry.js';
 
 interface PokemonTCGCard {
   name: string;
@@ -27,41 +28,50 @@ interface PokemonTCGResponse {
 
 export default class PokemonTCGCommand extends Command {
   readonly config: CommandConfig = {
-    name: 'pokemontcg',
+    name: 'pokémontcg',
+    aliases: ['ptcg'],
     flags: ['show', 'dm'],
     category: 'aleatórias',
   };
   readonly menuDescription = 'Receba uma carta aleatória do Pokémon TCG.';
 
   private static readonly API_URL = 'https://api.pokemontcg.io/v2/cards';
+  private static readonly TIMEOUT = 60000;
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
     const headers = process.env.POKEMON_TCG_API_KEY
       ? { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY }
       : undefined;
 
-    const countResponse = await AxiosClient.get<PokemonTCGResponse>(
-      `${PokemonTCGCommand.API_URL}?pageSize=1`,
-      headers ? { headers } : undefined,
-    );
-    const totalCount = countResponse.data.totalCount;
+    const config = { timeout: PokemonTCGCommand.TIMEOUT, ...(headers ? { headers } : {}) };
 
-    const randomPage = Math.floor(Math.random() * totalCount) + 1;
-    const cardResponse = await AxiosClient.get<PokemonTCGResponse>(
-      `${PokemonTCGCommand.API_URL}?pageSize=1&page=${randomPage}`,
-      headers ? { headers } : undefined,
-    );
+    try {
+      const countResponse = await AxiosClient.get<PokemonTCGResponse>(
+        `${PokemonTCGCommand.API_URL}?pageSize=1`,
+        config,
+      );
+      const totalCount = countResponse.data.totalCount;
 
-    const card = cardResponse.data.data[0];
+      const randomPage = Math.floor(Math.random() * totalCount) + 1;
+      const cardResponse = await AxiosClient.get<PokemonTCGResponse>(
+        `${PokemonTCGCommand.API_URL}?pageSize=1&page=${randomPage}`,
+        config,
+      );
 
-    if (!card?.images?.large) {
-      return [
-        Reply.to(data).text('Não foi possível encontrar uma carta com imagem. Tente novamente.'),
-      ];
+      const card = cardResponse.data.data[0];
+
+      if (!card?.images?.large) {
+        return [
+          Reply.to(data).text('Não foi possível encontrar uma carta com imagem. Tente novamente.'),
+        ];
+      }
+
+      const caption = this.buildCaption(card);
+      return [Reply.to(data).image(card.images.large, caption)];
+    } catch (error) {
+      Sentry.captureException(error, { extra: { command: 'pokemontcg' } });
+      return [Reply.to(data).text('Não foi possível buscar uma carta no momento. Tente novamente.')];
     }
-
-    const caption = this.buildCaption(card);
-    return [Reply.to(data).image(card.images.large, caption)];
   }
 
   private buildCaption(card: PokemonTCGCard): string {
