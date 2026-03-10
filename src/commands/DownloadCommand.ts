@@ -13,17 +13,20 @@ export default class DownloadCommand extends Command {
     aliases: ['baixar'],
     flags: ['show', 'dm'],
     args: ArgType.Required,
-    argsPattern: /https?:\/\/.+/,
+    argsPattern: /https?:\/\/\S+[\s\S]*/,
     category: 'download',
   };
   readonly menuDescription = 'Baixe vídeos de qualquer URL (YouTube, Instagram, TikTok, etc.).';
 
+  private static readonly URL_REGEX = /https?:\/\/\S+/;
+
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    const url = parsed.rest.match(DownloadCommand.URL_REGEX)?.[0] ?? parsed.rest;
     try {
-      const { buffer, title } = await YtDlpService.download(parsed.rest);
+      const { buffer, title } = await YtDlpService.download(url);
       return [Reply.to(data).videoBuffer(buffer, title)];
     } catch (err) {
-      Sentry.captureException(err, { extra: { url: parsed.rest } });
+      Sentry.captureException(err, { extra: { url } });
       console.error('[DownloadCommand] yt-dlp error:', err);
       return [Reply.to(data).text('Não consegui baixar esse vídeo 😅')];
     }

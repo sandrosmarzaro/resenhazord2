@@ -30,6 +30,8 @@ describe('DownloadCommand', () => {
       [',baixar https://instagram.com/reel/abc', true],
       [', baixar https://youtube.com/shorts/abc', true],
       [',DL https://x.com/foo', true],
+      [',dl https://x.com/i/status/123\natemporal', true],
+      [',dl https://x.com/user/status/123 extra text', true],
       [',dl', false],
       [',dl not-a-url', false],
       ['dl https://x.com', false],
@@ -111,6 +113,28 @@ describe('DownloadCommand', () => {
       const messages = await command.run(data);
 
       expect(mockDownload).toHaveBeenCalledWith('https://instagram.com/reel/abc');
+      expect(messages).toHaveLength(1);
+    });
+
+    it('should extract only the URL when extra text follows on a new line', async () => {
+      const data = GroupCommandData.build({
+        text: ',dl https://x.com/i/status/123\natemporal',
+      });
+
+      const messages = await command.run(data);
+
+      expect(mockDownload).toHaveBeenCalledWith('https://x.com/i/status/123');
+      expect(messages).toHaveLength(1);
+    });
+
+    it('should extract only the URL when extra text follows on the same line', async () => {
+      const data = GroupCommandData.build({
+        text: ',dl https://x.com/user/status/123 extra text',
+      });
+
+      const messages = await command.run(data);
+
+      expect(mockDownload).toHaveBeenCalledWith('https://x.com/user/status/123');
       expect(messages).toHaveLength(1);
     });
   });
