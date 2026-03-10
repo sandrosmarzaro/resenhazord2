@@ -229,6 +229,15 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 - Always run `bun test:run` after changes and verify all previously passing tests still pass
 - When adding fields to object literals in config blocks, prefer multi-line formatting if the single-line form would exceed 100 chars
 
+## External API Integration
+
+1. **Test APIs first** — curl endpoints before implementing to check response format, latency, and payload size
+2. **Read API docs fully** — look for simpler endpoints (e.g., `/random/card` instead of multi-step fetch), recommended formats (webp vs png), and asset URL construction rules
+3. **Pre-download media as buffers** — use `AxiosClient.getBuffer()` + `Reply.to(data).imageBuffer()` so download errors are caught inside the command's try-catch, not in `sendMessages()` which only has the generic CommandHandler error handler
+4. **Disable retries for slow APIs** — pass `retries: 0` in config; default 3 retries with exponential backoff silently multiply latency
+5. **Prefer small formats** — use webp over png for images (can be 10x+ smaller); check API docs for recommended formats
+6. **Set realistic timeouts** — consider production server latency, not local; production servers may have higher latency to external APIs
+
 ## Security
 
 ### CommandParser — regex safety

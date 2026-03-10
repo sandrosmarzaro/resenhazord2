@@ -7,6 +7,7 @@ export interface RequestConfig {
   headers?: Record<string, string>;
   timeout?: number;
   responseType?: 'json' | 'arraybuffer' | 'blob' | 'text' | 'stream';
+  retries?: number;
 }
 
 export default class AxiosClient {
@@ -57,12 +58,16 @@ export default class AxiosClient {
 
   private static buildConfig(config?: RequestConfig): AxiosRequestConfig {
     if (!config) return {};
-    return {
+    const axiosConfig: AxiosRequestConfig = {
       params: config.params,
       headers: config.headers,
       timeout: config.timeout,
       responseType: config.responseType,
     };
+    if (config.retries !== undefined) {
+      axiosConfig['axios-retry'] = { retries: config.retries };
+    }
+    return axiosConfig;
   }
 
   static reset(): void {

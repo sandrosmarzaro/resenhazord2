@@ -7,26 +7,6 @@ import Reply from '../builders/Reply.js';
 import { POKEMON_TYPE_EMOJIS } from '../data/pokemonTypeEmojis.js';
 import { Sentry } from '../infra/Sentry.js';
 
-interface TCGdexSetSummary {
-  id: string;
-  name: string;
-  cardCount: { total: number; official: number };
-}
-
-interface TCGdexCardSummary {
-  id: string;
-  localId: string;
-  name: string;
-  image?: string;
-}
-
-interface TCGdexSetDetail {
-  id: string;
-  name: string;
-  cardCount: { total: number; official: number };
-  cards: TCGdexCardSummary[];
-}
-
 interface TCGdexCard {
   id: string;
   localId: string;
@@ -51,47 +31,35 @@ export default class PokemonTCGCommand extends Command {
   readonly menuDescription = 'Receba uma carta aleatória do Pokémon TCG.';
 
   private static readonly BASE_URL = 'https://api.tcgdex.net/v2/en';
-  private static readonly TIMEOUT = 15000;
+  private static readonly TIMEOUT = 30000;
+  private static readonly MAX_RETRIES = 3;
 
   protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
-    const config = { timeout: PokemonTCGCommand.TIMEOUT };
+    const config = { timeout: PokemonTCGCommand.TIMEOUT, retries: 0 };
 
     try {
-      const setsResponse = await AxiosClient.get<TCGdexSetSummary[]>(
-        `${PokemonTCGCommand.BASE_URL}/sets`,
-        config,
-      );
-      const sets = setsResponse.data;
-      const randomSet = sets[Math.floor(Math.random() * sets.length)];
-
-      const setResponse = await AxiosClient.get<TCGdexSetDetail>(
-        `${PokemonTCGCommand.BASE_URL}/sets/${randomSet.id}`,
-        config,
-      );
-      const cardsWithImages = setResponse.data.cards.filter((c) => c.image);
-
-      if (cardsWithImages.length === 0) {
-        return [
-          Reply.to(data).text('Não foi possível encontrar uma carta com imagem. Tente novamente.'),
-        ];
+      let card: TCGdexCard | undefined;
+      for (let attempt = 0; attempt < PokemonTCGCommand.MAX_RETRIES; attempt++) {
+        const response = await AxiosClient.get<TCGdexCard>(
+          `${PokemonTCGCommand.BASE_URL}/random/card`,
+          config,
+        );
+        if (response.data.image) {
+          card = response.data;
+          break;
+        }
       }
 
-      const randomCardSummary = cardsWithImages[Math.floor(Math.random() * cardsWithImages.length)];
-
-      const cardResponse = await AxiosClient.get<TCGdexCard>(
-        `${PokemonTCGCommand.BASE_URL}/cards/${randomCardSummary.id}`,
-        config,
-      );
-      const card = cardResponse.data;
-
-      if (!card.image) {
+      if (!card) {
+        Sentry.captureMessage('PokemonTCG: no card with image after retries', 'warning');
         return [
           Reply.to(data).text('Não foi possível encontrar uma carta com imagem. Tente novamente.'),
         ];
       }
 
       const caption = this.buildCaption(card);
-      return [Reply.to(data).image(`${card.image}/high.png`, caption)];
+      const imageBuffer = await AxiosClient.getBuffer(`${card.image}/high.webp`, config);
+      return [Reply.to(data).imageBuffer(imageBuffer, caption)];
     } catch (error) {
       Sentry.captureException(error, { extra: { command: 'pokemontcg' } });
       return [

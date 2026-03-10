@@ -90,4 +90,11 @@ describe('AxiosClient retry', () => {
     await expect(AxiosClient.get('/test')).rejects.toThrow();
     expect(addBreadcrumb).not.toHaveBeenCalled();
   });
+
+  it('does not retry when retries is set to 0', async () => {
+    mock.onGet('/test').reply(500);
+
+    await expect(AxiosClient.get('/test', { retries: 0 })).rejects.toThrow();
+    expect(addBreadcrumb).not.toHaveBeenCalled();
+  });
 });
