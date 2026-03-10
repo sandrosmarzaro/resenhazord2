@@ -24,6 +24,7 @@ import GroupMentionsCommand from '../commands/GroupMentionsCommand.js';
 import HeartstoneCommand from '../commands/HeartstoneCommand.js';
 import LeagueOfLegendsCommand from '../commands/LeagueOfLegendsCommand.js';
 import MagicTheGatheringCommand from '../commands/MagicTheGatheringCommand.js';
+import PokemonTCGCommand from '../commands/PokemonTCGCommand.js';
 import MateusCommand from '../commands/MateusCommand.js';
 import MealRecipesCommand from '../commands/MealRecipesCommand.js';
 import MusicCommand from '../commands/MusicCommand.js';
@@ -79,6 +80,7 @@ export default class CommandFactory {
       new MyAnimeListCommand(),
       new OiCommand(),
       new PokemonCommand(),
+      new PokemonTCGCommand(),
       new PornoCommand(),
       new Rule34Command(),
       new ScarraCommand(whatsapp),
