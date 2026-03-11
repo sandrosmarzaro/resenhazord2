@@ -3,6 +3,16 @@ import MockAdapter from 'axios-mock-adapter';
 import AxiosClient from '../../../src/infra/AxiosClient.js';
 import { addBreadcrumb } from '@sentry/bun';
 
+vi.mock('axios-retry', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('axios-retry')>();
+  return {
+    ...mod,
+    default: Object.assign(mod.default, {
+      exponentialDelay: () => 0,
+    }),
+  };
+});
+
 describe('AxiosClient retry', () => {
   let mock: MockAdapter;
 
