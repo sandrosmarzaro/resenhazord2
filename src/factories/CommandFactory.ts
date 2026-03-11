@@ -19,6 +19,7 @@ import D20Command from '../commands/D20Command.js';
 import DownloadCommand from '../commands/DownloadCommand.js';
 import FatoCommand from '../commands/FatoCommand.js';
 import FilmeSerieCommand from '../commands/FilmeSerieCommand.js';
+import GameCommand from '../commands/GameCommand.js';
 import FuckCommand from '../commands/FuckCommand.js';
 import GroupMentionsCommand from '../commands/GroupMentionsCommand.js';
 import HeartstoneCommand from '../commands/HeartstoneCommand.js';
@@ -69,6 +70,7 @@ export default class CommandFactory {
       new FatoCommand(),
       new FilmeSerieCommand(),
       new FuckCommand(),
+      new GameCommand(),
       new GroupMentionsCommand(),
       new HeartstoneCommand(),
       new LeagueOfLegendsCommand(),
