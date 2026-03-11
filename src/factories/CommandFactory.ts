@@ -2,6 +2,7 @@ import type Command from '../commands/Command.js';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 
 import AddCommand from '../commands/AddCommand.js';
+import AnimalCommand from '../commands/AnimalCommand.js';
 import AdmCommand from '../commands/AdmCommand.js';
 import DriveCommand from '../commands/DriveCommand.js';
 import ExtrairCommand from '../commands/ExtrairCommand.js';
@@ -54,6 +55,7 @@ export default class CommandFactory {
       new AddCommand(whatsapp),
       new AdmCommand(whatsapp),
       new AlcoranCommand(),
+      new AnimalCommand(),
       new AudioCommand(),
       new BanCommand(whatsapp),
       new BaralhoCommand(),
