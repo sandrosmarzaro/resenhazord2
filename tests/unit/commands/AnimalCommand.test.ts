@@ -155,5 +155,20 @@ describe('AnimalCommand', () => {
       const content = messages[0].content as { text: string };
       expect(content.text).toBeTruthy();
     });
+
+    it('should return rate limit message without capturing to Sentry on 429', async () => {
+      const rateLimitError = Object.assign(new Error('Too Many Requests'), {
+        isAxiosError: true,
+        response: { status: 429 },
+      });
+      mockGet.mockRejectedValue(rateLimitError);
+      const data = GroupCommandData.build({ text: ',animal' });
+
+      const messages = await command.run(data);
+
+      expect(messages).toHaveLength(1);
+      const content = messages[0].content as { text: string };
+      expect(content.text).toContain('1 minuto');
+    });
   });
 });

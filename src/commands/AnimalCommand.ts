@@ -1,6 +1,7 @@
 import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
+import axios from 'axios';
 import Command from './Command.js';
 import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
@@ -55,6 +56,11 @@ export default class AnimalCommand extends Command {
       const buffer = await AxiosClient.getBuffer(image);
       return [Reply.to(data).imageBuffer(buffer, caption)];
     } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
+        return [
+          Reply.to(data).text('Muitas requisições no momento. Tente novamente em 1 minuto! 🐾'),
+        ];
+      }
       Sentry.captureException(error, { extra: { command: 'animal' } });
       return [Reply.to(data).text('Erro ao buscar animal. Tente novamente mais tarde! 🐾')];
     }
