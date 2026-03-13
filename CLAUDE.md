@@ -200,6 +200,7 @@ SENTRY_AUTH_TOKEN=$SENTRY_TOKEN sentry-cli sourcemaps upload ...
 Use `SENTRY_TOKEN` from `.env` to query issues via the REST API without opening the web UI.
 
 **List recent unresolved issues:**
+
 ```bash
 curl -s \
   -H "Authorization: Bearer $SENTRY_TOKEN" \
@@ -208,6 +209,7 @@ curl -s \
 ```
 
 **Fetch a specific issue (title, culprit, tags):**
+
 ```bash
 curl -s \
   -H "Authorization: Bearer $SENTRY_TOKEN" \
@@ -216,6 +218,7 @@ curl -s \
 ```
 
 **Get the latest event with full stack trace:**
+
 ```bash
 curl -s \
   -H "Authorization: Bearer $SENTRY_TOKEN" \
