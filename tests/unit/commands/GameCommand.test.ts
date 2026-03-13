@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import GameCommand from '../../../src/commands/GameCommand.js';
 import { GroupCommandData, PrivateCommandData } from '../../fixtures/index.js';
 import AxiosClient from '../../../src/infra/AxiosClient.js';
-import IgdbService from '../../../src/services/IgdbService.js';
+import IgdbService from '../../../src/clients/IgdbService.js';
 
 const mockRawgGame = {
   name: 'The Legend of Zelda: Ocarina of Time',
@@ -41,7 +41,7 @@ vi.mock('../../../src/infra/AxiosClient.js', () => ({
   },
 }));
 
-vi.mock('../../../src/services/IgdbService.js', () => ({
+vi.mock('../../../src/clients/IgdbService.js', () => ({
   default: {
     getRandomGame: vi.fn(),
     coverUrl: vi.fn(

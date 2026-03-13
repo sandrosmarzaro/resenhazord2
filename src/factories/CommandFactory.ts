@@ -41,7 +41,7 @@ import ScarraCommand from '../commands/ScarraCommand.js';
 import StickerCommand from '../commands/StickerCommand.js';
 import TorahCommand from '../commands/TorahCommand.js';
 import YugiohCommand from '../commands/YugiohCommand.js';
-import DiscordService from '../services/DiscordService.js';
+import DiscordService from '../clients/DiscordService.js';
 
 export default class CommandFactory {
   private static instance: CommandFactory | null = null;

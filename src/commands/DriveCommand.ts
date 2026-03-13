@@ -8,7 +8,7 @@ import { ArgType } from '../types/commandConfig.js';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import Reply from '../builders/Reply.js';
-import DiscordService from '../services/DiscordService.js';
+import DiscordService from '../clients/DiscordService.js';
 import { Sentry } from '../infra/Sentry.js';
 
 const MEDIA_TYPES = ['imageMessage', 'videoMessage', 'audioMessage'] as const;

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import BichoCommand from '../../../src/commands/BichoCommand.js';
-import BichoScraper from '../../../src/services/BichoScraper.js';
-import type { DrawResult } from '../../../src/services/BichoScraper.js';
+import BichoScraper from '../../../src/scrapers/BichoScraper.js';
+import type { DrawResult } from '../../../src/scrapers/BichoScraper.js';
 import { GroupCommandData } from '../../fixtures/index.js';
 
-vi.mock('../../../src/services/BichoScraper.js', () => ({
+vi.mock('../../../src/scrapers/BichoScraper.js', () => ({
   default: { fetch: vi.fn() },
 }));
 

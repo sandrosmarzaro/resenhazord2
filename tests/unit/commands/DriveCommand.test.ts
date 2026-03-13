@@ -10,7 +10,7 @@ vi.mock('@whiskeysockets/baileys', async (importOriginal) => {
 
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import DriveCommand from '../../../src/commands/DriveCommand.js';
-import DiscordService from '../../../src/services/DiscordService.js';
+import DiscordService from '../../../src/clients/DiscordService.js';
 import {
   GroupCommandData,
   PrivateCommandData,

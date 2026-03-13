@@ -5,7 +5,7 @@ import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import { NSFW } from 'nsfwhub';
 import { NSFW_TAGS } from '../data/nsfwTags.js';
-import XVideosScraper from '../services/XVideosScraper.js';
+import XVideosScraper from '../scrapers/XVideosScraper.js';
 import Reply from '../builders/Reply.js';
 
 export default class PornoCommand extends Command {

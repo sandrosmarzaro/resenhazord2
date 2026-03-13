@@ -4,7 +4,7 @@ import type { Message } from '../types/message.js';
 import Command from './Command.js';
 import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
-import IgdbService from '../services/IgdbService.js';
+import IgdbService from '../clients/IgdbService.js';
 
 interface GameInfo {
   name: string;

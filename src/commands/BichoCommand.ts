@@ -3,7 +3,7 @@ import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
-import BichoScraper from '../services/BichoScraper.js';
+import BichoScraper from '../scrapers/BichoScraper.js';
 import Reply from '../builders/Reply.js';
 
 const ARG_TO_DRAW_ID: Record<string, string> = {

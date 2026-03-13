@@ -4,7 +4,7 @@ import type { Message } from '../types/message.js';
 import { ArgType } from '../types/commandConfig.js';
 import Command from './Command.js';
 import Reply from '../builders/Reply.js';
-import YtDlpService from '../services/YtDlpService.js';
+import YtDlpService from '../clients/YtDlpService.js';
 import { Sentry } from '../infra/Sentry.js';
 
 export default class DownloadCommand extends Command {

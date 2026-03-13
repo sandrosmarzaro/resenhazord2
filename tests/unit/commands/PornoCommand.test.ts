@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import PornoCommand from '../../../src/commands/PornoCommand.js';
 import { GroupCommandData, PrivateCommandData } from '../../fixtures/index.js';
 
-vi.mock('../../../src/services/XVideosScraper.js', () => ({
+vi.mock('../../../src/scrapers/XVideosScraper.js', () => ({
   default: {
     getRandomVideo: vi.fn().mockResolvedValue({
       videoUrl: 'https://example.com/video.mp4',
@@ -11,7 +11,7 @@ vi.mock('../../../src/services/XVideosScraper.js', () => ({
   },
 }));
 
-import XVideosScraper from '../../../src/services/XVideosScraper.js';
+import XVideosScraper from '../../../src/scrapers/XVideosScraper.js';
 
 const mockGetRandomVideo = XVideosScraper.getRandomVideo as ReturnType<typeof vi.fn>;
 

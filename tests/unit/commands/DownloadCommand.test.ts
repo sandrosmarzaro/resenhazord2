@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import DownloadCommand from '../../../src/commands/DownloadCommand.js';
 import { GroupCommandData, PrivateCommandData } from '../../fixtures/index.js';
 
-vi.mock('../../../src/services/YtDlpService.js', () => ({
+vi.mock('../../../src/clients/YtDlpService.js', () => ({
   default: {
     download: vi.fn().mockResolvedValue({
       buffer: Buffer.from('video-data'),
@@ -11,7 +11,7 @@ vi.mock('../../../src/services/YtDlpService.js', () => ({
   },
 }));
 
-import YtDlpService from '../../../src/services/YtDlpService.js';
+import YtDlpService from '../../../src/clients/YtDlpService.js';
 
 const mockDownload = YtDlpService.download as ReturnType<typeof vi.fn>;
 
