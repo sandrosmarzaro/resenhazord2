@@ -39,6 +39,7 @@ import PornoCommand from '../commands/PornoCommand.js';
 import Rule34Command from '../commands/Rule34Command.js';
 import ScarraCommand from '../commands/ScarraCommand.js';
 import StickerCommand from '../commands/StickerCommand.js';
+import TorahCommand from '../commands/TorahCommand.js';
 import YugiohCommand from '../commands/YugiohCommand.js';
 import DiscordService from '../services/DiscordService.js';
 
@@ -91,6 +92,7 @@ export default class CommandFactory {
       new Rule34Command(),
       new ScarraCommand(whatsapp),
       new StickerCommand(whatsapp),
+      new TorahCommand(),
       new YugiohCommand(),
     ];
   }
