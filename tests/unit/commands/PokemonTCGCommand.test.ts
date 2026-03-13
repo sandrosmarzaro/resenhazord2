@@ -50,9 +50,11 @@ describe('PokemonTCGCommand', () => {
       [', pokémontcg', true],
       [', pokemontcg show', true],
       [', pokemontcg dm', true],
+      [', pokemontcg booster', true],
       [',ptcg', true],
       [', ptcg', true],
       [', ptcg show', true],
+      [', ptcg booster', true],
       ['pokemontcg', false],
       ['hello', false],
       [', pokemontcg extra', false],
@@ -311,6 +313,71 @@ describe('PokemonTCGCommand', () => {
         const content = messages[0].content as { image: Buffer };
         expect(Buffer.isBuffer(content.image)).toBe(true);
         expect(content.image).not.toEqual(expect.objectContaining({ url: expect.any(String) }));
+      });
+    });
+
+    describe('booster mode', () => {
+      it('should return a grid of 6 cards with numbered caption', async () => {
+        mockGet.mockResolvedValue(mockCardResponse);
+        mockGetBuffer.mockResolvedValue(mockImageBuffer);
+        const data = GroupCommandData.build({ text: ',pokemontcg booster' });
+
+        const messages = await command.run(data);
+
+        expect(messages).toHaveLength(1);
+        expect(mockGet).toHaveBeenCalledTimes(6);
+        expect(mockGetBuffer).toHaveBeenCalledTimes(6);
+        const content = messages[0].content as { caption: string; image: Buffer };
+        expect(content.caption).toContain('*1.*');
+        expect(content.caption).toContain('Charizard');
+        expect(Buffer.isBuffer(content.image)).toBe(true);
+      });
+
+      it('should format booster label with category, type and rarity', async () => {
+        mockGet.mockResolvedValue(mockCardResponse);
+        mockGetBuffer.mockResolvedValue(mockImageBuffer);
+        const data = GroupCommandData.build({ text: ',ptcg booster' });
+
+        const messages = await command.run(data);
+
+        const content = messages[0].content as { caption: string };
+        expect(content.caption).toContain('Pokemon Stage2');
+        expect(content.caption).toContain('🔥');
+        expect(content.caption).toContain('HP: 120');
+        expect(content.caption).toContain('⭐ Rare');
+      });
+
+      it('should set viewOnce to true by default for booster', async () => {
+        mockGet.mockResolvedValue(mockCardResponse);
+        mockGetBuffer.mockResolvedValue(mockImageBuffer);
+        const data = GroupCommandData.build({ text: ',ptcg booster' });
+
+        const messages = await command.run(data);
+
+        const content = messages[0].content as { viewOnce: boolean };
+        expect(content.viewOnce).toBe(true);
+      });
+
+      it('should set viewOnce to false with show flag for booster', async () => {
+        mockGet.mockResolvedValue(mockCardResponse);
+        mockGetBuffer.mockResolvedValue(mockImageBuffer);
+        const data = GroupCommandData.build({ text: ',ptcg booster show' });
+
+        const messages = await command.run(data);
+
+        const content = messages[0].content as { viewOnce: boolean };
+        expect(content.viewOnce).toBe(false);
+      });
+
+      it('should download images as webp for booster', async () => {
+        mockGet.mockResolvedValue(mockCardResponse);
+        mockGetBuffer.mockResolvedValue(mockImageBuffer);
+        const data = GroupCommandData.build({ text: ',ptcg booster' });
+
+        await command.run(data);
+
+        const imageUrl = mockGetBuffer.mock.calls[0][0] as string;
+        expect(imageUrl).toMatch(/\.webp$/);
       });
     });
 

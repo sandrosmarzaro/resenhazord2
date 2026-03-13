@@ -1,8 +1,8 @@
-import sharp from 'sharp';
 import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
-import Command from './Command.js';
+import type { BoosterConfig, CardItem } from './CardBoosterCommand.js';
+import CardBoosterCommand from './CardBoosterCommand.js';
 import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { POKEMON_TYPE_EMOJIS } from '../data/pokemonTypeEmojis.js';
@@ -17,7 +17,7 @@ interface PokemonResponse {
   };
 }
 
-export default class PokemonCommand extends Command {
+export default class PokemonCommand extends CardBoosterCommand {
   readonly config: CommandConfig = {
     name: 'pokémon',
     flags: ['team', 'show', 'dm'],
@@ -25,17 +25,52 @@ export default class PokemonCommand extends Command {
   };
   readonly menuDescription = 'Receba uma imagem e dados de um pokémon aleatório.';
 
+  protected readonly boosterConfig: BoosterConfig = {
+    flagName: 'team',
+    count: 6,
+    columns: 3,
+    cellWidth: 475,
+    cellHeight: 475,
+    shim: 0,
+    shimBackground: '#ffffff',
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  };
+
+  private static readonly BASE_URL = 'https://pokeapi.co/api/v2/pokemon/';
+
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     if (parsed.flags.has('team')) {
-      return this.runTeam(data);
+      return this.runBooster(data);
     }
     return this.runSingle(data);
   }
 
+  protected async fetchBoosterItems(): Promise<CardItem[]> {
+    const ids = Array.from(
+      { length: this.boosterConfig.count },
+      () => Math.floor(Math.random() * 1025) + 1,
+    );
+    const responses = await Promise.all(
+      ids.map((id) => AxiosClient.get<PokemonResponse>(`${PokemonCommand.BASE_URL}${id}`)),
+    );
+    return responses.map((r) => {
+      const p = r.data;
+      const name = p.name.charAt(0).toUpperCase() + p.name.slice(1);
+      const types = p.types
+        .map(({ type }) => POKEMON_TYPE_EMOJIS[type.name] || type.name)
+        .join(' ');
+      return {
+        imageUrl: p.sprites.other['official-artwork'].front_default ?? p.sprites.front_default,
+        label: `${name} ${types} (#${p.id})`,
+      };
+    });
+  }
+
   private async runSingle(data: CommandData): Promise<Message[]> {
-    const url = 'https://pokeapi.co/api/v2/pokemon/';
     const pokemon_id = Math.floor(Math.random() * 1025) + 1;
-    const response = await AxiosClient.get<PokemonResponse>(`${url}${pokemon_id}`);
+    const response = await AxiosClient.get<PokemonResponse>(
+      `${PokemonCommand.BASE_URL}${pokemon_id}`,
+    );
     const pokemon = response.data;
     const poke_name = `*Nome*: ${pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}\n`;
     const types = pokemon.types.map(
@@ -50,51 +85,6 @@ export default class PokemonCommand extends Command {
     } else {
       poke_image_url = pokemon.sprites.front_default;
     }
-
     return [Reply.to(data).image(poke_image_url, poke_caption)];
-  }
-
-  private async runTeam(data: CommandData): Promise<Message[]> {
-    const url = 'https://pokeapi.co/api/v2/pokemon/';
-    const ids = Array.from({ length: 6 }, () => Math.floor(Math.random() * 1025) + 1);
-
-    const responses = await Promise.all(
-      ids.map((id) => AxiosClient.get<PokemonResponse>(`${url}${id}`)),
-    );
-    const pokemons = responses.map((r) => r.data);
-
-    const imageUrls = pokemons.map((p) =>
-      p.sprites.other['official-artwork'].front_default
-        ? p.sprites.other['official-artwork'].front_default
-        : p.sprites.front_default,
-    );
-    const imageBuffers = await Promise.all(imageUrls.map((u) => AxiosClient.getBuffer(u)));
-
-    const resizedBuffers = await Promise.all(
-      imageBuffers.map((buf) =>
-        sharp(buf)
-          .resize(475, 475, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer(),
-      ),
-    );
-
-    const gridBuffer = await sharp(resizedBuffers, {
-      join: { across: 3, shim: 8, background: '#ffffff' },
-    })
-      .png()
-      .toBuffer();
-
-    const caption = pokemons
-      .map((p, i) => {
-        const name = p.name.charAt(0).toUpperCase() + p.name.slice(1);
-        const types = p.types
-          .map(({ type }) => POKEMON_TYPE_EMOJIS[type.name] || type.name)
-          .join(' ');
-        return `*${i + 1}.* ${name} ${types} (#${p.id})`;
-      })
-      .join('\n');
-
-    return [Reply.to(data).imageBuffer(gridBuffer, caption)];
   }
 }

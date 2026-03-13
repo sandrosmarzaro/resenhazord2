@@ -17,4 +17,9 @@ export const POKEMON_TYPE_EMOJIS: Record<string, string> = {
   dark: '🌑',
   steel: '⛓️',
   fairy: '🧚',
+  // TCG-specific type names (TCGdex uses these instead of the main-game names)
+  lightning: '⚡',
+  metal: '⛓️',
+  darkness: '🌑',
+  colorless: '⚪',
 };

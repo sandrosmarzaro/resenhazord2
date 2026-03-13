@@ -7,11 +7,13 @@ vi.mock('../../../src/infra/AxiosClient.js', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    getBuffer: vi.fn(),
   },
 }));
 
 const mockGet = AxiosClient.get as ReturnType<typeof vi.fn>;
 const mockPost = AxiosClient.post as ReturnType<typeof vi.fn>;
+const mockGetBuffer = AxiosClient.getBuffer as ReturnType<typeof vi.fn>;
 
 const mockCard = {
   name: 'Fireball',
@@ -28,6 +30,8 @@ describe('HeartstoneCommand', () => {
     vi.clearAllMocks();
     process.env.BNET_ID = 'test-id';
     process.env.BNET_SECRET = 'test-secret';
+    // Reset static token cache so each test starts with a fresh OAuth call
+    (HeartstoneCommand as unknown as Record<string, unknown>)['cachedToken'] = null;
   });
 
   describe('matches()', () => {
@@ -37,6 +41,7 @@ describe('HeartstoneCommand', () => {
       [', HS', true],
       [', hs show', true],
       [', hs dm', true],
+      [', hs booster', true],
       ['  , hs  ', true],
       ['hs', false],
       ['hello', false],
@@ -155,6 +160,65 @@ describe('HeartstoneCommand', () => {
       const messages = await command.run(data);
 
       expect(messages[0].options?.ephemeralExpiration).toBe(86400);
+    });
+
+    describe('booster mode', () => {
+      it('should return a grid of 6 cards with numbered caption', async () => {
+        mockPost.mockResolvedValue({ data: { access_token: 'mock-token' } });
+        mockGet
+          .mockResolvedValueOnce({ data: { pageCount: 10, cards: [] } })
+          .mockResolvedValue({ data: { cards: [mockCard] } });
+        mockGetBuffer.mockResolvedValue(Buffer.from('mock-image'));
+        vi.spyOn(Math, 'random').mockReturnValue(0);
+        const data = GroupCommandData.build({ text: ',hs booster' });
+
+        const messages = await command.run(data);
+
+        expect(messages).toHaveLength(1);
+        expect(mockGet).toHaveBeenCalledTimes(7); // 1 pageCount + 6 card fetches
+        expect(mockGetBuffer).toHaveBeenCalledTimes(6);
+        const content = messages[0].content as { caption: string; image: Buffer };
+        expect(content.caption).toContain('*1.*');
+        expect(content.caption).toContain('Fireball');
+        expect(Buffer.isBuffer(content.image)).toBe(true);
+      });
+
+      it('should set viewOnce to true by default for booster', async () => {
+        mockPost.mockResolvedValue({ data: { access_token: 'mock-token' } });
+        mockGet
+          .mockResolvedValueOnce({ data: { pageCount: 10, cards: [] } })
+          .mockResolvedValue({ data: { cards: [mockCard] } });
+        mockGetBuffer.mockResolvedValue(Buffer.from('mock-image'));
+        vi.spyOn(Math, 'random').mockReturnValue(0);
+        const data = GroupCommandData.build({ text: ',hs booster' });
+
+        const messages = await command.run(data);
+
+        const content = messages[0].content as { viewOnce: boolean };
+        expect(content.viewOnce).toBe(true);
+      });
+
+      it('should set viewOnce to false with show flag for booster', async () => {
+        mockPost.mockResolvedValue({ data: { access_token: 'mock-token' } });
+        mockGet
+          .mockResolvedValueOnce({ data: { pageCount: 10, cards: [] } })
+          .mockResolvedValue({ data: { cards: [mockCard] } });
+        mockGetBuffer.mockResolvedValue(Buffer.from('mock-image'));
+        vi.spyOn(Math, 'random').mockReturnValue(0);
+        const data = GroupCommandData.build({ text: ',hs booster show' });
+
+        const messages = await command.run(data);
+
+        const content = messages[0].content as { viewOnce: boolean };
+        expect(content.viewOnce).toBe(false);
+      });
+
+      it('should throw when OAuth fails in booster mode', async () => {
+        mockPost.mockRejectedValue(new Error('OAuth Error'));
+        const data = GroupCommandData.build({ text: ',hs booster' });
+
+        await expect(command.run(data)).rejects.toThrow();
+      });
     });
   });
 });

@@ -6,10 +6,12 @@ import AxiosClient from '../../../src/infra/AxiosClient.js';
 vi.mock('../../../src/infra/AxiosClient.js', () => ({
   default: {
     get: vi.fn(),
+    getBuffer: vi.fn(),
   },
 }));
 
 const mockGet = AxiosClient.get as ReturnType<typeof vi.fn>;
+const mockGetBuffer = AxiosClient.getBuffer as ReturnType<typeof vi.fn>;
 
 const mockCard = {
   data: [
@@ -36,6 +38,7 @@ describe('YugiohCommand', () => {
       [', YGO', true],
       [', ygo show', true],
       [', ygo dm', true],
+      [', ygo booster', true],
       ['  , ygo  ', true],
       ['ygo', false],
       ['hello', false],
@@ -123,6 +126,46 @@ describe('YugiohCommand', () => {
       const messages = await command.run(data);
 
       expect(messages[0].options?.ephemeralExpiration).toBe(86400);
+    });
+
+    describe('booster mode', () => {
+      it('should return a grid of 6 cards with numbered caption', async () => {
+        mockGet.mockResolvedValue({ data: mockCard });
+        mockGetBuffer.mockResolvedValue(Buffer.from('mock-image'));
+        const data = GroupCommandData.build({ text: ',ygo booster' });
+
+        const messages = await command.run(data);
+
+        expect(messages).toHaveLength(1);
+        expect(mockGet).toHaveBeenCalledTimes(6);
+        expect(mockGetBuffer).toHaveBeenCalledTimes(6);
+        const content = messages[0].content as { caption: string; image: Buffer };
+        expect(content.caption).toContain('*1.*');
+        expect(content.caption).toContain('Dark Magician');
+        expect(Buffer.isBuffer(content.image)).toBe(true);
+      });
+
+      it('should set viewOnce to true by default for booster', async () => {
+        mockGet.mockResolvedValue({ data: mockCard });
+        mockGetBuffer.mockResolvedValue(Buffer.from('mock-image'));
+        const data = GroupCommandData.build({ text: ',ygo booster' });
+
+        const messages = await command.run(data);
+
+        const content = messages[0].content as { viewOnce: boolean };
+        expect(content.viewOnce).toBe(true);
+      });
+
+      it('should set viewOnce to false with show flag for booster', async () => {
+        mockGet.mockResolvedValue({ data: mockCard });
+        mockGetBuffer.mockResolvedValue(Buffer.from('mock-image'));
+        const data = GroupCommandData.build({ text: ',ygo booster show' });
+
+        const messages = await command.run(data);
+
+        const content = messages[0].content as { viewOnce: boolean };
+        expect(content.viewOnce).toBe(false);
+      });
     });
   });
 });

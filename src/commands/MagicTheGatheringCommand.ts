@@ -1,32 +1,85 @@
 import type { CommandData } from '../types/command.js';
 import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
 import type { Message } from '../types/message.js';
-import Command from './Command.js';
+import type { BoosterConfig, CardItem } from './CardBoosterCommand.js';
+import CardBoosterCommand from './CardBoosterCommand.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 
-export default class MagicTheGatheringCommand extends Command {
-  readonly config: CommandConfig = { name: 'mtg', flags: ['show', 'dm'], category: 'aleatórias' };
+interface MTGCard {
+  name: string;
+  text: string;
+  imageUrl?: string;
+}
+
+export default class MagicTheGatheringCommand extends CardBoosterCommand {
+  readonly config: CommandConfig = {
+    name: 'mtg',
+    flags: ['booster', 'show', 'dm'],
+    category: 'aleatórias',
+  };
   readonly menuDescription = 'Receba uma carta aleatória de Magic: The Gathering.';
 
-  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
-    const API_URL = 'https://api.magicthegathering.io/v1/cards';
-    const PAGE_SIZE = 100;
-    const initial_response = await AxiosClient.get(`${API_URL}?pageSize=${PAGE_SIZE}`);
+  protected readonly boosterConfig: BoosterConfig = {
+    flagName: 'booster',
+    count: 6,
+    columns: 3,
+    cellWidth: 300,
+    cellHeight: 420,
+    shim: 0,
+    shimBackground: '#ffffff',
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  };
 
-    const total_cards = parseInt(initial_response.headers['total-count']);
-    const total_tages = Math.ceil(total_cards / PAGE_SIZE);
+  private static readonly API_URL = 'https://api.magicthegathering.io/v1/cards';
+  private static readonly PAGE_SIZE = 100;
+  private static readonly MAX_RETRIES = 5;
 
-    const random_page = Math.floor(Math.random() * total_tages) + 1;
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    if (parsed.flags.has('booster')) {
+      return this.runBooster(data);
+    }
+    const total_pages = await this.fetchTotalPages();
+    const card = await this.fetchSingleCard(total_pages);
+    const caption = `*${card.name}*\n\n> ${card.text ?? ''}`;
+    return [Reply.to(data).image(card.imageUrl!, caption)];
+  }
 
-    const page_response = await AxiosClient.get<{
-      cards: { name: string; text: string; imageUrl: string }[];
-    }>(`${API_URL}?pageSize=${PAGE_SIZE}&page=${random_page}`);
-    const cards_on_page = page_response.data.cards;
+  protected async fetchBoosterItems(): Promise<CardItem[]> {
+    const total_pages = await this.fetchTotalPages();
+    return Promise.all(
+      Array.from({ length: this.boosterConfig.count }, async () => {
+        const card = await this.fetchSingleCard(total_pages);
+        return { imageUrl: card.imageUrl!, label: card.name };
+      }),
+    );
+  }
 
-    const card = cards_on_page[Math.floor(Math.random() * cards_on_page.length)];
-    const caption = `*${card.name}*\n\n> ${card.text}`;
+  private async fetchTotalPages(): Promise<number> {
+    const response = await AxiosClient.get(
+      `${MagicTheGatheringCommand.API_URL}?pageSize=${MagicTheGatheringCommand.PAGE_SIZE}`,
+    );
+    const total_cards = parseInt(response.headers['total-count']);
+    return Math.ceil(total_cards / MagicTheGatheringCommand.PAGE_SIZE);
+  }
 
-    return [Reply.to(data).image(card.imageUrl, caption)];
+  private async fetchSingleCard(total_pages: number): Promise<MTGCard & { imageUrl: string }> {
+    for (let attempt = 0; attempt < MagicTheGatheringCommand.MAX_RETRIES; attempt++) {
+      const random_page = Math.floor(Math.random() * total_pages) + 1;
+      const response = await AxiosClient.get<{ cards: MTGCard[] }>(
+        `${MagicTheGatheringCommand.API_URL}?pageSize=${MagicTheGatheringCommand.PAGE_SIZE}&page=${random_page}`,
+      );
+      const candidates = response.data.cards.filter(
+        (c): c is MTGCard & { imageUrl: string } =>
+          Boolean(c.imageUrl) && !c.imageUrl!.includes('multiverseid=0'),
+      );
+      if (!candidates.length) continue;
+      const card = candidates[Math.floor(Math.random() * candidates.length)];
+      // Some valid-looking URLs redirect to the card back for cards without a digital scan.
+      // Follow the redirect and skip cards that resolve to card_back.
+      const headRes = await fetch(card.imageUrl, { method: 'HEAD' });
+      if (!headRes.url.includes('card_back')) return card;
+    }
+    throw new Error('MTG: no card with image after retries');
   }
 }
