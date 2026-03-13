@@ -109,11 +109,12 @@ export default class PokemonTCGCommand extends CardBoosterCommand {
   private buildBoosterLabel(card: TCGdexCard): string {
     const typeEmojis =
       card.types?.map((t) => POKEMON_TYPE_EMOJIS[t.toLowerCase()] ?? t).join(' ') ?? '';
-    const parts: string[] = [`*${card.name}* -`];
-    if (card.rarity) parts.push(`⭐ _${card.rarity}_\n`);
-    if (typeEmojis) parts.push(typeEmojis);
-
-    return parts.join(' ');
+    const parts: string[] = [`*${card.name}*`];
+    parts.push(`${card.category}${card.stage ? ` ${card.stage}` : ''}`);
+    const statsLine = [card.hp ? `HP: ${card.hp}` : '', typeEmojis].filter(Boolean).join(' ');
+    if (statsLine) parts.push(statsLine);
+    if (card.rarity) parts.push(`⭐ ${card.rarity}`);
+    return parts.join('\n');
   }
 
   private buildCaption(card: TCGdexCard): string {
