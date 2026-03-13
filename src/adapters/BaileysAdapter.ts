@@ -3,6 +3,7 @@ import type {
   GroupMetadata,
   MiscMessageGenerationOptions,
   WAMessage,
+  WAPresence,
   WASocket,
 } from '@whiskeysockets/baileys';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
@@ -50,5 +51,9 @@ export default class BaileysAdapter implements WhatsAppPort {
 
   async onWhatsApp(...jids: string[]): Promise<{ exists: boolean; jid: string }[]> {
     return (await this.socket.onWhatsApp(...jids)) ?? [];
+  }
+
+  async sendPresenceUpdate(type: WAPresence, jid: string): Promise<void> {
+    await this.socket.sendPresenceUpdate(type, jid);
   }
 }

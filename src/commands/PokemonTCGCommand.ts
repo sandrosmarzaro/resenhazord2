@@ -109,9 +109,7 @@ export default class PokemonTCGCommand extends CardBoosterCommand {
   private buildBoosterLabel(card: TCGdexCard): string {
     const typeEmojis =
       card.types?.map((t) => POKEMON_TYPE_EMOJIS[t.toLowerCase()] ?? t).join(' ') ?? '';
-    const parts: string[] = [
-      `*${card.name}* -`,
-    ];
+    const parts: string[] = [`*${card.name}* -`];
     if (card.rarity) parts.push(`⭐ _${card.rarity}_\n`);
     if (typeEmojis) parts.push(typeEmojis);
 

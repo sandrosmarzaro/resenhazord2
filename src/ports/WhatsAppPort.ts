@@ -3,6 +3,7 @@ import type {
   GroupMetadata,
   MiscMessageGenerationOptions,
   WAMessage,
+  WAPresence,
 } from '@whiskeysockets/baileys';
 
 export default interface WhatsAppPort {
@@ -29,4 +30,6 @@ export default interface WhatsAppPort {
   onWhatsApp(...jids: string[]): Promise<{ exists: boolean; jid: string }[]>;
 
   updateMediaMessage(message: WAMessage): Promise<WAMessage>;
+
+  sendPresenceUpdate(type: WAPresence, jid: string): Promise<void>;
 }

@@ -11,6 +11,7 @@ export function createMockWhatsAppPort(overrides: Partial<WhatsAppPort> = {}): W
     updateProfilePicture: vi.fn(),
     onWhatsApp: vi.fn(),
     updateMediaMessage: vi.fn(),
+    sendPresenceUpdate: vi.fn(),
     ...overrides,
   } as WhatsAppPort;
 }

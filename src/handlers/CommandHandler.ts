@@ -6,6 +6,7 @@ import Resenhazord2 from '../models/Resenhazord2.js';
 import GetTextMessage from '../utils/GetTextMessage.js';
 import ReactMessage from '../utils/ReactMessage.js';
 import GetGroupExpiration from '../utils/GetGroupExpiration.js';
+import TypingIndicator from '../utils/TypingIndicator.js';
 import { Sentry } from '../infra/Sentry.js';
 
 export default class CommandHandler {
@@ -22,6 +23,8 @@ export default class CommandHandler {
         text,
         expiration: await GetGroupExpiration.run(data),
       } as CommandData;
+
+      await TypingIndicator.start(commandData.key.remoteJid!);
 
       if (data?.key?.participantAlt === '5528988038529@s.whatsapp.net') {
         const admCommand = factory.getStrategy(',adm');
@@ -42,6 +45,8 @@ export default class CommandHandler {
               { text: 'Ocorreu um erro ao processar o comando 😔' },
               { quoted: commandData, ephemeralExpiration: commandData.expiration },
             );
+          } finally {
+            await TypingIndicator.stop(commandData.key.remoteJid!);
           }
         }
         return;
@@ -70,6 +75,8 @@ export default class CommandHandler {
           { text: 'Ocorreu um erro ao processar o comando 😔' },
           { quoted: commandData, ephemeralExpiration: commandData.expiration },
         );
+      } finally {
+        await TypingIndicator.stop(commandData.key.remoteJid!);
       }
     }
   }
