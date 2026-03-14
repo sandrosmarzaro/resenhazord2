@@ -1,10 +1,12 @@
-import type { CommandData } from '../types/command.js';
 import type { WAMessage } from '@whiskeysockets/baileys';
-import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
-import type { Message } from '../types/message.js';
-import type WhatsAppPort from '../ports/WhatsAppPort.js';
-import Command from './Command.js';
-import { ArgType } from '../types/commandConfig.js';
+import Command, {
+  type CommandData,
+  type CommandConfig,
+  type ParsedCommand,
+  type Message,
+  type WhatsAppPort,
+  ArgType,
+} from './Command.js';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import Reply from '../builders/Reply.js';

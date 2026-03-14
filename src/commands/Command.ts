@@ -5,6 +5,18 @@ import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import CommandParser from '../parsers/CommandParser.js';
 import Reply from '../builders/Reply.js';
 
+// Re-exports so subclasses only need to import from './Command.js'
+export type { CommandData } from '../types/command.js';
+export type {
+  CommandConfig,
+  ParsedCommand,
+  OptionDef,
+  CommandCategory,
+} from '../types/commandConfig.js';
+export { ArgType } from '../types/commandConfig.js';
+export type { Message } from '../types/message.js';
+export type { default as WhatsAppPort } from '../ports/WhatsAppPort.js';
+
 export default abstract class Command {
   abstract readonly config: CommandConfig;
   abstract readonly menuDescription: string;

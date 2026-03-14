@@ -112,6 +112,21 @@ Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for optio
 - `dm` flag — redirects response to sender's DM
 - `show` flag — sets `viewOnce: false` (commands set `viewOnce: true` by default)
 
+### Import pattern for command subclasses
+
+`Command.ts` re-exports all types subclasses need — **never import from `../types/`** in a command file:
+
+```ts
+import Command, {
+  type CommandData,
+  type CommandConfig,
+  type ParsedCommand,
+  type Message,
+} from './Command.js';
+```
+
+Add `ArgType` (value export), `type WhatsAppPort`, or `type CommandCategory` to that same import as needed. Keep any `@whiskeysockets/baileys` imports on a separate line above.
+
 ### Adding a New Command
 
 1. Create `src/commands/FooCommand.ts` extending `Command`

@@ -1,7 +1,9 @@
-import type { CommandData } from '../types/command.js';
-import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
-import type { Message } from '../types/message.js';
-import Command from './Command.js';
+import Command, {
+  type CommandData,
+  type CommandConfig,
+  type ParsedCommand,
+  type Message,
+} from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 

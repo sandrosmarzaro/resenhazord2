@@ -1,7 +1,5 @@
-import type { CommandData } from '../types/command.js';
-import type { Message } from '../types/message.js';
+import Command, { type CommandData, type Message } from './Command.js';
 import type { GridOptions } from '../services/CardGridBuilder.js';
-import Command from './Command.js';
 import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { buildCardGrid } from '../services/CardGridBuilder.js';

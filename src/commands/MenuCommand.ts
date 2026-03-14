@@ -1,9 +1,11 @@
-import type { CommandData } from '../types/command.js';
-import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
-import { ArgType } from '../types/commandConfig.js';
-import type { Message } from '../types/message.js';
-import type { CommandCategory } from '../types/commandConfig.js';
-import Command from './Command.js';
+import Command, {
+  type CommandData,
+  type CommandConfig,
+  type ParsedCommand,
+  type Message,
+  type CommandCategory,
+  ArgType,
+} from './Command.js';
 import Reply from '../builders/Reply.js';
 // @ts-expect-error - plain JS data files without type declarations
 import menu_grupo_message from '../../public/messages/menu_grupo_message.js';

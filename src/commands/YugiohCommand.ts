@@ -1,8 +1,10 @@
-import type { CommandData } from '../types/command.js';
-import type { CommandConfig, ParsedCommand } from '../types/commandConfig.js';
-import type { Message } from '../types/message.js';
-import type { BoosterConfig, CardItem } from './CardBoosterCommand.js';
-import CardBoosterCommand from './CardBoosterCommand.js';
+import CardBoosterCommand, { type BoosterConfig, type CardItem } from './CardBoosterCommand.js';
+import {
+  type CommandData,
+  type CommandConfig,
+  type ParsedCommand,
+  type Message,
+} from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 
