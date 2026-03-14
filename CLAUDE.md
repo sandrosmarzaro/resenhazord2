@@ -270,6 +270,7 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 - Always run `bun format` after editing code and verify no lines exceed 100 characters
 - Always run `bun typecheck` after changes and distinguish between pre-existing vs newly introduced errors
 - Always run `bun test:run` after changes and verify all previously passing tests still pass
+- Always ask/talk about of implementation of code, which design use pattern/library/algorithms/architecture/design system, suggesting alternatives(prefer free ways) with pros and cons for each, etc. To rest any debut of how make the instructions.
 - When adding fields to object literals in config blocks, prefer multi-line formatting if the single-line form would exceed 100 chars
 
 ## External API Integration
