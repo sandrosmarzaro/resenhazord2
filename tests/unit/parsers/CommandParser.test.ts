@@ -51,7 +51,9 @@ describe('CommandParser', () => {
         [',pokemon', true],
         [',pokémon team', true],
         [',pokémon show dm', true],
+        [',pokémon dm show', true],
         [',pokémon team show dm', true],
+        [',pokémon dm team show', true],
         [',pokemon team show dm', true],
         [',pokémon hello', false],
       ])('should return %s for "%s"', (input, expected) => {

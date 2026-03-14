@@ -104,8 +104,9 @@ export default class CommandParser {
       }
     }
 
-    for (const flag of this.config.flags || []) {
-      parts.push(`\\s*(?:${this.replaceDiacritics(flag)})?`);
+    if (this.config.flags && this.config.flags.length > 0) {
+      const flagPatterns = this.config.flags.map((f) => this.replaceDiacritics(f));
+      parts.push(`(?:\\s+(?:${flagPatterns.join('|')}))*`);
     }
 
     const args = this.config.args ?? ArgType.None;
