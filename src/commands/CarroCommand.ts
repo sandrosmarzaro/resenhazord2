@@ -25,6 +25,7 @@ interface FipeDetails {
 }
 
 interface WikiPage {
+  title?: string;
   thumbnail?: { source: string };
 }
 
@@ -70,6 +71,61 @@ export default class CarroCommand extends Command {
     return (stop > 0 ? words.slice(0, stop) : words).join(' ');
   }
 
+  // Aggressive strip for Wikipedia search — removes body styles and trim designations
+  // e.g. "Civic Sedan LX/LXL 1.7 16V" → "Civic", "Palio Weekend Adv. Ext." → "Palio Weekend"
+  private static wikiModelName(nome: string): string {
+    const SPEC_TOKEN = /^\d+\.\d|^\d+[pP]$|\d+cv$/i;
+    const SPEC_WORD = new Set([
+      // Fuel/transmission
+      'flex',
+      'gasolina',
+      'diesel',
+      'aut',
+      'mec',
+      'cvt',
+      'turbo',
+      // Body styles
+      'sedan',
+      'hatch',
+      'sw',
+      'furgão',
+      'furgao',
+      'cabine',
+      'pickup',
+      // Trim designations
+      'dlx',
+      'lx',
+      'lxl',
+      'ex',
+      'elx',
+      'glx',
+      'gls',
+      'gli',
+      'vip',
+      'luxury',
+      'elite',
+      'premium',
+      'limited',
+      'sport',
+      'comfort',
+      'exclusive',
+      'country',
+      'land',
+      'adv',
+      'ext',
+      'adventure',
+    ]);
+    const words = nome
+      .trim()
+      .split(/\s+/)
+      .flatMap((t) => t.split('/'));
+    const stop = words.findIndex((w) => {
+      const clean = w.replace(/[.,]+$/, '').toLowerCase();
+      return SPEC_TOKEN.test(w) || SPEC_WORD.has(clean);
+    });
+    return (stop > 0 ? words.slice(0, stop) : words).join(' ');
+  }
+
   protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
     try {
       const brand = CarroCommand.pick(FIPE_BRANDS);
@@ -109,14 +165,28 @@ export default class CarroCommand extends Command {
         : `${brand.emoji} *${brand.name} ${model.nome}*\n${brand.origin}`;
 
       const baseName = CarroCommand.baseModelName(model.nome);
-      const searchTerm = encodeURIComponent(`${brand.name} ${baseName} car`);
+      const wikiName = CarroCommand.wikiModelName(model.nome);
+      const searchTerm = encodeURIComponent(`${brand.name} ${wikiName} car`);
       const wikiUrl =
         `${CarroCommand.WIKI_API}?action=query&generator=search` +
         `&gsrsearch=${searchTerm}&gsrlimit=1&prop=pageimages&pithumbsize=640&format=json`;
       const wikiRes = await AxiosClient.get<WikiQueryResponse>(wikiUrl, CarroCommand.WIKI_OPTS);
 
       const pages = wikiRes.data.query?.pages;
-      let thumb = Object.values(pages ?? {})[0]?.thumbnail?.source;
+      const firstPage = Object.values(pages ?? {})[0];
+      const pageTitle = firstPage?.title ?? '';
+      const rawThumb = firstPage?.thumbnail?.source;
+
+      const brandLower = brand.name.toLowerCase();
+      const titleLower = pageTitle.toLowerCase();
+      const isBrandOnly =
+        (pageTitle !== '' && titleLower === brandLower) ||
+        new RegExp(
+          `^${brandLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(?:motors?|automobiles?|automotive|group|corporation)$`,
+          'i',
+        ).test(titleLower);
+
+      let thumb = isBrandOnly ? undefined : rawThumb;
 
       if (!thumb && !parsed.flags.has('wiki')) {
         const commonsSearch = encodeURIComponent(`${brand.name} ${baseName}`);

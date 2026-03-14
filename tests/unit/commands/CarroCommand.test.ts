@@ -176,6 +176,35 @@ describe('CarroCommand', () => {
         expect(content.text).toContain('Golf');
       });
 
+      it('should return text-only reply when Wikipedia returns a brand-only article', async () => {
+        vi.spyOn(Math, 'random').mockReturnValue(0); // brand = FIPE_BRANDS[0] = Acura
+        mockGet.mockReset();
+        mockGet
+          .mockResolvedValueOnce({ data: mockModels })
+          .mockResolvedValueOnce({ data: mockYears })
+          .mockResolvedValueOnce({ data: mockDetails })
+          .mockResolvedValueOnce({
+            data: {
+              query: {
+                pages: {
+                  '1': {
+                    title: 'Acura',
+                    thumbnail: { source: 'https://upload.wikimedia.org/logo.png' },
+                  },
+                },
+              },
+            },
+          })
+          .mockResolvedValueOnce({ data: {} }); // Commons: no image
+
+        const data = GroupCommandData.build({ text: ',carro' });
+        const messages = await command.run(data);
+
+        expect(mockGetBuffer).not.toHaveBeenCalled();
+        const content = messages[0].content as { text: string };
+        expect(content.text).toContain('Volkswagen'); // from mockDetails
+      });
+
       it('should fall back to Wikimedia Commons when Wikipedia has no thumbnail', async () => {
         mockGet.mockReset();
         mockGet
