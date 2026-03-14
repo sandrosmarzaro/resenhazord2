@@ -14,6 +14,7 @@ import BeerCommand from '../commands/BeerCommand.js';
 import BichoCommand from '../commands/BichoCommand.js';
 import BibliaCommand from '../commands/BibliaCommand.js';
 import BorgesCommand from '../commands/BorgesCommand.js';
+import CarroCommand from '../commands/CarroCommand.js';
 import ClashRoyaleCommand from '../commands/ClashRoyaleCommand.js';
 import CountryFlagCommand from '../commands/CountryFlagCommand.js';
 import D20Command from '../commands/D20Command.js';
@@ -65,6 +66,7 @@ export default class CommandFactory {
       new BichoCommand(),
       new BibliaCommand(),
       new BorgesCommand(),
+      new CarroCommand(),
       new ClashRoyaleCommand(),
       new CountryFlagCommand(),
       new D20Command(),
