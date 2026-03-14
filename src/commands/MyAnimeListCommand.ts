@@ -6,6 +6,7 @@ import Command, {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
+import type { AnimeData } from '../types/commands/myanimelist.js';
 
 export default class MyAnimeListCommand extends Command {
   readonly config: CommandConfig = {
@@ -21,21 +22,6 @@ export default class MyAnimeListCommand extends Command {
     const type = parsed.commandName === 'anime' ? 'anime' : 'manga';
     const page = Math.floor(Math.random() * 20) + 1;
 
-    interface AnimeData {
-      images: { webp: { large_image_url: string } };
-      genres: { name: string }[];
-      themes: { name: string }[];
-      demographics: { name: string }[];
-      studios?: { name: string }[];
-      authors?: { name: string }[];
-      aired?: { prop: { from: { year: number } } };
-      published?: { prop: { from: { year: number } } };
-      episodes?: number;
-      chapters?: number;
-      title: string;
-      score?: number;
-      rank?: number;
-    }
     const response = await AxiosClient.get<{ data: AnimeData[] }>(base_url + `/top/${type}`, {
       params: { page: page },
     });

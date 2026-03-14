@@ -1,24 +1,5 @@
 import AxiosClient from '../infra/AxiosClient.js';
-
-interface ChampionInfo {
-  attack: number;
-  defense: number;
-  magic: number;
-  difficulty: number;
-}
-
-interface ChampionData {
-  id: string;
-  name: string;
-  title: string;
-  tags: string[];
-  info: ChampionInfo;
-  blurb: string;
-}
-
-interface ChampionListResponse {
-  data: Record<string, ChampionData>;
-}
+import type { ChampionInfo, ChampionData, ChampionListResponse } from '../types/clients/dataDragon.js';
 
 export interface ChampionResult {
   id: string;

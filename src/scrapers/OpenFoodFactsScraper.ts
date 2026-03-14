@@ -1,31 +1,9 @@
 import AxiosClient from '../infra/AxiosClient.js';
-
-interface BeerResult {
-  name: string;
-  brand: string;
-  imageUrl: string;
-  alcohol?: number;
-  quantity?: string;
-  origin?: string;
-  soldIn?: string;
-  ingredients?: string;
-}
-
-interface OpenFoodFactsProduct {
-  product_name?: string;
-  brands?: string;
-  image_front_url?: string;
-  nutriments?: { alcohol_100g?: number };
-  quantity?: string;
-  origins?: string;
-  countries?: string;
-  ingredients_text?: string;
-}
-
-interface OpenFoodFactsResponse {
-  products: OpenFoodFactsProduct[];
-  page_count: number;
-}
+import type {
+  BeerResult,
+  OpenFoodFactsProduct,
+  OpenFoodFactsResponse,
+} from '../types/scrapers/openfoodfacts.js';
 
 export default class OpenFoodFactsScraper {
   private static readonly TIMEOUT = 15000;

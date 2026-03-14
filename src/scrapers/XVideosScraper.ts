@@ -1,10 +1,6 @@
 import AxiosClient from '../infra/AxiosClient.js';
 import * as cheerio from 'cheerio';
-
-interface XVideosResult {
-  videoUrl: string;
-  title: string;
-}
+import type { XVideosResult } from '../types/scrapers/xvideos.js';
 
 export default class XVideosScraper {
   private static readonly HEADERS = {

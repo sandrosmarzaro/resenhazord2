@@ -6,6 +6,7 @@ import Command, {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
+import type { MovieResult } from '../types/commands/tmdb.js';
 
 export default class FilmeSerieCommand extends Command {
   readonly config: CommandConfig = {
@@ -25,16 +26,6 @@ export default class FilmeSerieCommand extends Command {
     const url = `https://api.themoviedb.org/3/${type}/${mode}`;
 
     const page = Math.floor(Math.random() * 25) + 1;
-    interface MovieResult {
-      poster_path: string;
-      genre_ids: number[];
-      release_date?: string;
-      first_air_date?: string;
-      title?: string;
-      name?: string;
-      vote_average?: number;
-      overview: string;
-    }
     const response = await AxiosClient.get<{ results: MovieResult[] }>(url, {
       params: {
         api_key: process.env.TMDB_API_KEY!,

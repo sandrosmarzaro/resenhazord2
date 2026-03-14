@@ -7,17 +7,7 @@ import Command, {
 import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { Sentry } from '../infra/Sentry.js';
-
-interface DogCeoResponse {
-  message: string;
-  status: string;
-}
-
-interface CataasResponse {
-  id: string;
-  url: string;
-  tags: string[];
-}
+import type { DogCeoResponse, CataasResponse } from '../types/commands/puppy.js';
 
 export default class PuppyCommand extends Command {
   readonly config: CommandConfig = {

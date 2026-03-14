@@ -6,17 +6,7 @@ import Command, {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
-
-interface AyahData {
-  text: string;
-  numberInSurah: number;
-  surah: {
-    number: number;
-    name: string;
-    englishName: string;
-    numberOfAyahs: number;
-  };
-}
+import type { AyahData } from '../types/commands/quran.js';
 
 export default class AlcoranCommand extends Command {
   readonly config: CommandConfig = { name: 'alcorão', category: 'aleatórias' };

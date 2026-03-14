@@ -8,14 +8,7 @@ import Command, {
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 import { torahBooks, type TorahBook } from '../data/torahBooks.js';
-
-interface SefariaResponse {
-  ref: string;
-  text: string;
-  he: string;
-  heTitle: string;
-  error?: string;
-}
+import type { SefariaResponse } from '../types/commands/sefaria.js';
 
 const BOOKS_LIST =
   'Versículo não encontrado. 😔\n\n' +

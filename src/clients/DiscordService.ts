@@ -1,13 +1,7 @@
 import AxiosClient from '../infra/AxiosClient.js';
+import type { DiscordChannel } from '../types/clients/discord.js';
 
 const BASE_URL = 'https://discord.com/api/v10';
-
-interface DiscordChannel {
-  id: string;
-  name: string;
-  type: number;
-  parent_id?: string;
-}
 
 function normalize(name: string): string {
   return name

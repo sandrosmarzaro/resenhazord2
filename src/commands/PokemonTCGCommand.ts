@@ -9,20 +9,7 @@ import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
 import { POKEMON_TYPE_EMOJIS } from '../data/pokemonTypeEmojis.js';
 import { Sentry } from '../infra/Sentry.js';
-
-interface TCGdexCard {
-  id: string;
-  localId: string;
-  name: string;
-  category: string;
-  image?: string;
-  illustrator?: string;
-  rarity?: string;
-  hp?: number;
-  types?: string[];
-  stage?: string;
-  set: { name: string; cardCount: { total: number; official: number } };
-}
+import type { TCGdexCard } from '../types/commands/tcgdex.js';
 
 export default class PokemonTCGCommand extends CardBoosterCommand {
   readonly config: CommandConfig = {

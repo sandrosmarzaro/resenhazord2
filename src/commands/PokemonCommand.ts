@@ -8,16 +8,7 @@ import {
 import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { POKEMON_TYPE_EMOJIS } from '../data/pokemonTypeEmojis.js';
-
-interface PokemonResponse {
-  name: string;
-  id: number;
-  types: { type: { name: string } }[];
-  sprites: {
-    front_default: string;
-    other: { 'official-artwork': { front_default: string | null } };
-  };
-}
+import type { PokemonResponse } from '../types/commands/pokemon.js';
 
 export default class PokemonCommand extends CardBoosterCommand {
   readonly config: CommandConfig = {

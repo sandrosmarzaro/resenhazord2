@@ -9,11 +9,7 @@ import AxiosClient from '../infra/AxiosClient.js';
 import { ANIMAL_EMOJIS } from '../data/animalEmojis.js';
 import { ANIMAL_WIKIPEDIA_TITLES } from '../data/animalWikipediaTitles.js';
 import { Sentry } from '../infra/Sentry.js';
-
-interface WikipediaSummaryResponse {
-  extract: string;
-  thumbnail?: { source: string };
-}
+import type { WikipediaSummaryResponse } from '../types/commands/wikipedia.js';
 
 export default class AnimalCommand extends Command {
   readonly config: CommandConfig = {

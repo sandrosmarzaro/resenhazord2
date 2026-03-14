@@ -9,32 +9,12 @@ import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { MUSIC_GENRES } from '../data/musicGenres.js';
 import { DEEZER_GENRES } from '../data/deezerGenres.js';
-
-interface JamendoTrack {
-  name: string;
-  artist_name: string;
-  album_name: string;
-  duration: number;
-  releasedate: string;
-  image: string;
-  audio: string;
-}
-
-interface JamendoResponse {
-  results: JamendoTrack[];
-}
-
-interface DeezerTrack {
-  title: string;
-  artist: { name: string };
-  album: { title: string; cover_medium: string };
-  duration: number;
-  preview: string;
-}
-
-interface DeezerChartResponse {
-  data: DeezerTrack[];
-}
+import type {
+  JamendoTrack,
+  JamendoResponse,
+  DeezerTrack,
+  DeezerChartResponse,
+} from '../types/commands/music.js';
 
 export default class MusicCommand extends Command {
   readonly config: CommandConfig = {

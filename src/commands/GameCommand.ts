@@ -7,40 +7,7 @@ import Command, {
 import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import IgdbService from '../clients/IgdbService.js';
-
-interface GameInfo {
-  name: string;
-  year: string;
-  genres: string;
-  platforms: string;
-  rating: string | null;
-  coverUrl: string;
-}
-
-interface GameSource {
-  fetch(): Promise<GameInfo>;
-}
-
-interface RawgPlatform {
-  platform: { name: string };
-}
-
-interface RawgGenre {
-  name: string;
-}
-
-interface RawgGame {
-  name: string;
-  released?: string;
-  background_image?: string;
-  metacritic?: number;
-  genres: RawgGenre[];
-  platforms?: RawgPlatform[];
-}
-
-interface RawgResponse {
-  results: RawgGame[];
-}
+import type { GameInfo, GameSource, RawgGame, RawgResponse } from '../types/commands/game.js';
 
 class IgdbSource implements GameSource {
   async fetch(): Promise<GameInfo> {

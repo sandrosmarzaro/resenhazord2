@@ -7,18 +7,7 @@ import {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
-
-interface HearthstoneCard {
-  name: string;
-  text: string;
-  flavorText: string;
-  image: string;
-}
-
-interface HearthstoneResponse {
-  pageCount: number;
-  cards: HearthstoneCard[];
-}
+import type { HearthstoneCard, HearthstoneResponse } from '../types/commands/hearthstone.js';
 
 export default class HeartstoneCommand extends CardBoosterCommand {
   readonly config: CommandConfig = {

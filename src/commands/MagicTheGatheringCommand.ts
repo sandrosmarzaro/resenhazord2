@@ -7,12 +7,7 @@ import {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
-
-interface MTGCard {
-  name: string;
-  text: string;
-  imageUrl?: string;
-}
+import type { MTGCard } from '../types/commands/magicthegathering.js';
 
 export default class MagicTheGatheringCommand extends CardBoosterCommand {
   readonly config: CommandConfig = {

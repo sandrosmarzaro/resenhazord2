@@ -7,18 +7,7 @@ import Command, {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
-
-interface VerseData {
-  book: { name: string };
-  chapter: number;
-  number: number;
-  text: string;
-}
-
-interface BookData {
-  name: string;
-  abbrev?: { pt: string };
-}
+import type { VerseData, BookData } from '../types/commands/bible.js';
 
 export default class BibliaCommand extends Command {
   readonly config: CommandConfig = {

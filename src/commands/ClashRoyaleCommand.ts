@@ -6,6 +6,7 @@ import Command, {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
+import type { CRCard } from '../types/commands/clashroyale.js';
 
 const CARDS_URL = 'https://royaleapi.github.io/cr-api-data/json/cards.json';
 const ASSETS_BASE = 'https://raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/cards/';
@@ -23,16 +24,6 @@ const TYPE_EMOJIS: Record<string, string> = {
   Spell: '🔮',
   Building: '🏗️',
 };
-
-interface CRCard {
-  key: string;
-  name: string;
-  elixir: number;
-  type: string;
-  rarity: string;
-  arena: number;
-  description: string;
-}
 
 export default class ClashRoyaleCommand extends Command {
   readonly config: CommandConfig = { name: 'cr', flags: ['show', 'dm'], category: 'aleatórias' };

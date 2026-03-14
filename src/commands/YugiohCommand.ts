@@ -7,12 +7,7 @@ import {
 } from './Command.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import Reply from '../builders/Reply.js';
-
-interface YugiohCard {
-  name: string;
-  desc: string;
-  card_images: { image_url: string }[];
-}
+import type { YugiohCard } from '../types/commands/yugioh.js';
 
 export default class YugiohCommand extends CardBoosterCommand {
   readonly config: CommandConfig = {

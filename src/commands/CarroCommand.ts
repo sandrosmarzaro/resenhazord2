@@ -8,32 +8,8 @@ import Reply from '../builders/Reply.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { FIPE_BRANDS } from '../data/carBrands.js';
 import { Sentry } from '../infra/Sentry.js';
-
-interface FipeModels {
-  modelos: Array<{ codigo: number; nome: string }>;
-}
-
-interface FipeYear {
-  codigo: string;
-  nome: string;
-}
-
-interface FipeDetails {
-  Marca: string;
-  Modelo: string;
-  AnoModelo: number;
-  Combustivel: string;
-  Valor: string;
-}
-
-interface WikiPage {
-  title?: string;
-  thumbnail?: { source: string };
-}
-
-interface WikiQueryResponse {
-  query?: { pages?: Record<string, WikiPage> };
-}
+import type { FipeModels, FipeYear, FipeDetails } from '../types/commands/fipe.js';
+import type { WikiQueryResponse } from '../types/commands/wikipedia.js';
 
 export default class CarroCommand extends Command {
   readonly config: CommandConfig = {
