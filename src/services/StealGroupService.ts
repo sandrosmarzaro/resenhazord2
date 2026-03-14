@@ -3,6 +3,7 @@ import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import MongoDBConnection from '../infra/MongoDBConnection.js';
 import AxiosClient from '../infra/AxiosClient.js';
 import { Sentry } from '../infra/Sentry.js';
+import { ROMAN_NUMERALS } from '../data/romanNumerals.js';
 
 export default class StealGroupService {
   static async run(
@@ -42,27 +43,12 @@ export default class StealGroupService {
         { returnDocument: 'after', upsert: true },
       );
       let colony_number = result!.number;
-      const roman_numerals: Record<number, string> = {
-        1000: 'M',
-        900: 'CM',
-        500: 'D',
-        400: 'CD',
-        100: 'C',
-        90: 'XC',
-        50: 'L',
-        40: 'XL',
-        10: 'X',
-        9: 'IX',
-        5: 'V',
-        4: 'IV',
-        1: 'I',
-      };
       let roman_number = '';
-      const values = Object.keys(roman_numerals).reverse();
+      const values = Object.keys(ROMAN_NUMERALS).reverse();
       for (let i = 0; i < values.length; i++) {
         const value = parseInt(values[i]);
         while (colony_number >= value) {
-          roman_number += roman_numerals[value];
+          roman_number += ROMAN_NUMERALS[value];
           colony_number -= value;
         }
       }
