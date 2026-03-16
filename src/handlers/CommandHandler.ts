@@ -26,32 +26,6 @@ export default class CommandHandler {
 
       await TypingIndicator.start(commandData.key.remoteJid!);
 
-      if (data?.key?.participantAlt === '5528988038529@s.whatsapp.net') {
-        const admCommand = factory.getStrategy(',adm');
-        if (admCommand) {
-          try {
-            const messages = await admCommand.run(commandData);
-            await this.sendMessages(messages);
-          } catch (error) {
-            Sentry.withScope((scope) => {
-              scope.setTag('command', admCommand.constructor.name);
-              scope.setExtra('jid', commandData.key?.remoteJid);
-              scope.setExtra('participant', commandData.key?.participant);
-              scope.setExtra('text', commandData.text?.slice(0, 200));
-              Sentry.captureException(error);
-            });
-            await Resenhazord2.adapter!.sendMessage(
-              commandData.key.remoteJid!,
-              { text: 'Ocorreu um erro ao processar o comando 😔' },
-              { quoted: commandData, ephemeralExpiration: commandData.expiration },
-            );
-          } finally {
-            await TypingIndicator.stop(commandData.key.remoteJid!);
-          }
-        }
-        return;
-      }
-
       Sentry.addBreadcrumb({
         category: 'command',
         message: `Executing ${command.constructor.name}`,
