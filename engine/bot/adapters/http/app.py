@@ -6,10 +6,13 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from bot.adapters.http.ws_handler import WebSocketHandler
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
+from bot.application.register_commands import register_all_commands
 
 logger = structlog.get_logger()
 
 app = FastAPI(title='Resenhazord2 Python Core')
+
+register_all_commands()
 
 
 @app.get('/health')
