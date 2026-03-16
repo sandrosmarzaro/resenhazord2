@@ -48,6 +48,18 @@ export default class GroupMentionsCommand extends Command {
     return await this.handleMention(data, rest);
   }
 
+  private static senderJid(data: CommandData): string {
+    return (data.key.participant ?? data.key.remoteJid) as string;
+  }
+
+  private static mentionedJids(data: CommandData): string[] {
+    return data?.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
+  }
+
+  private static stripJid(jid: string): string {
+    return jid.replace(/@lid|@s.whatsapp.net/gi, '');
+  }
+
   private validateGroupName(data: CommandData, groupName: string): Message | null {
     if (groupName?.length > 15) {
       return Reply.to(data).text(`O nome do grupo é desse tamanho! ✋    🤚`);
@@ -62,7 +74,7 @@ export default class GroupMentionsCommand extends Command {
   }
 
   private async handleCreate(data: CommandData, rest: string): Promise<Message[]> {
-    const senderJid = (data.key.participant ?? data.key.remoteJid) as string;
+    const senderJid = GroupMentionsCommand.senderJid(data);
     const groupName = rest.replace(/\s*@\d+\s*/g, '');
     if (groupName.length === 0) {
       return [Reply.to(data).text(`Cadê o nome do grupo? 🤔`)];
@@ -70,7 +82,7 @@ export default class GroupMentionsCommand extends Command {
     const validationError = this.validateGroupName(data, groupName);
     if (validationError) return [validationError];
 
-    const mentioned = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
+    const mentioned = GroupMentionsCommand.mentionedJids(data);
     const result = await this.service.create(data.key.remoteJid!, senderJid, groupName, mentioned);
     if (!result.ok) return [Reply.to(data).text(result.message)];
     return [Reply.to(data).text(`Grupo *${result.data.groupName}* criado com sucesso! 🎉`)];
@@ -112,10 +124,9 @@ export default class GroupMentionsCommand extends Command {
 
     const result = await this.service.listOne(data.key.remoteJid!, rest);
     if (!result.ok) return [Reply.to(data).text(result.message)];
-    const regex = /@lid|@s.whatsapp.net/gi;
     let message = '';
     for (const [index, id] of result.data.participants.entries()) {
-      message += `- ${index + 1}: @${id.replace(regex, '')}\n`;
+      message += `- ${index + 1}: @${GroupMentionsCommand.stripJid(id)}\n`;
     }
     return [
       Reply.to(data).textWith(
@@ -126,12 +137,12 @@ export default class GroupMentionsCommand extends Command {
   }
 
   private async handleAdd(data: CommandData, rest: string): Promise<Message[]> {
-    const senderJid = (data.key.participant ?? data.key.remoteJid) as string;
+    const senderJid = GroupMentionsCommand.senderJid(data);
     const groupName = rest.replace(/\s*@\d+\s*/g, '');
     if (groupName.length === 0) {
       return [Reply.to(data).text(`Cadê o nome do grupo? 🤔`)];
     }
-    const participants = data?.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
+    const participants = GroupMentionsCommand.mentionedJids(data);
     const result = await this.service.add(data.key.remoteJid!, groupName, senderJid, participants);
     if (!result.ok) return [Reply.to(data).text(result.message)];
     const text = result.data.selfOnly
@@ -141,7 +152,7 @@ export default class GroupMentionsCommand extends Command {
   }
 
   private async handleExit(data: CommandData, rest: string): Promise<Message[]> {
-    const senderJid = (data.key.participant ?? data.key.remoteJid) as string;
+    const senderJid = GroupMentionsCommand.senderJid(data);
     const groupName = rest.replace(/\s+\d+\s*/g, '');
     if (groupName.length === 0) {
       return [Reply.to(data).text(`Cadê o nome do grupo? 🤔`)];
@@ -160,9 +171,8 @@ export default class GroupMentionsCommand extends Command {
     const text = rest.replace(groupName, '').trim();
     const result = await this.service.mention(data.key.remoteJid!, groupName);
     if (!result.ok) return [Reply.to(data).text(result.message)];
-    const regex = /@lid|@s.whatsapp.net/gi;
     const prefix = text.length > 0 ? `${text}\n\n` : '';
-    const mentions = result.data.participants.map((p) => `@${p.replace(regex, '')}`);
+    const mentions = result.data.participants.map((p) => `@${GroupMentionsCommand.stripJid(p)}`);
     return [Reply.to(data).textWith(`${prefix}${mentions.join(' ')}`, result.data.participants)];
   }
 }
