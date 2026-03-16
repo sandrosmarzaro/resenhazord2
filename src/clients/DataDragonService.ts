@@ -1,5 +1,9 @@
 import AxiosClient from '../infra/AxiosClient.js';
-import type { ChampionInfo, ChampionData, ChampionListResponse } from '../types/clients/dataDragon.js';
+import type {
+  ChampionInfo,
+  ChampionData,
+  ChampionListResponse,
+} from '../types/clients/dataDragon.js';
 
 export interface ChampionResult {
   id: string;
