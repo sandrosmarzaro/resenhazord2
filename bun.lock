@@ -21,6 +21,7 @@
         "link-preview-js": "^3.2.0",
         "m3u8-to-mp4": "^1.0.0",
         "mongodb": "^6.21.0",
+        "node-hitomi": "^9.1.1",
         "nsfwhub": "^0.0.2",
         "pino": "^9.14.0",
         "pino-pretty": "^11.3.0",
@@ -924,6 +925,8 @@
     "node-addon-api": ["node-addon-api@5.1.0", "", {}, "sha512-eh0GgfEkpnoWDq+VY8OyvYhFEzBk6jIYbRKdIlyTiAXIVJ8PyBaKb0rp7oDtoddbdoHWhq8wwr+XZ81F1rpNdA=="],
 
     "node-fetch": ["node-fetch@2.7.0", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A=="],
+
+    "node-hitomi": ["node-hitomi@9.1.1", "", { "peerDependencies": { "@types/node": ">=10.20" }, "optionalPeers": ["@types/node"] }, "sha512-gP9t3sSTXs2RTMaUxyER8VUDOP50VNxHpTyCK2Gaf1r1pLzppHVHbl2NSzvKc3Zt9nu40eyH/fUg584o/j9yIw=="],
 
     "node-webpmux": ["node-webpmux@3.2.1", "", {}, "sha512-MKgpq9nFgo44pIVNx/umD3nkqb2E8oqQTfmstVsfNdx9uV4cX7a4LqA+d8AZd3v5tgJXwENKUFsXNP3bRLP8nQ=="],
 

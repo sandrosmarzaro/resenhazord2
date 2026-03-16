@@ -36,6 +36,7 @@ import MenuCommand from '../commands/MenuCommand.js';
 import MyAnimeListCommand from '../commands/MyAnimeListCommand.js';
 import OiCommand from '../commands/OiCommand.js';
 import PokemonCommand from '../commands/PokemonCommand.js';
+import HentaiCommand from '../commands/HentaiCommand.js';
 import PornoCommand from '../commands/PornoCommand.js';
 import Rule34Command from '../commands/Rule34Command.js';
 import ScarraCommand from '../commands/ScarraCommand.js';
@@ -90,6 +91,7 @@ export default class CommandFactory {
       new PokemonCommand(),
       new PokemonTCGCommand(),
       new PuppyCommand(),
+      new HentaiCommand(),
       new PornoCommand(),
       new Rule34Command(),
       new ScarraCommand(whatsapp),

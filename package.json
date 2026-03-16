@@ -45,6 +45,7 @@
     "link-preview-js": "^3.2.0",
     "m3u8-to-mp4": "^1.0.0",
     "mongodb": "^6.21.0",
+    "node-hitomi": "^9.1.1",
     "nsfwhub": "^0.0.2",
     "pino": "^9.14.0",
     "pino-pretty": "^11.3.0",
