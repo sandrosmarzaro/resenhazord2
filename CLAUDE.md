@@ -318,7 +318,7 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
    ```
 
 8. **Verify fallback sources independently** — if a scraper has a primary + fallback
-   path (try A, catch → try B), test B in isolation *before* shipping. A broken fallback
+   path (try A, catch → try B), test B in isolation _before_ shipping. A broken fallback
    that swallows all errors and exhausts retries is worse than no fallback: it silently
    delays the real error. If the fallback source is known-broken (e.g. nhentai.xxx API),
    either remove it or gate it behind a guard that throws immediately.

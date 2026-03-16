@@ -10,7 +10,7 @@ const NHENTAI_EXT_MAP: Record<NhentaiImage['t'], string> = {
 };
 
 export default class HentaiScraper {
-  private static readonly MIRROR_URL = process.env.NHENTAI_MIRROR_URL ?? 'https://nhentai.xxx';
+  private static readonly MIRROR_URL = process.env.NHENTAI_MIRROR_URL ?? 'https://nhentai.net';
   private static readonly MAX_NHENTAI_ID = 500000;
   private static readonly NHENTAI_MAX_RETRIES = 5;
 
@@ -24,7 +24,7 @@ export default class HentaiScraper {
 
   private static readonly HITOMI_REFERER = 'https://hitomi.la/';
 
-  private static async fromHitomi(): Promise<HentaiGallery> {
+  static async fromHitomi(): Promise<HentaiGallery> {
     const refs = await hitomi.galleries.list({
       orderBy: SortType.Random,
       page: { index: 0, size: 25 },
@@ -51,7 +51,7 @@ export default class HentaiScraper {
     };
   }
 
-  private static async fromNhentai(): Promise<HentaiGallery> {
+  static async fromNhentai(): Promise<HentaiGallery> {
     for (let attempt = 0; attempt < HentaiScraper.NHENTAI_MAX_RETRIES; attempt++) {
       const id = Math.floor(Math.random() * HentaiScraper.MAX_NHENTAI_ID) + 1;
 

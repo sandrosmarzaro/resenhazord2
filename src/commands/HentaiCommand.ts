@@ -12,17 +12,23 @@ import type { HentaiGallery } from '../types/commands/hentai.js';
 export default class HentaiCommand extends Command {
   readonly config: CommandConfig = {
     name: 'hentai',
-    flags: ['dm', 'show'],
+    flags: ['dm', 'show', 'hitomi', 'nhentai'],
     category: 'aleatórias',
   };
 
   readonly menuDescription = 'Envia um hentai aleatório com informações do Hitomi.la.';
 
-  protected async execute(data: CommandData, _parsed: ParsedCommand): Promise<Message[]> {
+  protected async execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]> {
+    const fetchGallery = parsed.flags.has('hitomi')
+      ? () => HentaiScraper.fromHitomi()
+      : parsed.flags.has('nhentai')
+        ? () => HentaiScraper.fromNhentai()
+        : () => HentaiScraper.getRandomGallery();
+
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const gallery = await HentaiScraper.getRandomGallery();
+        const gallery = await fetchGallery();
         const cover = await AxiosClient.getBuffer(gallery.coverUrl, {
           retries: 0,
           headers: gallery.coverHeaders,

@@ -4,19 +4,9 @@ import { GroupCommandData, PrivateCommandData } from '../../fixtures/index.js';
 
 vi.mock('../../../src/scrapers/HentaiScraper.js', () => ({
   default: {
-    getRandomGallery: vi.fn().mockResolvedValue({
-      title: 'Test Manga',
-      japaneseTitle: 'テストマンガ',
-      artists: ['artist1'],
-      groups: ['group1'],
-      tags: ['tag1', 'tag2', 'tag3'],
-      type: 'doujinshi',
-      language: 'japanese',
-      pages: 42,
-      date: '2024-01',
-      coverUrl: 'https://example.com/cover.webp',
-      url: 'https://hitomi.la/galleries/123.html',
-    }),
+    getRandomGallery: vi.fn(),
+    fromHitomi: vi.fn(),
+    fromNhentai: vi.fn(),
   },
 }));
 
@@ -30,7 +20,23 @@ import HentaiScraper from '../../../src/scrapers/HentaiScraper.js';
 import AxiosClient from '../../../src/infra/AxiosClient.js';
 
 const mockGetRandomGallery = HentaiScraper.getRandomGallery as ReturnType<typeof vi.fn>;
+const mockFromHitomi = HentaiScraper.fromHitomi as ReturnType<typeof vi.fn>;
+const mockFromNhentai = HentaiScraper.fromNhentai as ReturnType<typeof vi.fn>;
 const mockGetBuffer = AxiosClient.getBuffer as ReturnType<typeof vi.fn>;
+
+const mockGallery = {
+  title: 'Test Manga',
+  japaneseTitle: 'テストマンガ',
+  artists: ['artist1'],
+  groups: ['group1'],
+  tags: ['tag1', 'tag2', 'tag3'],
+  type: 'doujinshi',
+  language: 'japanese',
+  pages: 42,
+  date: '2024-01',
+  coverUrl: 'https://example.com/cover.webp',
+  url: 'https://hitomi.la/galleries/123.html',
+};
 
 describe('HentaiCommand', () => {
   let command: HentaiCommand;
@@ -38,19 +44,9 @@ describe('HentaiCommand', () => {
   beforeEach(() => {
     command = new HentaiCommand();
     vi.clearAllMocks();
-    mockGetRandomGallery.mockResolvedValue({
-      title: 'Test Manga',
-      japaneseTitle: 'テストマンガ',
-      artists: ['artist1'],
-      groups: ['group1'],
-      tags: ['tag1', 'tag2', 'tag3'],
-      type: 'doujinshi',
-      language: 'japanese',
-      pages: 42,
-      date: '2024-01',
-      coverUrl: 'https://example.com/cover.webp',
-      url: 'https://hitomi.la/galleries/123.html',
-    });
+    mockGetRandomGallery.mockResolvedValue(mockGallery);
+    mockFromHitomi.mockResolvedValue(mockGallery);
+    mockFromNhentai.mockResolvedValue(mockGallery);
     mockGetBuffer.mockResolvedValue(Buffer.from('fake-image'));
   });
 
@@ -61,6 +57,8 @@ describe('HentaiCommand', () => {
       [', HENTAI', true],
       [', hentai show', true],
       [', hentai dm', true],
+      [', hentai hitomi', true],
+      [', hentai nhentai', true],
       ['  , hentai  ', true],
       ['hentai', false],
       ['hello', false],
@@ -227,7 +225,10 @@ describe('HentaiCommand', () => {
 
       await command.run(data);
 
-      expect(mockGetBuffer).toHaveBeenCalledWith('https://example.com/cover.webp', { retries: 0 });
+      expect(mockGetBuffer).toHaveBeenCalledWith('https://example.com/cover.webp', {
+        retries: 0,
+        headers: undefined,
+      });
     });
 
     it('retries up to 3 times when cover fetch fails, succeeding on 3rd attempt', async () => {
@@ -248,6 +249,34 @@ describe('HentaiCommand', () => {
 
       await expect(command.run(data)).rejects.toThrow('404');
       expect(mockGetBuffer).toHaveBeenCalledTimes(3);
+    });
+
+    it('hitomi flag calls fromHitomi, not getRandomGallery', async () => {
+      const data = GroupCommandData.build({ text: ',hentai hitomi' });
+
+      await command.run(data);
+
+      expect(mockFromHitomi).toHaveBeenCalled();
+      expect(mockGetRandomGallery).not.toHaveBeenCalled();
+    });
+
+    it('nhentai flag calls fromNhentai, not getRandomGallery', async () => {
+      const data = GroupCommandData.build({ text: ',hentai nhentai' });
+
+      await command.run(data);
+
+      expect(mockFromNhentai).toHaveBeenCalled();
+      expect(mockGetRandomGallery).not.toHaveBeenCalled();
+    });
+
+    it('no flag calls getRandomGallery', async () => {
+      const data = GroupCommandData.build({ text: ',hentai' });
+
+      await command.run(data);
+
+      expect(mockGetRandomGallery).toHaveBeenCalled();
+      expect(mockFromHitomi).not.toHaveBeenCalled();
+      expect(mockFromNhentai).not.toHaveBeenCalled();
     });
   });
 });
