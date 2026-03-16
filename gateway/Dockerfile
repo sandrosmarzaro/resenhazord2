@@ -1,5 +1,9 @@
 FROM oven/bun:1.3.9-slim AS builder
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libvips-dev build-essential python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 COPY package.json bun.lock ./
@@ -15,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     ffmpeg \
+    libvips42 \
     && pip3 install --no-cache-dir --break-system-packages yt-dlp \
     && rm -rf /var/lib/apt/lists/*
 

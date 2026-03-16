@@ -9,12 +9,14 @@ import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 import groupMetadataCache from '../cache/index.js';
 import CommandFactory from '../factories/CommandFactory.js';
+import PythonBridge from '../bridge/PythonBridge.js';
 import { Sentry } from '../infra/Sentry.js';
 
 export default class Resenhazord2 {
   static auth_state: MongoDBAuthResult | null = null;
   private static socket: WASocket | null = null;
   static adapter: WhatsAppPort | null = null;
+  static bridge: PythonBridge = new PythonBridge();
   static isConnecting = false;
 
   static async connectToWhatsApp(): Promise<void> {
@@ -27,6 +29,8 @@ export default class Resenhazord2 {
       this.auth_state = await CreateAuthState.getAuthState();
       this.socket = await CreateSocket.getSocket(this.auth_state.state);
       this.adapter = new BaileysAdapter(this.socket);
+      this.bridge.setWhatsApp(this.adapter);
+      this.bridge.connect();
       console.log('Socket created successfully');
     } catch (error) {
       Sentry.captureException(error);
@@ -92,6 +96,7 @@ export default class Resenhazord2 {
       this.adapter = null;
     }
     CommandFactory.reset();
+    this.bridge.disconnect();
     this.isConnecting = false;
   }
 }
