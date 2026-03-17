@@ -37,15 +37,10 @@ class TorahCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         rest = parsed.rest.strip()
         lang = parsed.options.get('lang')
+        ref = self._parse_ref(rest)
 
-        if not rest:
-            ref = self._random_ref()
-        else:
-            match = re.match(r'^(.+?)\s+(\d+):(\d+)$', rest)
-            if not match:
-                return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
-            book_name, chapter, verse = match.group(1), match.group(2), match.group(3)
-            ref = f'{book_name}.{chapter}.{verse}'
+        if ref is None:
+            return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
 
         url = f'https://www.sefaria.org/api/texts/{ref}?context=0'
         response = await HttpClient.get(url)
@@ -66,6 +61,15 @@ class TorahCommand(Command):
             return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
 
         return [self._build_reply(data, payload, lang, he_raw, en_raw)]
+
+    def _parse_ref(self, rest: str) -> str | None:
+        if not rest:
+            return self._random_ref()
+        match = re.match(r'^(.+?)\s+(\d+):(\d+)$', rest)
+        if not match:
+            return None
+        book_name, chapter, verse = match.group(1), match.group(2), match.group(3)
+        return f'{book_name}.{chapter}.{verse}'
 
     @staticmethod
     def _random_ref() -> str:

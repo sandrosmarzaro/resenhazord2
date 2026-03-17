@@ -9,6 +9,9 @@ from bot.infrastructure.http_client import HttpClient
 
 
 class BibliaCommand(Command):
+    BASE_URL = 'https://www.abibliadigital.com.br/api'
+    VERSE_PATTERN = re.compile(r'\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?')
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -25,42 +28,37 @@ class BibliaCommand(Command):
     def menu_description(self) -> str:
         return 'Comando complexo. Use *,menu biblia* para detalhes.'
 
+    def _auth_headers(self) -> dict[str, str]:
+        token = os.environ.get('BIBLIA_TOKEN', '')
+        return {'Authorization': f'Bearer {token}'}
+
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         rest = parsed.rest.strip()
-        has_verse = re.search(r'\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?', rest)
         version = parsed.options.get('version', 'nvi')
-        token = os.environ.get('BIBLIA_TOKEN', '')
-        headers = {'Authorization': f'Bearer {token}'}
-        base_url = 'https://www.abibliadigital.com.br/api'
+        headers = self._auth_headers()
 
-        if not has_verse:
-            url = f'{base_url}/verses/{version}/random'
+        if not self.VERSE_PATTERN.search(rest):
+            url = f'{self.BASE_URL}/verses/{version}/random'
             response = await HttpClient.get(url, headers=headers)
             response.raise_for_status()
             return [self._build_verse(data, response.json())]
 
-        book = re.sub(r'\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?', '', rest).strip()
+        book = self.VERSE_PATTERN.sub('', rest).strip()
         if not book:
             return [Reply.to(data).text('Por favor, digite o nome do livro da bíblia... 😔')]
 
         chapter_match = re.search(r'(\d{1,3}):', rest)
         chapter = chapter_match.group(1) if chapter_match else ''
 
-        has_range = re.search(r'-\s*\d{1,3}', rest)
+        abbrev = await self._resolve_abbrev(data, book)
+        if isinstance(abbrev, list):
+            return abbrev
 
+        has_range = re.search(r'-\s*\d{1,3}', rest)
         if not has_range:
             number_match = re.search(r':\s*(\d{1,3})', rest)
             number = number_match.group(1) if number_match else ''
-
-            books_resp = await HttpClient.get(f'{base_url}/books', headers=headers)
-            books_resp.raise_for_status()
-            books = books_resp.json()
-
-            abbrev = self._find_abbrev(books, book)
-            if not abbrev:
-                return [self._books_not_found(data, books)]
-
-            url = f'{base_url}/verses/{version}/{abbrev}/{chapter}/{number}'
+            url = f'{self.BASE_URL}/verses/{version}/{abbrev}/{chapter}/{number}'
             response = await HttpClient.get(url, headers=headers)
             response.raise_for_status()
             return [self._build_verse(data, response.json())]
@@ -69,23 +67,26 @@ class BibliaCommand(Command):
         start = range_match.group(1) if range_match else '1'
         end = range_match.group(2) if range_match else '1'
 
-        books_resp = await HttpClient.get(f'{base_url}/books', headers=headers)
-        books_resp.raise_for_status()
-        books = books_resp.json()
-
-        abbrev = self._find_abbrev(books, book)
-        if not abbrev:
-            return [self._books_not_found(data, books)]
-
         verses: list[str] = []
         for i in range(int(start), int(end) + 1):
-            url = f'{base_url}/verses/{version}/{abbrev}/{chapter}/{i}'
+            url = f'{self.BASE_URL}/verses/{version}/{abbrev}/{chapter}/{i}'
             resp = await HttpClient.get(url, headers=headers)
             resp.raise_for_status()
             verses.append(f'> {resp.json()["text"]}')
 
         text = f'*{book} {chapter}:{start}-{end}*\n\n' + '\n'.join(verses)
         return [Reply.to(data).text(text)]
+
+    async def _resolve_abbrev(self, data: CommandData, book: str) -> str | list[BotMessage]:
+        headers = self._auth_headers()
+        books_resp = await HttpClient.get(f'{self.BASE_URL}/books', headers=headers)
+        books_resp.raise_for_status()
+        books = books_resp.json()
+
+        abbrev = self._find_abbrev(books, book)
+        if not abbrev:
+            return [self._books_not_found(data, books)]
+        return abbrev
 
     @staticmethod
     def _find_abbrev(books: list[dict], book_name: str) -> str | None:
