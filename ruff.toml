@@ -1,0 +1,27 @@
+target-version = "py313"
+line-length = 100
+extend-exclude = ["Dockerfile.py"]
+
+[lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific rules
+    "ASYNC", # flake8-async
+    "T20",   # flake8-print
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[lint.isort]
+known-first-party = ["bot"]
+
+[format]
+quote-style = "double"

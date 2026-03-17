@@ -1,0 +1,54 @@
+[project]
+name = "resenhazord2-core"
+version = "0.1.0"
+description = "Python core for Resenhazord2 WhatsApp bot"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "httpx>=0.28.0",
+    "httpx-retries>=0.4.0",
+    "motor>=3.7.0",
+    "beanie>=1.27.0",
+    "structlog>=25.1.0",
+    "sentry-sdk[fastapi]>=2.19.0",
+    "pillow>=11.0.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "redis>=5.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "anyio[trio]>=4.8.0",
+    "pytest-anyio>=0.0.0",
+    "respx>=0.22.0",
+    "factory-boy>=3.3.0",
+    "fakeredis>=2.26.0",
+    "basedpyright>=1.24.0",
+    "pre-commit>=4.0.0",
+    "ruff>=0.11.0",
+    "taskipy>=1.14.0",
+]
+
+[tool.taskipy.tasks]
+test = "pytest"
+lint = "ruff check ."
+"lint:fix" = "ruff check . --fix"
+format = "ruff format ."
+"format:check" = "ruff format --check ."
+typecheck = "basedpyright"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["bot"]
+omit = ["tests/*", "bot/main.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

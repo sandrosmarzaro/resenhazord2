@@ -1,0 +1,12 @@
+{
+  "include": ["bot"],
+  "exclude": ["tests", "**/__pycache__"],
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "standard",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportUnusedImport": true,
+  "reportUnusedVariable": true,
+  "venvPath": ".",
+  "venv": ".venv"
+}
