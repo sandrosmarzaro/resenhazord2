@@ -16,7 +16,9 @@ class HttpClient:
                 status_forcelist=[502, 503, 504],
             )
             transport = RetryTransport(retry=retry)
-            cls._client = httpx.AsyncClient(timeout=30.0, transport=transport)
+            cls._client = httpx.AsyncClient(
+                timeout=30.0, transport=transport, follow_redirects=True
+            )
         return cls._client
 
     @classmethod
