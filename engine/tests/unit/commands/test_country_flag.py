@@ -1,9 +1,9 @@
+import httpx
 import pytest
 
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.models.message import ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
@@ -27,10 +27,6 @@ def _mock_country(**overrides):
     }
 
 
-def _mock_response(countries):
-    return make_json_response(countries)
-
-
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -52,11 +48,11 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_image_with_country_info(self, command, mocker):
+    async def test_returns_image_with_country_info(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-        mock_resp = _mock_response([_mock_country()])
-
-        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            return_value=httpx.Response(200, json=[_mock_country()])
+        )
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -70,47 +66,45 @@ class TestRun:
         assert 'Brazilian real' in caption
 
     @pytest.mark.anyio
-    async def test_includes_official_name_when_different(self, command, mocker):
+    async def test_includes_official_name_when_different(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-        mock_resp = _mock_response([_mock_country()])
-
-        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            return_value=httpx.Response(200, json=[_mock_country()])
+        )
         messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'Federative Republic of Brazil' in caption
 
     @pytest.mark.anyio
-    async def test_omits_official_name_when_same(self, command, mocker):
+    async def test_omits_official_name_when_same(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
         country = _mock_country(name={'common': 'Japan', 'official': 'Japan'})
-        mock_resp = _mock_response([country])
-
-        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            return_value=httpx.Response(200, json=[country])
+        )
         messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert caption.count('Japan') == 1
 
     @pytest.mark.anyio
-    async def test_handles_missing_subregion(self, command, mocker):
+    async def test_handles_missing_subregion(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
         country = _mock_country(subregion=None, region='Antarctic')
-        mock_resp = _mock_response([country])
-
-        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            return_value=httpx.Response(200, json=[country])
+        )
         messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'Antártida' in caption
 
     @pytest.mark.anyio
-    async def test_returns_error_on_failure(self, command, mocker):
+    async def test_returns_error_on_failure(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-
-        mocker.patch(
-            'bot.domain.commands.country_flag.HttpClient.get',
-            side_effect=Exception('API down'),
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            side_effect=Exception('API down')
         )
         messages = await command.run(data)
 

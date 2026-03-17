@@ -1,18 +1,16 @@
+import httpx
 import pytest
 
 from bot.domain.commands.fuck import FuckCommand
 from bot.domain.models.message import RawContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
-from tests.factories.mock_http import make_json_response
+
+NSFW_URL = 'https://nsfwhub.onrender.com/nsfw?type=fuck'
 
 
 @pytest.fixture
 def command():
     return FuckCommand()
-
-
-def _mock_response(url='https://example.com/video.mp4'):
-    return make_json_response({'image': {'url': url}})
 
 
 class TestMatches:
@@ -34,7 +32,7 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_raw_video_with_mentions(self, command, mocker):
+    async def test_returns_raw_video_with_mentions(self, command, respx_mock):
         sender = '5511999990001@s.whatsapp.net'
         mentioned = '5511888880001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
@@ -44,7 +42,11 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        mocker.patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response())
+        respx_mock.get(NSFW_URL).mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/video.mp4'}}
+            )
+        )
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -57,7 +59,7 @@ class TestRun:
         assert 'fudendo' in content['caption']
 
     @pytest.mark.anyio
-    async def test_strips_lid_suffix_from_phones(self, command, mocker):
+    async def test_strips_lid_suffix_from_phones(self, command, respx_mock):
         sender = '5511999990001@lid'
         mentioned = '5511888880001@lid'
         data = GroupCommandDataFactory.build(
@@ -67,7 +69,11 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        mocker.patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response())
+        respx_mock.get(NSFW_URL).mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/video.mp4'}}
+            )
+        )
         messages = await command.run(data)
 
         content = messages[0].content.content
@@ -85,7 +91,7 @@ class TestRun:
         assert 'grupo' in messages[0].content.text.lower()
 
     @pytest.mark.anyio
-    async def test_uses_sender_jid_when_no_participant(self, command, mocker):
+    async def test_uses_sender_jid_when_no_participant(self, command, respx_mock):
         sender = '5511999990001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
             text=', fuck @123',
@@ -94,7 +100,11 @@ class TestRun:
             mentioned_jids=['123@s.whatsapp.net'],
         )
 
-        mocker.patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response())
+        respx_mock.get(NSFW_URL).mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/video.mp4'}}
+            )
+        )
         messages = await command.run(data)
 
         content = messages[0].content.content

@@ -1,16 +1,11 @@
+import httpx
 import pytest
 
 from bot.domain.commands.hearthstone import HearthstoneCommand
 from bot.domain.models.message import ImageBufferContent, ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
 
-
-@pytest.fixture
-def command():
-    HearthstoneCommand._cached_token = None
-    return HearthstoneCommand(bnet_id='test-id', bnet_secret='test-secret')  # noqa: S106
-
+OAUTH_URL = 'https://oauth.battle.net/token'
 
 MOCK_CARD = {
     'name': 'Fireball',
@@ -20,16 +15,22 @@ MOCK_CARD = {
 }
 
 
-def _mock_oauth_response():
-    return make_json_response({'access_token': 'mock-token'})
+@pytest.fixture
+def command():
+    HearthstoneCommand._cached_token = None
+    return HearthstoneCommand(bnet_id='test-id', bnet_secret='test-secret')  # noqa: S106
 
 
-def _mock_page_count_response(page_count: int = 10):
-    return make_json_response({'pageCount': page_count, 'cards': []})
+@pytest.fixture
+def oauth_route(respx_mock):
+    return respx_mock.post(OAUTH_URL).mock(
+        return_value=httpx.Response(200, json={'access_token': 'mock-token'})
+    )
 
 
-def _mock_card_response(card: dict | None = None):
-    return make_json_response({'cards': [card or MOCK_CARD]})
+@pytest.fixture
+def cards_route(respx_mock):
+    return respx_mock.get(url__startswith='https://us.api.blizzard.com/hearthstone/cards')
 
 
 class TestMatches:
@@ -54,16 +55,13 @@ class TestMatches:
 
 class TestSingleCard:
     @pytest.mark.anyio
-    async def test_returns_card_image(self, command, mocker):
+    async def test_returns_card_image(self, command, oauth_route, cards_route):
         data = GroupCommandDataFactory.build(text=', hs')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
-            side_effect=[_mock_page_count_response(), _mock_card_response()],
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [MOCK_CARD]}),
+            ]
         )
         messages = await command.run(data)
 
@@ -72,16 +70,13 @@ class TestSingleCard:
         assert messages[0].content.url == MOCK_CARD['image']
 
     @pytest.mark.anyio
-    async def test_replaces_html_tags_in_caption(self, command, mocker):
+    async def test_replaces_html_tags_in_caption(self, command, oauth_route, cards_route):
         data = GroupCommandDataFactory.build(text=', hs')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
-            side_effect=[_mock_page_count_response(), _mock_card_response()],
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [MOCK_CARD]}),
+            ]
         )
         messages = await command.run(data)
 
@@ -92,45 +87,35 @@ class TestSingleCard:
         assert '</b>' not in caption
 
     @pytest.mark.anyio
-    async def test_view_once_true_by_default(self, command, mocker):
+    async def test_view_once_true_by_default(self, command, oauth_route, cards_route):
         data = GroupCommandDataFactory.build(text=', hs')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
-            side_effect=[_mock_page_count_response(), _mock_card_response()],
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [MOCK_CARD]}),
+            ]
         )
         messages = await command.run(data)
 
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command, mocker):
+    async def test_show_flag_disables_view_once(self, command, oauth_route, cards_route):
         data = GroupCommandDataFactory.build(text=', hs show')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
-            side_effect=[_mock_page_count_response(), _mock_card_response()],
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [MOCK_CARD]}),
+            ]
         )
         messages = await command.run(data)
 
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_returns_error_when_oauth_fails(self, command, mocker):
+    async def test_returns_error_when_oauth_fails(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', hs')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            side_effect=Exception('OAuth Error'),
-        )
+        respx_mock.post(OAUTH_URL).mock(side_effect=Exception('OAuth Error'))
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -140,17 +125,14 @@ class TestSingleCard:
 
 class TestCaptionEdgeCases:
     @pytest.mark.anyio
-    async def test_handles_text_as_dict(self, command, mocker):
+    async def test_handles_text_as_dict(self, command, oauth_route, cards_route):
         card = {**MOCK_CARD, 'text': {'pt_BR': 'Causa <b>6</b> de dano.', 'en_US': 'Deal 6.'}}
         data = GroupCommandDataFactory.build(text=', hs')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
-            side_effect=[_mock_page_count_response(), _mock_card_response(card)],
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [card]}),
+            ]
         )
         messages = await command.run(data)
 
@@ -159,34 +141,28 @@ class TestCaptionEdgeCases:
         assert '<b>' not in caption
 
     @pytest.mark.anyio
-    async def test_handles_missing_text(self, command, mocker):
+    async def test_handles_missing_text(self, command, oauth_route, cards_route):
         card = {k: v for k, v in MOCK_CARD.items() if k != 'text'}
         data = GroupCommandDataFactory.build(text=', hs')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
-            side_effect=[_mock_page_count_response(), _mock_card_response(card)],
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [card]}),
+            ]
         )
         messages = await command.run(data)
 
         assert isinstance(messages[0].content, ImageContent)
 
     @pytest.mark.anyio
-    async def test_handles_missing_flavor_text(self, command, mocker):
+    async def test_handles_missing_flavor_text(self, command, oauth_route, cards_route):
         card = {k: v for k, v in MOCK_CARD.items() if k != 'flavorText'}
         data = GroupCommandDataFactory.build(text=', hs')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
-            side_effect=[_mock_page_count_response(), _mock_card_response(card)],
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [card]}),
+            ]
         )
         messages = await command.run(data)
 
@@ -197,23 +173,16 @@ class TestCaptionEdgeCases:
 
 class TestBooster:
     @pytest.mark.anyio
-    async def test_returns_grid_image(self, command, mocker):
+    async def test_returns_grid_image(self, command, oauth_route, cards_route, respx_mock, mocker):
         data = GroupCommandDataFactory.build(text=', hs booster')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
+        cards_route.mock(
             side_effect=[
-                _mock_page_count_response(),
-                *[_mock_card_response() for _ in range(6)],
-            ],
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                *[httpx.Response(200, json={'cards': [MOCK_CARD]}) for _ in range(6)],
+            ]
         )
-        mocker.patch(
-            'bot.domain.commands.card_booster.HttpClient.get_buffer',
-            return_value=b'fake-image',
+        respx_mock.get(url__startswith='https://d15f34w2p8l1cc.cloudfront.net/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
         )
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
@@ -225,23 +194,18 @@ class TestBooster:
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_booster_caption_has_numbered_cards(self, command, mocker):
+    async def test_booster_caption_has_numbered_cards(
+        self, command, oauth_route, cards_route, respx_mock, mocker
+    ):
         data = GroupCommandDataFactory.build(text=', hs booster')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            return_value=_mock_oauth_response(),
-        )
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.get',
+        cards_route.mock(
             side_effect=[
-                _mock_page_count_response(),
-                *[_mock_card_response() for _ in range(6)],
-            ],
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                *[httpx.Response(200, json={'cards': [MOCK_CARD]}) for _ in range(6)],
+            ]
         )
-        mocker.patch(
-            'bot.domain.commands.card_booster.HttpClient.get_buffer',
-            return_value=b'fake-image',
+        respx_mock.get(url__startswith='https://d15f34w2p8l1cc.cloudfront.net/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
         )
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
@@ -254,12 +218,8 @@ class TestBooster:
         assert 'Fireball' in caption
 
     @pytest.mark.anyio
-    async def test_booster_raises_when_oauth_fails(self, command, mocker):
+    async def test_booster_raises_when_oauth_fails(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', hs booster')
-
-        mocker.patch(
-            'bot.domain.commands.hearthstone.HttpClient.post',
-            side_effect=Exception('OAuth Error'),
-        )
+        respx_mock.post(OAUTH_URL).mock(side_effect=Exception('OAuth Error'))
         with pytest.raises(ValueError, match='OAuth token unavailable'):
             await command.run(data)

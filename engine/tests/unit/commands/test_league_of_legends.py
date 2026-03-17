@@ -1,35 +1,29 @@
+import httpx
 import pytest
 
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
 from bot.domain.models.message import ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
+
+VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json'
+
+MOCK_CHAMPIONS = {
+    'data': {
+        'Ahri': {
+            'id': 'Ahri',
+            'name': 'Ahri',
+            'title': 'the Nine-Tailed Fox',
+            'tags': ['Mage', 'Assassin'],
+            'info': {'attack': 3, 'defense': 4, 'magic': 8, 'difficulty': 5},
+            'blurb': 'A vastayan with fox-like features.',
+        }
+    }
+}
 
 
 @pytest.fixture
 def command():
     return LeagueOfLegendsCommand()
-
-
-def _mock_versions_response():
-    return make_json_response(['14.1.1', '14.1.0'])
-
-
-def _mock_champions_response():
-    return make_json_response(
-        {
-            'data': {
-                'Ahri': {
-                    'id': 'Ahri',
-                    'name': 'Ahri',
-                    'title': 'the Nine-Tailed Fox',
-                    'tags': ['Mage', 'Assassin'],
-                    'info': {'attack': 3, 'defense': 4, 'magic': 8, 'difficulty': 5},
-                    'blurb': 'A vastayan with fox-like features.',
-                }
-            }
-        }
-    )
 
 
 class TestMatches:
@@ -53,28 +47,27 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_version_and_champions_apis(self, command, mocker):
+    async def test_calls_version_and_champions_apis(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', lol')
-        version_resp = _mock_versions_response()
-        champs_resp = _mock_champions_response()
-
-        mock_get = mocker.patch(
-            'bot.domain.commands.league_of_legends.HttpClient.get',
-            side_effect=[version_resp, champs_resp],
+        versions_route = respx_mock.get(VERSIONS_URL).mock(
+            return_value=httpx.Response(200, json=['14.1.1', '14.1.0'])
         )
+        champs_route = respx_mock.get(
+            url__startswith='https://ddragon.leagueoflegends.com/cdn/'
+        ).mock(return_value=httpx.Response(200, json=MOCK_CHAMPIONS))
         await command.run(data)
 
-        assert mock_get.call_count == 2
+        assert versions_route.call_count == 1
+        assert champs_route.call_count == 1
 
     @pytest.mark.anyio
-    async def test_returns_image_with_champion_info(self, command, mocker):
+    async def test_returns_image_with_champion_info(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', lol')
-        version_resp = _mock_versions_response()
-        champs_resp = _mock_champions_response()
-
-        mocker.patch(
-            'bot.domain.commands.league_of_legends.HttpClient.get',
-            side_effect=[version_resp, champs_resp],
+        respx_mock.get(VERSIONS_URL).mock(
+            return_value=httpx.Response(200, json=['14.1.1', '14.1.0'])
+        )
+        respx_mock.get(url__startswith='https://ddragon.leagueoflegends.com/cdn/').mock(
+            return_value=httpx.Response(200, json=MOCK_CHAMPIONS)
         )
         messages = await command.run(data)
 
@@ -88,13 +81,9 @@ class TestRun:
         assert 'Ataque: 3/10' in caption
 
     @pytest.mark.anyio
-    async def test_returns_error_on_failure(self, command, mocker):
+    async def test_returns_error_on_failure(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', lol')
-
-        mocker.patch(
-            'bot.domain.commands.league_of_legends.HttpClient.get',
-            side_effect=Exception('API down'),
-        )
+        respx_mock.get(VERSIONS_URL).mock(side_effect=Exception('API down'))
         messages = await command.run(data)
 
         assert len(messages) == 1

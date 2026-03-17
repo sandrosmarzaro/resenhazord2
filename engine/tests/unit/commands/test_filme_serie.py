@@ -1,9 +1,9 @@
+import httpx
 import pytest
 
 from bot.domain.commands.filme_serie import FilmeSerieCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
@@ -35,10 +35,6 @@ def _tv_item(**overrides):
     }
 
 
-def _genres_response(genres):
-    return make_json_response({'genres': genres})
-
-
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -62,14 +58,15 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_movie_returns_image(self, command, mocker):
+    async def test_movie_returns_image(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', filme')
-        movie_resp = make_json_response({'results': [_movie_item()]})
-        genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}, {'id': 878, 'name': 'Ficção'}])
-
-        mocker.patch(
-            'bot.domain.commands.filme_serie.HttpClient.get',
-            side_effect=[movie_resp, genres_resp],
+        respx_mock.get(url__regex=r'.*themoviedb\.org/3/movie/popular.*').mock(
+            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+        )
+        respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
+            return_value=httpx.Response(
+                200, json={'genres': [{'id': 28, 'name': 'Ação'}, {'id': 878, 'name': 'Ficção'}]}
+            )
         )
         messages = await command.run(data)
 
@@ -82,14 +79,13 @@ class TestRun:
         assert '1999' in caption
 
     @pytest.mark.anyio
-    async def test_tv_returns_image(self, command, mocker):
+    async def test_tv_returns_image(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', série')
-        tv_resp = make_json_response({'results': [_tv_item()]})
-        genres_resp = _genres_response([{'id': 18, 'name': 'Drama'}])
-
-        mocker.patch(
-            'bot.domain.commands.filme_serie.HttpClient.get',
-            side_effect=[tv_resp, genres_resp],
+        respx_mock.get(url__regex=r'.*themoviedb\.org/3/tv/popular.*').mock(
+            return_value=httpx.Response(200, json={'results': [_tv_item()]})
+        )
+        respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
+            return_value=httpx.Response(200, json={'genres': [{'id': 18, 'name': 'Drama'}]})
         )
         messages = await command.run(data)
 
@@ -99,31 +95,27 @@ class TestRun:
         assert 'Drama' in caption
 
     @pytest.mark.anyio
-    async def test_top_mode_uses_top_rated(self, command, mocker):
+    async def test_top_mode_uses_top_rated(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', filme top')
-        movie_resp = make_json_response({'results': [_movie_item()]})
-        genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}])
-
-        mock_get = mocker.patch(
-            'bot.domain.commands.filme_serie.HttpClient.get',
-            side_effect=[movie_resp, genres_resp],
+        route = respx_mock.get(url__regex=r'.*top_rated.*').mock(
+            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+        )
+        respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
+            return_value=httpx.Response(200, json={'genres': [{'id': 28, 'name': 'Ação'}]})
         )
         await command.run(data)
 
-        url = mock_get.call_args_list[0][0][0]
-        assert 'top_rated' in url
+        assert route.called
 
     @pytest.mark.anyio
-    async def test_default_mode_is_popular(self, command, mocker):
+    async def test_default_mode_is_popular(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', filme')
-        movie_resp = make_json_response({'results': [_movie_item()]})
-        genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}])
-
-        mock_get = mocker.patch(
-            'bot.domain.commands.filme_serie.HttpClient.get',
-            side_effect=[movie_resp, genres_resp],
+        route = respx_mock.get(url__regex=r'.*popular.*').mock(
+            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+        )
+        respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
+            return_value=httpx.Response(200, json={'genres': [{'id': 28, 'name': 'Ação'}]})
         )
         await command.run(data)
 
-        url = mock_get.call_args_list[0][0][0]
-        assert 'popular' in url
+        assert route.called

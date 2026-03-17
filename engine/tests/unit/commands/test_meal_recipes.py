@@ -1,9 +1,11 @@
+import httpx
 import pytest
 
 from bot.domain.commands.meal_recipes import MealRecipesCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
+
+MEAL_API_URL = 'https://www.themealdb.com/api/json/v1/1/random.php'
 
 
 @pytest.fixture
@@ -31,10 +33,6 @@ def _mock_meal(**overrides):
     }
 
 
-def _mock_response(meal):
-    return make_json_response({'meals': [meal]})
-
-
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -56,23 +54,21 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_api(self, command, mocker):
+    async def test_calls_api(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', comida')
-        mock_resp = _mock_response(_mock_meal())
-
-        mock_get = mocker.patch(
-            'bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp
+        route = respx_mock.get(MEAL_API_URL).mock(
+            return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
         await command.run(data)
 
-        mock_get.assert_called_once_with('https://www.themealdb.com/api/json/v1/1/random.php')
+        assert route.called
 
     @pytest.mark.anyio
-    async def test_returns_image_with_recipe(self, command, mocker):
+    async def test_returns_image_with_recipe(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', comida')
-        mock_resp = _mock_response(_mock_meal())
-
-        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(MEAL_API_URL).mock(
+            return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
+        )
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -86,12 +82,11 @@ class TestRun:
         assert 'Cook the pasta' in caption
 
     @pytest.mark.anyio
-    async def test_includes_ingredients_list(self, command, mocker):
+    async def test_includes_ingredients_list(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', comida')
-        meal = _mock_meal()
-        mock_resp = _mock_response(meal)
-
-        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(MEAL_API_URL).mock(
+            return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
+        )
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -99,12 +94,11 @@ class TestRun:
         assert '- Tomato | 3' in caption
 
     @pytest.mark.anyio
-    async def test_stops_at_empty_ingredient(self, command, mocker):
+    async def test_stops_at_empty_ingredient(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', comida')
-        meal = _mock_meal()
-        mock_resp = _mock_response(meal)
-
-        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(MEAL_API_URL).mock(
+            return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
+        )
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -112,12 +106,10 @@ class TestRun:
         assert caption.count('- ') == 2
 
     @pytest.mark.anyio
-    async def test_handles_missing_optional_fields(self, command, mocker):
+    async def test_handles_missing_optional_fields(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', comida')
         meal = _mock_meal(strArea=None, strTags=None, strYoutube=None, strSource=None)
-        mock_resp = _mock_response(meal)
-
-        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(MEAL_API_URL).mock(return_value=httpx.Response(200, json={'meals': [meal]}))
         messages = await command.run(data)
 
         caption = messages[0].content.caption

@@ -1,14 +1,23 @@
+import httpx
 import pytest
 
 from bot.domain.commands.alcorao import AlcoraoCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return AlcoraoCommand()
+
+
+MOCK_VERSE = {
+    'data': {
+        'text': 'In the name of God',
+        'numberInSurah': 1,
+        'surah': {'englishName': 'Al-Fatiha', 'number': 1},
+    }
+}
 
 
 class TestMatches:
@@ -31,41 +40,24 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_api(self, command, mocker):
+    async def test_calls_api(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', alcorão')
-        mock_resp = make_json_response(
-            {
-                'data': {
-                    'text': 'In the name of God',
-                    'numberInSurah': 1,
-                    'surah': {'englishName': 'Al-Fatiha', 'number': 1},
-                }
-            }
-        )
-
-        mock_get = mocker.patch(
-            'bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp
+        route = respx_mock.get(url__startswith='https://api.alquran.cloud/v1/ayah/').mock(
+            return_value=httpx.Response(200, json=MOCK_VERSE)
         )
         await command.run(data)
 
-        url = mock_get.call_args[0][0]
+        assert route.called
+        url = str(route.calls.last.request.url)
         assert url.startswith('https://api.alquran.cloud/v1/ayah/')
         assert url.endswith('/pt.elhayek')
 
     @pytest.mark.anyio
-    async def test_returns_formatted_text(self, command, mocker):
+    async def test_returns_formatted_text(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', alcorão')
-        mock_resp = make_json_response(
-            {
-                'data': {
-                    'text': 'In the name of God',
-                    'numberInSurah': 1,
-                    'surah': {'englishName': 'Al-Fatiha', 'number': 1},
-                }
-            }
+        respx_mock.get(url__startswith='https://api.alquran.cloud/v1/ayah/').mock(
+            return_value=httpx.Response(200, json=MOCK_VERSE)
         )
-
-        mocker.patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp)
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -75,37 +67,39 @@ class TestRun:
         assert 'In the name of God' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_includes_quoted_message_id(self, command, mocker):
+    async def test_includes_quoted_message_id(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', alcorão', message_id='MSG_42')
-        mock_resp = make_json_response(
-            {
-                'data': {
-                    'text': 'verse',
-                    'numberInSurah': 5,
-                    'surah': {'englishName': 'Al-Baqara', 'number': 2},
-                }
-            }
+        respx_mock.get(url__startswith='https://api.alquran.cloud/v1/ayah/').mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    'data': {
+                        'text': 'verse',
+                        'numberInSurah': 5,
+                        'surah': {'englishName': 'Al-Baqara', 'number': 2},
+                    }
+                },
+            )
         )
-
-        mocker.patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp)
         messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
 
     @pytest.mark.anyio
-    async def test_includes_expiration(self, command, mocker):
+    async def test_includes_expiration(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', alcorão', expiration=86400)
-        mock_resp = make_json_response(
-            {
-                'data': {
-                    'text': 'verse',
-                    'numberInSurah': 5,
-                    'surah': {'englishName': 'Al-Baqara', 'number': 2},
-                }
-            }
+        respx_mock.get(url__startswith='https://api.alquran.cloud/v1/ayah/').mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    'data': {
+                        'text': 'verse',
+                        'numberInSurah': 5,
+                        'surah': {'englishName': 'Al-Baqara', 'number': 2},
+                    }
+                },
+            )
         )
-
-        mocker.patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp)
         messages = await command.run(data)
 
         assert messages[0].expiration == 86400

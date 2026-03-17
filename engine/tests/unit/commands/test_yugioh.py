@@ -1,15 +1,11 @@
+import httpx
 import pytest
 
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.models.message import ImageBufferContent, ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
 
-
-@pytest.fixture
-def command():
-    return YugiohCommand()
-
+YGO_API_URL = 'https://db.ygoprodeck.com/api/v7/randomcard.php'
 
 MOCK_CARD_DATA = {
     'data': [
@@ -46,11 +42,9 @@ class TestMatches:
 
 class TestSingleCard:
     @pytest.mark.anyio
-    async def test_returns_card_image(self, command, mocker):
+    async def test_returns_card_image(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo')
-        resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=resp)
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -58,42 +52,34 @@ class TestSingleCard:
         assert messages[0].content.url == 'https://images.ygoprodeck.com/images/cards/46986414.jpg'
 
     @pytest.mark.anyio
-    async def test_strips_newlines_from_description(self, command, mocker):
+    async def test_strips_newlines_from_description(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo')
-        resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=resp)
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'The ultimate wizardin terms of attackand defense.' in caption
 
     @pytest.mark.anyio
-    async def test_caption_contains_card_name(self, command, mocker):
+    async def test_caption_contains_card_name(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo')
-        resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=resp)
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
         assert '*Dark Magician*' in messages[0].content.caption
 
     @pytest.mark.anyio
-    async def test_view_once_true_by_default(self, command, mocker):
+    async def test_view_once_true_by_default(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo')
-        resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=resp)
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command, mocker):
+    async def test_show_flag_disables_view_once(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo show')
-        resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=resp)
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
         assert messages[0].content.view_once is False
@@ -101,14 +87,11 @@ class TestSingleCard:
 
 class TestBooster:
     @pytest.mark.anyio
-    async def test_returns_image_buffer(self, command, mocker):
+    async def test_returns_image_buffer(self, command, respx_mock, mocker):
         data = GroupCommandDataFactory.build(text=', ygo booster')
-        api_resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=api_resp)
-        mocker.patch(
-            'bot.domain.commands.card_booster.HttpClient.get_buffer',
-            return_value=b'fake-image',
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
+        respx_mock.get(url__startswith='https://images.ygoprodeck.com/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
         )
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
@@ -120,14 +103,11 @@ class TestBooster:
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_booster_caption_has_numbered_cards(self, command, mocker):
+    async def test_booster_caption_has_numbered_cards(self, command, respx_mock, mocker):
         data = GroupCommandDataFactory.build(text=', ygo booster')
-        api_resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=api_resp)
-        mocker.patch(
-            'bot.domain.commands.card_booster.HttpClient.get_buffer',
-            return_value=b'fake-image',
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
+        respx_mock.get(url__startswith='https://images.ygoprodeck.com/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
         )
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
@@ -140,14 +120,11 @@ class TestBooster:
         assert 'Dark Magician' in caption
 
     @pytest.mark.anyio
-    async def test_booster_view_once_true_by_default(self, command, mocker):
+    async def test_booster_view_once_true_by_default(self, command, respx_mock, mocker):
         data = GroupCommandDataFactory.build(text=', ygo booster')
-        api_resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=api_resp)
-        mocker.patch(
-            'bot.domain.commands.card_booster.HttpClient.get_buffer',
-            return_value=b'fake-image',
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
+        respx_mock.get(url__startswith='https://images.ygoprodeck.com/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
         )
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
@@ -158,14 +135,11 @@ class TestBooster:
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_booster_show_flag_disables_view_once(self, command, mocker):
+    async def test_booster_show_flag_disables_view_once(self, command, respx_mock, mocker):
         data = GroupCommandDataFactory.build(text=', ygo booster show')
-        api_resp = make_json_response(MOCK_CARD_DATA)
-
-        mocker.patch('bot.domain.commands.yugioh.HttpClient.get', return_value=api_resp)
-        mocker.patch(
-            'bot.domain.commands.card_booster.HttpClient.get_buffer',
-            return_value=b'fake-image',
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
+        respx_mock.get(url__startswith='https://images.ygoprodeck.com/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
         )
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
@@ -174,3 +148,8 @@ class TestBooster:
         messages = await command.run(data)
 
         assert messages[0].content.view_once is False
+
+
+@pytest.fixture
+def command():
+    return YugiohCommand()

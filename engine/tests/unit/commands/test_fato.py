@@ -1,9 +1,12 @@
+import httpx
 import pytest
 
 from bot.domain.commands.fato import FatoCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_json_response
+
+RANDOM_URL = 'https://uselessfacts.jsph.pl/api/v2/facts/random'
+TODAY_URL = 'https://uselessfacts.jsph.pl/api/v2/facts/today'
 
 
 @pytest.fixture
@@ -32,31 +35,31 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_random_endpoint_by_default(self, command, mocker):
+    async def test_calls_random_endpoint_by_default(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', fato')
-        mock_resp = make_json_response({'text': 'A random fact'})
-
-        mock_get = mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        route = respx_mock.get(RANDOM_URL).mock(
+            return_value=httpx.Response(200, json={'text': 'A random fact'})
+        )
         await command.run(data)
 
-        mock_get.assert_called_once_with('https://uselessfacts.jsph.pl/api/v2/facts/random')
+        assert route.called
 
     @pytest.mark.anyio
-    async def test_calls_today_endpoint_with_hoje_flag(self, command, mocker):
+    async def test_calls_today_endpoint_with_hoje_flag(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', fato hoje')
-        mock_resp = make_json_response({'text': 'Today fact'})
-
-        mock_get = mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        route = respx_mock.get(TODAY_URL).mock(
+            return_value=httpx.Response(200, json={'text': 'Today fact'})
+        )
         await command.run(data)
 
-        mock_get.assert_called_once_with('https://uselessfacts.jsph.pl/api/v2/facts/today')
+        assert route.called
 
     @pytest.mark.anyio
-    async def test_returns_formatted_text(self, command, mocker):
+    async def test_returns_formatted_text(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', fato')
-        mock_resp = make_json_response({'text': 'Cats sleep 70% of their lives.'})
-
-        mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(RANDOM_URL).mock(
+            return_value=httpx.Response(200, json={'text': 'Cats sleep 70% of their lives.'})
+        )
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -65,21 +68,17 @@ class TestRun:
         assert 'Cats sleep 70% of their lives.' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_includes_quoted_message_id(self, command, mocker):
+    async def test_includes_quoted_message_id(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', fato', message_id='MSG_42')
-        mock_resp = make_json_response({'text': 'A fact'})
-
-        mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(RANDOM_URL).mock(return_value=httpx.Response(200, json={'text': 'A fact'}))
         messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
 
     @pytest.mark.anyio
-    async def test_includes_expiration(self, command, mocker):
+    async def test_includes_expiration(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', fato', expiration=86400)
-        mock_resp = make_json_response({'text': 'A fact'})
-
-        mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(RANDOM_URL).mock(return_value=httpx.Response(200, json={'text': 'A fact'}))
         messages = await command.run(data)
 
         assert messages[0].expiration == 86400

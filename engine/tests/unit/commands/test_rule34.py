@@ -1,9 +1,9 @@
+import httpx
 import pytest
 
 from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_html_response
 
 
 @pytest.fixture
@@ -52,12 +52,10 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_image(self, command, mocker):
+    async def test_returns_image(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', rule 34')
-
-        mocker.patch(
-            'bot.domain.commands.rule34.HttpClient.get',
-            return_value=make_html_response(SAMPLE_HTML),
+        respx_mock.get(url__startswith='https://rule34.xxx/').mock(
+            return_value=httpx.Response(200, text=SAMPLE_HTML)
         )
         messages = await command.run(data)
 
@@ -67,12 +65,10 @@ class TestRun:
         assert messages[0].content.caption == 'Aqui está a imagem que você pediu 🤗'
 
     @pytest.mark.anyio
-    async def test_skips_banner_url(self, command, mocker):
+    async def test_skips_banner_url(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', rule 34')
-
-        mocker.patch(
-            'bot.domain.commands.rule34.HttpClient.get',
-            return_value=make_html_response(BANNER_FIRST_HTML),
+        respx_mock.get(url__startswith='https://rule34.xxx/').mock(
+            return_value=httpx.Response(200, text=BANNER_FIRST_HTML)
         )
         messages = await command.run(data)
 
@@ -81,23 +77,19 @@ class TestRun:
         assert messages[0].content.url == 'https://example.com/real-image.jpg'
 
     @pytest.mark.anyio
-    async def test_raises_when_no_images(self, command, mocker):
+    async def test_raises_when_no_images(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', rule 34')
-
-        mocker.patch(
-            'bot.domain.commands.rule34.HttpClient.get',
-            return_value=make_html_response(NO_IMAGES_HTML),
+        respx_mock.get(url__startswith='https://rule34.xxx/').mock(
+            return_value=httpx.Response(200, text=NO_IMAGES_HTML)
         )
         with pytest.raises(ValueError, match='Nenhuma imagem encontrada'):
             await command.run(data)
 
     @pytest.mark.anyio
-    async def test_view_once_is_true(self, command, mocker):
+    async def test_view_once_is_true(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', rule 34')
-
-        mocker.patch(
-            'bot.domain.commands.rule34.HttpClient.get',
-            return_value=make_html_response(SAMPLE_HTML),
+        respx_mock.get(url__startswith='https://rule34.xxx/').mock(
+            return_value=httpx.Response(200, text=SAMPLE_HTML)
         )
         messages = await command.run(data)
 

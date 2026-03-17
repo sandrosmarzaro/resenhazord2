@@ -1,18 +1,14 @@
+import httpx
 import pytest
 
 from bot.domain.commands.porno import PornoCommand
 from bot.domain.models.message import RawContent, TextContent, VideoContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_html_response, make_json_response
 
 
 @pytest.fixture
 def command():
     return PornoCommand()
-
-
-def _mock_nsfw_response(url='https://example.com/video.mp4'):
-    return make_json_response({'image': {'url': url}})
 
 
 LISTING_HTML = """
@@ -58,11 +54,13 @@ class TestMatches:
 
 class TestIaPorn:
     @pytest.mark.anyio
-    async def test_returns_video_for_mp4(self, command, mocker):
+    async def test_returns_video_for_mp4(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno ia')
-        resp = _mock_nsfw_response('https://example.com/clip.mp4')
-
-        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/clip.mp4'}}
+            )
+        )
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -73,11 +71,13 @@ class TestIaPorn:
         assert content['viewOnce'] is True
 
     @pytest.mark.anyio
-    async def test_returns_gif_for_gif(self, command, mocker):
+    async def test_returns_gif_for_gif(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno ia')
-        resp = _mock_nsfw_response('https://example.com/anim.gif')
-
-        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/anim.gif'}}
+            )
+        )
         messages = await command.run(data)
 
         content = messages[0].content.content
@@ -85,22 +85,26 @@ class TestIaPorn:
         assert content['gifPlayback'] is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command, mocker):
+    async def test_show_flag_disables_view_once(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno ia show')
-        resp = _mock_nsfw_response('https://example.com/clip.mp4')
-
-        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/clip.mp4'}}
+            )
+        )
         messages = await command.run(data)
 
         content = messages[0].content.content
         assert content['viewOnce'] is False
 
     @pytest.mark.anyio
-    async def test_returns_image_for_other(self, command, mocker):
+    async def test_returns_image_for_other(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno ia')
-        resp = _mock_nsfw_response('https://example.com/photo.jpg')
-
-        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/photo.jpg'}}
+            )
+        )
         messages = await command.run(data)
 
         content = messages[0].content.content
@@ -110,14 +114,13 @@ class TestIaPorn:
 
 class TestRealPorn:
     @pytest.mark.anyio
-    async def test_returns_video_on_success(self, command, mocker):
+    async def test_returns_video_on_success(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno')
-        listing_resp = make_html_response(LISTING_HTML)
-        video_resp = make_html_response(VIDEO_HTML)
-
-        mocker.patch(
-            'bot.domain.commands.porno.HttpClient.get',
-            side_effect=[listing_resp, video_resp],
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=LISTING_HTML),
+                httpx.Response(200, text=VIDEO_HTML),
+            ]
         )
         messages = await command.run(data)
 
@@ -127,12 +130,10 @@ class TestRealPorn:
         assert messages[0].content.caption == 'Test Video'
 
     @pytest.mark.anyio
-    async def test_returns_error_message_on_failure(self, command, mocker):
+    async def test_returns_error_message_on_failure(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno')
-
-        mocker.patch(
-            'bot.domain.commands.porno.HttpClient.get',
-            side_effect=Exception('Connection error'),
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=Exception('Connection error')
         )
         messages = await command.run(data)
 
@@ -141,27 +142,27 @@ class TestRealPorn:
         assert 'molhadinho' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_raises_when_no_video_links(self, command, mocker):
+    async def test_raises_when_no_video_links(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno')
-        listing_resp = make_html_response('<html><body>No videos</body></html>')
-
-        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=listing_resp)
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            return_value=httpx.Response(200, text='<html><body>No videos</body></html>')
+        )
         messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
 
     @pytest.mark.anyio
-    async def test_raises_when_no_video_url_extracted(self, command, mocker):
+    async def test_raises_when_no_video_url_extracted(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno')
-        listing_resp = make_html_response(LISTING_HTML)
-        video_resp = make_html_response(
-            '<html><head><title>No URL</title></head><body></body></html>'
-        )
-
-        mocker.patch(
-            'bot.domain.commands.porno.HttpClient.get',
-            side_effect=[listing_resp, video_resp],
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=LISTING_HTML),
+                httpx.Response(
+                    200,
+                    text='<html><head><title>No URL</title></head><body></body></html>',
+                ),
+            ]
         )
         messages = await command.run(data)
 

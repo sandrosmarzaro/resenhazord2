@@ -1,9 +1,11 @@
+import httpx
 import pytest
 
 from bot.domain.commands.bicho import BichoCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_http import make_html_response
+
+BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
 
 SAMPLE_HTML = """
 <div id="bloco-PTN">
@@ -57,11 +59,9 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_latest_published_draw(self, command, mocker):
+    async def test_returns_latest_published_draw(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho')
-        mock_resp = make_html_response(SAMPLE_HTML)
-
-        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(BICHO_URL).mock(return_value=httpx.Response(200, text=SAMPLE_HTML))
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -72,46 +72,36 @@ class TestRun:
         assert 'Coelho' in text
 
     @pytest.mark.anyio
-    async def test_returns_specific_draw_by_arg(self, command, mocker):
+    async def test_returns_specific_draw_by_arg(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho ptn')
-        mock_resp = make_html_response(SAMPLE_HTML)
-
-        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(BICHO_URL).mock(return_value=httpx.Response(200, text=SAMPLE_HTML))
         messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'PTN 18h' in text
 
     @pytest.mark.anyio
-    async def test_unpublished_draw_returns_pending_message(self, command, mocker):
+    async def test_unpublished_draw_returns_pending_message(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho cor')
-        mock_resp = make_html_response(SAMPLE_HTML)
-
-        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(BICHO_URL).mock(return_value=httpx.Response(200, text=SAMPLE_HTML))
         messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'ainda não foi publicado' in text
 
     @pytest.mark.anyio
-    async def test_no_published_draws(self, command, mocker):
+    async def test_no_published_draws(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho')
         html = '<div id="bloco-PPT"><span class="status-pendente"></span></div>'
-        mock_resp = make_html_response(html)
-
-        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        respx_mock.get(BICHO_URL).mock(return_value=httpx.Response(200, text=html))
         messages = await command.run(data)
 
         assert 'Nenhum sorteio publicado' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_error_returns_error_message(self, command, mocker):
+    async def test_error_returns_error_message(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho')
-
-        mocker.patch(
-            'bot.domain.commands.bicho.HttpClient.get',
-            side_effect=Exception('Network error'),
-        )
+        respx_mock.get(BICHO_URL).mock(side_effect=Exception('Network error'))
         messages = await command.run(data)
 
         assert 'Erro' in messages[0].content.text
