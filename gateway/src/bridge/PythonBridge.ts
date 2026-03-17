@@ -118,12 +118,10 @@ export default class PythonBridge {
   }
 
   private async handleMessage(event: MessageEvent): Promise<void> {
-    if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
-      // Binary frame — associate with the last text message that expects buffers
-      const buffer = Buffer.from(
-        event.data instanceof Blob ? await event.data.arrayBuffer() : event.data,
-      );
-      // Store for the most recent pending response
+    if (typeof event.data !== 'string') {
+      // Binary frame — associate with the first pending binary response
+      const raw = event.data instanceof Blob ? await event.data.arrayBuffer() : event.data;
+      const buffer = Buffer.from(raw);
       for (const [, buffers] of this.pendingBinary) {
         buffers.push(buffer);
         break;
@@ -131,7 +129,7 @@ export default class PythonBridge {
       return;
     }
 
-    const msg = JSON.parse(event.data as string) as WSMessage;
+    const msg = JSON.parse(event.data) as WSMessage;
 
     if (msg.type === 'wa_call') {
       await this.handleWaCall(msg);

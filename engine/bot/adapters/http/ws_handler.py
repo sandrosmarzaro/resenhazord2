@@ -75,6 +75,11 @@ class WebSocketHandler:
         await self._send_command_response(msg.id, messages)
 
     async def _send_command_response(self, msg_id: str, messages: list[BotMessage]) -> None:
+        # Send binary frames BEFORE JSON so the TS side receives them
+        # while the pending request is still active (WebSocket guarantees ordering)
+        for m in messages:
+            if m.content.has_buffer:
+                await self._ws.send_bytes(m.content.buffer)  # type: ignore[union-attr]
         await self._ws.send_json(
             {
                 'id': msg_id,
@@ -82,9 +87,6 @@ class WebSocketHandler:
                 'data': {'messages': [m.to_dict() for m in messages]},
             }
         )
-        for m in messages:
-            if m.content.has_buffer:
-                await self._ws.send_bytes(m.content.buffer)  # type: ignore[union-attr]
 
     async def _send_error(self, msg_id: str, message: str, code: str = 'UNKNOWN_ERROR') -> None:
         await self._ws.send_json(
