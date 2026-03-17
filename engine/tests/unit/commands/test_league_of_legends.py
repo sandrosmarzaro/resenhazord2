@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
 from bot.domain.models.message import ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
@@ -13,28 +14,24 @@ def command():
 
 
 def _mock_versions_response():
-    mock = MagicMock()
-    mock.json.return_value = ['14.1.1', '14.1.0']
-    mock.raise_for_status.return_value = None
-    return mock
+    return make_json_response(['14.1.1', '14.1.0'])
 
 
 def _mock_champions_response():
-    mock = MagicMock()
-    mock.json.return_value = {
-        'data': {
-            'Ahri': {
-                'id': 'Ahri',
-                'name': 'Ahri',
-                'title': 'the Nine-Tailed Fox',
-                'tags': ['Mage', 'Assassin'],
-                'info': {'attack': 3, 'defense': 4, 'magic': 8, 'difficulty': 5},
-                'blurb': 'A vastayan with fox-like features.',
+    return make_json_response(
+        {
+            'data': {
+                'Ahri': {
+                    'id': 'Ahri',
+                    'name': 'Ahri',
+                    'title': 'the Nine-Tailed Fox',
+                    'tags': ['Mage', 'Assassin'],
+                    'info': {'attack': 3, 'defense': 4, 'magic': 8, 'difficulty': 5},
+                    'blurb': 'A vastayan with fox-like features.',
+                }
             }
         }
-    }
-    mock.raise_for_status.return_value = None
-    return mock
+    )
 
 
 class TestMatches:

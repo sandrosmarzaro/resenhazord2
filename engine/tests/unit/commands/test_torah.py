@@ -1,22 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return TorahCommand()
-
-
-def _mock_response(json_data):
-    mock = MagicMock()
-    mock.json.return_value = json_data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 def _sefaria_response(**overrides):
@@ -53,7 +47,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_random_verse_returns_both_languages(self, command):
         data = GroupCommandDataFactory.build(text=', torá')
-        mock_resp = _mock_response(_sefaria_response())
+        mock_resp = make_json_response(_sefaria_response())
 
         with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -68,7 +62,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_hebrew_only_with_he_option(self, command):
         data = GroupCommandDataFactory.build(text=', torá he')
-        mock_resp = _mock_response(_sefaria_response())
+        mock_resp = make_json_response(_sefaria_response())
 
         with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -80,7 +74,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_english_only_with_en_option(self, command):
         data = GroupCommandDataFactory.build(text=', torá en')
-        mock_resp = _mock_response(_sefaria_response())
+        mock_resp = make_json_response(_sefaria_response())
 
         with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -92,7 +86,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_specific_verse_with_args(self, command):
         data = GroupCommandDataFactory.build(text=', torá Exodus 3:14')
-        mock_resp = _mock_response(_sefaria_response(ref='Exodus 3:14'))
+        mock_resp = make_json_response(_sefaria_response(ref='Exodus 3:14'))
 
         with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp) as mock_get:
             await command.run(data)
@@ -112,7 +106,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_api_error_returns_books_list(self, command):
         data = GroupCommandDataFactory.build(text=', torá')
-        mock_resp = _mock_response(_sefaria_response(error='Not found'))
+        mock_resp = make_json_response(_sefaria_response(error='Not found'))
 
         with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -122,7 +116,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_empty_verse_returns_books_list(self, command):
         data = GroupCommandDataFactory.build(text=', torá')
-        mock_resp = _mock_response(_sefaria_response(he='', text=''))
+        mock_resp = make_json_response(_sefaria_response(he='', text=''))
 
         with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -132,7 +126,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_list_verse_content_joined(self, command):
         data = GroupCommandDataFactory.build(text=', torá')
-        mock_resp = _mock_response(
+        mock_resp = make_json_response(
             _sefaria_response(he=['<b>part1</b>', 'part2'], text=['hello', 'world'])
         )
 

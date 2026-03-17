@@ -1,22 +1,16 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from bot.domain.commands.puppy import PuppyCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return PuppyCommand()
-
-
-def _mock_response(json_data):
-    mock = MagicMock()
-    mock.json.return_value = json_data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 class TestMatches:
@@ -58,7 +52,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_fetches_dog_with_option(self, command):
         data = GroupCommandDataFactory.build(text=', puppy dog')
-        dog_resp = _mock_response({'message': 'https://images.dog.ceo/breeds/labrador/img.jpg'})
+        dog_resp = make_json_response({'message': 'https://images.dog.ceo/breeds/labrador/img.jpg'})
 
         with (
             patch('bot.domain.commands.puppy.HttpClient.get', return_value=dog_resp) as mock_get,
@@ -79,7 +73,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_fetches_cat_with_option(self, command):
         data = GroupCommandDataFactory.build(text=', puppy cat')
-        cat_resp = _mock_response({'url': 'https://cataas.com/cat/abc'})
+        cat_resp = make_json_response({'url': 'https://cataas.com/cat/abc'})
 
         with (
             patch('bot.domain.commands.puppy.HttpClient.get', return_value=cat_resp) as mock_get,
@@ -100,7 +94,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_random_choice_when_no_option(self, command):
         data = GroupCommandDataFactory.build(text=', puppy')
-        dog_resp = _mock_response({'message': 'https://images.dog.ceo/breeds/poodle/img.jpg'})
+        dog_resp = make_json_response({'message': 'https://images.dog.ceo/breeds/poodle/img.jpg'})
 
         with (
             patch('bot.domain.commands.puppy.HttpClient.get', return_value=dog_resp),

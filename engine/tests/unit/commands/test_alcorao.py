@@ -1,22 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.alcorao import AlcoraoCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return AlcoraoCommand()
-
-
-def _mock_response(json_data):
-    mock = MagicMock()
-    mock.json.return_value = json_data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 class TestMatches:
@@ -41,7 +35,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_calls_api(self, command):
         data = GroupCommandDataFactory.build(text=', alcorão')
-        mock_resp = _mock_response(
+        mock_resp = make_json_response(
             {
                 'data': {
                     'text': 'In the name of God',
@@ -63,7 +57,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_formatted_text(self, command):
         data = GroupCommandDataFactory.build(text=', alcorão')
-        mock_resp = _mock_response(
+        mock_resp = make_json_response(
             {
                 'data': {
                     'text': 'In the name of God',
@@ -85,7 +79,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_includes_quoted_message_id(self, command):
         data = GroupCommandDataFactory.build(text=', alcorão', message_id='MSG_42')
-        mock_resp = _mock_response(
+        mock_resp = make_json_response(
             {
                 'data': {
                     'text': 'verse',
@@ -103,7 +97,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_includes_expiration(self, command):
         data = GroupCommandDataFactory.build(text=', alcorão', expiration=86400)
-        mock_resp = _mock_response(
+        mock_resp = make_json_response(
             {
                 'data': {
                     'text': 'verse',

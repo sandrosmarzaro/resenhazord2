@@ -1,22 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.biblia import BibliaCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return BibliaCommand()
-
-
-def _mock_response(json_data):
-    mock = MagicMock()
-    mock.json.return_value = json_data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 def _verse_response(**overrides):
@@ -53,7 +47,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_random_verse_when_no_args(self, command):
         data = GroupCommandDataFactory.build(text=', bíblia')
-        mock_resp = _mock_response(_verse_response())
+        mock_resp = make_json_response(_verse_response())
 
         with patch('bot.domain.commands.biblia.HttpClient.get', return_value=mock_resp) as mock_get:
             messages = await command.run(data)
@@ -68,7 +62,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_uses_specified_version(self, command):
         data = GroupCommandDataFactory.build(text=', bíblia kjv')
-        mock_resp = _mock_response(_verse_response())
+        mock_resp = make_json_response(_verse_response())
 
         with patch('bot.domain.commands.biblia.HttpClient.get', return_value=mock_resp) as mock_get:
             await command.run(data)
@@ -79,8 +73,8 @@ class TestRun:
     @pytest.mark.anyio
     async def test_specific_verse(self, command):
         data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1')
-        books_resp = _mock_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
-        verse_resp = _mock_response(_verse_response())
+        books_resp = make_json_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
+        verse_resp = make_json_response(_verse_response())
 
         with patch(
             'bot.domain.commands.biblia.HttpClient.get',
@@ -96,7 +90,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_book_not_found(self, command):
         data = GroupCommandDataFactory.build(text=', bíblia Xablau 1:1')
-        books_resp = _mock_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
+        books_resp = make_json_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
 
         with patch('bot.domain.commands.biblia.HttpClient.get', return_value=books_resp):
             messages = await command.run(data)
@@ -114,10 +108,10 @@ class TestRun:
     @pytest.mark.anyio
     async def test_verse_range(self, command):
         data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1-3')
-        books_resp = _mock_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
-        verse1 = _mock_response({'text': 'Verso 1'})
-        verse2 = _mock_response({'text': 'Verso 2'})
-        verse3 = _mock_response({'text': 'Verso 3'})
+        books_resp = make_json_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
+        verse1 = make_json_response({'text': 'Verso 1'})
+        verse2 = make_json_response({'text': 'Verso 2'})
+        verse3 = make_json_response({'text': 'Verso 3'})
 
         with patch(
             'bot.domain.commands.biblia.HttpClient.get',

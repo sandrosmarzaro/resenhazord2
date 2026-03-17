@@ -1,22 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.fato import FatoCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return FatoCommand()
-
-
-def _mock_response(json_data):
-    mock = MagicMock()
-    mock.json.return_value = json_data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 class TestMatches:
@@ -42,7 +36,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_calls_random_endpoint_by_default(self, command):
         data = GroupCommandDataFactory.build(text=', fato')
-        mock_resp = _mock_response({'text': 'A random fact'})
+        mock_resp = make_json_response({'text': 'A random fact'})
 
         with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp) as mock_get:
             await command.run(data)
@@ -52,7 +46,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_calls_today_endpoint_with_hoje_flag(self, command):
         data = GroupCommandDataFactory.build(text=', fato hoje')
-        mock_resp = _mock_response({'text': 'Today fact'})
+        mock_resp = make_json_response({'text': 'Today fact'})
 
         with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp) as mock_get:
             await command.run(data)
@@ -62,7 +56,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_formatted_text(self, command):
         data = GroupCommandDataFactory.build(text=', fato')
-        mock_resp = _mock_response({'text': 'Cats sleep 70% of their lives.'})
+        mock_resp = make_json_response({'text': 'Cats sleep 70% of their lives.'})
 
         with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -75,7 +69,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_includes_quoted_message_id(self, command):
         data = GroupCommandDataFactory.build(text=', fato', message_id='MSG_42')
-        mock_resp = _mock_response({'text': 'A fact'})
+        mock_resp = make_json_response({'text': 'A fact'})
 
         with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -85,7 +79,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_includes_expiration(self, command):
         data = GroupCommandDataFactory.build(text=', fato', expiration=86400)
-        mock_resp = _mock_response({'text': 'A fact'})
+        mock_resp = make_json_response({'text': 'A fact'})
 
         with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)

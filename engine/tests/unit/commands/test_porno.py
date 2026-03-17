@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.porno import PornoCommand
 from bot.domain.models.message import RawContent, TextContent, VideoContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_html_response, make_json_response
 
 
 @pytest.fixture
@@ -13,10 +14,7 @@ def command():
 
 
 def _mock_nsfw_response(url='https://example.com/video.mp4'):
-    mock = MagicMock()
-    mock.json.return_value = {'image': {'url': url}}
-    mock.raise_for_status.return_value = None
-    return mock
+    return make_json_response({'image': {'url': url}})
 
 
 LISTING_HTML = """
@@ -105,13 +103,8 @@ class TestRealPorn:
     @pytest.mark.anyio
     async def test_returns_video_on_success(self, command):
         data = GroupCommandDataFactory.build(text=', porno')
-        listing_resp = MagicMock()
-        listing_resp.text = LISTING_HTML
-        listing_resp.raise_for_status.return_value = None
-
-        video_resp = MagicMock()
-        video_resp.text = VIDEO_HTML
-        video_resp.raise_for_status.return_value = None
+        listing_resp = make_html_response(LISTING_HTML)
+        video_resp = make_html_response(VIDEO_HTML)
 
         with patch(
             'bot.domain.commands.porno.HttpClient.get',
@@ -141,9 +134,7 @@ class TestRealPorn:
     @pytest.mark.anyio
     async def test_raises_when_no_video_links(self, command):
         data = GroupCommandDataFactory.build(text=', porno')
-        listing_resp = MagicMock()
-        listing_resp.text = '<html><body>No videos</body></html>'
-        listing_resp.raise_for_status.return_value = None
+        listing_resp = make_html_response('<html><body>No videos</body></html>')
 
         with patch('bot.domain.commands.porno.HttpClient.get', return_value=listing_resp):
             messages = await command.run(data)
@@ -154,13 +145,10 @@ class TestRealPorn:
     @pytest.mark.anyio
     async def test_raises_when_no_video_url_extracted(self, command):
         data = GroupCommandDataFactory.build(text=', porno')
-        listing_resp = MagicMock()
-        listing_resp.text = LISTING_HTML
-        listing_resp.raise_for_status.return_value = None
-
-        video_resp = MagicMock()
-        video_resp.text = '<html><head><title>No URL</title></head><body></body></html>'
-        video_resp.raise_for_status.return_value = None
+        listing_resp = make_html_response(LISTING_HTML)
+        video_resp = make_html_response(
+            '<html><head><title>No URL</title></head><body></body></html>'
+        )
 
         with patch(
             'bot.domain.commands.porno.HttpClient.get',

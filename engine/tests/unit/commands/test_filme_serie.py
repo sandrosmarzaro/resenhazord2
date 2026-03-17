@@ -1,22 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.filme_serie import FilmeSerieCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return FilmeSerieCommand()
-
-
-def _mock_response(json_data):
-    mock = MagicMock()
-    mock.json.return_value = json_data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 def _movie_item(**overrides):
@@ -44,7 +38,7 @@ def _tv_item(**overrides):
 
 
 def _genres_response(genres):
-    return _mock_response({'genres': genres})
+    return make_json_response({'genres': genres})
 
 
 class TestMatches:
@@ -72,7 +66,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_movie_returns_image(self, command):
         data = GroupCommandDataFactory.build(text=', filme')
-        movie_resp = _mock_response({'results': [_movie_item()]})
+        movie_resp = make_json_response({'results': [_movie_item()]})
         genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}, {'id': 878, 'name': 'Ficção'}])
 
         with patch(
@@ -92,7 +86,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_tv_returns_image(self, command):
         data = GroupCommandDataFactory.build(text=', série')
-        tv_resp = _mock_response({'results': [_tv_item()]})
+        tv_resp = make_json_response({'results': [_tv_item()]})
         genres_resp = _genres_response([{'id': 18, 'name': 'Drama'}])
 
         with patch(
@@ -109,7 +103,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_top_mode_uses_top_rated(self, command):
         data = GroupCommandDataFactory.build(text=', filme top')
-        movie_resp = _mock_response({'results': [_movie_item()]})
+        movie_resp = make_json_response({'results': [_movie_item()]})
         genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}])
 
         with patch(
@@ -124,7 +118,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_default_mode_is_popular(self, command):
         data = GroupCommandDataFactory.build(text=', filme')
-        movie_resp = _mock_response({'results': [_movie_item()]})
+        movie_resp = make_json_response({'results': [_movie_item()]})
         genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}])
 
         with patch(

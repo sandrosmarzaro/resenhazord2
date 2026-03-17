@@ -1,22 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.my_anime_list import MyAnimeListCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
 def command():
     return MyAnimeListCommand()
-
-
-def _mock_response(json_data):
-    mock = MagicMock()
-    mock.json.return_value = json_data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 def _anime_item(**overrides):
@@ -75,7 +69,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_anime_returns_image_with_info(self, command):
         data = GroupCommandDataFactory.build(text=', anime')
-        mock_resp = _mock_response({'data': [_anime_item()]})
+        mock_resp = make_json_response({'data': [_anime_item()]})
 
         with patch('bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -91,7 +85,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_manga_returns_image_with_info(self, command):
         data = GroupCommandDataFactory.build(text=', manga')
-        mock_resp = _mock_response({'data': [_manga_item()]})
+        mock_resp = make_json_response({'data': [_manga_item()]})
 
         with patch('bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -106,7 +100,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_calls_correct_api_for_anime(self, command):
         data = GroupCommandDataFactory.build(text=', anime')
-        mock_resp = _mock_response({'data': [_anime_item()]})
+        mock_resp = make_json_response({'data': [_anime_item()]})
 
         with patch(
             'bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp
@@ -119,7 +113,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_calls_correct_api_for_manga(self, command):
         data = GroupCommandDataFactory.build(text=', manga')
-        mock_resp = _mock_response({'data': [_manga_item()]})
+        mock_resp = make_json_response({'data': [_manga_item()]})
 
         with patch(
             'bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp

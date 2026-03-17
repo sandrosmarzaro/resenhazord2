@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.models.message import ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
@@ -29,10 +30,7 @@ def _mock_country(**overrides):
 
 
 def _mock_response(countries):
-    mock = MagicMock()
-    mock.json.return_value = countries
-    mock.raise_for_status.return_value = None
-    return mock
+    return make_json_response(countries)
 
 
 class TestMatches:

@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.fuck import FuckCommand
 from bot.domain.models.message import RawContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
@@ -13,10 +14,7 @@ def command():
 
 
 def _mock_response(url='https://example.com/video.mp4'):
-    mock = MagicMock()
-    mock.json.return_value = {'image': {'url': url}}
-    mock.raise_for_status.return_value = None
-    return mock
+    return make_json_response({'image': {'url': url}})
 
 
 class TestMatches:

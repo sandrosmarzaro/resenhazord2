@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.beer import BeerCommand
 from bot.domain.models.message import ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
@@ -13,10 +14,7 @@ def command():
 
 
 def _mock_response(products):
-    mock = MagicMock()
-    mock.json.return_value = {'products': products}
-    mock.raise_for_status.return_value = None
-    return mock
+    return make_json_response({'products': products})
 
 
 def _beer_product(**overrides):

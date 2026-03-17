@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.bicho import BichoCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_html_response
 
 SAMPLE_HTML = """
 <div id="bloco-PTN">
@@ -37,13 +38,6 @@ def command():
     return BichoCommand()
 
 
-def _mock_response(html):
-    mock = MagicMock()
-    mock.text = html
-    mock.raise_for_status.return_value = None
-    return mock
-
-
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -67,7 +61,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_latest_published_draw(self, command):
         data = GroupCommandDataFactory.build(text=', bicho')
-        mock_resp = _mock_response(SAMPLE_HTML)
+        mock_resp = make_html_response(SAMPLE_HTML)
 
         with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -82,7 +76,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_specific_draw_by_arg(self, command):
         data = GroupCommandDataFactory.build(text=', bicho ptn')
-        mock_resp = _mock_response(SAMPLE_HTML)
+        mock_resp = make_html_response(SAMPLE_HTML)
 
         with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -93,7 +87,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_unpublished_draw_returns_pending_message(self, command):
         data = GroupCommandDataFactory.build(text=', bicho cor')
-        mock_resp = _mock_response(SAMPLE_HTML)
+        mock_resp = make_html_response(SAMPLE_HTML)
 
         with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)
@@ -105,7 +99,7 @@ class TestRun:
     async def test_no_published_draws(self, command):
         data = GroupCommandDataFactory.build(text=', bicho')
         html = '<div id="bloco-PPT"><span class="status-pendente"></span></div>'
-        mock_resp = _mock_response(html)
+        mock_resp = make_html_response(html)
 
         with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
             messages = await command.run(data)

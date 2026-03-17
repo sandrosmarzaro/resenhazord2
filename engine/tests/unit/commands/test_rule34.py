@@ -1,22 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_html_response
 
 
 @pytest.fixture
 def command():
     return Rule34Command()
-
-
-def _mock_response(html):
-    mock = MagicMock()
-    mock.text = html
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 SAMPLE_HTML = """
@@ -65,7 +59,7 @@ class TestRun:
 
         with patch(
             'bot.domain.commands.rule34.HttpClient.get',
-            return_value=_mock_response(SAMPLE_HTML),
+            return_value=make_html_response(SAMPLE_HTML),
         ):
             messages = await command.run(data)
 
@@ -80,7 +74,7 @@ class TestRun:
 
         with patch(
             'bot.domain.commands.rule34.HttpClient.get',
-            return_value=_mock_response(BANNER_FIRST_HTML),
+            return_value=make_html_response(BANNER_FIRST_HTML),
         ):
             messages = await command.run(data)
 
@@ -95,7 +89,7 @@ class TestRun:
         with (
             patch(
                 'bot.domain.commands.rule34.HttpClient.get',
-                return_value=_mock_response(NO_IMAGES_HTML),
+                return_value=make_html_response(NO_IMAGES_HTML),
             ),
             pytest.raises(ValueError, match='Nenhuma imagem encontrada'),
         ):
@@ -107,7 +101,7 @@ class TestRun:
 
         with patch(
             'bot.domain.commands.rule34.HttpClient.get',
-            return_value=_mock_response(SAMPLE_HTML),
+            return_value=make_html_response(SAMPLE_HTML),
         ):
             messages = await command.run(data)
 

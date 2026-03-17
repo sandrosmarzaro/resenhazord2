@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from bot.domain.commands.meal_recipes import MealRecipesCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.mock_http import make_json_response
 
 
 @pytest.fixture
@@ -33,10 +34,7 @@ def _mock_meal(**overrides):
 
 
 def _mock_response(meal):
-    mock = MagicMock()
-    mock.json.return_value = {'meals': [meal]}
-    mock.raise_for_status.return_value = None
-    return mock
+    return make_json_response({'meals': [meal]})
 
 
 class TestMatches:
