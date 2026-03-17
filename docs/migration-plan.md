@@ -22,7 +22,7 @@ Migration of all Resenhazord2 business logic from TypeScript/Bun (gateway) to Py
 | 2b | Data-heavy API commands | 3 | COMPLETED (2026-03-16) |
 | 2c | Alias and multi-step commands | 3 | COMPLETED (2026-03-16) |
 | 2d | Complex API + scraping | 3 | COMPLETED (2026-03-17) |
-| 2e | NSFW + scraping | 3 | PLANNED |
+| 2e | NSFW + scraping | 3 | COMPLETED (2026-03-17) |
 | 3a | TTS + audio | 1 | PLANNED |
 | 3b | Card game commands | 4 | PLANNED |
 | 4a | Simple API + media | 2 | PLANNED |
@@ -33,7 +33,7 @@ Migration of all Resenhazord2 business logic from TypeScript/Bun (gateway) to Py
 | 6 | WhatsApp-dependent (gateway-only) | 7 | PLANNED |
 | 7 | Cleanup + TS removal | 0 | PLANNED |
 
-**Total:** 41 commands (17 migrated, 17 to migrate, 7 gateway-only)
+**Total:** 41 commands (20 migrated, 14 to migrate, 7 gateway-only)
 
 ---
 
@@ -117,26 +117,26 @@ Migrated 3 commands with options, args, and complex interactions.
 2. **WebSocket frame ordering:** Send binary frames BEFORE JSON response to avoid race condition.
 3. **HTTP redirects:** httpx doesn't follow redirects by default. Enabled `follow_redirects=True` globally.
 
+### Wave 2e: NSFW + Scraping (2026-03-17)
+
+Migrated 3 NSFW commands using direct HTTP APIs and HTML scraping.
+
+| Command | Config Name | API | Notes |
+|---------|------------|-----|-------|
+| FuckCommand | `fuck` | nsfwhub API | groupOnly, args=Required(@mention), raw video with mentions |
+| PornoCommand | `porno` | nsfwhub API + XVideos scraper | flags=[ia, show, dm], dual mode (AI vs real) |
+| Rule34Command | `rule 34` | rule34.xxx scraper | beautifulsoup4 HTML scraping, banner URL skip |
+
+**Key implementation notes:**
+- `nsfwhub` Node.js lib replaced with direct httpx calls to `https://nsfwhub.onrender.com/nsfw?type={tag}`
+- XVideosScraper rewritten in Python as a static method using httpx + beautifulsoup4
+- FuckCommand uses `Reply.to(data).raw()` for video with mentions — `mentioned_jids` already available in `CommandData`
+- PornoCommand real mode: scrape listing → pick random video → extract URL from JS vars
+- Data file added: `engine/bot/data/nsfw_tags.py`
+
 ---
 
 ## Planned Waves
-
-### Wave 2e: NSFW + Scraping (3 commands)
-
-NSFW content commands using HTTP APIs and HTML scraping.
-
-| Command | Config Name | TS Dependencies | Python Approach | Notes |
-|---------|------------|-----------------|-----------------|-------|
-| FuckCommand | `fuck` | nsfwhub | Direct HTTP to NSFW API | groupOnly, args=Required(@mention), raw video |
-| PornoCommand | `porno` | nsfwhub, XVideosScraper | Direct HTTP + scraper | flags=[ia, show, dm], dual mode (AI vs real) |
-| Rule34Command | `rule 34` | cheerio, AxiosClient | beautifulsoup4 + httpx | HTML scraping, image extraction |
-
-**Key considerations:**
-- `nsfwhub` is a Node.js library wrapping an NSFW content API — need to find the underlying API endpoint or use a Python equivalent
-- `XVideosScraper` is a custom TS scraper — rewrite in Python with httpx + beautifulsoup4
-- FuckCommand accesses `data.message.extendedTextMessage.contextInfo.mentionedJid` directly — need to pass mentioned JIDs through CommandData
-- Rule34 scrapes `rule34.xxx/index.php?page=post&s=random` with cheerio — straightforward with beautifulsoup4
-- FuckCommand uses `Reply.to(data).raw()` for video content — ensure engine Reply supports raw messages
 
 **Migration pattern:** Replace Node.js-specific libraries with Python HTTP + scraping equivalents.
 
@@ -273,7 +273,7 @@ Final cleanup after all migratable commands are in Python.
 
 ## Command Inventory (All 41 Commands)
 
-### Migrated to Python (17 commands)
+### Migrated to Python (20 commands)
 
 | # | Command | Config Name | Wave | Category |
 |---|---------|------------|------|----------|
@@ -294,28 +294,28 @@ Final cleanup after all migratable commands are in Python.
 | 15 | BibliaCommand | `bíblia` | 2d | aleatórias |
 | 16 | TorahCommand | `torá` | 2d | aleatórias |
 | 17 | BichoCommand | `bicho` | 2d | outras |
+| 18 | FuckCommand | `fuck` | 2e | grupo |
+| 19 | PornoCommand | `porno` | 2e | aleatórias |
+| 20 | Rule34Command | `rule 34` | 2e | aleatórias |
 
-### Remaining — To Migrate (17 commands)
+### Remaining — To Migrate (14 commands)
 
 | # | Command | Config Name | Planned Wave | Category | Key Dependencies |
 |---|---------|------------|--------------|----------|------------------|
-| 1 | FuckCommand | `fuck` | 2e | grupo | nsfwhub API |
-| 2 | PornoCommand | `porno` | 2e | aleatórias | nsfwhub + XVideosScraper |
-| 3 | Rule34Command | `rule 34` | 2e | aleatórias | HTML scraping |
-| 4 | AudioCommand | `áudio` | 3a | download | google-tts-api → gTTS |
-| 5 | HeartstoneCommand | `hs` | 3b | aleatórias | Blizzard OAuth + sharp → Pillow |
-| 6 | MagicTheGatheringCommand | `mtg` | 3b | aleatórias | MTG API + sharp → Pillow |
-| 7 | PokemonTCGCommand | `pokémontcg` | 3b | aleatórias | TCGdex + sharp → Pillow |
-| 8 | YugiohCommand | `ygo` | 3b | aleatórias | YGOProDeck + sharp → Pillow |
-| 9 | AnimalCommand | `animal` | 4a | aleatórias | Wikipedia API |
-| 10 | PokemonCommand | `pokémon` | 4a | aleatórias | PokeAPI + sharp → Pillow |
-| 11 | GameCommand | `game` | 4b | aleatórias | IGDB OAuth + RAWG fallback |
-| 12 | MusicCommand | `música` | 4b | download | Deezer + Jamendo |
-| 13 | CarroCommand | `carro` | 4c | aleatórias | FIPE + Wikipedia + Commons |
-| 14 | HentaiCommand | `hentai` | 4c | aleatórias | Hitomi + Nhentai scraping |
-| 15 | BorgesCommand | `borges` | 5a | outras | MongoDB |
-| 16 | GroupMentionsCommand | `grupo` | 5a | grupo | MongoDB state machine |
-| 17 | MenuCommand | `menu` | 5b | outras | CommandFactory introspection |
+| 1 | AudioCommand | `áudio` | 3a | download | google-tts-api → gTTS |
+| 2 | HeartstoneCommand | `hs` | 3b | aleatórias | Blizzard OAuth + sharp → Pillow |
+| 3 | MagicTheGatheringCommand | `mtg` | 3b | aleatórias | MTG API + sharp → Pillow |
+| 4 | PokemonTCGCommand | `pokémontcg` | 3b | aleatórias | TCGdex + sharp → Pillow |
+| 5 | YugiohCommand | `ygo` | 3b | aleatórias | YGOProDeck + sharp → Pillow |
+| 6 | AnimalCommand | `animal` | 4a | aleatórias | Wikipedia API |
+| 7 | PokemonCommand | `pokémon` | 4a | aleatórias | PokeAPI + sharp → Pillow |
+| 8 | GameCommand | `game` | 4b | aleatórias | IGDB OAuth + RAWG fallback |
+| 9 | MusicCommand | `música` | 4b | download | Deezer + Jamendo |
+| 10 | CarroCommand | `carro` | 4c | aleatórias | FIPE + Wikipedia + Commons |
+| 11 | HentaiCommand | `hentai` | 4c | aleatórias | Hitomi + Nhentai scraping |
+| 12 | BorgesCommand | `borges` | 5a | outras | MongoDB |
+| 13 | GroupMentionsCommand | `grupo` | 5a | grupo | MongoDB state machine |
+| 14 | MenuCommand | `menu` | 5b | outras | CommandFactory introspection |
 
 ### Gateway-Only (7 commands — Wave 6)
 
@@ -360,7 +360,7 @@ Final cleanup after all migratable commands are in Python.
 6. Register in `engine/bot/application/register_commands.py`
 7. Remove from `gateway/src/factories/CommandFactory.ts`
 8. Update `gateway/tests/unit/factories/CommandFactory.test.ts`
-9. Run both test suites: `bun test:run` (991+) + `uv run pytest` (410+)
+9. Run both test suites: `bun test:run` (991+) + `uv run pytest` (467+)
 
 ### WebSocket Binary Protocol
 
