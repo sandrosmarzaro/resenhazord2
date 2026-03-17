@@ -2,6 +2,7 @@ import os
 import random
 import re
 
+import anyio
 import structlog
 
 from bot.domain.builders.reply import Reply
@@ -59,11 +60,13 @@ class HearthstoneCommand(CardBoosterCommand):
         response.raise_for_status()
         card = response.json()['cards'][0]
 
-        description = self.BOLD_RE.sub('*', card['text'])
-        description = self.ITALIC_RE.sub('_', description)
-        caption = f'*{card["name"]}*\n\n> "{card["flavorText"]}"\n\n{description}'
+        caption = self._build_caption(card)
 
-        return [Reply.to(data).image(card['image'], caption)]
+        image_url = self._safe_text(card.get('image', ''))
+        if not image_url:
+            return [Reply.to(data).text('Essa carta não tem imagem. Tente novamente.')]
+
+        return [Reply.to(data).image(image_url, caption)]
 
     async def _fetch_booster_items(self) -> list[CardItem]:
         token = await self._get_access_token()
@@ -76,17 +79,48 @@ class HearthstoneCommand(CardBoosterCommand):
         first.raise_for_status()
         page_count = first.json()['pageCount']
 
-        items: list[CardItem] = []
-        for _ in range(self.BOOSTER_CONFIG.count):
-            page = random.randint(1, page_count)  # noqa: S311
+        pages = [random.randint(1, page_count) for _ in range(self.BOOSTER_CONFIG.count)]  # noqa: S311
+        results: list[CardItem | None] = [None] * len(pages)
+
+        async def _fetch(index: int, page: int) -> None:
             response = await HttpClient.get(
                 self.API_URL, headers=headers, params={'page': page, 'pageSize': 1}
             )
             response.raise_for_status()
             card = response.json()['cards'][0]
-            items.append(CardItem(image_url=card['image'], label=card['name']))
+            image_url = self._safe_text(card.get('image', ''))
+            label = self._safe_text(card.get('name', ''))
+            results[index] = CardItem(image_url=image_url, label=label)
+
+        async with anyio.create_task_group() as tg:
+            for i, page in enumerate(pages):
+                tg.start_soon(_fetch, i, page)
+
+        items: list[CardItem] = [r for r in results if r is not None]
 
         return items
+
+    @staticmethod
+    def _safe_text(value: object) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            return str(value.get('pt_BR', value.get('en_US', next(iter(value.values()), ''))))
+        return ''
+
+    def _build_caption(self, card: dict) -> str:
+        raw_text = self._safe_text(card.get('text', ''))
+        description = self.BOLD_RE.sub('*', raw_text)
+        description = self.ITALIC_RE.sub('_', description)
+
+        flavor = self._safe_text(card.get('flavorText', ''))
+        name = self._safe_text(card.get('name', ''))
+        lines = [f'*{name}*']
+        if flavor:
+            lines.append(f'\n> "{flavor}"')
+        if description:
+            lines.append(f'\n{description}')
+        return '\n'.join(lines)
 
     async def _get_access_token(self) -> str | None:
         if HearthstoneCommand._cached_token:

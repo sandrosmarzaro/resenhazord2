@@ -155,6 +155,69 @@ class TestSingleCard:
         assert 'Battle.net' in messages[0].content.text
 
 
+class TestCaptionEdgeCases:
+    @pytest.mark.anyio
+    async def test_handles_text_as_dict(self, command):
+        card = {**MOCK_CARD, 'text': {'pt_BR': 'Causa <b>6</b> de dano.', 'en_US': 'Deal 6.'}}
+        data = GroupCommandDataFactory.build(text=', hs')
+
+        with (
+            patch(
+                'bot.domain.commands.hearthstone.HttpClient.post',
+                return_value=_mock_oauth_response(),
+            ),
+            patch(
+                'bot.domain.commands.hearthstone.HttpClient.get',
+                side_effect=[_mock_page_count_response(), _mock_card_response(card)],
+            ),
+        ):
+            messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert 'Causa *6* de dano.' in caption
+        assert '<b>' not in caption
+
+    @pytest.mark.anyio
+    async def test_handles_missing_text(self, command):
+        card = {k: v for k, v in MOCK_CARD.items() if k != 'text'}
+        data = GroupCommandDataFactory.build(text=', hs')
+
+        with (
+            patch(
+                'bot.domain.commands.hearthstone.HttpClient.post',
+                return_value=_mock_oauth_response(),
+            ),
+            patch(
+                'bot.domain.commands.hearthstone.HttpClient.get',
+                side_effect=[_mock_page_count_response(), _mock_card_response(card)],
+            ),
+        ):
+            messages = await command.run(data)
+
+        assert isinstance(messages[0].content, ImageContent)
+
+    @pytest.mark.anyio
+    async def test_handles_missing_flavor_text(self, command):
+        card = {k: v for k, v in MOCK_CARD.items() if k != 'flavorText'}
+        data = GroupCommandDataFactory.build(text=', hs')
+
+        with (
+            patch(
+                'bot.domain.commands.hearthstone.HttpClient.post',
+                return_value=_mock_oauth_response(),
+            ),
+            patch(
+                'bot.domain.commands.hearthstone.HttpClient.get',
+                side_effect=[_mock_page_count_response(), _mock_card_response(card)],
+            ),
+        ):
+            messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '*Fireball*' in caption
+        assert '""' not in caption
+
+
 class TestBooster:
     @pytest.mark.anyio
     async def test_returns_grid_image(self, command):
