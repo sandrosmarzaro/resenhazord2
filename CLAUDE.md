@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Resenhazord2 is a WhatsApp chatbot built with TypeScript on the Bun runtime. It uses Baileys (@whiskeysockets/baileys) for WhatsApp Web integration and responds to commands prefixed with `,` (comma).
+Resenhazord2 is a WhatsApp chatbot structured as a monorepo with two services:
+
+- **`gateway/`** — TypeScript (Bun + Baileys) — WhatsApp adapter, command system, message handling
+- **`engine/`** — Python (FastAPI + uvicorn) — business logic, command processing via WebSocket bridge
+
+Commands are prefixed with `,` (comma). The gateway receives WhatsApp messages and either handles them directly or forwards them to the engine via WebSocket.
 
 ## MCP Tools
 
@@ -12,7 +17,10 @@ Use the **context7** MCP (`mcp__context7__resolve-library-id` + `mcp__context7__
 
 ## Common Commands
 
+### Gateway (TypeScript)
+
 ```bash
+cd gateway
 bun start              # Run the bot
 bun test               # Run tests (vitest in watch mode)
 bun test:run           # Run tests once
@@ -25,7 +33,24 @@ bun format             # Prettier format
 bun format:check       # Prettier check
 ```
 
-Pre-push hook runs: lint, typecheck, format:check.
+### Engine (Python)
+
+```bash
+cd engine
+uv run pytest -v       # Run tests
+uv run ruff check .    # Lint
+uv run ruff format .   # Format
+uv run basedpyright    # Type check
+```
+
+### Docker (from root)
+
+```bash
+docker compose build   # Build both services
+docker compose up -d   # Start both services
+```
+
+Pre-push hook runs (from gateway/): lint, typecheck, format:check.
 
 ## Architecture
 
@@ -40,7 +65,7 @@ Pre-push hook runs: lint, typecheck, format:check.
 
 ### Command System
 
-Every command extends the abstract `Command` class (`src/commands/Command.ts`):
+Every command extends the abstract `Command` class (`gateway/src/commands/Command.ts`):
 
 - `config: CommandConfig` — declarative config for matching and parsing (see below)
 - `menuDescription: string` — description shown in the `,menu` command
@@ -53,15 +78,15 @@ The base `Command.run()` is a template method that:
 3. Calls the subclass `execute()` method
 4. Applies `dm` and `show` flags centrally (commands don't handle these)
 
-`CommandParser` (`src/parsers/CommandParser.ts`) auto-generates a regex from the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in names/flags/options are replaced with `.` in the regex.
+`CommandParser` (`gateway/src/parsers/CommandParser.ts`) auto-generates a regex from the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in names/flags/options are replaced with `.` in the regex.
 
-`CommandFactory` (`src/factories/CommandFactory.ts`) is a singleton that holds all command instances and selects the first match via `getStrategy(text)`.
+`CommandFactory` (`gateway/src/factories/CommandFactory.ts`) is a singleton that holds all command instances and selects the first match via `getStrategy(text)`.
 
 ### Ports & Adapters
 
-`WhatsAppPort` (`src/ports/WhatsAppPort.ts`) abstracts WhatsApp operations behind an interface (sendMessage, groupMetadata, groupParticipantsUpdate, onWhatsApp, updateMediaMessage, etc.).
+`WhatsAppPort` (`gateway/src/ports/WhatsAppPort.ts`) abstracts WhatsApp operations behind an interface (sendMessage, groupMetadata, groupParticipantsUpdate, onWhatsApp, updateMediaMessage, etc.).
 
-`BaileysAdapter` (`src/adapters/BaileysAdapter.ts`) implements `WhatsAppPort` by wrapping the Baileys `WASocket`.
+`BaileysAdapter` (`gateway/src/adapters/BaileysAdapter.ts`) implements `WhatsAppPort` by wrapping the Baileys `WASocket`.
 
 `Resenhazord2.adapter` (static, public) is the entry point; `socket` is private. On reconnection, a new adapter is created.
 
@@ -69,7 +94,7 @@ Commands that need WhatsApp operations receive `WhatsAppPort` via constructor in
 
 ### Reply Builder
 
-`Reply` (`src/builders/Reply.ts`) provides a fluent API for building `Message` objects:
+`Reply` (`gateway/src/builders/Reply.ts`) provides a fluent API for building `Message` objects:
 
 ```ts
 Reply.to(data).text('hello');
@@ -89,7 +114,7 @@ Reply.to(data).image(url, caption);
 
 Automatically sets `jid`, `quoted`, and `ephemeralExpiration` from the `CommandData`. Media methods default to `viewOnce: true` (base class handles the `show` flag to override this).
 
-### CommandConfig (`src/types/commandConfig.ts`)
+### CommandConfig (`gateway/src/types/commandConfig.ts`)
 
 | Field         | Type           | Description                                                                          |
 | ------------- | -------------- | ------------------------------------------------------------------------------------ |
@@ -129,13 +154,13 @@ Add `ArgType` (value export), `type WhatsAppPort`, or `type CommandCategory` to 
 
 ### Adding a New Command
 
-1. Create `src/commands/FooCommand.ts` extending `Command`
+1. Create `gateway/src/commands/FooCommand.ts` extending `Command`
 2. Define `config: CommandConfig` with appropriate name, flags, options, args
 3. Implement `execute(data, parsed)` — use `parsed.flags`, `parsed.options`, `parsed.rest`
 4. Use `Reply.to(data)` to build responses (media methods default to `viewOnce: true`)
 5. If the command needs WhatsApp operations (group metadata, etc.), accept `WhatsAppPort` in constructor and register with it in `CommandFactory`
 6. Import and register it in `CommandFactory`'s constructor
-7. Create `tests/unit/commands/FooCommand.test.ts`
+7. Create `gateway/tests/unit/commands/FooCommand.test.ts`
 
 ### Key Types
 
@@ -146,13 +171,13 @@ Add `ArgType` (value export), `type WhatsAppPort`, or `type CommandCategory` to 
 
 ### Group Metadata Cache
 
-`src/cache/` implements a layered cache for `GroupMetadata` using the decorator pattern:
+`gateway/src/cache/` implements a layered cache for `GroupMetadata` using the decorator pattern:
 
-- `CachePort<V>` (`src/cache/CachePort.ts`) — generic interface: `get(key): Promise<V | undefined>`, `set(key, value): Promise<void>`
+- `CachePort<V>` (`gateway/src/cache/CachePort.ts`) — generic interface: `get(key): Promise<V | undefined>`, `set(key, value): Promise<void>`
 - `MemoryGroupMetadataCache` — `Map`-backed, always available, no TTL
 - `RedisGroupMetadataCache` — wraps `@upstash/redis`; TTL = 3600 s; `Redis` injected via constructor
 - `FallbackGroupMetadataCache` — decorator: `get` tries primary → falls back on miss or error; `set` writes fallback first (reliable), then primary (errors swallowed)
-- `src/cache/index.ts` — factory singleton: if `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, returns `FallbackGroupMetadataCache(Redis, Memory)`; otherwise `MemoryGroupMetadataCache`
+- `gateway/src/cache/index.ts` — factory singleton: if `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, returns `FallbackGroupMetadataCache(Redis, Memory)`; otherwise `MemoryGroupMetadataCache`
 
 Populated in `Resenhazord2` via `groups.upsert` and `group-participants.update` events.
 
@@ -164,7 +189,7 @@ Populated in `Resenhazord2` via `groups.upsert` and `group-participants.update` 
 
 ### Sentry
 
-`src/infra/Sentry.ts` initializes `@sentry/bun`. Always import as:
+`gateway/src/infra/Sentry.ts` initializes `@sentry/bun`. Always import as:
 
 ```ts
 import { Sentry } from './src/infra/Sentry.js';
@@ -253,7 +278,7 @@ for entry in d.get('entries', []):
 
 Replace `<ISSUE_ID>` with the numeric ID from the issue URL (e.g. `7333954839`) or use `shortId` like `RESENHAZORD2-9`.
 
-**Test mock** — all Sentry APIs are mocked in `tests/setup.ts`. When adding new `Sentry.logger` usage,
+**Test mock** — all Sentry APIs are mocked in `gateway/tests/setup.ts`. When adding new `Sentry.logger` usage,
 ensure `fmt` is mocked as a tagged template literal:
 
 ```ts
@@ -263,31 +288,89 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 
 ## Code Conventions
 
-- **Runtime**: Bun (not Node.js)
+- **Runtime**: Bun (not Node.js) for gateway, Python 3.13+ for engine
 - **Modules**: ES modules with `.js` extensions in imports (even for `.ts` files)
-- **File naming**: PascalCase for classes (e.g., `OiCommand.ts`, `GetTextMessage.ts`)
-- **Exports**: Default exports for class files, named exports for data files
-- **Data files**: Large lookup tables, emoji maps, and static datasets belong in `src/data/` (e.g., `bichoAnimalEmojis.ts`, `pokemonTypeEmojis.ts`). Do not define big mappings inline in service or command files.
+- **File naming**: PascalCase for TS classes (e.g., `OiCommand.ts`), snake_case for Python (e.g., `command_parser.py`)
+- **Exports**: Default exports for TS class files, named exports for data files
+- **Data files**: Large lookup tables, emoji maps, and static datasets belong in `gateway/src/data/` (e.g., `bichoAnimalEmojis.ts`, `pokemonTypeEmojis.ts`). Do not define big mappings inline in service or command files.
 - **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
-- **Formatting**: Prettier — single quotes, semicolons, 2-space indent, 100 char width
-- **Commit messages**: Conventional commits (`feat:`, `fix:`, `test:`, `refactor:`, `style:`, `ci:`, `chore:`)
+- **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (double quotes, 100 char width)
+
+## Commit Conventions
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+
+### Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+| Type         | When to use                                                      |
+| ------------ | ---------------------------------------------------------------- |
+| `feat:`      | New feature or capability                                        |
+| `fix:`       | Bug fix                                                          |
+| `refactor:`  | Code restructuring without changing behavior                     |
+| `test:`      | Adding or updating tests                                         |
+| `docs:`      | Documentation changes                                            |
+| `style:`     | Formatting, whitespace, semicolons (no logic change)             |
+| `ci:`        | CI/CD pipeline changes (GitHub Actions, Docker, deploy scripts)  |
+| `chore:`     | Tooling, configs, dependencies, maintenance                      |
+| `perf:`      | Performance improvements                                         |
+| `build:`     | Build system or external dependency changes                      |
+
+### Rules
+
+- **Subject line**: imperative mood, lowercase, no period, max ~72 chars
+- **Body** (optional): explain *why*, not *what* — the diff shows what changed
+- **Scope** (optional): area affected, e.g. `feat(command):`, `fix(cache):`
+- **Breaking changes**: add `!` after type or `BREAKING CHANGE:` in footer
+- **Atomic commits**: each commit should represent one logical change. Group related file changes together, but split unrelated changes into separate commits
+- **Ordering**: when restructuring or migrating, commit in dependency order (sources before configs, moves before edits)
+
+### Examples
+
+```
+feat: add hentai command with hitomi default and nhentai fallback
+fix(cache): handle Redis connection timeout gracefully
+refactor: move TypeScript service to gateway/
+test: add Python unit and integration test structure
+ci: update deploy workflow for monorepo working directories
+chore: update .gitignore for Python artifacts
+docs: add conventional commits guidelines to CLAUDE.md
+```
 
 ## Testing
 
+### Gateway (TypeScript)
+
 - **Framework**: Vitest with globals enabled
-- **Fixtures**: `tests/fixtures/index.js` provides `GroupCommandData` and `PrivateCommandData` factories (using Fishery)
-- **Setup**: `tests/setup.ts` mocks external dependencies (google-tts-api, Gemini, sharp, pino, mongodb, @sentry/bun)
+- **Fixtures**: `gateway/tests/fixtures/index.js` provides `GroupCommandData` and `PrivateCommandData` factories (using Fishery)
+- **Setup**: `gateway/tests/setup.ts` mocks external dependencies (google-tts-api, Gemini, sharp, pino, mongodb, @sentry/bun)
 - **Pattern**: Tests instantiate the command directly, use factories for `CommandData`, and assert on the returned `Message[]`
-- **WhatsApp mock**: `createMockWhatsAppPort()` from `tests/fixtures/factories/MockWhatsAppPort.ts` provides a mock `WhatsAppPort` for commands that need it (constructor-injected)
+- **WhatsApp mock**: `createMockWhatsAppPort()` from `gateway/tests/fixtures/factories/MockWhatsAppPort.ts` provides a mock `WhatsAppPort` for commands that need it (constructor-injected)
+
+### Engine (Python)
+
+- **Framework**: pytest with anyio for async tests
+- **Fixtures**: `engine/tests/factories/` provides `CommandDataFactory` and `MockWhatsAppPort`
+- **Config**: `engine/pyproject.toml` under `[tool.pytest.ini_options]`
 
 ## AI Guidelines
 
-- Always run `bun format` after editing code and verify no lines exceed 100
+- Always run `cd gateway && bun format` after editing TS code and verify no lines exceed 100
   characters
-- Always run `bun typecheck` after changes and distinguish between pre-existing
+- Always run `cd gateway && bun typecheck` after TS changes and distinguish between pre-existing
   vs newly introduced errors
-- Always run `bun test:run` after changes and verify all previously passing
+- Always run `cd gateway && bun test:run` after TS changes and verify all previously passing
   tests still pass
+- Always run `cd engine && uv run ruff check . && uv run ruff format --check .` after Python changes
 - Always ask/talk about of implementation of code, which design use
   pattern/library/algorithms/architecture/design system, suggesting and
   listing alternatives approaches (prefer free/freemium ways) with pros and cons
@@ -327,7 +410,7 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 
 ### CommandParser — regex safety
 
-`CommandParser.replaceDiacritics()` (`src/parsers/CommandParser.ts`) escapes ASCII regex metacharacters before replacing non-ASCII chars with `.`:
+`CommandParser.replaceDiacritics()` (`gateway/src/parsers/CommandParser.ts`) escapes ASCII regex metacharacters before replacing non-ASCII chars with `.`:
 
 ```ts
 s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[^\x00-\x7F]/g, '.');
@@ -353,4 +436,4 @@ The outer `?` handles the optional/empty case. `\s+` between mentions eliminates
 
 ## Environment
 
-Requires a `.env` file (see `.env.example`) with keys for: WhatsApp JIDs, Gemini API, MongoDB URI, TMDB, and other service credentials.
+Requires a `.env` file at the repo root (see `.env.example`) with keys for: WhatsApp JIDs, Gemini API, MongoDB URI, TMDB, and other service credentials. Symlinked into `gateway/.env` and `engine/.env` for local development.
