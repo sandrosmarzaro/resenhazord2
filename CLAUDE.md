@@ -382,6 +382,10 @@ docs: add conventional commits guidelines to CLAUDE.md
   feature, one bug fix, one refactor). Group related file changes together, but split
   unrelated changes into separate commits. Commit in dependency order when migrating
   or restructuring (sources before configs, moves before edits)
+- **Commit as you go** — create each commit immediately after completing its logical
+  unit of work, not after finishing all changes. The git history should reflect the
+  real evolution of modifications. Never batch an entire wave or feature into one
+  commit at the end
 
 ## External API Integration
 
