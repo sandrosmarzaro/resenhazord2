@@ -6,4 +6,11 @@ src/auth/google_secret.json
 .wwebjs_cache/
 coverage/
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
 !/src/auth/session/.gitkeep
