@@ -113,6 +113,10 @@ describe('CommandFactory', () => {
       expect(commandNames).not.toContain('PornoCommand');
       expect(commandNames).not.toContain('Rule34Command');
       expect(commandNames).not.toContain('AudioCommand');
+      expect(commandNames).not.toContain('HeartstoneCommand');
+      expect(commandNames).not.toContain('MagicTheGatheringCommand');
+      expect(commandNames).not.toContain('PokemonTCGCommand');
+      expect(commandNames).not.toContain('YugiohCommand');
     });
   });
 });

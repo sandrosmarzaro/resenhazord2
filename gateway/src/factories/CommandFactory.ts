@@ -12,16 +12,12 @@ import CarroCommand from '../commands/CarroCommand.js';
 import DownloadCommand from '../commands/DownloadCommand.js';
 import GameCommand from '../commands/GameCommand.js';
 import GroupMentionsCommand from '../commands/GroupMentionsCommand.js';
-import HeartstoneCommand from '../commands/HeartstoneCommand.js';
-import MagicTheGatheringCommand from '../commands/MagicTheGatheringCommand.js';
-import PokemonTCGCommand from '../commands/PokemonTCGCommand.js';
 import MusicCommand from '../commands/MusicCommand.js';
 import MenuCommand from '../commands/MenuCommand.js';
 import PokemonCommand from '../commands/PokemonCommand.js';
 import HentaiCommand from '../commands/HentaiCommand.js';
 import ScarraCommand from '../commands/ScarraCommand.js';
 import StickerCommand from '../commands/StickerCommand.js';
-import YugiohCommand from '../commands/YugiohCommand.js';
 import DiscordService from '../clients/DiscordService.js';
 
 export default class CommandFactory {
@@ -46,16 +42,12 @@ export default class CommandFactory {
       new ExtrairCommand(whatsapp),
       new GameCommand(),
       new GroupMentionsCommand(),
-      new HeartstoneCommand(),
-      new MagicTheGatheringCommand(),
       new MusicCommand(),
       new MenuCommand(),
       new PokemonCommand(),
-      new PokemonTCGCommand(),
       new HentaiCommand(),
       new ScarraCommand(whatsapp),
       new StickerCommand(whatsapp),
-      new YugiohCommand(),
     ];
   }
 
