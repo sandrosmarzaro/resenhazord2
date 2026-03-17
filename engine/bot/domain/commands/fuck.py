@@ -10,10 +10,10 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-LID_OR_WHATSAPP_RE = re.compile(r'@lid|@s\.whatsapp\.net', flags=re.IGNORECASE)
-
 
 class FuckCommand(Command):
+    LID_OR_WHATSAPP_RE = re.compile(r'@lid|@s\.whatsapp\.net', flags=re.IGNORECASE)
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -34,7 +34,7 @@ class FuckCommand(Command):
         sender_phone = sender.replace('@lid', '')
 
         mentioned = data.mentioned_jids[0] if data.mentioned_jids else ''
-        mentioned_phone = LID_OR_WHATSAPP_RE.sub('', mentioned)
+        mentioned_phone = self.LID_OR_WHATSAPP_RE.sub('', mentioned)
 
         response = await HttpClient.get(
             'https://nsfwhub.onrender.com/nsfw?type=fuck',

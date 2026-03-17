@@ -8,6 +8,8 @@ from bot.infrastructure.http_client import HttpClient
 
 
 class MyAnimeListCommand(Command):
+    MAX_PAGE = 20
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -24,7 +26,7 @@ class MyAnimeListCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         base_url = 'https://api.jikan.moe/v4'
         media_type = 'anime' if parsed.command_name == 'anime' else 'manga'
-        page = random.randint(1, 20)  # noqa: S311
+        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
 
         response = await HttpClient.get(f'{base_url}/top/{media_type}', params={'page': page})
         response.raise_for_status()

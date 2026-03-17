@@ -12,12 +12,13 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-SEARCH_URL = 'https://world.openfoodfacts.net/cgi/search.pl'
-PAGE_SIZE = 20
-MAX_PAGE = 200
-
 
 class BeerCommand(Command):
+    SEARCH_URL = 'https://world.openfoodfacts.net/cgi/search.pl'
+    PAGE_SIZE = 20
+    MAX_PAGE = 200
+    RETRY_MAX_PAGE = 50
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(name='cerveja', flags=['show', 'dm'], category='aleatórias')
@@ -52,22 +53,22 @@ class BeerCommand(Command):
             return [Reply.to(data).text('Erro ao buscar cerveja. Tente novamente mais tarde! 🍺')]
 
     async def _get_random_beer(self) -> dict:
-        page = random.randint(1, MAX_PAGE)  # noqa: S311
+        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
         try:
             return await self._fetch_beer_from_page(page)
         except (ValueError, httpx.HTTPError):
-            retry_page = random.randint(1, 50)  # noqa: S311
+            retry_page = random.randint(1, self.RETRY_MAX_PAGE)  # noqa: S311
             return await self._fetch_beer_from_page(retry_page)
 
     async def _fetch_beer_from_page(self, page: int) -> dict:
         response = await HttpClient.get(
-            SEARCH_URL,
+            self.SEARCH_URL,
             params={
                 'action': 'process',
                 'tagtype_0': 'categories',
                 'tag_contains_0': 'contains',
                 'tag_0': 'beers',
-                'page_size': PAGE_SIZE,
+                'page_size': self.PAGE_SIZE,
                 'page': page,
                 'json': 1,
             },

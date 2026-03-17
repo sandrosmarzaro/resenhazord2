@@ -13,10 +13,10 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
-
 
 class BichoCommand(Command):
+    BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -71,10 +71,10 @@ class BichoCommand(Command):
                 )
             ]
 
-    @staticmethod
-    async def _fetch_draws() -> list[dict]:
+    @classmethod
+    async def _fetch_draws(cls) -> list[dict]:
         response = await HttpClient.get(
-            BICHO_URL,
+            cls.BICHO_URL,
             headers=BROWSER_HEADERS,
         )
         response.raise_for_status()

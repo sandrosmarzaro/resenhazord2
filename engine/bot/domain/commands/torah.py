@@ -8,18 +8,18 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
-BOOKS_LIST = (
-    'Versículo não encontrado. 😔\n\n'
-    '📚 *Livros da Torá* 📚\n'
-    '- Genesis (בראשית) — 50 capítulos\n'
-    '- Exodus (שמות) — 40 capítulos\n'
-    '- Leviticus (ויקרא) — 27 capítulos\n'
-    '- Numbers (במדבר) — 36 capítulos\n'
-    '- Deuteronomy (דברים) — 34 capítulos'
-)
-
 
 class TorahCommand(Command):
+    NOT_FOUND_MESSAGE = (
+        'Versículo não encontrado. 😔\n\n'
+        '📚 *Livros da Torá* 📚\n'
+        '- Genesis (בראשית) — 50 capítulos\n'
+        '- Exodus (שמות) — 40 capítulos\n'
+        '- Leviticus (ויקרא) — 27 capítulos\n'
+        '- Numbers (במדבר) — 36 capítulos\n'
+        '- Deuteronomy (דברים) — 34 capítulos'
+    )
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -43,7 +43,7 @@ class TorahCommand(Command):
         else:
             match = re.match(r'^(.+?)\s+(\d+):(\d+)$', rest)
             if not match:
-                return [Reply.to(data).text(BOOKS_LIST)]
+                return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
             book_name, chapter, verse = match.group(1), match.group(2), match.group(3)
             ref = f'{book_name}.{chapter}.{verse}'
 
@@ -53,7 +53,7 @@ class TorahCommand(Command):
         payload = response.json()
 
         if payload.get('error'):
-            return [Reply.to(data).text(BOOKS_LIST)]
+            return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
 
         he_raw = payload.get('he', '')
         en_raw = payload.get('text', '')
@@ -63,7 +63,7 @@ class TorahCommand(Command):
             en_raw = ' '.join(en_raw)
 
         if not he_raw and not en_raw:
-            return [Reply.to(data).text(BOOKS_LIST)]
+            return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
 
         return [self._build_reply(data, payload, lang, he_raw, en_raw)]
 

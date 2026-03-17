@@ -14,10 +14,10 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-MAX_PAGE = 50
-
 
 class PornoCommand(Command):
+    MAX_PAGE = 50
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -69,9 +69,9 @@ class PornoCommand(Command):
                 )
             ]
 
-    @staticmethod
-    async def _scrape_random_video() -> dict[str, str]:
-        page = random.randint(1, MAX_PAGE)  # noqa: S311
+    @classmethod
+    async def _scrape_random_video(cls) -> dict[str, str]:
+        page = random.randint(1, cls.MAX_PAGE)  # noqa: S311
         listing_url = f'https://www.xvideos.com/new/{page}'
 
         listing_resp = await HttpClient.get(listing_url, timeout=30.0, headers=BROWSER_HEADERS)

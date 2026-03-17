@@ -6,6 +6,8 @@ from bot.infrastructure.http_client import HttpClient
 
 
 class MealRecipesCommand(Command):
+    MAX_INGREDIENTS = 20
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(name='comida', flags=['show', 'dm'], category='aleatórias')
@@ -24,7 +26,7 @@ class MealRecipesCommand(Command):
         caption += f'🗺️ {meal.get("strArea") or "Sem País"}\n'
         caption += f'🍽️ {meal.get("strCategory") or ""} {meal.get("strTags") or ""}\n'
         caption += '\n🍲 Ingredientes:\n'
-        for i in range(1, 21):
+        for i in range(1, self.MAX_INGREDIENTS + 1):
             ingredient = meal.get(f'strIngredient{i}')
             if not ingredient:
                 break

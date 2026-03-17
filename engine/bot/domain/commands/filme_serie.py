@@ -9,6 +9,9 @@ from bot.infrastructure.http_client import HttpClient
 
 
 class FilmeSerieCommand(Command):
+    MAX_PAGE = 25
+    POSTER_SIZE = 'w500'
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -30,14 +33,14 @@ class FilmeSerieCommand(Command):
         mode = 'top_rated' if mode_value == 'top' else 'popular'
         url = f'https://api.themoviedb.org/3/{media_type}/{mode}'
 
-        page = random.randint(1, 25)  # noqa: S311
+        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
         response = await HttpClient.get(
             url, params={'api_key': api_key, 'language': 'pt-BR', 'page': page}
         )
         response.raise_for_status()
         results = response.json()['results']
         item = random.choice(results)  # noqa: S311
-        poster_url = f'https://image.tmdb.org/t/p/w500{item["poster_path"]}'
+        poster_url = f'https://image.tmdb.org/t/p/{self.POSTER_SIZE}{item["poster_path"]}'
 
         genres_url = f'https://api.themoviedb.org/3/genre/{media_type}/list'
         genres_resp = await HttpClient.get(
