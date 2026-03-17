@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
@@ -49,24 +47,24 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_api(self, command):
+    async def test_calls_api(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cr')
         mock_resp = _mock_cards_response()
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.clash_royale.HttpClient.get', return_value=mock_resp
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            mock_get.assert_called_once()
+        mock_get.assert_called_once()
 
     @pytest.mark.anyio
-    async def test_returns_image_with_card_info(self, command):
+    async def test_returns_image_with_card_info(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cr')
         mock_resp = _mock_cards_response()
 
-        with patch('bot.domain.commands.clash_royale.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.clash_royale.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -78,14 +76,14 @@ class TestRun:
         assert 'Arena 0' in caption
 
     @pytest.mark.anyio
-    async def test_returns_error_on_failure(self, command):
+    async def test_returns_error_on_failure(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cr')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.clash_royale.HttpClient.get',
             side_effect=Exception('API down'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)

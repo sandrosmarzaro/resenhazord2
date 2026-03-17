@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.beer import BeerCommand
@@ -52,12 +50,12 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_image_with_beer_info(self, command):
+    async def test_returns_image_with_beer_info(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cerveja')
         mock_resp = _mock_response([_beer_product()])
 
-        with patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -67,19 +65,19 @@ class TestRun:
         assert '330ml' in caption
 
     @pytest.mark.anyio
-    async def test_strips_language_prefixes(self, command):
+    async def test_strips_language_prefixes(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cerveja')
         mock_resp = _mock_response([_beer_product()])
 
-        with patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'Netherlands' in caption
         assert 'en:' not in caption
 
     @pytest.mark.anyio
-    async def test_filters_products_without_name(self, command):
+    async def test_filters_products_without_name(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cerveja')
         products = [
             {'product_name': None, 'image_front_url': 'https://example.com/x.jpg'},
@@ -87,28 +85,28 @@ class TestRun:
         ]
         mock_resp = _mock_response(products)
 
-        with patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
 
     @pytest.mark.anyio
-    async def test_returns_error_on_failure(self, command):
+    async def test_returns_error_on_failure(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cerveja')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.beer.HttpClient.get',
             side_effect=Exception('API down'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'Erro' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_handles_missing_optional_fields(self, command):
+    async def test_handles_missing_optional_fields(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', cerveja')
         product = _beer_product(
             nutriments=None,
@@ -119,8 +117,8 @@ class TestRun:
         )
         mock_resp = _mock_response([product])
 
-        with patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.beer.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)

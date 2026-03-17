@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.my_anime_list import MyAnimeListCommand
@@ -67,12 +65,12 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_anime_returns_image_with_info(self, command):
+    async def test_anime_returns_image_with_info(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', anime')
         mock_resp = make_json_response({'data': [_anime_item()]})
 
-        with patch('bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -83,12 +81,12 @@ class TestRun:
         assert '🎥' in caption
 
     @pytest.mark.anyio
-    async def test_manga_returns_image_with_info(self, command):
+    async def test_manga_returns_image_with_info(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', manga')
         mock_resp = make_json_response({'data': [_manga_item()]})
 
-        with patch('bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -98,27 +96,27 @@ class TestRun:
         assert '📚' in caption
 
     @pytest.mark.anyio
-    async def test_calls_correct_api_for_anime(self, command):
+    async def test_calls_correct_api_for_anime(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', anime')
         mock_resp = make_json_response({'data': [_anime_item()]})
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            url = mock_get.call_args[0][0]
-            assert '/top/anime' in url
+        url = mock_get.call_args[0][0]
+        assert '/top/anime' in url
 
     @pytest.mark.anyio
-    async def test_calls_correct_api_for_manga(self, command):
+    async def test_calls_correct_api_for_manga(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', manga')
         mock_resp = make_json_response({'data': [_manga_item()]})
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.my_anime_list.HttpClient.get', return_value=mock_resp
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            url = mock_get.call_args[0][0]
-            assert '/top/manga' in url
+        url = mock_get.call_args[0][0]
+        assert '/top/manga' in url

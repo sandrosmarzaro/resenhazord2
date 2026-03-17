@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.filme_serie import FilmeSerieCommand
@@ -64,16 +62,16 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_movie_returns_image(self, command):
+    async def test_movie_returns_image(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', filme')
         movie_resp = make_json_response({'results': [_movie_item()]})
         genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}, {'id': 878, 'name': 'Ficção'}])
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.filme_serie.HttpClient.get',
             side_effect=[movie_resp, genres_resp],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -84,16 +82,16 @@ class TestRun:
         assert '1999' in caption
 
     @pytest.mark.anyio
-    async def test_tv_returns_image(self, command):
+    async def test_tv_returns_image(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', série')
         tv_resp = make_json_response({'results': [_tv_item()]})
         genres_resp = _genres_response([{'id': 18, 'name': 'Drama'}])
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.filme_serie.HttpClient.get',
             side_effect=[tv_resp, genres_resp],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         caption = messages[0].content.caption
@@ -101,31 +99,31 @@ class TestRun:
         assert 'Drama' in caption
 
     @pytest.mark.anyio
-    async def test_top_mode_uses_top_rated(self, command):
+    async def test_top_mode_uses_top_rated(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', filme top')
         movie_resp = make_json_response({'results': [_movie_item()]})
         genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}])
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.filme_serie.HttpClient.get',
             side_effect=[movie_resp, genres_resp],
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            url = mock_get.call_args_list[0][0][0]
-            assert 'top_rated' in url
+        url = mock_get.call_args_list[0][0][0]
+        assert 'top_rated' in url
 
     @pytest.mark.anyio
-    async def test_default_mode_is_popular(self, command):
+    async def test_default_mode_is_popular(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', filme')
         movie_resp = make_json_response({'results': [_movie_item()]})
         genres_resp = _genres_response([{'id': 28, 'name': 'Ação'}])
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.filme_serie.HttpClient.get',
             side_effect=[movie_resp, genres_resp],
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            url = mock_get.call_args_list[0][0][0]
-            assert 'popular' in url
+        url = mock_get.call_args_list[0][0][0]
+        assert 'popular' in url

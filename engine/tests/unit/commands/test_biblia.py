@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.biblia import BibliaCommand
@@ -45,55 +43,53 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_random_verse_when_no_args(self, command):
+    async def test_random_verse_when_no_args(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bíblia')
         mock_resp = make_json_response(_verse_response())
 
-        with patch('bot.domain.commands.biblia.HttpClient.get', return_value=mock_resp) as mock_get:
-            messages = await command.run(data)
+        mock_get = mocker.patch('bot.domain.commands.biblia.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
-            url = mock_get.call_args[0][0]
-            assert '/random' in url
-
+        url = mock_get.call_args[0][0]
+        assert '/random' in url
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'Gênesis 1:1' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_uses_specified_version(self, command):
+    async def test_uses_specified_version(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bíblia kjv')
         mock_resp = make_json_response(_verse_response())
 
-        with patch('bot.domain.commands.biblia.HttpClient.get', return_value=mock_resp) as mock_get:
-            await command.run(data)
+        mock_get = mocker.patch('bot.domain.commands.biblia.HttpClient.get', return_value=mock_resp)
+        await command.run(data)
 
-            url = mock_get.call_args[0][0]
-            assert '/kjv/' in url
+        url = mock_get.call_args[0][0]
+        assert '/kjv/' in url
 
     @pytest.mark.anyio
-    async def test_specific_verse(self, command):
+    async def test_specific_verse(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1')
         books_resp = make_json_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
         verse_resp = make_json_response(_verse_response())
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.biblia.HttpClient.get',
             side_effect=[books_resp, verse_resp],
-        ) as mock_get:
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
-            verse_url = mock_get.call_args_list[1][0][0]
-            assert '/gn/' in verse_url
-
+        verse_url = mock_get.call_args_list[1][0][0]
+        assert '/gn/' in verse_url
         assert 'Gênesis 1:1' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_book_not_found(self, command):
+    async def test_book_not_found(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bíblia Xablau 1:1')
         books_resp = make_json_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
 
-        with patch('bot.domain.commands.biblia.HttpClient.get', return_value=books_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.biblia.HttpClient.get', return_value=books_resp)
+        messages = await command.run(data)
 
         assert 'Não consegui encontrar' in messages[0].content.text
 
@@ -106,18 +102,18 @@ class TestRun:
         assert 'Por favor, digite o nome' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_verse_range(self, command):
+    async def test_verse_range(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1-3')
         books_resp = make_json_response([{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
         verse1 = make_json_response({'text': 'Verso 1'})
         verse2 = make_json_response({'text': 'Verso 2'})
         verse3 = make_json_response({'text': 'Verso 3'})
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.biblia.HttpClient.get',
             side_effect=[books_resp, verse1, verse2, verse3],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'Gênesis 1:1-3' in text

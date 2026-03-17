@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.pokemon_tcg import PokemonTCGCommand
@@ -61,58 +59,52 @@ class TestMatches:
 
 class TestSingleCard:
     @pytest.mark.anyio
-    async def test_returns_image_buffer(self, command):
+    async def test_returns_image_buffer(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_downloads_webp_image(self, command):
+    async def test_downloads_webp_image(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ) as mock_get_buffer,
-        ):
-            await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mock_get_buffer = mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        await command.run(data)
 
         url = mock_get_buffer.call_args[0][0]
         assert url.endswith('/high.webp')
 
     @pytest.mark.anyio
-    async def test_caption_contains_card_metadata(self, command):
+    async def test_caption_contains_card_metadata(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert '*Charizard*' in caption
@@ -126,92 +118,86 @@ class TestSingleCard:
         assert 'Mitsuhiro Arita' in caption
 
     @pytest.mark.anyio
-    async def test_view_once_true_by_default(self, command):
+    async def test_view_once_true_by_default(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        messages = await command.run(data)
 
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command):
+    async def test_show_flag_disables_view_once(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg show')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        messages = await command.run(data)
 
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_retries_when_no_image(self, command):
+    async def test_retries_when_no_image(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
         no_image_card = {**MOCK_CARD, 'image': None}
         no_image_resp = make_json_response(no_image_card)
         with_image_resp = _mock_card_response()
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                side_effect=[no_image_resp, with_image_resp],
-            ),
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            side_effect=[no_image_resp, with_image_resp],
+        )
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        messages = await command.run(data)
 
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_returns_error_when_all_retries_fail(self, command):
+    async def test_returns_error_when_all_retries_fail(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
         no_image_card = {**MOCK_CARD, 'image': None}
         no_image_resp = make_json_response(no_image_card)
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.pokemon_tcg.HttpClient.get',
             return_value=no_image_resp,
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert isinstance(messages[0].content, TextContent)
         assert 'encontrar' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_returns_error_on_exception(self, command):
+    async def test_returns_error_on_exception(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.pokemon_tcg.HttpClient.get',
             side_effect=Exception('timeout'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert isinstance(messages[0].content, TextContent)
         assert 'buscar' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_handles_card_without_optional_fields(self, command):
+    async def test_handles_card_without_optional_fields(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
         minimal_card = {
             'id': 'base1-99',
@@ -225,17 +211,15 @@ class TestSingleCard:
             },
         }
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=make_json_response(minimal_card),
-            ),
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=make_json_response(minimal_card),
+        )
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
@@ -243,47 +227,43 @@ class TestSingleCard:
 
 class TestBooster:
     @pytest.mark.anyio
-    async def test_returns_grid_image(self, command):
+    async def test_returns_grid_image(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', ptcg booster')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.card_booster.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-            patch(
-                'bot.domain.commands.card_booster.build_card_grid',
-                return_value=b'grid-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.build_card_grid',
+            return_value=b'grid-image',
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_booster_label_contains_metadata(self, command):
+    async def test_booster_label_contains_metadata(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', ptcg booster')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.card_booster.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-            patch(
-                'bot.domain.commands.card_booster.build_card_grid',
-                return_value=b'grid-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.build_card_grid',
+            return_value=b'grid-image',
+        )
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'Pokemon Stage2' in caption
@@ -292,24 +272,22 @@ class TestBooster:
         assert '⭐ Rare' in caption
 
     @pytest.mark.anyio
-    async def test_booster_downloads_webp(self, command):
+    async def test_booster_downloads_webp(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', ptcg booster')
 
-        with (
-            patch(
-                'bot.domain.commands.pokemon_tcg.HttpClient.get',
-                return_value=_mock_card_response(),
-            ),
-            patch(
-                'bot.domain.commands.card_booster.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ) as mock_get_buffer,
-            patch(
-                'bot.domain.commands.card_booster.build_card_grid',
-                return_value=b'grid-image',
-            ),
-        ):
-            await command.run(data)
+        mocker.patch(
+            'bot.domain.commands.pokemon_tcg.HttpClient.get',
+            return_value=_mock_card_response(),
+        )
+        mock_get_buffer = mocker.patch(
+            'bot.domain.commands.card_booster.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.build_card_grid',
+            return_value=b'grid-image',
+        )
+        await command.run(data)
 
         url = mock_get_buffer.call_args[0][0]
         assert url.endswith('/high.webp')

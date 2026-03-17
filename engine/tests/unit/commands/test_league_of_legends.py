@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
@@ -55,30 +53,30 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_version_and_champions_apis(self, command):
+    async def test_calls_version_and_champions_apis(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', lol')
         version_resp = _mock_versions_response()
         champs_resp = _mock_champions_response()
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.league_of_legends.HttpClient.get',
             side_effect=[version_resp, champs_resp],
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            assert mock_get.call_count == 2
+        assert mock_get.call_count == 2
 
     @pytest.mark.anyio
-    async def test_returns_image_with_champion_info(self, command):
+    async def test_returns_image_with_champion_info(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', lol')
         version_resp = _mock_versions_response()
         champs_resp = _mock_champions_response()
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.league_of_legends.HttpClient.get',
             side_effect=[version_resp, champs_resp],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -90,14 +88,14 @@ class TestRun:
         assert 'Ataque: 3/10' in caption
 
     @pytest.mark.anyio
-    async def test_returns_error_on_failure(self, command):
+    async def test_returns_error_on_failure(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', lol')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.league_of_legends.HttpClient.get',
             side_effect=Exception('API down'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)

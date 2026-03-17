@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -61,75 +61,75 @@ class TestMatches:
 
 class TestSingleCard:
     @pytest.mark.anyio
-    async def test_returns_card_image(self, command):
+    async def test_returns_card_image(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.magic_the_gathering.HttpClient.get',
             side_effect=[
                 _mock_total_count_response(500),
                 _mock_cards_response(),
                 _mock_head_response(),
             ],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
         assert messages[0].content.url == MOCK_CARD['imageUrl']
 
     @pytest.mark.anyio
-    async def test_caption_contains_card_info(self, command):
+    async def test_caption_contains_card_info(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.magic_the_gathering.HttpClient.get',
             side_effect=[
                 _mock_total_count_response(),
                 _mock_cards_response(),
                 _mock_head_response(),
             ],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert '*Lightning Bolt*' in caption
         assert 'Lightning Bolt deals 3 damage' in caption
 
     @pytest.mark.anyio
-    async def test_view_once_true_by_default(self, command):
+    async def test_view_once_true_by_default(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.magic_the_gathering.HttpClient.get',
             side_effect=[
                 _mock_total_count_response(),
                 _mock_cards_response(),
                 _mock_head_response(),
             ],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command):
+    async def test_show_flag_disables_view_once(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg show')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.magic_the_gathering.HttpClient.get',
             side_effect=[
                 _mock_total_count_response(),
                 _mock_cards_response(),
                 _mock_head_response(),
             ],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_skips_cards_with_multiverseid_zero(self, command):
+    async def test_skips_cards_with_multiverseid_zero(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg')
         bad_card = {
             'name': 'Bad Card',
@@ -137,23 +137,23 @@ class TestSingleCard:
             'imageUrl': 'https://example.com/Image.ashx?multiverseid=0',
         }
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.magic_the_gathering.HttpClient.get',
             side_effect=[
                 _mock_total_count_response(100),
                 _mock_cards_response([bad_card, MOCK_CARD]),
                 _mock_head_response(),
             ],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert messages[0].content.url == MOCK_CARD['imageUrl']
 
     @pytest.mark.anyio
-    async def test_skips_card_back_redirect(self, command):
+    async def test_skips_card_back_redirect(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.magic_the_gathering.HttpClient.get',
             side_effect=[
                 _mock_total_count_response(100),
@@ -162,75 +162,71 @@ class TestSingleCard:
                 _mock_cards_response(),
                 _mock_head_response(),
             ],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert messages[0].content.url == MOCK_CARD['imageUrl']
 
 
 class TestBooster:
     @pytest.mark.anyio
-    async def test_returns_grid_image(self, command):
+    async def test_returns_grid_image(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg booster')
 
-        with (
-            patch(
-                'bot.domain.commands.magic_the_gathering.HttpClient.get',
-                side_effect=[
-                    _mock_total_count_response(600),
-                    *[
-                        resp
-                        for _ in range(6)
-                        for resp in (
-                            _mock_cards_response(),
-                            _mock_head_response(),
-                        )
-                    ],
+        mocker.patch(
+            'bot.domain.commands.magic_the_gathering.HttpClient.get',
+            side_effect=[
+                _mock_total_count_response(600),
+                *[
+                    resp
+                    for _ in range(6)
+                    for resp in (
+                        _mock_cards_response(),
+                        _mock_head_response(),
+                    )
                 ],
-            ),
-            patch(
-                'bot.domain.commands.card_booster.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-            patch(
-                'bot.domain.commands.card_booster.build_card_grid',
-                return_value=b'grid-image',
-            ),
-        ):
-            messages = await command.run(data)
+            ],
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.build_card_grid',
+            return_value=b'grid-image',
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_booster_caption_has_numbered_cards(self, command):
+    async def test_booster_caption_has_numbered_cards(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', mtg booster')
 
-        with (
-            patch(
-                'bot.domain.commands.magic_the_gathering.HttpClient.get',
-                side_effect=[
-                    _mock_total_count_response(600),
-                    *[
-                        resp
-                        for _ in range(6)
-                        for resp in (
-                            _mock_cards_response(),
-                            _mock_head_response(),
-                        )
-                    ],
+        mocker.patch(
+            'bot.domain.commands.magic_the_gathering.HttpClient.get',
+            side_effect=[
+                _mock_total_count_response(600),
+                *[
+                    resp
+                    for _ in range(6)
+                    for resp in (
+                        _mock_cards_response(),
+                        _mock_head_response(),
+                    )
                 ],
-            ),
-            patch(
-                'bot.domain.commands.card_booster.HttpClient.get_buffer',
-                return_value=b'fake-image',
-            ),
-            patch(
-                'bot.domain.commands.card_booster.build_card_grid',
-                return_value=b'grid-image',
-            ),
-        ):
-            messages = await command.run(data)
+            ],
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        mocker.patch(
+            'bot.domain.commands.card_booster.build_card_grid',
+            return_value=b'grid-image',
+        )
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert '*1.*' in caption

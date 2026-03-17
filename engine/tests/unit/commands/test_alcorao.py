@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.alcorao import AlcoraoCommand
@@ -33,7 +31,7 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_api(self, command):
+    async def test_calls_api(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', alcorão')
         mock_resp = make_json_response(
             {
@@ -45,17 +43,17 @@ class TestRun:
             }
         )
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            url = mock_get.call_args[0][0]
-            assert url.startswith('https://api.alquran.cloud/v1/ayah/')
-            assert url.endswith('/pt.elhayek')
+        url = mock_get.call_args[0][0]
+        assert url.startswith('https://api.alquran.cloud/v1/ayah/')
+        assert url.endswith('/pt.elhayek')
 
     @pytest.mark.anyio
-    async def test_returns_formatted_text(self, command):
+    async def test_returns_formatted_text(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', alcorão')
         mock_resp = make_json_response(
             {
@@ -67,8 +65,8 @@ class TestRun:
             }
         )
 
-        with patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
@@ -77,7 +75,7 @@ class TestRun:
         assert 'In the name of God' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_includes_quoted_message_id(self, command):
+    async def test_includes_quoted_message_id(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', alcorão', message_id='MSG_42')
         mock_resp = make_json_response(
             {
@@ -89,13 +87,13 @@ class TestRun:
             }
         )
 
-        with patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
 
     @pytest.mark.anyio
-    async def test_includes_expiration(self, command):
+    async def test_includes_expiration(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', alcorão', expiration=86400)
         mock_resp = make_json_response(
             {
@@ -107,7 +105,7 @@ class TestRun:
             }
         )
 
-        with patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.alcorao.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert messages[0].expiration == 86400

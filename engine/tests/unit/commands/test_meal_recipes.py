@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.meal_recipes import MealRecipesCommand
@@ -58,24 +56,24 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_api(self, command):
+    async def test_calls_api(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', comida')
         mock_resp = _mock_response(_mock_meal())
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            mock_get.assert_called_once_with('https://www.themealdb.com/api/json/v1/1/random.php')
+        mock_get.assert_called_once_with('https://www.themealdb.com/api/json/v1/1/random.php')
 
     @pytest.mark.anyio
-    async def test_returns_image_with_recipe(self, command):
+    async def test_returns_image_with_recipe(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', comida')
         mock_resp = _mock_response(_mock_meal())
 
-        with patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -88,39 +86,39 @@ class TestRun:
         assert 'Cook the pasta' in caption
 
     @pytest.mark.anyio
-    async def test_includes_ingredients_list(self, command):
+    async def test_includes_ingredients_list(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', comida')
         meal = _mock_meal()
         mock_resp = _mock_response(meal)
 
-        with patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert '- Spaghetti | 200g' in caption
         assert '- Tomato | 3' in caption
 
     @pytest.mark.anyio
-    async def test_stops_at_empty_ingredient(self, command):
+    async def test_stops_at_empty_ingredient(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', comida')
         meal = _mock_meal()
         mock_resp = _mock_response(meal)
 
-        with patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         # Should only have 2 ingredients (strIngredient3 is empty)
         assert caption.count('- ') == 2
 
     @pytest.mark.anyio
-    async def test_handles_missing_optional_fields(self, command):
+    async def test_handles_missing_optional_fields(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', comida')
         meal = _mock_meal(strArea=None, strTags=None, strYoutube=None, strSource=None)
         mock_resp = _mock_response(meal)
 
-        with patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.meal_recipes.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'Sem País' in caption

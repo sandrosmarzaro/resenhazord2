@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.torah import TorahCommand
@@ -45,12 +43,12 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_random_verse_returns_both_languages(self, command):
+    async def test_random_verse_returns_both_languages(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', torá')
         mock_resp = make_json_response(_sefaria_response())
 
-        with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
@@ -60,39 +58,39 @@ class TestRun:
         assert 'beginning' in text
 
     @pytest.mark.anyio
-    async def test_hebrew_only_with_he_option(self, command):
+    async def test_hebrew_only_with_he_option(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', torá he')
         mock_resp = make_json_response(_sefaria_response())
 
-        with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'בְּרֵאשִׁ֖ית' in text
         assert 'beginning' not in text
 
     @pytest.mark.anyio
-    async def test_english_only_with_en_option(self, command):
+    async def test_english_only_with_en_option(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', torá en')
         mock_resp = make_json_response(_sefaria_response())
 
-        with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'beginning' in text
         assert 'בְּרֵאשִׁ֖ית' not in text
 
     @pytest.mark.anyio
-    async def test_specific_verse_with_args(self, command):
+    async def test_specific_verse_with_args(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', torá Exodus 3:14')
         mock_resp = make_json_response(_sefaria_response(ref='Exodus 3:14'))
 
-        with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp) as mock_get:
-            await command.run(data)
+        mock_get = mocker.patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp)
+        await command.run(data)
 
-            url = mock_get.call_args[0][0]
-            assert 'Exodus.3.14' in url
+        url = mock_get.call_args[0][0]
+        assert 'Exodus.3.14' in url
 
     @pytest.mark.anyio
     async def test_invalid_args_returns_books_list(self, command):
@@ -104,34 +102,34 @@ class TestRun:
         assert 'Livros da Torá' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_api_error_returns_books_list(self, command):
+    async def test_api_error_returns_books_list(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', torá')
         mock_resp = make_json_response(_sefaria_response(error='Not found'))
 
-        with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert 'Livros da Torá' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_empty_verse_returns_books_list(self, command):
+    async def test_empty_verse_returns_books_list(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', torá')
         mock_resp = make_json_response(_sefaria_response(he='', text=''))
 
-        with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert 'Livros da Torá' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_list_verse_content_joined(self, command):
+    async def test_list_verse_content_joined(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', torá')
         mock_resp = make_json_response(
             _sefaria_response(he=['<b>part1</b>', 'part2'], text=['hello', 'world'])
         )
 
-        with patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.torah.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'part1 part2' in text

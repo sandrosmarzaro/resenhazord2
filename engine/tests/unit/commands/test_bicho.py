@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.bicho import BichoCommand
@@ -59,12 +57,12 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_latest_published_draw(self, command):
+    async def test_returns_latest_published_draw(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bicho')
         mock_resp = make_html_response(SAMPLE_HTML)
 
-        with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
@@ -74,46 +72,46 @@ class TestRun:
         assert 'Coelho' in text
 
     @pytest.mark.anyio
-    async def test_returns_specific_draw_by_arg(self, command):
+    async def test_returns_specific_draw_by_arg(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bicho ptn')
         mock_resp = make_html_response(SAMPLE_HTML)
 
-        with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'PTN 18h' in text
 
     @pytest.mark.anyio
-    async def test_unpublished_draw_returns_pending_message(self, command):
+    async def test_unpublished_draw_returns_pending_message(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bicho cor')
         mock_resp = make_html_response(SAMPLE_HTML)
 
-        with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'ainda não foi publicado' in text
 
     @pytest.mark.anyio
-    async def test_no_published_draws(self, command):
+    async def test_no_published_draws(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bicho')
         html = '<div id="bloco-PPT"><span class="status-pendente"></span></div>'
         mock_resp = make_html_response(html)
 
-        with patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.bicho.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert 'Nenhum sorteio publicado' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_error_returns_error_message(self, command):
+    async def test_error_returns_error_message(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bicho')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.bicho.HttpClient.get',
             side_effect=Exception('Network error'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert 'Erro' in messages[0].content.text

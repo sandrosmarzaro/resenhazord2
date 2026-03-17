@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.porno import PornoCommand
@@ -60,12 +58,12 @@ class TestMatches:
 
 class TestIaPorn:
     @pytest.mark.anyio
-    async def test_returns_video_for_mp4(self, command):
+    async def test_returns_video_for_mp4(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno ia')
         resp = _mock_nsfw_response('https://example.com/clip.mp4')
 
-        with patch('bot.domain.commands.porno.HttpClient.get', return_value=resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, RawContent)
@@ -75,35 +73,35 @@ class TestIaPorn:
         assert content['viewOnce'] is True
 
     @pytest.mark.anyio
-    async def test_returns_gif_for_gif(self, command):
+    async def test_returns_gif_for_gif(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno ia')
         resp = _mock_nsfw_response('https://example.com/anim.gif')
 
-        with patch('bot.domain.commands.porno.HttpClient.get', return_value=resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        messages = await command.run(data)
 
         content = messages[0].content.content
         assert 'image' in content
         assert content['gifPlayback'] is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command):
+    async def test_show_flag_disables_view_once(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno ia show')
         resp = _mock_nsfw_response('https://example.com/clip.mp4')
 
-        with patch('bot.domain.commands.porno.HttpClient.get', return_value=resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        messages = await command.run(data)
 
         content = messages[0].content.content
         assert content['viewOnce'] is False
 
     @pytest.mark.anyio
-    async def test_returns_image_for_other(self, command):
+    async def test_returns_image_for_other(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno ia')
         resp = _mock_nsfw_response('https://example.com/photo.jpg')
 
-        with patch('bot.domain.commands.porno.HttpClient.get', return_value=resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=resp)
+        messages = await command.run(data)
 
         content = messages[0].content.content
         assert 'image' in content
@@ -112,16 +110,16 @@ class TestIaPorn:
 
 class TestRealPorn:
     @pytest.mark.anyio
-    async def test_returns_video_on_success(self, command):
+    async def test_returns_video_on_success(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno')
         listing_resp = make_html_response(LISTING_HTML)
         video_resp = make_html_response(VIDEO_HTML)
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.porno.HttpClient.get',
             side_effect=[listing_resp, video_resp],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, VideoContent)
@@ -129,43 +127,43 @@ class TestRealPorn:
         assert messages[0].content.caption == 'Test Video'
 
     @pytest.mark.anyio
-    async def test_returns_error_message_on_failure(self, command):
+    async def test_returns_error_message_on_failure(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.porno.HttpClient.get',
             side_effect=Exception('Connection error'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'molhadinho' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_raises_when_no_video_links(self, command):
+    async def test_raises_when_no_video_links(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno')
         listing_resp = make_html_response('<html><body>No videos</body></html>')
 
-        with patch('bot.domain.commands.porno.HttpClient.get', return_value=listing_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.porno.HttpClient.get', return_value=listing_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
 
     @pytest.mark.anyio
-    async def test_raises_when_no_video_url_extracted(self, command):
+    async def test_raises_when_no_video_url_extracted(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', porno')
         listing_resp = make_html_response(LISTING_HTML)
         video_resp = make_html_response(
             '<html><head><title>No URL</title></head><body></body></html>'
         )
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.porno.HttpClient.get',
             side_effect=[listing_resp, video_resp],
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)

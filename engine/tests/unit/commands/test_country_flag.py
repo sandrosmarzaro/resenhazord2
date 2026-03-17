@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.country_flag import CountryFlagCommand
@@ -54,12 +52,12 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_image_with_country_info(self, command):
+    async def test_returns_image_with_country_info(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bandeira')
         mock_resp = _mock_response([_mock_country()])
 
-        with patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -72,49 +70,49 @@ class TestRun:
         assert 'Brazilian real' in caption
 
     @pytest.mark.anyio
-    async def test_includes_official_name_when_different(self, command):
+    async def test_includes_official_name_when_different(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bandeira')
         mock_resp = _mock_response([_mock_country()])
 
-        with patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'Federative Republic of Brazil' in caption
 
     @pytest.mark.anyio
-    async def test_omits_official_name_when_same(self, command):
+    async def test_omits_official_name_when_same(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bandeira')
         country = _mock_country(name={'common': 'Japan', 'official': 'Japan'})
         mock_resp = _mock_response([country])
 
-        with patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert caption.count('Japan') == 1
 
     @pytest.mark.anyio
-    async def test_handles_missing_subregion(self, command):
+    async def test_handles_missing_subregion(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bandeira')
         country = _mock_country(subregion=None, region='Antarctic')
         mock_resp = _mock_response([country])
 
-        with patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.country_flag.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert 'Antártida' in caption
 
     @pytest.mark.anyio
-    async def test_returns_error_on_failure(self, command):
+    async def test_returns_error_on_failure(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', bandeira')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.country_flag.HttpClient.get',
             side_effect=Exception('API down'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)

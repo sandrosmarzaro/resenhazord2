@@ -1,5 +1,3 @@
-from unittest.mock import AsyncMock, patch
-
 import pytest
 
 from bot.domain.commands.puppy import PuppyCommand
@@ -50,75 +48,64 @@ class TestExtractBreed:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_fetches_dog_with_option(self, command):
+    async def test_fetches_dog_with_option(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', puppy dog')
         dog_resp = make_json_response({'message': 'https://images.dog.ceo/breeds/labrador/img.jpg'})
 
-        with (
-            patch('bot.domain.commands.puppy.HttpClient.get', return_value=dog_resp) as mock_get,
-            patch(
-                'bot.domain.commands.puppy.HttpClient.get_buffer',
-                new_callable=AsyncMock,
-                return_value=b'fake-image',
-            ),
-        ):
-            messages = await command.run(data)
+        mock_get = mocker.patch('bot.domain.commands.puppy.HttpClient.get', return_value=dog_resp)
+        mocker.patch(
+            'bot.domain.commands.puppy.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        messages = await command.run(data)
 
-            mock_get.assert_called_once_with('https://dog.ceo/api/breeds/image/random')
-
+        mock_get.assert_called_once_with('https://dog.ceo/api/breeds/image/random')
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
         assert 'Labrador' in messages[0].content.caption
 
     @pytest.mark.anyio
-    async def test_fetches_cat_with_option(self, command):
+    async def test_fetches_cat_with_option(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', puppy cat')
         cat_resp = make_json_response({'url': 'https://cataas.com/cat/abc'})
 
-        with (
-            patch('bot.domain.commands.puppy.HttpClient.get', return_value=cat_resp) as mock_get,
-            patch(
-                'bot.domain.commands.puppy.HttpClient.get_buffer',
-                new_callable=AsyncMock,
-                return_value=b'fake-cat',
-            ),
-        ):
-            messages = await command.run(data)
+        mock_get = mocker.patch('bot.domain.commands.puppy.HttpClient.get', return_value=cat_resp)
+        mocker.patch(
+            'bot.domain.commands.puppy.HttpClient.get_buffer',
+            return_value=b'fake-cat',
+        )
+        messages = await command.run(data)
 
-            mock_get.assert_called_once_with('https://cataas.com/cat?json=true')
-
+        mock_get.assert_called_once_with('https://cataas.com/cat?json=true')
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
         assert 'Cat' in messages[0].content.caption
 
     @pytest.mark.anyio
-    async def test_random_choice_when_no_option(self, command):
+    async def test_random_choice_when_no_option(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', puppy')
         dog_resp = make_json_response({'message': 'https://images.dog.ceo/breeds/poodle/img.jpg'})
 
-        with (
-            patch('bot.domain.commands.puppy.HttpClient.get', return_value=dog_resp),
-            patch(
-                'bot.domain.commands.puppy.HttpClient.get_buffer',
-                new_callable=AsyncMock,
-                return_value=b'fake-image',
-            ),
-            patch('bot.domain.commands.puppy.random.choice', return_value='dog'),
-        ):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.puppy.HttpClient.get', return_value=dog_resp)
+        mocker.patch(
+            'bot.domain.commands.puppy.HttpClient.get_buffer',
+            return_value=b'fake-image',
+        )
+        mocker.patch('bot.domain.commands.puppy.random.choice', return_value='dog')
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_returns_error_text_on_failure(self, command):
+    async def test_returns_error_text_on_failure(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', puppy dog')
 
-        with patch(
+        mocker.patch(
             'bot.domain.commands.puppy.HttpClient.get',
             side_effect=Exception('API down'),
-        ):
-            messages = await command.run(data)
+        )
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)

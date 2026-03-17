@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.fuck import FuckCommand
@@ -36,7 +34,7 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_returns_raw_video_with_mentions(self, command):
+    async def test_returns_raw_video_with_mentions(self, command, mocker):
         sender = '5511999990001@s.whatsapp.net'
         mentioned = '5511888880001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
@@ -46,8 +44,8 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        with patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response()):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response())
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, RawContent)
@@ -59,7 +57,7 @@ class TestRun:
         assert 'fudendo' in content['caption']
 
     @pytest.mark.anyio
-    async def test_strips_lid_suffix_from_phones(self, command):
+    async def test_strips_lid_suffix_from_phones(self, command, mocker):
         sender = '5511999990001@lid'
         mentioned = '5511888880001@lid'
         data = GroupCommandDataFactory.build(
@@ -69,8 +67,8 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        with patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response()):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response())
+        messages = await command.run(data)
 
         content = messages[0].content.content
         assert '@5511999990001' in content['caption']
@@ -87,7 +85,7 @@ class TestRun:
         assert 'grupo' in messages[0].content.text.lower()
 
     @pytest.mark.anyio
-    async def test_uses_sender_jid_when_no_participant(self, command):
+    async def test_uses_sender_jid_when_no_participant(self, command, mocker):
         sender = '5511999990001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
             text=', fuck @123',
@@ -96,8 +94,8 @@ class TestRun:
             mentioned_jids=['123@s.whatsapp.net'],
         )
 
-        with patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response()):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.fuck.HttpClient.get', return_value=_mock_response())
+        messages = await command.run(data)
 
         content = messages[0].content.content
         assert sender in content['mentions']

@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.fato import FatoCommand
@@ -34,32 +32,32 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_random_endpoint_by_default(self, command):
+    async def test_calls_random_endpoint_by_default(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', fato')
         mock_resp = make_json_response({'text': 'A random fact'})
 
-        with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp) as mock_get:
-            await command.run(data)
+        mock_get = mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        await command.run(data)
 
-            mock_get.assert_called_once_with('https://uselessfacts.jsph.pl/api/v2/facts/random')
+        mock_get.assert_called_once_with('https://uselessfacts.jsph.pl/api/v2/facts/random')
 
     @pytest.mark.anyio
-    async def test_calls_today_endpoint_with_hoje_flag(self, command):
+    async def test_calls_today_endpoint_with_hoje_flag(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', fato hoje')
         mock_resp = make_json_response({'text': 'Today fact'})
 
-        with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp) as mock_get:
-            await command.run(data)
+        mock_get = mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        await command.run(data)
 
-            mock_get.assert_called_once_with('https://uselessfacts.jsph.pl/api/v2/facts/today')
+        mock_get.assert_called_once_with('https://uselessfacts.jsph.pl/api/v2/facts/today')
 
     @pytest.mark.anyio
-    async def test_returns_formatted_text(self, command):
+    async def test_returns_formatted_text(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', fato')
         mock_resp = make_json_response({'text': 'Cats sleep 70% of their lives.'})
 
-        with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
@@ -67,21 +65,21 @@ class TestRun:
         assert 'Cats sleep 70% of their lives.' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_includes_quoted_message_id(self, command):
+    async def test_includes_quoted_message_id(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', fato', message_id='MSG_42')
         mock_resp = make_json_response({'text': 'A fact'})
 
-        with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
 
     @pytest.mark.anyio
-    async def test_includes_expiration(self, command):
+    async def test_includes_expiration(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', fato', expiration=86400)
         mock_resp = make_json_response({'text': 'A fact'})
 
-        with patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.fato.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert messages[0].expiration == 86400

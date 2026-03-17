@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from bot.domain.commands.baralho import BaralhoCommand
@@ -34,26 +32,24 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_calls_api(self, command):
+    async def test_calls_api(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', carta')
         mock_resp = make_json_response({'cards': [{'image': 'https://example.com/card.png'}]})
 
-        with patch(
+        mock_get = mocker.patch(
             'bot.domain.commands.baralho.HttpClient.get', return_value=mock_resp
-        ) as mock_get:
-            await command.run(data)
+        )
+        await command.run(data)
 
-            mock_get.assert_called_once_with(
-                'https://deckofcardsapi.com/api/deck/new/draw/?count=1'
-            )
+        mock_get.assert_called_once_with('https://deckofcardsapi.com/api/deck/new/draw/?count=1')
 
     @pytest.mark.anyio
-    async def test_returns_image_with_caption(self, command):
+    async def test_returns_image_with_caption(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', carta')
         mock_resp = make_json_response({'cards': [{'image': 'https://example.com/card.png'}]})
 
-        with patch('bot.domain.commands.baralho.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.baralho.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
@@ -61,21 +57,21 @@ class TestRun:
         assert 'carta' in messages[0].content.caption.lower()
 
     @pytest.mark.anyio
-    async def test_image_is_view_once(self, command):
+    async def test_image_is_view_once(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', carta')
         mock_resp = make_json_response({'cards': [{'image': 'https://example.com/card.png'}]})
 
-        with patch('bot.domain.commands.baralho.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.baralho.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_includes_quoted_message_id(self, command):
+    async def test_includes_quoted_message_id(self, command, mocker):
         data = GroupCommandDataFactory.build(text=', carta', message_id='MSG_42')
         mock_resp = make_json_response({'cards': [{'image': 'https://example.com/card.png'}]})
 
-        with patch('bot.domain.commands.baralho.HttpClient.get', return_value=mock_resp):
-            messages = await command.run(data)
+        mocker.patch('bot.domain.commands.baralho.HttpClient.get', return_value=mock_resp)
+        messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
