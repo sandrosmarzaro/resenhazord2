@@ -377,6 +377,11 @@ docs: add conventional commits guidelines to CLAUDE.md
   for each. To rest any debut of how make the instructions
 - When adding fields to object literals in config blocks, prefer multi-line
   formatting if the single-line form would exceed 100 chars
+- Always commit changes using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
+  and atomic commits — each commit should represent one logical change (e.g., one
+  feature, one bug fix, one refactor). Group related file changes together, but split
+  unrelated changes into separate commits. Commit in dependency order when migrating
+  or restructuring (sources before configs, moves before edits)
 
 ## External API Integration
 
