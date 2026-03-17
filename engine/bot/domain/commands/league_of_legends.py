@@ -2,6 +2,7 @@ import random
 
 import structlog
 
+from bot.data.league_of_legends import LOL_ROLE_EMOJIS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -10,23 +11,12 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-LOL_ROLE_EMOJIS = {
-    'Fighter': '⚔️',
-    'Tank': '🛡️',
-    'Mage': '🔮',
-    'Assassin': '🗡️',
-    'Marksman': '🏹',
-    'Support': '💚',
-}
-
-DDRAGON_VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json'
-DDRAGON_CHAMPIONS_URL = 'https://ddragon.leagueoflegends.com/cdn/{version}/data/pt_BR/champion.json'
-DDRAGON_SPLASH_URL = (
-    'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champion_id}_0.jpg'
-)
-
 
 class LeagueOfLegendsCommand(Command):
+    VERSIONS_URL = 'https://ddragon.leagueoflegends.com/api/versions.json'
+    CHAMPIONS_URL = 'https://ddragon.leagueoflegends.com/cdn/{version}/data/pt_BR/champion.json'
+    SPLASH_URL = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champion_id}_0.jpg'
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(name='lol', flags=['show', 'dm'], category='aleatórias')
@@ -37,16 +27,16 @@ class LeagueOfLegendsCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
-            version_resp = await HttpClient.get(DDRAGON_VERSIONS_URL)
+            version_resp = await HttpClient.get(self.VERSIONS_URL)
             version_resp.raise_for_status()
             version = version_resp.json()[0]
 
-            champs_resp = await HttpClient.get(DDRAGON_CHAMPIONS_URL.format(version=version))
+            champs_resp = await HttpClient.get(self.CHAMPIONS_URL.format(version=version))
             champs_resp.raise_for_status()
             champions = champs_resp.json()['data']
 
             champion = random.choice(list(champions.values()))  # noqa: S311
-            splash_url = DDRAGON_SPLASH_URL.format(champion_id=champion['id'])
+            splash_url = self.SPLASH_URL.format(champion_id=champion['id'])
 
             roles_line = '  '.join(
                 f'{LOL_ROLE_EMOJIS.get(tag, "❓")} {tag}' for tag in champion['tags']

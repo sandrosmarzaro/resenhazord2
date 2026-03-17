@@ -2,6 +2,7 @@ import random
 
 import structlog
 
+from bot.data.country_flag import REGION_MAP, SUBREGION_PT
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -10,47 +11,13 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-REGION_MAP = {
-    'Africa': {'emoji': '🌍', 'label': 'África'},
-    'Americas': {'emoji': '🌎', 'label': 'Américas'},
-    'Antarctic': {'emoji': '🌐', 'label': 'Antártida'},
-    'Asia': {'emoji': '🌏', 'label': 'Ásia'},
-    'Europe': {'emoji': '🌍', 'label': 'Europa'},
-    'Oceania': {'emoji': '🌏', 'label': 'Oceania'},
-}
-
-SUBREGION_PT = {
-    'South America': 'América do Sul',
-    'North America': 'América do Norte',
-    'Central America': 'América Central',
-    'Caribbean': 'Caribe',
-    'Northern Africa': 'África do Norte',
-    'Western Africa': 'África Ocidental',
-    'Eastern Africa': 'África Oriental',
-    'Middle Africa': 'África Central',
-    'Southern Africa': 'África Austral',
-    'Western Europe': 'Europa Ocidental',
-    'Northern Europe': 'Europa do Norte',
-    'Eastern Europe': 'Europa do Leste',
-    'Southern Europe': 'Europa do Sul',
-    'Central Asia': 'Ásia Central',
-    'Western Asia': 'Ásia Ocidental',
-    'Eastern Asia': 'Ásia Oriental',
-    'South Asia': 'Sul da Ásia',
-    'Southeast Asia': 'Sudeste Asiático',
-    'Melanesia': 'Melanésia',
-    'Micronesia': 'Micronésia',
-    'Polynesia': 'Polinésia',
-    'Australia and New Zealand': 'Austrália e Nova Zelândia',
-}
-
-API_URL = (
-    'https://restcountries.com/v3.1/all'
-    '?fields=name,flags,flag,capital,region,subregion,population,area,languages,currencies'
-)
-
 
 class CountryFlagCommand(Command):
+    API_URL = (
+        'https://restcountries.com/v3.1/all'
+        '?fields=name,flags,flag,capital,region,subregion,population,area,languages,currencies'
+    )
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(name='bandeira', flags=['show', 'dm'], category='aleatórias')
@@ -61,7 +28,7 @@ class CountryFlagCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
-            response = await HttpClient.get(API_URL)
+            response = await HttpClient.get(self.API_URL)
             response.raise_for_status()
             countries = response.json()
             country = random.choice(countries)  # noqa: S311

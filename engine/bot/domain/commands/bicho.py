@@ -4,6 +4,7 @@ import structlog
 from bs4 import BeautifulSoup
 
 from bot.data.bicho import ANIMAL_EMOJIS, ARG_TO_DRAW_ID, DRAWS, PRIZE_EMOJIS
+from bot.data.browser_headers import BROWSER_HEADERS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -13,10 +14,6 @@ from bot.infrastructure.http_client import HttpClient
 logger = structlog.get_logger()
 
 BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
-USER_AGENT = (
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-)
 
 
 class BichoCommand(Command):
@@ -78,10 +75,7 @@ class BichoCommand(Command):
     async def _fetch_draws() -> list[dict]:
         response = await HttpClient.get(
             BICHO_URL,
-            headers={
-                'User-Agent': USER_AGENT,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            },
+            headers=BROWSER_HEADERS,
         )
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
