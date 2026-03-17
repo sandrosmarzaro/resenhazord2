@@ -11,12 +11,15 @@ from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.commands.d20 import D20Command
 from bot.domain.commands.fato import FatoCommand
 from bot.domain.commands.filme_serie import FilmeSerieCommand
+from bot.domain.commands.fuck import FuckCommand
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
 from bot.domain.commands.mateus import MateusCommand
 from bot.domain.commands.meal_recipes import MealRecipesCommand
 from bot.domain.commands.my_anime_list import MyAnimeListCommand
 from bot.domain.commands.oi import OiCommand
+from bot.domain.commands.porno import PornoCommand
 from bot.domain.commands.puppy import PuppyCommand
+from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.commands.torah import TorahCommand
 
 
@@ -32,10 +35,13 @@ def register_all_commands() -> None:
     registry.register(D20Command())
     registry.register(FatoCommand())
     registry.register(FilmeSerieCommand())
+    registry.register(FuckCommand())
     registry.register(LeagueOfLegendsCommand())
     registry.register(MateusCommand())
     registry.register(MealRecipesCommand())
     registry.register(MyAnimeListCommand())
     registry.register(OiCommand())
+    registry.register(PornoCommand())
     registry.register(PuppyCommand())
+    registry.register(Rule34Command())
     registry.register(TorahCommand())

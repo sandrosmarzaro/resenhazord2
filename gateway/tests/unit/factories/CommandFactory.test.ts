@@ -109,6 +109,9 @@ describe('CommandFactory', () => {
       expect(commandNames).not.toContain('BibliaCommand');
       expect(commandNames).not.toContain('TorahCommand');
       expect(commandNames).not.toContain('BichoCommand');
+      expect(commandNames).not.toContain('FuckCommand');
+      expect(commandNames).not.toContain('PornoCommand');
+      expect(commandNames).not.toContain('Rule34Command');
     });
   });
 });
