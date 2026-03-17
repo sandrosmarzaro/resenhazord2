@@ -1,3 +1,4 @@
+import anyio
 import structlog
 
 from bot.data.pokemon_type_emojis import POKEMON_TYPE_EMOJIS
@@ -66,16 +67,20 @@ class PokemonTCGCommand(CardBoosterCommand):
         return None
 
     async def _fetch_booster_items(self) -> list[CardItem]:
-        items: list[CardItem] = []
-        for _ in range(self.BOOSTER_CONFIG.count):
+        results: list[CardItem | None] = [None] * self.BOOSTER_CONFIG.count
+
+        async def _fetch(index: int) -> None:
             card = await self._fetch_single_card()
-            items.append(
-                CardItem(
-                    image_url=f'{card["image"]}/high.webp',
-                    label=self._build_booster_label(card),
-                )
+            results[index] = CardItem(
+                image_url=f'{card["image"]}/high.webp',
+                label=self._build_booster_label(card),
             )
-        return items
+
+        async with anyio.create_task_group() as tg:
+            for i in range(self.BOOSTER_CONFIG.count):
+                tg.start_soon(_fetch, i)
+
+        return [r for r in results if r is not None]
 
     async def _fetch_single_card(self) -> dict:
         for _ in range(self.MAX_RETRIES):

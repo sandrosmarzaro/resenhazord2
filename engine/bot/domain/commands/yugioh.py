@@ -1,3 +1,4 @@
+import anyio
 import structlog
 
 from bot.domain.builders.reply import Reply
@@ -40,15 +41,19 @@ class YugiohCommand(CardBoosterCommand):
         return [Reply.to(data).image(image_url, caption)]
 
     async def _fetch_booster_items(self) -> list[CardItem]:
-        items: list[CardItem] = []
-        for _ in range(self.BOOSTER_CONFIG.count):
+        results: list[CardItem | None] = [None] * self.BOOSTER_CONFIG.count
+
+        async def _fetch(index: int) -> None:
             response = await HttpClient.get(self.API_URL)
             response.raise_for_status()
             card = response.json()['data'][0]
-            items.append(
-                CardItem(
-                    image_url=card['card_images'][0]['image_url'],
-                    label=card['name'],
-                )
+            results[index] = CardItem(
+                image_url=card['card_images'][0]['image_url'],
+                label=card['name'],
             )
-        return items
+
+        async with anyio.create_task_group() as tg:
+            for i in range(self.BOOSTER_CONFIG.count):
+                tg.start_soon(_fetch, i)
+
+        return [r for r in results if r is not None]
