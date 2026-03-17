@@ -26,23 +26,29 @@ from bot.domain.commands.puppy import PuppyCommand
 from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
+from bot.settings import Settings
 
 
-def register_all_commands() -> None:
+def register_all_commands(settings: Settings | None = None) -> None:
+    if settings is None:
+        settings = Settings()
+
     registry = CommandRegistry.instance()
     registry.register(AlcoraoCommand())
     registry.register(AudioCommand())
     registry.register(BaralhoCommand())
     registry.register(BeerCommand())
-    registry.register(BibliaCommand())
+    registry.register(BibliaCommand(biblia_token=settings.biblia_token))
     registry.register(BichoCommand())
     registry.register(ClashRoyaleCommand())
     registry.register(CountryFlagCommand())
     registry.register(D20Command())
     registry.register(FatoCommand())
-    registry.register(FilmeSerieCommand())
+    registry.register(FilmeSerieCommand(tmdb_api_key=settings.tmdb_api_key))
     registry.register(FuckCommand())
-    registry.register(HearthstoneCommand())
+    registry.register(
+        HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
+    )
     registry.register(LeagueOfLegendsCommand())
     registry.register(MagicTheGatheringCommand())
     registry.register(MateusCommand())

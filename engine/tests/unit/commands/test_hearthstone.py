@@ -1,4 +1,3 @@
-import os
 from unittest.mock import patch
 
 import pytest
@@ -12,13 +11,7 @@ from tests.factories.mock_http import make_json_response
 @pytest.fixture
 def command():
     HearthstoneCommand._cached_token = None
-    return HearthstoneCommand()
-
-
-@pytest.fixture(autouse=True)
-def _bnet_env():
-    with patch.dict(os.environ, {'BNET_ID': 'test-id', 'BNET_SECRET': 'test-secret'}):
-        yield
+    return HearthstoneCommand(bnet_id='test-id', bnet_secret='test-secret')  # noqa: S106
 
 
 MOCK_CARD = {

@@ -10,7 +10,7 @@ from tests.factories.mock_http import make_json_response
 
 @pytest.fixture
 def command():
-    return BibliaCommand()
+    return BibliaCommand(biblia_token='test-token')  # noqa: S106
 
 
 def _verse_response(**overrides):

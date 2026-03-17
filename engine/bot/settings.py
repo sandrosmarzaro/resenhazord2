@@ -18,4 +18,9 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
 
+    bnet_id: str = ''
+    bnet_secret: str = ''
+    biblia_token: str = ''
+    tmdb_api_key: str = ''
+
     model_config = {'env_file': '.env', 'extra': 'ignore'}

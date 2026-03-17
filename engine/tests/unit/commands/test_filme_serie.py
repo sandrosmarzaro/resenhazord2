@@ -10,7 +10,7 @@ from tests.factories.mock_http import make_json_response
 
 @pytest.fixture
 def command():
-    return FilmeSerieCommand()
+    return FilmeSerieCommand(tmdb_api_key='test-api-key')
 
 
 def _movie_item(**overrides):

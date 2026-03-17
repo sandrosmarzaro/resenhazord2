@@ -1,4 +1,3 @@
-import os
 import random
 import re
 
@@ -22,6 +21,11 @@ class HearthstoneCommand(CardBoosterCommand):
     ITALIC_RE = re.compile(r'</?i>')
 
     _cached_token: str | None = None
+
+    def __init__(self, *, bnet_id: str = '', bnet_secret: str = '') -> None:
+        super().__init__()
+        self._bnet_id = bnet_id
+        self._bnet_secret = bnet_secret
 
     @property
     def config(self) -> CommandConfig:
@@ -126,9 +130,7 @@ class HearthstoneCommand(CardBoosterCommand):
         if HearthstoneCommand._cached_token:
             return HearthstoneCommand._cached_token
 
-        bnet_id = os.environ.get('BNET_ID', '')
-        bnet_secret = os.environ.get('BNET_SECRET', '')
-        if not bnet_id or not bnet_secret:
+        if not self._bnet_id or not self._bnet_secret:
             return None
 
         try:
@@ -136,7 +138,7 @@ class HearthstoneCommand(CardBoosterCommand):
                 self.TOKEN_URL,
                 data='grant_type=client_credentials',
                 headers={'Content-Type': 'application/x-www-form-urlencoded'},
-                auth=(bnet_id, bnet_secret),
+                auth=(self._bnet_id, self._bnet_secret),
             )
             response.raise_for_status()
             HearthstoneCommand._cached_token = response.json()['access_token']

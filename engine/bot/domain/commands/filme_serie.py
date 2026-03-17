@@ -1,4 +1,3 @@
-import os
 import random
 
 from bot.domain.builders.reply import Reply
@@ -11,6 +10,10 @@ from bot.infrastructure.http_client import HttpClient
 class FilmeSerieCommand(Command):
     MAX_PAGE = 25
     POSTER_SIZE = 'w500'
+
+    def __init__(self, *, tmdb_api_key: str = '') -> None:
+        super().__init__()
+        self._tmdb_api_key = tmdb_api_key
 
     @property
     def config(self) -> CommandConfig:
@@ -27,7 +30,6 @@ class FilmeSerieCommand(Command):
         return 'Receba aleatoriamente um filme ou série top 500 em popularidade ou por nota.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        api_key = os.environ.get('TMDB_API_KEY', '')
         media_type = 'movie' if parsed.command_name == 'filme' else 'tv'
         mode_value = parsed.options.get('mode')
         mode = 'top_rated' if mode_value == 'top' else 'popular'
@@ -35,7 +37,7 @@ class FilmeSerieCommand(Command):
 
         page = random.randint(1, self.MAX_PAGE)  # noqa: S311
         response = await HttpClient.get(
-            url, params={'api_key': api_key, 'language': 'pt-BR', 'page': page}
+            url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR', 'page': page}
         )
         response.raise_for_status()
         results = response.json()['results']
@@ -44,7 +46,7 @@ class FilmeSerieCommand(Command):
 
         genres_url = f'https://api.themoviedb.org/3/genre/{media_type}/list'
         genres_resp = await HttpClient.get(
-            genres_url, params={'api_key': api_key, 'language': 'pt-BR'}
+            genres_url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR'}
         )
         genres_resp.raise_for_status()
         genres = {g['id']: g['name'] for g in genres_resp.json()['genres']}

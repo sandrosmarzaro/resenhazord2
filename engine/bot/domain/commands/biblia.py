@@ -1,4 +1,3 @@
-import os
 import re
 
 from bot.domain.builders.reply import Reply
@@ -11,6 +10,10 @@ from bot.infrastructure.http_client import HttpClient
 class BibliaCommand(Command):
     BASE_URL = 'https://www.abibliadigital.com.br/api'
     VERSE_PATTERN = re.compile(r'\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?')
+
+    def __init__(self, *, biblia_token: str = '') -> None:
+        super().__init__()
+        self._biblia_token = biblia_token
 
     @property
     def config(self) -> CommandConfig:
@@ -29,8 +32,7 @@ class BibliaCommand(Command):
         return 'Comando complexo. Use *,menu biblia* para detalhes.'
 
     def _auth_headers(self) -> dict[str, str]:
-        token = os.environ.get('BIBLIA_TOKEN', '')
-        return {'Authorization': f'Bearer {token}'}
+        return {'Authorization': f'Bearer {self._biblia_token}'}
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         rest = parsed.rest.strip()
