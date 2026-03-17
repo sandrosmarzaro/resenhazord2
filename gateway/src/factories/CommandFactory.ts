@@ -6,7 +6,6 @@ import AnimalCommand from '../commands/AnimalCommand.js';
 import AdmCommand from '../commands/AdmCommand.js';
 import DriveCommand from '../commands/DriveCommand.js';
 import ExtrairCommand from '../commands/ExtrairCommand.js';
-import AudioCommand from '../commands/AudioCommand.js';
 import BanCommand from '../commands/BanCommand.js';
 import BorgesCommand from '../commands/BorgesCommand.js';
 import CarroCommand from '../commands/CarroCommand.js';
@@ -39,7 +38,6 @@ export default class CommandFactory {
       new AddCommand(whatsapp),
       new AdmCommand(whatsapp),
       new AnimalCommand(),
-      new AudioCommand(),
       new BanCommand(whatsapp),
       new BorgesCommand(),
       new CarroCommand(),

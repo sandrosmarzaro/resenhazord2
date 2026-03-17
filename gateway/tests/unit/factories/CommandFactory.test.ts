@@ -112,6 +112,7 @@ describe('CommandFactory', () => {
       expect(commandNames).not.toContain('FuckCommand');
       expect(commandNames).not.toContain('PornoCommand');
       expect(commandNames).not.toContain('Rule34Command');
+      expect(commandNames).not.toContain('AudioCommand');
     });
   });
 });

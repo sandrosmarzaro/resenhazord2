@@ -2,6 +2,7 @@
 
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.alcorao import AlcoraoCommand
+from bot.domain.commands.audio import AudioCommand
 from bot.domain.commands.baralho import BaralhoCommand
 from bot.domain.commands.beer import BeerCommand
 from bot.domain.commands.biblia import BibliaCommand
@@ -26,6 +27,7 @@ from bot.domain.commands.torah import TorahCommand
 def register_all_commands() -> None:
     registry = CommandRegistry.instance()
     registry.register(AlcoraoCommand())
+    registry.register(AudioCommand())
     registry.register(BaralhoCommand())
     registry.register(BeerCommand())
     registry.register(BibliaCommand())
