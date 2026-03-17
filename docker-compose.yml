@@ -2,10 +2,17 @@ services:
   bot:
     container_name: bot
     image: ghcr.io/sandrosmarzaro/resenhazord2:latest
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file: .env
     tty: true
     working_dir: /app
+    depends_on:
+      python-core:
+        condition: service_healthy
+    networks:
+      - bot-network
     restart: unless-stopped
     healthcheck:
       test: ['CMD-SHELL', 'pidof bun || exit 1']
@@ -13,3 +20,22 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  python-core:
+    container_name: python-core
+    build:
+      context: .
+      dockerfile: Dockerfile.py
+    env_file: .env
+    networks:
+      - bot-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  bot-network:
+    driver: bridge
