@@ -1,0 +1,123 @@
+import random
+import re
+
+import structlog
+from bs4 import BeautifulSoup
+
+from bot.data.nsfw_tags import NSFW_TAGS
+from bot.domain.builders.reply import Reply
+from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.models.command_data import CommandData
+from bot.domain.models.message import BotMessage
+from bot.infrastructure.http_client import HttpClient
+
+logger = structlog.get_logger()
+
+BROWSER_HEADERS = {
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Safari/537.36'
+    ),
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Connection': 'keep-alive',
+}
+
+MAX_PAGE = 50
+
+
+class PornoCommand(Command):
+    @property
+    def config(self) -> CommandConfig:
+        return CommandConfig(
+            name='porno',
+            flags=['ia', 'show', 'dm'],
+            category='aleatórias',
+        )
+
+    @property
+    def menu_description(self) -> str:
+        return 'Receba um porno aleatório real ou feito por IA.'
+
+    async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        if 'ia' in parsed.flags:
+            return await self._ia_porn(data)
+        return await self._real_porn(data)
+
+    async def _ia_porn(self, data: CommandData) -> list[BotMessage]:
+        tag = random.choice(NSFW_TAGS)  # noqa: S311
+        response = await HttpClient.get(
+            f'https://nsfwhub.onrender.com/nsfw?type={tag}',
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        porn = response.json()
+        url: str = porn['image']['url']
+
+        content: dict = {'viewOnce': True, 'caption': 'Aqui está seu vídeo 🤤'}
+
+        if url.endswith('.mp4'):
+            content['video'] = {'url': url}
+        elif url.endswith('.gif'):
+            content['image'] = {'url': url}
+            content['gifPlayback'] = True
+        else:
+            content['image'] = {'url': url}
+
+        return [Reply.to(data).raw(content)]
+
+    async def _real_porn(self, data: CommandData) -> list[BotMessage]:
+        try:
+            result = await self._scrape_random_video()
+            return [Reply.to(data).video(result['url'], result['title'])]
+        except Exception:
+            logger.exception('porno_scrape_failed')
+            return [
+                Reply.to(data).text(
+                    'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'
+                )
+            ]
+
+    @staticmethod
+    async def _scrape_random_video() -> dict[str, str]:
+        page = random.randint(1, MAX_PAGE)  # noqa: S311
+        listing_url = f'https://www.xvideos.com/new/{page}'
+
+        listing_resp = await HttpClient.get(listing_url, timeout=30.0, headers=BROWSER_HEADERS)
+        listing_resp.raise_for_status()
+
+        soup = BeautifulSoup(listing_resp.text, 'html.parser')
+        links: list[str] = []
+        for a in soup.select('div.thumb-block a[href^="/video"]'):
+            href = a.get('href')
+            if isinstance(href, str) and href not in links:
+                links.append(href)
+
+        if not links:
+            msg = 'Nenhum vídeo encontrado na listagem'
+            raise ValueError(msg)
+
+        random_link = random.choice(links)  # noqa: S311
+        video_page_url = f'https://www.xvideos.com{random_link}'
+
+        video_resp = await HttpClient.get(video_page_url, timeout=30.0, headers=BROWSER_HEADERS)
+        video_resp.raise_for_status()
+        html = video_resp.text
+
+        title_match = re.search(r'<title>([^<]+)</title>', html)
+        title = (
+            title_match.group(1).replace(' - XVIDEOS.COM', '').strip() if title_match else 'Vídeo'
+        )
+
+        low_match = re.search(r"setVideoUrlLow\('([^']+)'\)", html)
+        high_match = re.search(r"setVideoUrlHigh\('([^']+)'\)", html)
+        video_url = (
+            low_match.group(1) if low_match else (high_match.group(1) if high_match else None)
+        )
+
+        if not video_url:
+            msg = 'Não foi possível extrair URL do vídeo'
+            raise ValueError(msg)
+
+        return {'url': video_url, 'title': title}
