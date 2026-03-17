@@ -29,6 +29,7 @@ dev = [
     "fakeredis>=2.26.0",
     "basedpyright>=1.24.0",
     "pre-commit>=4.0.0",
+    "greenlet>=3.0.0",
     "ruff>=0.11.0",
     "taskipy>=1.14.0",
 ]
