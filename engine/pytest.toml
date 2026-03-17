@@ -1,0 +1,20 @@
+[pytest]
+minversion = '9.0'
+console_output_style = 'times'
+addopts = [
+    '-vv',
+    '-x',
+    '-s',
+    '--cov=bot',
+    '--cov-report=term',
+    '--cov-report=xml',
+]
+strict = true
+log_cli = true
+log_cli_level = 'INFO'
+testpaths = [
+    'tests/',
+]
+filterwarnings = [
+    'ignore::DeprecationWarning:importlib._bootstrap',
+]

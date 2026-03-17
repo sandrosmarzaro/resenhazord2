@@ -1,27 +1,49 @@
 target-version = "py313"
 line-length = 100
-extend-exclude = ["Dockerfile"]
+extend-exclude = [
+    "Dockerfile",
+    ".coveragerc",
+]
+
+[format]
+quote-style = "single"
 
 [lint]
-select = [
-    "E",     # pycodestyle errors
-    "W",     # pycodestyle warnings
-    "F",     # pyflakes
-    "I",     # isort
-    "N",     # pep8-naming
-    "UP",    # pyupgrade
-    "B",     # flake8-bugbear
-    "SIM",   # flake8-simplify
-    "RUF",   # ruff-specific rules
-    "ASYNC", # flake8-async
-    "T20",   # flake8-print
-]
+select = ["ALL"]
 ignore = [
-    "E501",   # line too long (handled by formatter)
+    "D",      # pydocstyle — no docstring enforcement
+    "ANN",    # flake8-annotations — basedpyright handles type checking
+    "B008",   # function-call-in-default-argument (needed for FastAPI Depends)
+    "Q",      # flake8-quotes (handled by formatter)
+    "S101",   # assert usage (needed in tests)
+    "COM812", # trailing comma (conflicts with formatter)
+    "ISC001", # single-line-implicit-string-concatenation (conflicts with formatter)
+    "SLF001", # private member access (needed for cross-object access in adapters)
+    "ARG002", # unused method argument (common in abstract methods and fixtures)
+    "PT003",  # pytest fixture scope (style preference)
 ]
 
 [lint.isort]
 known-first-party = ["bot"]
 
-[format]
-quote-style = "double"
+[lint.per-file-ignores]
+"bot/domain/parsers/command_parser.py" = [
+    "TC004",   # TYPE_CHECKING imports needed to break circular dependency with commands.base
+    "PLC0415", # local imports needed to break circular dependency
+    "C901",    # parser dispatch is inherently branchy
+    "PLR0912",
+]
+"bot/domain/models/message.py" = [
+    "C901",    # content type dispatch is inherently branchy
+    "PLR0912",
+]
+"bot/settings.py" = [
+    "S104", # binding to 0.0.0.0 is intentional for container deployment
+]
+"tests/**" = [
+    "ANN",     # no annotation enforcement in tests
+    "ARG",     # unused arguments in test fixtures/params
+    "PLC0415", # local imports in test helpers
+    "PLR2004", # magic values are fine in tests
+    "PLR6301", # methods don't need to be static in test classes
+]

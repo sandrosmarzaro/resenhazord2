@@ -20,6 +20,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
     "anyio[trio]>=4.8.0",
     "pytest-anyio>=0.0.0",
     "respx>=0.22.0",
@@ -39,16 +40,3 @@ format = "ruff format ."
 "format:check" = "ruff format --check ."
 typecheck = "basedpyright"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-
-[tool.coverage.run]
-source = ["bot"]
-omit = ["tests/*", "bot/main.py"]
-
-[tool.coverage.report]
-show_missing = true
-skip_empty = true
