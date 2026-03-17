@@ -42,10 +42,9 @@ describe('CommandFactory', () => {
 
   describe('getStrategy()', () => {
     it.each([
-      [', oi', 'OiCommand'],
-      [', d20', 'D20Command'],
       [', ban', 'BanCommand'],
       [', menu', 'MenuCommand'],
+      [', animal', 'AnimalCommand'],
     ])('should return correct command for "%s"', (input, expectedCommandName) => {
       const command = factory.getStrategy(input);
 
@@ -73,21 +72,43 @@ describe('CommandFactory', () => {
       expect(strategies.length).toBeGreaterThan(0);
     });
 
-    it('should include OiCommand', () => {
+    it('should include BanCommand', () => {
       const strategies = factory.getAllStrategies();
 
-      const oiCommand = strategies.find((cmd) => cmd.constructor.name === 'OiCommand');
-      expect(oiCommand).not.toBeUndefined();
+      const banCommand = strategies.find((cmd) => cmd.constructor.name === 'BanCommand');
+      expect(banCommand).not.toBeUndefined();
     });
 
     it('should include all expected commands', () => {
       const strategies = factory.getAllStrategies();
       const commandNames = strategies.map((cmd) => cmd.constructor.name);
 
-      expect(commandNames).toContain('OiCommand');
-      expect(commandNames).toContain('D20Command');
       expect(commandNames).toContain('BanCommand');
       expect(commandNames).toContain('MenuCommand');
+      expect(commandNames).toContain('AnimalCommand');
+    });
+
+    it('should not include commands migrated to Python', () => {
+      const strategies = factory.getAllStrategies();
+      const commandNames = strategies.map((cmd) => cmd.constructor.name);
+
+      expect(commandNames).not.toContain('OiCommand');
+      expect(commandNames).not.toContain('D20Command');
+      expect(commandNames).not.toContain('MateusCommand');
+      expect(commandNames).not.toContain('FatoCommand');
+      expect(commandNames).not.toContain('AlcoranCommand');
+      expect(commandNames).not.toContain('BaralhoCommand');
+      expect(commandNames).not.toContain('MealRecipesCommand');
+      expect(commandNames).not.toContain('PuppyCommand');
+      expect(commandNames).not.toContain('ClashRoyaleCommand');
+      expect(commandNames).not.toContain('CountryFlagCommand');
+      expect(commandNames).not.toContain('LeagueOfLegendsCommand');
+      expect(commandNames).not.toContain('BeerCommand');
+      expect(commandNames).not.toContain('FilmeSerieCommand');
+      expect(commandNames).not.toContain('MyAnimeListCommand');
+      expect(commandNames).not.toContain('BibliaCommand');
+      expect(commandNames).not.toContain('TorahCommand');
+      expect(commandNames).not.toContain('BichoCommand');
     });
   });
 });
