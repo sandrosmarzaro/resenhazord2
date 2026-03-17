@@ -23,7 +23,7 @@ Migration of all Resenhazord2 business logic from TypeScript/Bun (gateway) to Py
 | 2c | Alias and multi-step commands | 3 | COMPLETED (2026-03-16) |
 | 2d | Complex API + scraping | 3 | COMPLETED (2026-03-17) |
 | 2e | NSFW + scraping | 3 | COMPLETED (2026-03-17) |
-| 3a | TTS + audio | 1 | PLANNED |
+| 3a | TTS + audio | 1 | COMPLETED (2026-03-17) |
 | 3b | Card game commands | 4 | PLANNED |
 | 4a | Simple API + media | 2 | PLANNED |
 | 4b | Multi-source API | 2 | PLANNED |
@@ -33,7 +33,7 @@ Migration of all Resenhazord2 business logic from TypeScript/Bun (gateway) to Py
 | 6 | WhatsApp-dependent (gateway-only) | 7 | PLANNED |
 | 7 | Cleanup + TS removal | 0 | PLANNED |
 
-**Total:** 41 commands (20 migrated, 14 to migrate, 7 gateway-only)
+**Total:** 41 commands (21 migrated, 13 to migrate, 7 gateway-only)
 
 ---
 
@@ -134,24 +134,26 @@ Migrated 3 NSFW commands using direct HTTP APIs and HTML scraping.
 - PornoCommand real mode: scrape listing → pick random video → extract URL from JS vars
 - Data file added: `engine/bot/data/nsfw_tags.py`
 
+### Wave 3a: TTS + Audio (2026-03-17)
+
+Migrated 1 command by replicating Google TTS URL construction in Python (no gTTS needed).
+
+| Command | Config Name | Python Approach | Notes |
+|---------|------------|-----------------|-------|
+| AudioCommand | `áudio` | Direct Google TTS URL construction | options=[lang pattern], args=Optional, multi-chunk splitting |
+
+**Key implementation notes:**
+- Replicated `google-tts-api` URL construction in pure Python using `urllib.parse.urlencode`
+- Text splitting algorithm (splitLongText) ported from JS — splits on space/punctuation at 200-char boundaries
+- Language validation against 140-entry LANGUAGES set in `engine/bot/data/languages.py`
+- Short text (<=200 chars) returns single audio message; long text returns multiple
+- No external library needed — just URL construction, no audio download
+
 ---
 
 ## Planned Waves
 
 **Migration pattern:** Replace Node.js-specific libraries with Python HTTP + scraping equivalents.
-
-### Wave 3a: TTS + Audio (1 command)
-
-| Command | Config Name | TS Dependencies | Python Approach | Notes |
-|---------|------------|-----------------|-----------------|-------|
-| AudioCommand | `áudio` | google-tts-api | gTTS or direct Google TTS endpoint | options=[lang], args=Optional, multi-chunk audio |
-
-**Key considerations:**
-- `google-tts-api` splits text on punctuation and returns multiple audio URLs
-- Python `gTTS` library provides similar functionality
-- Long text (>200 chars) returns multiple audio messages (one per chunk)
-- Need to handle audio URL/buffer delivery through WebSocket binary frames
-- Language validation against LANGUAGES list
 
 ### Wave 3b: Card Game Commands (4 commands)
 
@@ -297,25 +299,25 @@ Final cleanup after all migratable commands are in Python.
 | 18 | FuckCommand | `fuck` | 2e | grupo |
 | 19 | PornoCommand | `porno` | 2e | aleatórias |
 | 20 | Rule34Command | `rule 34` | 2e | aleatórias |
+| 21 | AudioCommand | `áudio` | 3a | download |
 
-### Remaining — To Migrate (14 commands)
+### Remaining — To Migrate (13 commands)
 
 | # | Command | Config Name | Planned Wave | Category | Key Dependencies |
 |---|---------|------------|--------------|----------|------------------|
-| 1 | AudioCommand | `áudio` | 3a | download | google-tts-api → gTTS |
-| 2 | HeartstoneCommand | `hs` | 3b | aleatórias | Blizzard OAuth + sharp → Pillow |
-| 3 | MagicTheGatheringCommand | `mtg` | 3b | aleatórias | MTG API + sharp → Pillow |
-| 4 | PokemonTCGCommand | `pokémontcg` | 3b | aleatórias | TCGdex + sharp → Pillow |
-| 5 | YugiohCommand | `ygo` | 3b | aleatórias | YGOProDeck + sharp → Pillow |
-| 6 | AnimalCommand | `animal` | 4a | aleatórias | Wikipedia API |
-| 7 | PokemonCommand | `pokémon` | 4a | aleatórias | PokeAPI + sharp → Pillow |
-| 8 | GameCommand | `game` | 4b | aleatórias | IGDB OAuth + RAWG fallback |
-| 9 | MusicCommand | `música` | 4b | download | Deezer + Jamendo |
-| 10 | CarroCommand | `carro` | 4c | aleatórias | FIPE + Wikipedia + Commons |
-| 11 | HentaiCommand | `hentai` | 4c | aleatórias | Hitomi + Nhentai scraping |
-| 12 | BorgesCommand | `borges` | 5a | outras | MongoDB |
-| 13 | GroupMentionsCommand | `grupo` | 5a | grupo | MongoDB state machine |
-| 14 | MenuCommand | `menu` | 5b | outras | CommandFactory introspection |
+| 1 | HeartstoneCommand | `hs` | 3b | aleatórias | Blizzard OAuth + sharp → Pillow |
+| 2 | MagicTheGatheringCommand | `mtg` | 3b | aleatórias | MTG API + sharp → Pillow |
+| 3 | PokemonTCGCommand | `pokémontcg` | 3b | aleatórias | TCGdex + sharp → Pillow |
+| 4 | YugiohCommand | `ygo` | 3b | aleatórias | YGOProDeck + sharp → Pillow |
+| 5 | AnimalCommand | `animal` | 4a | aleatórias | Wikipedia API |
+| 6 | PokemonCommand | `pokémon` | 4a | aleatórias | PokeAPI + sharp → Pillow |
+| 7 | GameCommand | `game` | 4b | aleatórias | IGDB OAuth + RAWG fallback |
+| 8 | MusicCommand | `música` | 4b | download | Deezer + Jamendo |
+| 9 | CarroCommand | `carro` | 4c | aleatórias | FIPE + Wikipedia + Commons |
+| 10 | HentaiCommand | `hentai` | 4c | aleatórias | Hitomi + Nhentai scraping |
+| 11 | BorgesCommand | `borges` | 5a | outras | MongoDB |
+| 12 | GroupMentionsCommand | `grupo` | 5a | grupo | MongoDB state machine |
+| 13 | MenuCommand | `menu` | 5b | outras | CommandFactory introspection |
 
 ### Gateway-Only (7 commands — Wave 6)
 
