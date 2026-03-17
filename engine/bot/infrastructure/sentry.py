@@ -1,7 +1,5 @@
 """Sentry + structlog initialization."""
 
-from __future__ import annotations
-
 import sentry_sdk
 import structlog
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -18,7 +16,7 @@ def init_observability(dsn: str | None = None) -> None:
     structlog.configure(
         processors=[
             structlog.stdlib.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.TimeStamper(fmt='iso'),
             structlog.dev.ConsoleRenderer(),
         ],
     )

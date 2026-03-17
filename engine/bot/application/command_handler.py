@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import structlog
 
 from bot.application.command_registry import CommandRegistry
@@ -19,10 +17,10 @@ class CommandHandler:
         if command is None:
             return None
 
-        logger.info("executing_command", command=command.config.name, jid=data.jid)
+        logger.info('executing_command', command=command.config.name, jid=data.jid)
 
         try:
             return await command.run(data)
         except Exception:
-            logger.exception("command_execution_failed", command=command.config.name)
+            logger.exception('command_execution_failed', command=command.config.name)
             raise

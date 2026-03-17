@@ -1,7 +1,5 @@
 """HTTPX client singleton with retry logic — replaces AxiosClient."""
 
-from __future__ import annotations
-
 import httpx
 from httpx_retries import Retry, RetryTransport
 

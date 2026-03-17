@@ -1,13 +1,11 @@
 """Mock WhatsAppPort for testing commands that need WhatsApp operations."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock
 
 
 def create_mock_whatsapp_port(**overrides) -> AsyncMock:
     mock = AsyncMock()
-    mock.group_metadata = AsyncMock(return_value={"participants": [], "subject": "Test Group"})
+    mock.group_metadata = AsyncMock(return_value={'participants': [], 'subject': 'Test Group'})
     mock.group_participants_update = AsyncMock(return_value=[])
     mock.on_whatsapp = AsyncMock(return_value=[])
     mock.send_message = AsyncMock(return_value={})

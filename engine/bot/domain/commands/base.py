@@ -1,13 +1,8 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from bot.adapters.whatsapp.port import WhatsAppPort
-
+from bot.adapters.whatsapp.port import WhatsAppPort
 from bot.domain.builders.reply import Reply
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -15,9 +10,9 @@ from bot.domain.parsers.command_parser import CommandParser
 
 
 class ArgType(StrEnum):
-    NONE = "none"
-    REQUIRED = "required"
-    OPTIONAL = "optional"
+    NONE = 'none'
+    REQUIRED = 'required'
+    OPTIONAL = 'optional'
 
 
 @dataclass(frozen=True)
@@ -45,7 +40,7 @@ class ParsedCommand:
     command_name: str
     flags: set[str] = field(default_factory=set)
     options: dict[str, str] = field(default_factory=dict)
-    rest: str = ""
+    rest: str = ''
 
 
 class Command(ABC):
@@ -72,7 +67,7 @@ class Command(ABC):
 
     async def run(self, data: CommandData) -> list[BotMessage]:
         if self.config.group_only and not data.is_group:
-            return [Reply.to(data).text("Esse comando só funciona em grupo! 🤦‍♂️")]
+            return [Reply.to(data).text('Esse comando só funciona em grupo! 🤦‍♂️')]
         parsed = self.parser.parse(data.text)
         messages = await self.execute(data, parsed)
         return self._apply_flags(data, parsed, messages)
@@ -84,8 +79,8 @@ class Command(ABC):
         self, data: CommandData, parsed: ParsedCommand, messages: list[BotMessage]
     ) -> list[BotMessage]:
         for msg in messages:
-            if "dm" in parsed.flags and data.participant:
+            if 'dm' in parsed.flags and data.participant:
                 msg.jid = data.participant
-            if "show" in parsed.flags and hasattr(msg.content, "view_once"):
+            if 'show' in parsed.flags and hasattr(msg.content, 'view_once'):
                 msg.content.view_once = False  # type: ignore[union-attr]
         return messages

@@ -1,16 +1,14 @@
-from __future__ import annotations
-
 from bot.domain.commands.base import Command
 
 
 class CommandRegistry:
-    _instance: CommandRegistry | None = None
+    _instance: 'CommandRegistry | None' = None
 
     def __init__(self) -> None:
         self._commands: list[Command] = []
 
     @classmethod
-    def instance(cls) -> CommandRegistry:
+    def instance(cls) -> 'CommandRegistry':
         if cls._instance is None:
             cls._instance = CommandRegistry()
         return cls._instance

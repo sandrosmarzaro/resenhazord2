@@ -1,7 +1,5 @@
 """Tests for CommandRegistry — dispatch and singleton behavior."""
 
-from __future__ import annotations
-
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -11,11 +9,11 @@ from bot.domain.models.message import BotMessage
 class FakeCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name="fake")
+        return CommandConfig(name='fake')
 
     @property
     def menu_description(self) -> str:
-        return "A fake command"
+        return 'A fake command'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         return []
@@ -24,11 +22,11 @@ class FakeCommand(Command):
 class AnotherCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name="another")
+        return CommandConfig(name='another')
 
     @property
     def menu_description(self) -> str:
-        return "Another command"
+        return 'Another command'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         return []
@@ -50,8 +48,8 @@ class TestCommandRegistry:
         registry = CommandRegistry.instance()
         registry.register(FakeCommand())
 
-        assert registry.get_strategy(",fake") is not None
-        assert registry.get_strategy(",unknown") is None
+        assert registry.get_strategy(',fake') is not None
+        assert registry.get_strategy(',unknown') is None
 
     def test_get_strategy_returns_first_match(self):
         registry = CommandRegistry.instance()
@@ -60,8 +58,8 @@ class TestCommandRegistry:
         registry.register(cmd1)
         registry.register(cmd2)
 
-        assert registry.get_strategy(",fake") is cmd1
-        assert registry.get_strategy(",another") is cmd2
+        assert registry.get_strategy(',fake') is cmd1
+        assert registry.get_strategy(',another') is cmd2
 
     def test_get_all(self):
         registry = CommandRegistry.instance()

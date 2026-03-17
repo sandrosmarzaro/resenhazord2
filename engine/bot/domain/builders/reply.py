@@ -1,4 +1,4 @@
-from __future__ import annotations
+from typing import Self
 
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import (
@@ -21,7 +21,7 @@ class Reply:
         self._expiration = data.expiration
 
     @classmethod
-    def to(cls, data: CommandData) -> Reply:
+    def to(cls, data: CommandData) -> Self:
         return cls(data)
 
     def text(self, text: str) -> BotMessage:

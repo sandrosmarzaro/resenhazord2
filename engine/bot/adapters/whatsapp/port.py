@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Protocol
 
 
@@ -20,4 +18,4 @@ class WhatsAppPort(Protocol):
 
     async def group_update_description(self, jid: str, description: str) -> None: ...
 
-    async def send_presence_update(self, type: str, jid: str) -> None: ...
+    async def send_presence_update(self, presence_type: str, jid: str) -> None: ...

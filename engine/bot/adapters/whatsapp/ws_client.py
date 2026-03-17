@@ -1,13 +1,10 @@
 """WhatsApp operations via WebSocket — sends wa_call, awaits wa_result."""
 
-from __future__ import annotations
-
 import asyncio
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from bot.adapters.http.ws_handler import WebSocketHandler
+from bot.adapters.http.ws_handler import WebSocketHandler
 
 
 class WhatsAppWsClient:
@@ -20,24 +17,24 @@ class WhatsAppWsClient:
         return await self._handler.call_whatsapp(method, data)
 
     async def group_metadata(self, jid: str) -> dict:
-        return await self._call("group_metadata", {"jid": jid})
+        return await self._call('group_metadata', {'jid': jid})
 
     async def group_participants_update(
         self, jid: str, participants: list[str], action: str
     ) -> list[dict]:
         result = await self._call(
-            "group_participants_update",
-            {"jid": jid, "participants": participants, "action": action},
+            'group_participants_update',
+            {'jid': jid, 'participants': participants, 'action': action},
         )
-        return result.get("results", [])
+        return result.get('results', [])
 
     async def on_whatsapp(self, jids: list[str]) -> list[dict]:
-        result = await self._call("on_whatsapp", {"jids": jids})
-        return result.get("results", [])
+        result = await self._call('on_whatsapp', {'jids': jids})
+        return result.get('results', [])
 
     async def send_message(self, jid: str, content: dict, options: dict | None = None) -> dict:
         return await self._call(
-            "send_message", {"jid": jid, "content": content, "options": options}
+            'send_message', {'jid': jid, 'content': content, 'options': options}
         )
 
     async def update_profile_picture(self, jid: str, image: bytes) -> None:
@@ -46,20 +43,20 @@ class WhatsAppWsClient:
         self._handler._pending[msg_id] = future
         await self._handler._ws.send_json(
             {
-                "id": msg_id,
-                "type": "wa_call",
-                "method": "update_profile_picture",
-                "data": {"jid": jid},
+                'id': msg_id,
+                'type': 'wa_call',
+                'method': 'update_profile_picture',
+                'data': {'jid': jid},
             }
         )
         await self._handler._ws.send_bytes(image)
         await asyncio.wait_for(future, timeout=30.0)
 
     async def group_update_subject(self, jid: str, subject: str) -> None:
-        await self._call("group_update_subject", {"jid": jid, "subject": subject})
+        await self._call('group_update_subject', {'jid': jid, 'subject': subject})
 
     async def group_update_description(self, jid: str, description: str) -> None:
-        await self._call("group_update_description", {"jid": jid, "description": description})
+        await self._call('group_update_description', {'jid': jid, 'description': description})
 
-    async def send_presence_update(self, type: str, jid: str) -> None:
-        await self._call("send_presence_update", {"type": type, "jid": jid})
+    async def send_presence_update(self, presence_type: str, jid: str) -> None:
+        await self._call('send_presence_update', {'type': presence_type, 'jid': jid})

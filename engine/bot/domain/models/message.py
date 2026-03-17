@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 
@@ -7,7 +5,7 @@ from dataclasses import dataclass, field
 class TextContent:
     text: str
     mentions: list[str] = field(default_factory=list)
-    type: str = "text"
+    type: str = 'text'
 
     @property
     def has_buffer(self) -> bool:
@@ -19,7 +17,7 @@ class ImageContent:
     url: str
     caption: str | None = None
     view_once: bool = True
-    type: str = "image"
+    type: str = 'image'
 
     @property
     def has_buffer(self) -> bool:
@@ -31,7 +29,7 @@ class ImageBufferContent:
     data: bytes
     caption: str | None = None
     view_once: bool = True
-    type: str = "image_buffer"
+    type: str = 'image_buffer'
 
     @property
     def has_buffer(self) -> bool:
@@ -47,7 +45,7 @@ class VideoContent:
     url: str
     caption: str | None = None
     view_once: bool = True
-    type: str = "video"
+    type: str = 'video'
 
     @property
     def has_buffer(self) -> bool:
@@ -59,7 +57,7 @@ class VideoBufferContent:
     data: bytes
     caption: str | None = None
     view_once: bool = True
-    type: str = "video_buffer"
+    type: str = 'video_buffer'
 
     @property
     def has_buffer(self) -> bool:
@@ -74,8 +72,8 @@ class VideoBufferContent:
 class AudioContent:
     url: str
     view_once: bool = True
-    mimetype: str = "audio/mp4"
-    type: str = "audio"
+    mimetype: str = 'audio/mp4'
+    type: str = 'audio'
 
     @property
     def has_buffer(self) -> bool:
@@ -85,7 +83,7 @@ class AudioContent:
 @dataclass
 class StickerContent:
     data: bytes
-    type: str = "sticker"
+    type: str = 'sticker'
 
     @property
     def has_buffer(self) -> bool:
@@ -99,7 +97,7 @@ class StickerContent:
 @dataclass
 class RawContent:
     content: dict
-    type: str = "raw"
+    type: str = 'raw'
 
     @property
     def has_buffer(self) -> bool:
@@ -127,46 +125,46 @@ class BotMessage:
 
     def to_dict(self) -> dict:
         result: dict = {
-            "jid": self.jid,
-            "content": self._content_to_dict(),
+            'jid': self.jid,
+            'content': self._content_to_dict(),
         }
         if self.quoted_message_id:
-            result["quoted_message_id"] = self.quoted_message_id
+            result['quoted_message_id'] = self.quoted_message_id
         if self.expiration:
-            result["expiration"] = self.expiration
+            result['expiration'] = self.expiration
         return result
 
     def _content_to_dict(self) -> dict:
         content = self.content
-        d: dict = {"type": content.type}
+        d: dict = {'type': content.type}
         if isinstance(content, TextContent):
-            d["text"] = content.text
+            d['text'] = content.text
             if content.mentions:
-                d["mentions"] = content.mentions
+                d['mentions'] = content.mentions
         elif isinstance(content, ImageContent):
-            d["url"] = content.url
+            d['url'] = content.url
             if content.caption:
-                d["caption"] = content.caption
-            d["view_once"] = content.view_once
+                d['caption'] = content.caption
+            d['view_once'] = content.view_once
         elif isinstance(content, ImageBufferContent):
             if content.caption:
-                d["caption"] = content.caption
-            d["view_once"] = content.view_once
+                d['caption'] = content.caption
+            d['view_once'] = content.view_once
         elif isinstance(content, VideoContent):
-            d["url"] = content.url
+            d['url'] = content.url
             if content.caption:
-                d["caption"] = content.caption
-            d["view_once"] = content.view_once
+                d['caption'] = content.caption
+            d['view_once'] = content.view_once
         elif isinstance(content, VideoBufferContent):
             if content.caption:
-                d["caption"] = content.caption
-            d["view_once"] = content.view_once
+                d['caption'] = content.caption
+            d['view_once'] = content.view_once
         elif isinstance(content, AudioContent):
-            d["url"] = content.url
-            d["view_once"] = content.view_once
-            d["mimetype"] = content.mimetype
+            d['url'] = content.url
+            d['view_once'] = content.view_once
+            d['mimetype'] = content.mimetype
         elif isinstance(content, StickerContent):
             pass  # buffer sent as binary frame
         elif isinstance(content, RawContent):
-            d["content"] = content.content
+            d['content'] = content.content
         return d

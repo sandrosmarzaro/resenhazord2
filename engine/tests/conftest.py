@@ -1,7 +1,5 @@
 """Global pytest fixtures."""
 
-from __future__ import annotations
-
 import pytest
 
 from bot.application.command_registry import CommandRegistry

@@ -1,7 +1,5 @@
 """Pydantic models for WebSocket message types."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from pydantic import BaseModel
