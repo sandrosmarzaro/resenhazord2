@@ -11,6 +11,12 @@ class TextContent:
     def has_buffer(self) -> bool:
         return False
 
+    def to_dict(self) -> dict:
+        d: dict = {'type': self.type, 'text': self.text}
+        if self.mentions:
+            d['mentions'] = self.mentions
+        return d
+
 
 @dataclass
 class ImageContent:
@@ -22,6 +28,12 @@ class ImageContent:
     @property
     def has_buffer(self) -> bool:
         return False
+
+    def to_dict(self) -> dict:
+        d: dict = {'type': self.type, 'url': self.url, 'view_once': self.view_once}
+        if self.caption:
+            d['caption'] = self.caption
+        return d
 
 
 @dataclass
@@ -39,6 +51,12 @@ class ImageBufferContent:
     def buffer(self) -> bytes:
         return self.data
 
+    def to_dict(self) -> dict:
+        d: dict = {'type': self.type, 'view_once': self.view_once}
+        if self.caption:
+            d['caption'] = self.caption
+        return d
+
 
 @dataclass
 class VideoContent:
@@ -50,6 +68,12 @@ class VideoContent:
     @property
     def has_buffer(self) -> bool:
         return False
+
+    def to_dict(self) -> dict:
+        d: dict = {'type': self.type, 'url': self.url, 'view_once': self.view_once}
+        if self.caption:
+            d['caption'] = self.caption
+        return d
 
 
 @dataclass
@@ -67,6 +91,12 @@ class VideoBufferContent:
     def buffer(self) -> bytes:
         return self.data
 
+    def to_dict(self) -> dict:
+        d: dict = {'type': self.type, 'view_once': self.view_once}
+        if self.caption:
+            d['caption'] = self.caption
+        return d
+
 
 @dataclass
 class AudioContent:
@@ -78,6 +108,14 @@ class AudioContent:
     @property
     def has_buffer(self) -> bool:
         return False
+
+    def to_dict(self) -> dict:
+        return {
+            'type': self.type,
+            'url': self.url,
+            'view_once': self.view_once,
+            'mimetype': self.mimetype,
+        }
 
 
 @dataclass
@@ -93,6 +131,9 @@ class StickerContent:
     def buffer(self) -> bytes:
         return self.data
 
+    def to_dict(self) -> dict:
+        return {'type': self.type}
+
 
 @dataclass
 class RawContent:
@@ -102,6 +143,9 @@ class RawContent:
     @property
     def has_buffer(self) -> bool:
         return False
+
+    def to_dict(self) -> dict:
+        return {'type': self.type, 'content': self.content}
 
 
 MessageContent = (
@@ -126,45 +170,10 @@ class BotMessage:
     def to_dict(self) -> dict:
         result: dict = {
             'jid': self.jid,
-            'content': self._content_to_dict(),
+            'content': self.content.to_dict(),
         }
         if self.quoted_message_id:
             result['quoted_message_id'] = self.quoted_message_id
         if self.expiration:
             result['expiration'] = self.expiration
         return result
-
-    def _content_to_dict(self) -> dict:
-        content = self.content
-        d: dict = {'type': content.type}
-        if isinstance(content, TextContent):
-            d['text'] = content.text
-            if content.mentions:
-                d['mentions'] = content.mentions
-        elif isinstance(content, ImageContent):
-            d['url'] = content.url
-            if content.caption:
-                d['caption'] = content.caption
-            d['view_once'] = content.view_once
-        elif isinstance(content, ImageBufferContent):
-            if content.caption:
-                d['caption'] = content.caption
-            d['view_once'] = content.view_once
-        elif isinstance(content, VideoContent):
-            d['url'] = content.url
-            if content.caption:
-                d['caption'] = content.caption
-            d['view_once'] = content.view_once
-        elif isinstance(content, VideoBufferContent):
-            if content.caption:
-                d['caption'] = content.caption
-            d['view_once'] = content.view_once
-        elif isinstance(content, AudioContent):
-            d['url'] = content.url
-            d['view_once'] = content.view_once
-            d['mimetype'] = content.mimetype
-        elif isinstance(content, StickerContent):
-            pass  # buffer sent as binary frame
-        elif isinstance(content, RawContent):
-            d['content'] = content.content
-        return d
