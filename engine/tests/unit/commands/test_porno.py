@@ -87,6 +87,17 @@ class TestIaPorn:
         assert content['gifPlayback'] is True
 
     @pytest.mark.anyio
+    async def test_show_flag_disables_view_once(self, command):
+        data = GroupCommandDataFactory.build(text=', porno ia show')
+        resp = _mock_nsfw_response('https://example.com/clip.mp4')
+
+        with patch('bot.domain.commands.porno.HttpClient.get', return_value=resp):
+            messages = await command.run(data)
+
+        content = messages[0].content.content
+        assert content['viewOnce'] is False
+
+    @pytest.mark.anyio
     async def test_returns_image_for_other(self, command):
         data = GroupCommandDataFactory.build(text=', porno ia')
         resp = _mock_nsfw_response('https://example.com/photo.jpg')

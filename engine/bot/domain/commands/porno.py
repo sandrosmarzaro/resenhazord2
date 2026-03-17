@@ -32,10 +32,10 @@ class PornoCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         if 'ia' in parsed.flags:
-            return await self._ia_porn(data)
+            return await self._ia_porn(data, parsed)
         return await self._real_porn(data)
 
-    async def _ia_porn(self, data: CommandData) -> list[BotMessage]:
+    async def _ia_porn(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         tag = random.choice(NSFW_TAGS)  # noqa: S311
         response = await HttpClient.get(
             f'https://nsfwhub.onrender.com/nsfw?type={tag}',
@@ -45,7 +45,8 @@ class PornoCommand(Command):
         porn = response.json()
         url: str = porn['image']['url']
 
-        content: dict = {'viewOnce': True, 'caption': 'Aqui está seu vídeo 🤤'}
+        view_once = 'show' not in parsed.flags
+        content: dict = {'viewOnce': view_once, 'caption': 'Aqui está seu vídeo 🤤'}
 
         if url.endswith('.mp4'):
             content['video'] = {'url': url}
