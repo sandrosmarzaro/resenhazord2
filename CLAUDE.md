@@ -296,6 +296,34 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 - **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
 - **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (double quotes, 100 char width)
 
+### Python Code Quality (Engine)
+
+Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
+
+- **No magic numbers** — use named constants to describe every numeric literal. Place
+  constants as class attributes (`MAX_PAGE = 50`) or in `engine/bot/data/` files, never
+  as bare numbers in logic
+- **Early returns** — prefer returning early to reduce nesting. Avoid deeply nested
+  if-elif-else blocks; flatten with guard clauses
+- **Dict mapping over if-elif chains** — when dispatching on a value (e.g., file
+  extension, content type), use a dict lookup instead of multi-branch conditionals.
+  Exception: 2-branch if-else is fine
+- **No suppressing lint/format warnings** — do not add `# noqa`, `# type: ignore`, or
+  `# fmt: off` without strong justification. Only suppress for genuinely unavoidable
+  cases (e.g., `# noqa: S311` for non-crypto `random` usage). Ask the user before
+  adding a new suppression
+- **No module-level variables** — avoid bare `FOO = ...` at module scope in command or
+  service files. Use class attributes for constants that belong to a class, or place
+  shared data in `engine/bot/data/` modules
+- **Data files** — all dicts, lists, sets, and lookup tables (even small ones) belong in
+  `engine/bot/data/` as named exports. Import them in the command file. Never define
+  inline data structures in command or service files
+- **Test fixtures in separate files** — shared test helpers (mock response builders,
+  HTML fixtures, data builders) belong in `engine/tests/conftest.py` or
+  `engine/tests/fixtures/`. Do not duplicate helper functions across test files
+- **Polymorphic behavior** — prefer `to_dict()` / `__str__()` methods on data classes
+  over isinstance chains. Keep serialization logic close to the data it describes
+
 ## Commit Conventions
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
