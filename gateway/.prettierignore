@@ -4,8 +4,3 @@ src/auth/session/
 public/
 bun.lock
 coverage/
-.venv/
-bot/
-tests/
-*.py
-__pycache__/

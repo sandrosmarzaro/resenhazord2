@@ -3,7 +3,7 @@ services:
     container_name: bot
     image: ghcr.io/sandrosmarzaro/resenhazord2:latest
     build:
-      context: .
+      context: ./gateway
       dockerfile: Dockerfile
     env_file: .env
     tty: true
@@ -24,8 +24,8 @@ services:
   python-core:
     container_name: python-core
     build:
-      context: .
-      dockerfile: Dockerfile.py
+      context: ./engine
+      dockerfile: Dockerfile
     env_file: .env
     networks:
       - bot-network

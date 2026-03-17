@@ -1,6 +1,6 @@
 target-version = "py313"
 line-length = 100
-extend-exclude = ["Dockerfile.py"]
+extend-exclude = ["Dockerfile"]
 
 [lint]
 select = [

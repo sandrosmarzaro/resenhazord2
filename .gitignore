@@ -1,16 +1,19 @@
-node_modules/
-auth_session/
-src/auth/session/*
-src/auth/google_secret.json
+# TypeScript (gateway)
+gateway/node_modules/
+gateway/auth_session/
+gateway/src/auth/session/*
+!gateway/src/auth/session/.gitkeep
+gateway/src/auth/google_secret.json
+gateway/coverage/
+gateway/.wwebjs_cache/
+
+# Python (engine)
+engine/.venv/
+engine/__pycache__/
+engine/**/__pycache__/
+engine/**/*.pyc
+engine/.pytest_cache/
+engine/.ruff_cache/
+
+# Shared
 .env
-.wwebjs_cache/
-coverage/
-
-# Python
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-.ruff_cache/
-
-!/src/auth/session/.gitkeep

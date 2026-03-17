@@ -1,15 +1,7 @@
-node_modules
-auth_session
-coverage
 .git
 .github
 .vscode
 .claude
 .devcontainer
-.wwebjs_cache
-.venv
-__pycache__
-.pytest_cache
-.ruff_cache
 LICENSE
 README.md

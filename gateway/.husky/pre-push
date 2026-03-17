@@ -1,3 +1,4 @@
+cd gateway
 bun lint
 bun typecheck
 bun format:check

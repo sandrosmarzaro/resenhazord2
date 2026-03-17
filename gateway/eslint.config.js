@@ -19,9 +19,6 @@ export default tseslint.config(
       'public/**',
       'src/auth/session/**',
       'coverage/**',
-      '.venv/**',
-      'bot/**',
-      'tests/**/*.py',
     ],
   },
 );
