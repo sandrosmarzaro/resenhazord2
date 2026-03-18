@@ -2,19 +2,16 @@ import type Command from '../commands/Command.js';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 
 import AddCommand from '../commands/AddCommand.js';
-import AnimalCommand from '../commands/AnimalCommand.js';
 import AdmCommand from '../commands/AdmCommand.js';
 import DriveCommand from '../commands/DriveCommand.js';
 import ExtrairCommand from '../commands/ExtrairCommand.js';
 import BanCommand from '../commands/BanCommand.js';
 import BorgesCommand from '../commands/BorgesCommand.js';
-import CarroCommand from '../commands/CarroCommand.js';
 import DownloadCommand from '../commands/DownloadCommand.js';
 import GameCommand from '../commands/GameCommand.js';
 import GroupMentionsCommand from '../commands/GroupMentionsCommand.js';
 import MusicCommand from '../commands/MusicCommand.js';
 import MenuCommand from '../commands/MenuCommand.js';
-import PokemonCommand from '../commands/PokemonCommand.js';
 import HentaiCommand from '../commands/HentaiCommand.js';
 import ScarraCommand from '../commands/ScarraCommand.js';
 import StickerCommand from '../commands/StickerCommand.js';
@@ -33,10 +30,8 @@ export default class CommandFactory {
     this.strategies = [
       new AddCommand(whatsapp),
       new AdmCommand(whatsapp),
-      new AnimalCommand(),
       new BanCommand(whatsapp),
       new BorgesCommand(),
-      new CarroCommand(),
       new DownloadCommand(),
       new DriveCommand(whatsapp, discordService),
       new ExtrairCommand(whatsapp),
@@ -44,7 +39,6 @@ export default class CommandFactory {
       new GroupMentionsCommand(),
       new MusicCommand(),
       new MenuCommand(),
-      new PokemonCommand(),
       new HentaiCommand(),
       new ScarraCommand(whatsapp),
       new StickerCommand(whatsapp),

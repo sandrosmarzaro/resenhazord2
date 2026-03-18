@@ -44,7 +44,7 @@ describe('CommandFactory', () => {
     it.each([
       [', ban', 'BanCommand'],
       [', menu', 'MenuCommand'],
-      [', animal', 'AnimalCommand'],
+      [', game', 'GameCommand'],
     ])('should return correct command for "%s"', (input, expectedCommandName) => {
       const command = factory.getStrategy(input);
 
@@ -85,7 +85,7 @@ describe('CommandFactory', () => {
 
       expect(commandNames).toContain('BanCommand');
       expect(commandNames).toContain('MenuCommand');
-      expect(commandNames).toContain('AnimalCommand');
+      expect(commandNames).toContain('GameCommand');
     });
 
     it('should not include commands migrated to Python', () => {
@@ -117,6 +117,9 @@ describe('CommandFactory', () => {
       expect(commandNames).not.toContain('MagicTheGatheringCommand');
       expect(commandNames).not.toContain('PokemonTCGCommand');
       expect(commandNames).not.toContain('YugiohCommand');
+      expect(commandNames).not.toContain('AnimalCommand');
+      expect(commandNames).not.toContain('CarroCommand');
+      expect(commandNames).not.toContain('PokemonCommand');
     });
   });
 });
