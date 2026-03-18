@@ -27,6 +27,7 @@ class CarroCommand(Command):
     WIKI_TIMEOUT = 8.0
     IMG_TIMEOUT = 12.0
     MAX_YEAR_RETRIES = 3
+    MAX_VALID_YEAR = 2030
 
     SPEC_TOKEN = re.compile(r'^\d+\.\d|^\d+[pP]$|\d+cv$', re.IGNORECASE)
     SPEC_WORD_BASE: ClassVar[set[str]] = {
@@ -141,15 +142,22 @@ class CarroCommand(Command):
 
     def _build_caption(self, brand, model: dict, details: dict | None) -> str:
         if details:
+            year = self._format_year(details['AnoModelo'])
             return '\n'.join(
                 [
                     f'{brand.emoji} *{details["Marca"]} {details["Modelo"]}*',
-                    f'📅 {details["AnoModelo"]} | ⛽ {details["Combustivel"]}',
+                    f'📅 {year} | ⛽ {details["Combustivel"]}',
                     f'💰 {details["Valor"]}',
                     brand.origin,
                 ]
             )
         return f'{brand.emoji} *{brand.name} {model["nome"]}*\n{brand.origin}'
+
+    @classmethod
+    def _format_year(cls, year: int) -> str:
+        if year > cls.MAX_VALID_YEAR:
+            return '0 km'
+        return str(year)
 
     async def _find_image(
         self, brand_name: str, wiki_name: str, base_name: str, parsed: ParsedCommand

@@ -364,6 +364,46 @@ class TestErrorHandling:
         assert 'Erro ao buscar carro' in messages[0].content.text
 
 
+class TestYearFormatting:
+    @pytest.mark.parametrize(
+        ('year', 'expected'),
+        [
+            (2020, '2020'),
+            (1990, '1990'),
+            (2030, '2030'),
+            (32000, '0 km'),
+            (99999, '0 km'),
+        ],
+    )
+    def test_format_year(self, year, expected):
+        assert CarroCommand._format_year(year) == expected
+
+    @pytest.mark.anyio
+    async def test_caption_shows_zero_km_for_fipe_32000(self, command, respx_mock):
+        details_32000 = {**MOCK_DETAILS, 'AnoModelo': 32000}
+        respx_mock.get(url__regex=r'.*/fipe/api/v1/carros/marcas/\d+/modelos$').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos$').mock(
+            return_value=httpx.Response(200, json=MOCK_YEARS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos/[^/]+$').mock(
+            return_value=httpx.Response(200, json=details_32000)
+        )
+        respx_mock.get(url__startswith='https://en.wikipedia.org/w/api.php').mock(
+            return_value=httpx.Response(200, json=MOCK_WIKI_RESPONSE)
+        )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
+        )
+        data = GroupCommandDataFactory.build(text=',carro')
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '0 km' in caption
+        assert '32000' not in caption
+
+
 class TestModelNameParsing:
     @pytest.mark.parametrize(
         ('nome', 'expected'),
