@@ -156,7 +156,7 @@ class TestWikipedia:
         assert 'Golf' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_brand_only_article_falls_to_commons(self, command, respx_mock, mocker):
+    async def test_brand_only_article_uses_brand_logo(self, command, respx_mock, mocker):
         mocker.patch(
             'bot.domain.commands.carro.random.choice',
             side_effect=[
@@ -192,10 +192,13 @@ class TestWikipedia:
         respx_mock.get(url__startswith='https://commons.wikimedia.org/w/api.php').mock(
             return_value=httpx.Response(200, json={})
         )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-logo')
+        )
         data = GroupCommandDataFactory.build(text=',carro')
         messages = await command.run(data)
 
-        assert isinstance(messages[0].content, TextContent)
+        assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
     async def test_falls_back_to_commons_when_no_wiki_thumb(self, command, respx_mock):
@@ -234,6 +237,120 @@ class TestWikipedia:
         messages = await command.run(data)
 
         assert isinstance(messages[0].content, ImageBufferContent)
+
+
+class TestBrandDetection:
+    @pytest.mark.parametrize(
+        ('brand_name', 'page_title', 'expected'),
+        [
+            ('Jeep', 'Pontiac', True),
+            ('Jeep', 'Pontiac Motors', True),
+            ('Volkswagen', 'Volkswagen', True),
+            ('Audi', 'Audi Automobiles', True),
+            ('Ford', 'Ford Motor', True),
+            ('Jeep', 'Jeep Grand Cherokee', False),
+            ('Toyota', 'Toyota Corolla', False),
+            ('BMW', '', False),
+        ],
+    )
+    def test_is_brand_only_page(self, command, brand_name, page_title, expected):
+        assert command._is_brand_only_page(brand_name, page_title) is expected
+
+    @pytest.mark.anyio
+    async def test_cross_brand_page_rejected_uses_brand_logo(
+        self, command, respx_mock, mocker
+    ):
+        mocker.patch(
+            'bot.domain.commands.carro.random.choice',
+            side_effect=[
+                next(b for b in FIPE_BRANDS if b.name == 'Jeep'),
+                MOCK_MODELS['modelos'][0],
+            ],
+        )
+        respx_mock.get(url__regex=r'.*/fipe/api/v1/carros/marcas/\d+/modelos$').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos$').mock(
+            return_value=httpx.Response(200, json=MOCK_YEARS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos/[^/]+$').mock(
+            return_value=httpx.Response(200, json=MOCK_DETAILS)
+        )
+        wiki_call_count = 0
+
+        def wiki_handler(request):
+            nonlocal wiki_call_count
+            wiki_call_count += 1
+            if wiki_call_count == 1:
+                return httpx.Response(
+                    200,
+                    json={
+                        'query': {
+                            'pages': {
+                                '1': {
+                                    'title': 'Pontiac',
+                                    'thumbnail': {
+                                        'source': 'https://upload.wikimedia.org/pontiac.png'
+                                    },
+                                }
+                            }
+                        }
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    'query': {
+                        'pages': {
+                            '2': {
+                                'title': 'Jeep',
+                                'thumbnail': {
+                                    'source': 'https://upload.wikimedia.org/jeep-logo.png'
+                                },
+                            }
+                        }
+                    }
+                },
+            )
+
+        respx_mock.get(url__startswith='https://en.wikipedia.org/w/api.php').mock(
+            side_effect=wiki_handler
+        )
+        respx_mock.get(url__startswith='https://commons.wikimedia.org/w/api.php').mock(
+            return_value=httpx.Response(200, json={})
+        )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-jeep-logo')
+        )
+        data = GroupCommandDataFactory.build(text=',carro')
+        messages = await command.run(data)
+
+        assert isinstance(messages[0].content, ImageBufferContent)
+        assert wiki_call_count == 2
+
+
+class TestBrandLogoFallback:
+    @pytest.mark.anyio
+    async def test_text_only_when_brand_logo_also_fails(self, command, respx_mock):
+        respx_mock.get(url__regex=r'.*/fipe/api/v1/carros/marcas/\d+/modelos$').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos$').mock(
+            return_value=httpx.Response(200, json=MOCK_YEARS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos/[^/]+$').mock(
+            return_value=httpx.Response(200, json=MOCK_DETAILS)
+        )
+        respx_mock.get(url__startswith='https://en.wikipedia.org/w/api.php').mock(
+            return_value=httpx.Response(200, json={})
+        )
+        respx_mock.get(url__startswith='https://commons.wikimedia.org/w/api.php').mock(
+            return_value=httpx.Response(200, json={})
+        )
+        data = GroupCommandDataFactory.build(text=',carro')
+        messages = await command.run(data)
+
+        assert isinstance(messages[0].content, TextContent)
 
 
 class TestYearRetryLogic:
@@ -317,7 +434,7 @@ class TestWikiFlag:
         data = GroupCommandDataFactory.build(text=',carro wiki')
         messages = await command.run(data)
 
-        assert wiki_route.call_count == 1
+        assert wiki_route.call_count == 2
         assert commons_route.call_count == 0
         assert isinstance(messages[0].content, TextContent)
 

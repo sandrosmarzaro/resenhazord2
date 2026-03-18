@@ -29,6 +29,11 @@ class CarroCommand(Command):
     MAX_YEAR_RETRIES = 3
     MAX_VALID_YEAR = 2030
 
+    _BRAND_NAMES_LOWER: ClassVar[frozenset[str]] = frozenset(b.name.lower() for b in FIPE_BRANDS)
+    _BRAND_SUFFIX_PATTERN = re.compile(
+        r'^(.+?)\s+(?:motors?|automobiles?|automotive|group|corporation|trucks?)$'
+    )
+
     SPEC_TOKEN = re.compile(r'^\d+\.\d|^\d+[pP]$|\d+cv$', re.IGNORECASE)
     SPEC_WORD_BASE: ClassVar[set[str]] = {
         'flex',
@@ -115,6 +120,12 @@ class CarroCommand(Command):
                 thumb = None
 
             if not thumb:
+                try:
+                    thumb = await self._fetch_brand_logo(brand.name)
+                except (httpx.HTTPError, KeyError, ValueError):
+                    thumb = None
+
+            if not thumb:
                 return [Reply.to(data).text(caption)]
 
             buffer = await HttpClient.get_buffer(
@@ -189,13 +200,11 @@ class CarroCommand(Command):
     def _is_brand_only_page(self, brand_name: str, page_title: str) -> bool:
         if not page_title:
             return False
-        brand_lower = brand_name.lower()
         title_lower = page_title.lower()
-        if title_lower == brand_lower:
+        if title_lower in self._BRAND_NAMES_LOWER:
             return True
-        escaped = re.escape(brand_lower)
-        pattern = rf'^{escaped}\s+(?:motors?|automobiles?|automotive|group|corporation)$'
-        return bool(re.match(pattern, title_lower))
+        match = self._BRAND_SUFFIX_PATTERN.match(title_lower)
+        return bool(match and match.group(1) in self._BRAND_NAMES_LOWER)
 
     async def _search_commons(self, brand_name: str, base_name: str) -> str | None:
         commons_search = quote(f'{brand_name} {base_name}')
@@ -212,6 +221,23 @@ class CarroCommand(Command):
         commons_data = commons_res.json()
         commons_pages = (commons_data.get('query') or {}).get('pages') or {}
         first = next(iter(commons_pages.values()), {})
+        return (first.get('thumbnail') or {}).get('source')
+
+    async def _fetch_brand_logo(self, brand_name: str) -> str | None:
+        search_term = quote(f'{brand_name} automobile manufacturer')
+        wiki_url = (
+            f'{self.WIKI_API}?action=query&generator=search'
+            f'&gsrsearch={search_term}&gsrlimit=1&prop=pageimages'
+            f'&pithumbsize=640&format=json'
+        )
+        res = await HttpClient.get(
+            wiki_url,
+            timeout=self.WIKI_TIMEOUT,
+            headers={'User-Agent': self.WIKI_UA},
+        )
+        data = res.json()
+        pages = (data.get('query') or {}).get('pages') or {}
+        first = next(iter(pages.values()), {})
         return (first.get('thumbnail') or {}).get('source')
 
     @classmethod
