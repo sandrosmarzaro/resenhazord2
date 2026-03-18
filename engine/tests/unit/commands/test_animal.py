@@ -86,7 +86,8 @@ class TestRun:
         await command.run(data)
 
         request = wiki_route.calls.last.request
-        assert request.headers['user-agent'] == 'ResenhazordBot/2.0'
+        assert 'ResenhazordBot/2.0' in request.headers['user-agent']
+        assert 'resenhazord2' in request.headers['user-agent']
 
     @pytest.mark.anyio
     async def test_text_only_when_no_thumbnail(self, command, wiki_route):

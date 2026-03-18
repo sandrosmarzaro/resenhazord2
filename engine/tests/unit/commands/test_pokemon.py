@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.pokemon import PokemonCommand
-from bot.domain.models.message import ImageBufferContent, ImageContent
+from bot.domain.models.message import ImageBufferContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 MOCK_POKEMON = {
@@ -39,6 +39,13 @@ def pokemon_route(respx_mock):
     return respx_mock.get(url__startswith='https://pokeapi.co/api/v2/pokemon/')
 
 
+@pytest.fixture
+def image_route(respx_mock):
+    return respx_mock.get(url__startswith='https://raw.githubusercontent.com/').mock(
+        return_value=httpx.Response(200, content=b'fake-pokemon-image')
+    )
+
+
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -62,17 +69,25 @@ class TestMatches:
 
 class TestSinglePokemon:
     @pytest.mark.anyio
-    async def test_returns_image_with_official_artwork(self, command, pokemon_route):
+    async def test_returns_image_buffer(self, command, pokemon_route, image_route):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=MOCK_POKEMON))
         messages = await command.run(data)
 
         assert len(messages) == 1
-        assert isinstance(messages[0].content, ImageContent)
-        assert 'official-artwork' in messages[0].content.url
+        assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_caption_contains_name_type_dex(self, command, pokemon_route):
+    async def test_downloads_official_artwork(self, command, pokemon_route, image_route):
+        data = GroupCommandDataFactory.build(text=',pokémon')
+        pokemon_route.mock(return_value=httpx.Response(200, json=MOCK_POKEMON))
+        await command.run(data)
+
+        request = image_route.calls.last.request
+        assert 'official-artwork' in str(request.url)
+
+    @pytest.mark.anyio
+    async def test_caption_contains_name_type_dex(self, command, pokemon_route, image_route):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=MOCK_POKEMON))
         messages = await command.run(data)
@@ -83,16 +98,18 @@ class TestSinglePokemon:
         assert '#25' in caption
 
     @pytest.mark.anyio
-    async def test_fallback_to_front_default_when_no_artwork(self, command, pokemon_route):
+    async def test_fallback_to_front_default_when_no_artwork(
+        self, command, pokemon_route, image_route
+    ):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=MOCK_POKEMON_NO_ARTWORK))
-        messages = await command.run(data)
+        await command.run(data)
 
-        assert isinstance(messages[0].content, ImageContent)
-        assert messages[0].content.url == MOCK_POKEMON_NO_ARTWORK['sprites']['front_default']
+        request = image_route.calls.last.request
+        assert str(request.url) == MOCK_POKEMON_NO_ARTWORK['sprites']['front_default']
 
     @pytest.mark.anyio
-    async def test_view_once_true_by_default(self, command, pokemon_route):
+    async def test_view_once_true_by_default(self, command, pokemon_route, image_route):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=MOCK_POKEMON))
         messages = await command.run(data)
@@ -100,7 +117,7 @@ class TestSinglePokemon:
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command, pokemon_route):
+    async def test_show_flag_disables_view_once(self, command, pokemon_route, image_route):
         data = GroupCommandDataFactory.build(text=',pokémon show')
         pokemon_route.mock(return_value=httpx.Response(200, json=MOCK_POKEMON))
         messages = await command.run(data)
@@ -108,7 +125,7 @@ class TestSinglePokemon:
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_dm_flag_redirects_jid(self, command, pokemon_route):
+    async def test_dm_flag_redirects_jid(self, command, pokemon_route, image_route):
         data = GroupCommandDataFactory.build(text=',pokémon dm')
         pokemon_route.mock(return_value=httpx.Response(200, json=MOCK_POKEMON))
         messages = await command.run(data)

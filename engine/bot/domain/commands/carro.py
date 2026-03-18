@@ -5,6 +5,7 @@ import re
 from typing import ClassVar
 from urllib.parse import quote
 
+import httpx
 import structlog
 
 from bot.data.car_brands import FIPE_BRANDS
@@ -106,7 +107,11 @@ class CarroCommand(Command):
 
             base_name = self._base_model_name(model['nome'])
             wiki_name = self._wiki_model_name(model['nome'])
-            thumb = await self._find_image(brand.name, wiki_name, base_name, parsed)
+            try:
+                thumb = await self._find_image(brand.name, wiki_name, base_name, parsed)
+            except (httpx.HTTPError, KeyError, ValueError):
+                logger.warning('carro_image_search_failed', brand=brand.name, model=model['nome'])
+                thumb = None
 
             if not thumb:
                 return [Reply.to(data).text(caption)]

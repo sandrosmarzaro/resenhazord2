@@ -64,13 +64,13 @@ class PokemonCommand(CardBoosterCommand):
         image_url = self._resolve_image(pokemon)
 
         caption = f'*Nome*: {name}\n*Tipo*: {types}\n*Pokédex*: #{pokemon["id"]}'
-        return [Reply.to(data).image(image_url, caption)]
+        buffer = await HttpClient.get_buffer(image_url)
+        return [Reply.to(data).image_buffer(buffer, caption)]
 
     @staticmethod
     def _format_types(types: list[dict]) -> str:
         return ' '.join(
-            POKEMON_TYPE_EMOJIS.get(str(t['type']['name']), str(t['type']['name']))
-            for t in types
+            POKEMON_TYPE_EMOJIS.get(str(t['type']['name']), str(t['type']['name'])) for t in types
         )
 
     @staticmethod

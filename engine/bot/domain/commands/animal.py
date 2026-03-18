@@ -19,7 +19,9 @@ logger = structlog.get_logger()
 
 class AnimalCommand(Command):
     API_BASE = 'https://en.wikipedia.org/api/rest_v1/page/summary'
-    USER_AGENT = 'ResenhazordBot/2.0'
+    USER_AGENT = (
+        'ResenhazordBot/2.0 (https://github.com/smarzaro/resenhazord2; bot@resenhazord.com)'
+    )
     MAX_RETRIES = 3
     TIMEOUT = 10.0
     MAX_FACT_LENGTH = 300
