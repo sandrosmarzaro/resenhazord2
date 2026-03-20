@@ -17,6 +17,7 @@ from bot.domain.commands.filme_serie import FilmeSerieCommand
 from bot.domain.commands.fuck import FuckCommand
 from bot.domain.commands.game import GameCommand
 from bot.domain.commands.hearthstone import HearthstoneCommand
+from bot.domain.commands.hentai import HentaiCommand
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
 from bot.domain.commands.magic_the_gathering import MagicTheGatheringCommand
 from bot.domain.commands.mateus import MateusCommand
@@ -59,6 +60,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
             rawg_api_key=settings.rawg_api_key,
         )
     )
+    registry.register(HentaiCommand())
     registry.register(FuckCommand())
     registry.register(
         HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
