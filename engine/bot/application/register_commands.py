@@ -1,9 +1,12 @@
 """Register all Python-side commands with the CommandRegistry."""
 
 from bot.application.command_registry import CommandRegistry
+from bot.domain.commands.add import AddCommand
+from bot.domain.commands.adm import AdmCommand
 from bot.domain.commands.alcorao import AlcoraoCommand
 from bot.domain.commands.animal import AnimalCommand
 from bot.domain.commands.audio import AudioCommand
+from bot.domain.commands.ban import BanCommand
 from bot.domain.commands.baralho import BaralhoCommand
 from bot.domain.commands.beer import BeerCommand
 from bot.domain.commands.biblia import BibliaCommand
@@ -47,6 +50,8 @@ def register_all_commands(settings: Settings | None = None) -> None:
     MongoDBConnection.configure(settings.mongodb_uri)
 
     registry = CommandRegistry.instance()
+    registry.register(AddCommand(bot_jid=settings.resenhazord2_jid))
+    registry.register(AdmCommand())
     registry.register(AlcoraoCommand())
     registry.register(AnimalCommand())
     registry.register(AudioCommand())
@@ -54,6 +59,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(BeerCommand())
     registry.register(BibliaCommand(biblia_token=settings.biblia_token))
     registry.register(BichoCommand())
+    registry.register(BanCommand(bot_jid=settings.resenhazord2_jid))
     registry.register(BorgesCommand())
     registry.register(CarroCommand())
     registry.register(ClashRoyaleCommand())
