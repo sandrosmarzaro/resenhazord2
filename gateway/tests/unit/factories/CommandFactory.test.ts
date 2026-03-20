@@ -24,10 +24,9 @@ describe('CommandFactory', () => {
 
       const whatsappCommands = [
         'StickerCommand',
-        'BanCommand',
-        'AddCommand',
-        'AdmCommand',
         'ScarraCommand',
+        'ExtrairCommand',
+        'DriveCommand',
       ];
       for (const name of whatsappCommands) {
         const cmd = factory.getAllStrategies().find((c) => c.constructor.name === name);
@@ -42,9 +41,9 @@ describe('CommandFactory', () => {
 
   describe('getStrategy()', () => {
     it.each([
-      [', ban', 'BanCommand'],
-      [', menu', 'MenuCommand'],
-      [', game', 'GameCommand'],
+      [', stic', 'StickerCommand'],
+      [', extrair', 'ExtrairCommand'],
+      [', scarra', 'ScarraCommand'],
     ])('should return correct command for "%s"', (input, expectedCommandName) => {
       const command = factory.getStrategy(input);
 
@@ -72,54 +71,43 @@ describe('CommandFactory', () => {
       expect(strategies.length).toBeGreaterThan(0);
     });
 
-    it('should include BanCommand', () => {
-      const strategies = factory.getAllStrategies();
-
-      const banCommand = strategies.find((cmd) => cmd.constructor.name === 'BanCommand');
-      expect(banCommand).not.toBeUndefined();
-    });
-
-    it('should include all expected commands', () => {
+    it('should include all media commands that remain in TS', () => {
       const strategies = factory.getAllStrategies();
       const commandNames = strategies.map((cmd) => cmd.constructor.name);
 
-      expect(commandNames).toContain('BanCommand');
-      expect(commandNames).toContain('MenuCommand');
-      expect(commandNames).toContain('GameCommand');
+      expect(commandNames).toContain('StickerCommand');
+      expect(commandNames).toContain('ExtrairCommand');
+      expect(commandNames).toContain('ScarraCommand');
+      expect(commandNames).toContain('DriveCommand');
+    });
+
+    it('should only contain 4 commands (media/protocol-dependent)', () => {
+      const strategies = factory.getAllStrategies();
+
+      expect(strategies).toHaveLength(4);
     });
 
     it('should not include commands migrated to Python', () => {
       const strategies = factory.getAllStrategies();
       const commandNames = strategies.map((cmd) => cmd.constructor.name);
 
-      expect(commandNames).not.toContain('OiCommand');
-      expect(commandNames).not.toContain('D20Command');
-      expect(commandNames).not.toContain('MateusCommand');
-      expect(commandNames).not.toContain('FatoCommand');
-      expect(commandNames).not.toContain('AlcoranCommand');
-      expect(commandNames).not.toContain('BaralhoCommand');
-      expect(commandNames).not.toContain('MealRecipesCommand');
-      expect(commandNames).not.toContain('PuppyCommand');
-      expect(commandNames).not.toContain('ClashRoyaleCommand');
-      expect(commandNames).not.toContain('CountryFlagCommand');
-      expect(commandNames).not.toContain('LeagueOfLegendsCommand');
-      expect(commandNames).not.toContain('BeerCommand');
-      expect(commandNames).not.toContain('FilmeSerieCommand');
-      expect(commandNames).not.toContain('MyAnimeListCommand');
-      expect(commandNames).not.toContain('BibliaCommand');
-      expect(commandNames).not.toContain('TorahCommand');
-      expect(commandNames).not.toContain('BichoCommand');
-      expect(commandNames).not.toContain('FuckCommand');
-      expect(commandNames).not.toContain('PornoCommand');
-      expect(commandNames).not.toContain('Rule34Command');
-      expect(commandNames).not.toContain('AudioCommand');
-      expect(commandNames).not.toContain('HeartstoneCommand');
-      expect(commandNames).not.toContain('MagicTheGatheringCommand');
-      expect(commandNames).not.toContain('PokemonTCGCommand');
-      expect(commandNames).not.toContain('YugiohCommand');
-      expect(commandNames).not.toContain('AnimalCommand');
-      expect(commandNames).not.toContain('CarroCommand');
-      expect(commandNames).not.toContain('PokemonCommand');
+      const migratedCommands = [
+        'OiCommand', 'D20Command', 'MateusCommand', 'FatoCommand',
+        'AlcoranCommand', 'BaralhoCommand', 'MealRecipesCommand', 'PuppyCommand',
+        'ClashRoyaleCommand', 'CountryFlagCommand', 'LeagueOfLegendsCommand',
+        'BeerCommand', 'FilmeSerieCommand', 'MyAnimeListCommand',
+        'BibliaCommand', 'TorahCommand', 'BichoCommand',
+        'FuckCommand', 'PornoCommand', 'Rule34Command',
+        'AudioCommand', 'HeartstoneCommand', 'MagicTheGatheringCommand',
+        'PokemonTCGCommand', 'YugiohCommand',
+        'AnimalCommand', 'CarroCommand', 'PokemonCommand',
+        'BanCommand', 'AddCommand', 'AdmCommand',
+        'BorgesCommand', 'DownloadCommand', 'GroupMentionsCommand',
+        'GameCommand', 'MusicCommand', 'MenuCommand', 'HentaiCommand',
+      ];
+      for (const name of migratedCommands) {
+        expect(commandNames).not.toContain(name);
+      }
     });
   });
 });
