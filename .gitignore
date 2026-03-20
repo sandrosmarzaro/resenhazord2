@@ -14,6 +14,8 @@ engine/**/__pycache__/
 engine/**/*.pyc
 engine/.pytest_cache/
 engine/.ruff_cache/
+engine/.coverage
+engine/coverage.xml
 
 # Shared
 .env
