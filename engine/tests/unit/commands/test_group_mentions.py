@@ -358,4 +358,6 @@ class TestStripJid:
         ],
     )
     def test_strip_jid(self, jid, expected):
-        assert GroupMentionsCommand._strip_jid(jid) == expected
+        from bot.domain.jid import strip_jid
+
+        assert strip_jid(jid) == expected

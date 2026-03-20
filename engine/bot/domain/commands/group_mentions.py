@@ -5,18 +5,21 @@ from collections.abc import Awaitable, Callable
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.group_mentions import GroupMentionsService
 
-RESERVED_KEYWORDS = {'add', 'exit', 'create', 'delete', 'rename', 'list'}
-MAX_GROUP_NAME_LEN = 15
-JID_SUFFIX_PATTERN = re.compile(r'@lid|@s\.whatsapp\.net', re.IGNORECASE)
-MENTION_PATTERN = re.compile(r'\s*@\d+\s*')
 SubHandler = Callable[[CommandData, str], Awaitable[list[BotMessage]]]
 
 
 class GroupMentionsCommand(Command):
+    RESERVED_KEYWORDS: frozenset[str] = frozenset(
+        {'add', 'exit', 'create', 'delete', 'rename', 'list'}
+    )
+    MAX_GROUP_NAME_LEN = 15
+    MENTION_PATTERN = re.compile(r'\s*@\d+\s*')
+
     def __init__(self, service: GroupMentionsService | None = None) -> None:
         super().__init__()
         self._service = service or GroupMentionsService()
@@ -51,21 +54,17 @@ class GroupMentionsCommand(Command):
                 return await handler(data, sub_rest)
         return await self._handle_mention(data, rest)
 
-    @staticmethod
-    def _strip_jid(jid: str) -> str:
-        return JID_SUFFIX_PATTERN.sub('', jid)
-
     def _validate_group_name(self, data: CommandData, name: str) -> BotMessage | None:
-        if len(name) > MAX_GROUP_NAME_LEN:
+        if len(name) > self.MAX_GROUP_NAME_LEN:
             return Reply.to(data).text('O nome do grupo é desse tamanho! ✋    🤚')
-        if any(re.search(kw, name, re.IGNORECASE) for kw in RESERVED_KEYWORDS):
+        if any(re.search(kw, name, re.IGNORECASE) for kw in self.RESERVED_KEYWORDS):
             return Reply.to(data).text('O nome do grupo não pode ser um comando!')
         if re.search(r'\s', name):
             return Reply.to(data).text('O nome do grupo não pode ter espaço!')
         return None
 
     async def _handle_create(self, data: CommandData, rest: str) -> list[BotMessage]:
-        group_name = MENTION_PATTERN.sub('', rest)
+        group_name = self.MENTION_PATTERN.sub('', rest)
         if not group_name:
             return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
         error = self._validate_group_name(data, group_name)
@@ -114,7 +113,7 @@ class GroupMentionsCommand(Command):
         result = await self._service.list_one(data.jid, rest)
         if not result['ok']:
             return [Reply.to(data).text(result['message'])]
-        lines = [f'- {i + 1}: @{self._strip_jid(p)}' for i, p in enumerate(result['participants'])]
+        lines = [f'- {i + 1}: @{strip_jid(p)}' for i, p in enumerate(result['participants'])]
         return [
             Reply.to(data).text_with(
                 f'📜 *{rest.upper()}* 📜\n\n' + '\n'.join(lines),
@@ -123,7 +122,7 @@ class GroupMentionsCommand(Command):
         ]
 
     async def _handle_add(self, data: CommandData, rest: str) -> list[BotMessage]:
-        group_name = MENTION_PATTERN.sub('', rest)
+        group_name = self.MENTION_PATTERN.sub('', rest)
         if not group_name:
             return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
 
@@ -162,6 +161,6 @@ class GroupMentionsCommand(Command):
             return [Reply.to(data).text(result['message'])]
 
         participants = result['participants']
-        mentions = [f'@{self._strip_jid(p)}' for p in participants]
+        mentions = [f'@{strip_jid(p)}' for p in participants]
         prefix = f'{text}\n\n' if text else ''
         return [Reply.to(data).text_with(f'{prefix}{" ".join(mentions)}', participants)]

@@ -1,9 +1,8 @@
-import re
-
 import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -12,8 +11,6 @@ logger = structlog.get_logger()
 
 
 class FuckCommand(Command):
-    LID_OR_WHATSAPP_RE = re.compile(r'@lid|@s\.whatsapp\.net', flags=re.IGNORECASE)
-
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -31,10 +28,10 @@ class FuckCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         sender = data.participant or data.sender_jid
-        sender_phone = sender.replace('@lid', '')
+        sender_phone = strip_jid(sender)
 
         mentioned = data.mentioned_jids[0] if data.mentioned_jids else ''
-        mentioned_phone = self.LID_OR_WHATSAPP_RE.sub('', mentioned)
+        mentioned_phone = strip_jid(mentioned)
 
         response = await HttpClient.get(
             'https://nsfwhub.onrender.com/nsfw?type=fuck',

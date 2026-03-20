@@ -12,12 +12,11 @@ from bot.domain.models.message import BotMessage
 
 logger = structlog.get_logger()
 
-COUNTRY_CODE = '55'
-MAX_PHONE_LENGTH = 11
-MIN_COMPLETE_PHONE_LENGTH = 10
-
 
 class AddCommand(Command):
+    COUNTRY_CODE = '55'
+    MAX_PHONE_LENGTH = 11
+    MIN_COMPLETE_PHONE_LENGTH = 10
     BOT_NOT_ADMIN_MSG = 'Vai se fuder! Eu não sou admin! 🖕'
     INVALID_DDD_MSG = 'Burro burro! O DDD do estado 🏳️\u200d🌈 não existe!'
     PHONE_TOO_LONG_MSG = 'Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm'
@@ -57,7 +56,7 @@ class AddCommand(Command):
             return [Reply.to(data).text(self.INVALID_DDD_MSG)]
 
         messages: list[BotMessage] = []
-        if len(phone) > MAX_PHONE_LENGTH:
+        if len(phone) > self.MAX_PHONE_LENGTH:
             messages.append(Reply.to(data).text(self.PHONE_TOO_LONG_MSG))
 
         result = await self._add_phone(data, phone)
@@ -70,11 +69,11 @@ class AddCommand(Command):
             prefix = '8' if ddd in EIGHT_DIGIT_PREFIXES else '9'
             phone = ddd + prefix
 
-            size = random.choice([MAX_PHONE_LENGTH - 1, MAX_PHONE_LENGTH])  # noqa: S311
+            size = random.choice([self.MAX_PHONE_LENGTH - 1, self.MAX_PHONE_LENGTH])  # noqa: S311
             while len(phone) < size:
                 phone += str(random.randint(0, 9))  # noqa: S311
 
-            consult = await self._whatsapp.on_whatsapp([f'{COUNTRY_CODE}{phone}'])
+            consult = await self._whatsapp.on_whatsapp([f'{self.COUNTRY_CODE}{phone}'])
             if consult and consult[0].get('exists'):
                 try:
                     await self._whatsapp.group_participants_update(
@@ -86,9 +85,9 @@ class AddCommand(Command):
                 return []
 
     async def _add_phone(self, data: CommandData, phone: str) -> list[BotMessage]:
-        consult = await self._whatsapp.on_whatsapp([f'{COUNTRY_CODE}{phone}'])
+        consult = await self._whatsapp.on_whatsapp([f'{self.COUNTRY_CODE}{phone}'])
         has_whatsapp = consult and consult[0].get('exists')
-        jid = consult[0]['jid'] if has_whatsapp else f'{COUNTRY_CODE}{phone}@lid'
+        jid = consult[0]['jid'] if has_whatsapp else f'{self.COUNTRY_CODE}{phone}@lid'
         try:
             await self._whatsapp.group_participants_update(data.jid, [jid], 'add')
         except Exception:

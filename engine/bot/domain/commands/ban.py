@@ -1,18 +1,16 @@
 """Ban command — remove random or mentioned participants from a group."""
 
 import random
-import re
 
 import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
 logger = structlog.get_logger()
-
-JID_SUFFIX_RE = re.compile(r'@lid|@s\.whatsapp\.net', re.IGNORECASE)
 
 
 class BanCommand(Command):
@@ -66,7 +64,7 @@ class BanCommand(Command):
             except Exception:
                 logger.exception('ban_random_error', jid=data.jid)
                 break
-            phone = JID_SUFFIX_RE.sub('', target['id'])
+            phone = strip_jid(target['id'])
             messages.append(Reply.to(data).text_with(f'Se fudeu! @{phone} 🖕', [target['id']]))
             break
         return messages
@@ -90,6 +88,6 @@ class BanCommand(Command):
             except Exception:
                 logger.exception('ban_mentioned_error', jid=data.jid, target=jid)
                 continue
-            phone = JID_SUFFIX_RE.sub('', jid)
+            phone = strip_jid(jid)
             messages.append(Reply.to(data).text_with(f'Se fudeu! @{phone} 🖕', [jid]))
         return messages
