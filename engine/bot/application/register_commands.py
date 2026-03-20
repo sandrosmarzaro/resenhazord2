@@ -12,6 +12,7 @@ from bot.domain.commands.carro import CarroCommand
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.commands.d20 import D20Command
+from bot.domain.commands.download import DownloadCommand
 from bot.domain.commands.fato import FatoCommand
 from bot.domain.commands.filme_serie import FilmeSerieCommand
 from bot.domain.commands.fuck import FuckCommand
@@ -51,6 +52,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(ClashRoyaleCommand())
     registry.register(CountryFlagCommand())
     registry.register(D20Command())
+    registry.register(DownloadCommand())
     registry.register(FatoCommand())
     registry.register(FilmeSerieCommand(tmdb_api_key=settings.tmdb_api_key))
     registry.register(
