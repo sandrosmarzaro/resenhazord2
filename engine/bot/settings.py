@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
 
+    resenhazord2_jid: str = ''
+
     bnet_id: str = ''
     bnet_secret: str = ''
     biblia_token: str = ''

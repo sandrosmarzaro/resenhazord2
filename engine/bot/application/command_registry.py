@@ -1,3 +1,4 @@
+from bot.adapters.whatsapp.port import WhatsAppPort
 from bot.domain.commands.base import Command
 
 
@@ -19,6 +20,11 @@ class CommandRegistry:
 
     def register(self, command: Command) -> None:
         self._commands.append(command)
+
+    def set_whatsapp(self, whatsapp: WhatsAppPort) -> None:
+        """Inject the WhatsApp port into all commands after WebSocket connects."""
+        for cmd in self._commands:
+            cmd._whatsapp = whatsapp
 
     def get_strategy(self, text: str) -> Command | None:
         for cmd in self._commands:

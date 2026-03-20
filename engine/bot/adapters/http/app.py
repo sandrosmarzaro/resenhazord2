@@ -7,6 +7,7 @@ import structlog
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from bot.adapters.http.ws_handler import WebSocketHandler
+from bot.adapters.whatsapp.ws_client import WhatsAppWsClient
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
@@ -40,6 +41,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     registry = CommandRegistry.instance()
     command_handler = CommandHandler(registry)
     handler = WebSocketHandler(ws, command_handler)
+    registry.set_whatsapp(WhatsAppWsClient(handler))
 
     app.state.ws_handler = handler
 
