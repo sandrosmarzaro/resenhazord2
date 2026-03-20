@@ -8,6 +8,7 @@ from bot.domain.commands.baralho import BaralhoCommand
 from bot.domain.commands.beer import BeerCommand
 from bot.domain.commands.biblia import BibliaCommand
 from bot.domain.commands.bicho import BichoCommand
+from bot.domain.commands.borges import BorgesCommand
 from bot.domain.commands.carro import CarroCommand
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
 from bot.domain.commands.country_flag import CountryFlagCommand
@@ -33,12 +34,15 @@ from bot.domain.commands.puppy import PuppyCommand
 from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
+from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
 
 
 def register_all_commands(settings: Settings | None = None) -> None:
     if settings is None:
         settings = Settings()
+
+    MongoDBConnection.configure(settings.mongodb_uri)
 
     registry = CommandRegistry.instance()
     registry.register(AlcoraoCommand())
@@ -48,6 +52,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(BeerCommand())
     registry.register(BibliaCommand(biblia_token=settings.biblia_token))
     registry.register(BichoCommand())
+    registry.register(BorgesCommand())
     registry.register(CarroCommand())
     registry.register(ClashRoyaleCommand())
     registry.register(CountryFlagCommand())
