@@ -37,6 +37,7 @@ from bot.domain.commands.pokemon_tcg import PokemonTCGCommand
 from bot.domain.commands.porno import PornoCommand
 from bot.domain.commands.puppy import PuppyCommand
 from bot.domain.commands.rule34 import Rule34Command
+from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.infrastructure.mongodb import MongoDBConnection
@@ -94,5 +95,6 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(PornoCommand())
     registry.register(PuppyCommand())
     registry.register(Rule34Command())
+    registry.register(StickerCommand())
     registry.register(TorahCommand())
     registry.register(YugiohCommand())
