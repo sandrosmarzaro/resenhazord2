@@ -23,5 +23,8 @@ class Settings(BaseSettings):
     biblia_token: str = ''
     tmdb_api_key: str = ''
     jamendo_client_id: str = ''
+    twitch_client_id: str = ''
+    twitch_client_secret: str = ''
+    rawg_api_key: str = ''
 
     model_config = {'env_file': '.env', 'extra': 'ignore'}

@@ -15,6 +15,7 @@ from bot.domain.commands.d20 import D20Command
 from bot.domain.commands.fato import FatoCommand
 from bot.domain.commands.filme_serie import FilmeSerieCommand
 from bot.domain.commands.fuck import FuckCommand
+from bot.domain.commands.game import GameCommand
 from bot.domain.commands.hearthstone import HearthstoneCommand
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
 from bot.domain.commands.magic_the_gathering import MagicTheGatheringCommand
@@ -51,6 +52,13 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(D20Command())
     registry.register(FatoCommand())
     registry.register(FilmeSerieCommand(tmdb_api_key=settings.tmdb_api_key))
+    registry.register(
+        GameCommand(
+            twitch_client_id=settings.twitch_client_id,
+            twitch_client_secret=settings.twitch_client_secret,
+            rawg_api_key=settings.rawg_api_key,
+        )
+    )
     registry.register(FuckCommand())
     registry.register(
         HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
