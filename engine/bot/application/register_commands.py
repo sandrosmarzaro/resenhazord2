@@ -18,6 +18,7 @@ from bot.domain.commands.fato import FatoCommand
 from bot.domain.commands.filme_serie import FilmeSerieCommand
 from bot.domain.commands.fuck import FuckCommand
 from bot.domain.commands.game import GameCommand
+from bot.domain.commands.group_mentions import GroupMentionsCommand
 from bot.domain.commands.hearthstone import HearthstoneCommand
 from bot.domain.commands.hentai import HentaiCommand
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
@@ -67,6 +68,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
             rawg_api_key=settings.rawg_api_key,
         )
     )
+    registry.register(GroupMentionsCommand())
     registry.register(HentaiCommand())
     registry.register(FuckCommand())
     registry.register(
