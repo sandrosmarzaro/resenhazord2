@@ -14,10 +14,16 @@ class CommandData:
     expiration: int | None = None
     mentioned_jids: list[str] = field(default_factory=list)
     quoted_message_id: str | None = None
-    has_media: bool = False
     media_type: str | None = None
+    media_source: str | None = None
+    media_is_animated: bool = False
+    media_caption: str | None = None
     message_id: str | None = None
     push_name: str | None = None
+
+    @property
+    def has_media(self) -> bool:
+        return self.media_type is not None
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -30,8 +36,10 @@ class CommandData:
             expiration=data.get('expiration'),
             mentioned_jids=data.get('mentioned_jids', []),
             quoted_message_id=data.get('quoted_message_id'),
-            has_media=data.get('has_media', False),
             media_type=data.get('media_type'),
+            media_source=data.get('media_source'),
+            media_is_animated=data.get('media_is_animated', False),
+            media_caption=data.get('media_caption'),
             message_id=data.get('message_id'),
             push_name=data.get('push_name'),
         )

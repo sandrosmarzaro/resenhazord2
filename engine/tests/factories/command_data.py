@@ -17,8 +17,10 @@ class GroupCommandDataFactory(factory.Factory):
     expiration = None
     mentioned_jids = factory.LazyFunction(list)
     quoted_message_id = None
-    has_media = False
     media_type = None
+    media_source = None
+    media_is_animated = False
+    media_caption = None
     message_id = factory.LazyAttribute(lambda o: f'MSG_{o.meta_seq}')
     push_name = factory.LazyAttribute(lambda o: f'User {o.meta_seq}')
 
@@ -38,8 +40,10 @@ class PrivateCommandDataFactory(factory.Factory):
     expiration = None
     mentioned_jids = factory.LazyFunction(list)
     quoted_message_id = None
-    has_media = False
     media_type = None
+    media_source = None
+    media_is_animated = False
+    media_caption = None
     message_id = factory.LazyAttribute(lambda o: f'MSG_{o.meta_seq}')
     push_name = factory.LazyAttribute(lambda o: f'User {o.meta_seq}')
 

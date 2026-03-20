@@ -2,6 +2,7 @@ from typing import Self
 
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import (
+    AudioBufferContent,
     AudioContent,
     BotMessage,
     ImageBufferContent,
@@ -39,11 +40,19 @@ class Reply:
     def video(self, url: str, caption: str | None = None) -> BotMessage:
         return self._build(VideoContent(url=url, caption=caption, view_once=True))
 
-    def video_buffer(self, data: bytes, caption: str | None = None) -> BotMessage:
-        return self._build(VideoBufferContent(data=data, caption=caption, view_once=True))
+    def video_buffer(
+        self, data: bytes, caption: str | None = None, *, gif_playback: bool = False
+    ) -> BotMessage:
+        content = VideoBufferContent(
+            data=data, caption=caption, view_once=True, gif_playback=gif_playback
+        )
+        return self._build(content)
 
     def audio(self, url: str) -> BotMessage:
         return self._build(AudioContent(url=url, view_once=True))
+
+    def audio_buffer(self, data: bytes, mimetype: str = 'audio/mp4') -> BotMessage:
+        return self._build(AudioBufferContent(data=data, mimetype=mimetype))
 
     def sticker(self, data: bytes) -> BotMessage:
         return self._build(StickerContent(data=data))
@@ -59,6 +68,7 @@ class Reply:
         | VideoContent
         | VideoBufferContent
         | AudioContent
+        | AudioBufferContent
         | StickerContent
         | RawContent,
     ) -> BotMessage:

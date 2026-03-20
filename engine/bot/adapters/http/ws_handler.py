@@ -55,8 +55,10 @@ class WebSocketHandler:
             expiration=cmd_data.expiration,
             mentioned_jids=cmd_data.mentioned_jids,
             quoted_message_id=cmd_data.quoted_message_id,
-            has_media=cmd_data.has_media,
             media_type=cmd_data.media_type,
+            media_source=cmd_data.media_source,
+            media_is_animated=cmd_data.media_is_animated,
+            media_caption=cmd_data.media_caption,
             message_id=cmd_data.message_id,
             push_name=cmd_data.push_name,
         )
@@ -104,7 +106,9 @@ class WebSocketHandler:
         elif future is None:
             logger.warning('no_pending_future', id=msg.id)
 
-    async def call_whatsapp(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def call_whatsapp(
+        self, method: str, data: dict[str, Any], *, deadline: float = 30.0
+    ) -> dict[str, Any]:
         """Send wa_call to TS side and await wa_result."""
         msg_id = str(uuid.uuid4())
         future: asyncio.Future[dict[str, Any]] = asyncio.get_event_loop().create_future()
@@ -117,4 +121,4 @@ class WebSocketHandler:
                 'data': data,
             }
         )
-        return await asyncio.wait_for(future, timeout=30.0)
+        return await asyncio.wait_for(future, timeout=deadline)

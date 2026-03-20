@@ -257,9 +257,7 @@ class TestBrandDetection:
         assert command._is_brand_only_page(brand_name, page_title) is expected
 
     @pytest.mark.anyio
-    async def test_cross_brand_page_rejected_uses_brand_logo(
-        self, command, respx_mock, mocker
-    ):
+    async def test_cross_brand_page_rejected_uses_brand_logo(self, command, respx_mock, mocker):
         mocker.patch(
             'bot.domain.commands.carro.random.choice',
             side_effect=[

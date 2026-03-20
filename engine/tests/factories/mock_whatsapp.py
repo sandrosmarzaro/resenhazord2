@@ -13,6 +13,8 @@ def create_mock_whatsapp_port(**overrides) -> AsyncMock:
     mock.group_update_subject = AsyncMock(return_value=None)
     mock.group_update_description = AsyncMock(return_value=None)
     mock.send_presence_update = AsyncMock(return_value=None)
+    mock.download_media = AsyncMock(return_value=b'mock-media-buffer')
+    mock.create_sticker = AsyncMock(return_value=b'mock-sticker-buffer')
     for key, value in overrides.items():
         setattr(mock, key, value)
     return mock

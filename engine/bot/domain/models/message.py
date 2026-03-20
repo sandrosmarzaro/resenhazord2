@@ -81,6 +81,7 @@ class VideoBufferContent:
     data: bytes
     caption: str | None = None
     view_once: bool = True
+    gif_playback: bool = False
     type: str = 'video_buffer'
 
     @property
@@ -93,6 +94,8 @@ class VideoBufferContent:
 
     def to_dict(self) -> dict:
         d: dict = {'type': self.type, 'view_once': self.view_once}
+        if self.gif_playback:
+            d['gif_playback'] = True
         if self.caption:
             d['caption'] = self.caption
         return d
@@ -116,6 +119,24 @@ class AudioContent:
             'view_once': self.view_once,
             'mimetype': self.mimetype,
         }
+
+
+@dataclass
+class AudioBufferContent:
+    data: bytes
+    mimetype: str = 'audio/mp4'
+    type: str = 'audio_buffer'
+
+    @property
+    def has_buffer(self) -> bool:
+        return True
+
+    @property
+    def buffer(self) -> bytes:
+        return self.data
+
+    def to_dict(self) -> dict:
+        return {'type': self.type, 'mimetype': self.mimetype}
 
 
 @dataclass
@@ -155,6 +176,7 @@ MessageContent = (
     | VideoContent
     | VideoBufferContent
     | AudioContent
+    | AudioBufferContent
     | StickerContent
     | RawContent
 )

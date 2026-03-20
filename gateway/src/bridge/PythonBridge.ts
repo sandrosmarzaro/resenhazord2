@@ -2,6 +2,7 @@ import type { AnyMessageContent, WAMessage } from '@whiskeysockets/baileys';
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
+import MediaHandler from './MediaHandler.js';
 import { Sentry } from '../infra/Sentry.js';
 
 interface WSMessage {
@@ -21,10 +22,12 @@ export default class PythonBridge {
   private ws: WebSocket | null = null;
   private pending = new Map<string, PendingRequest>();
   private pendingBinary = new Map<string, Buffer[]>();
+  private messageStore = new Map<string, WAMessage>();
   private reconnectDelay = 1000;
   private readonly maxReconnectDelay = 30000;
   private readonly url: string;
   private whatsapp: WhatsAppPort | null = null;
+  private mediaHandler: MediaHandler | null = null;
   private shouldReconnect = true;
 
   constructor(url?: string) {
@@ -33,6 +36,7 @@ export default class PythonBridge {
 
   setWhatsApp(whatsapp: WhatsAppPort): void {
     this.whatsapp = whatsapp;
+    this.mediaHandler = new MediaHandler(whatsapp);
   }
 
   connect(): void {
@@ -84,6 +88,13 @@ export default class PythonBridge {
     if (!this.isConnected) return null;
 
     const id = crypto.randomUUID();
+    const messageId = data.key.id ?? null;
+    const mediaInfo = this.mediaHandler?.detectMedia(data) ?? null;
+
+    if (messageId) {
+      this.messageStore.set(messageId, data as WAMessage);
+    }
+
     const msg: WSMessage = {
       id,
       type: 'command',
@@ -96,25 +107,35 @@ export default class PythonBridge {
         expiration: data.expiration ?? null,
         mentioned_jids: data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [],
         quoted_message_id: data.message?.extendedTextMessage?.contextInfo?.stanzaId ?? null,
-        message_id: data.key.id ?? null,
+        message_id: messageId,
         push_name: data.pushName ?? null,
+        media_type: mediaInfo?.type ?? null,
+        media_source: mediaInfo?.source ?? null,
+        media_is_animated: mediaInfo?.isAnimated ?? false,
+        media_caption: mediaInfo?.caption ?? null,
       },
     };
 
-    const response = await this.sendAndWait(id, msg);
+    try {
+      const response = await this.sendAndWait(id, msg);
 
-    if (response.type === 'no_match') return null;
+      if (response.type === 'no_match') return null;
 
-    if (response.type === 'error') {
-      const errorMsg = (response.data?.message as string) ?? 'Python command failed';
-      throw new Error(errorMsg);
+      if (response.type === 'error') {
+        const errorMsg = (response.data?.message as string) ?? 'Python command failed';
+        throw new Error(errorMsg);
+      }
+
+      if (response.type === 'command_response') {
+        return this.deserializeMessages(id, response);
+      }
+
+      return null;
+    } finally {
+      if (messageId) {
+        this.messageStore.delete(messageId);
+      }
     }
-
-    if (response.type === 'command_response') {
-      return this.deserializeMessages(id, response);
-    }
-
-    return null;
   }
 
   private async handleMessage(event: MessageEvent): Promise<void> {
@@ -204,6 +225,23 @@ export default class PythonBridge {
           data.jid as string,
         );
         return {};
+      case 'download_media': {
+        if (!this.mediaHandler) throw new Error('MediaHandler not available');
+        const messageId = data.message_id as string;
+        const stored = this.messageStore.get(messageId);
+        if (!stored) throw new Error(`Message ${messageId} not found in store`);
+        const buffer = await this.mediaHandler.downloadMedia(stored, data.source as string);
+        return { buffer: buffer.toString('base64') };
+      }
+      case 'create_sticker': {
+        if (!this.mediaHandler) throw new Error('MediaHandler not available');
+        const inputBuffer = Buffer.from(data.buffer as string, 'base64');
+        const stickerBuffer = await this.mediaHandler.createSticker(
+          inputBuffer,
+          (data.type as string) || 'full',
+        );
+        return { buffer: stickerBuffer.toString('base64') };
+      }
       default:
         throw new Error(`Unknown wa_call method: ${method}`);
     }
@@ -255,6 +293,7 @@ export default class PythonBridge {
           content = {
             video: buffers[bufferIdx++] ?? Buffer.alloc(0),
             viewOnce: contentData.view_once as boolean,
+            gifPlayback: (contentData.gif_playback as boolean) ?? false,
             caption,
           };
           break;
@@ -262,6 +301,12 @@ export default class PythonBridge {
           content = {
             audio: { url: contentData.url as string },
             viewOnce: contentData.view_once as boolean,
+            mimetype: (contentData.mimetype as string) ?? 'audio/mp4',
+          };
+          break;
+        case 'audio_buffer':
+          content = {
+            audio: buffers[bufferIdx++] ?? Buffer.alloc(0),
             mimetype: (contentData.mimetype as string) ?? 'audio/mp4',
           };
           break;

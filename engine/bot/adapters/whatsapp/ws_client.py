@@ -1,10 +1,13 @@
 """WhatsApp operations via WebSocket — sends wa_call, awaits wa_result."""
 
 import asyncio
+import base64
 import uuid
 from typing import Any
 
 from bot.adapters.http.ws_handler import WebSocketHandler
+
+MEDIA_TIMEOUT = 60.0
 
 
 class WhatsAppWsClient:
@@ -13,8 +16,10 @@ class WhatsAppWsClient:
     def __init__(self, handler: WebSocketHandler) -> None:
         self._handler = handler
 
-    async def _call(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
-        return await self._handler.call_whatsapp(method, data)
+    async def _call(
+        self, method: str, data: dict[str, Any], deadline: float = 30.0
+    ) -> dict[str, Any]:
+        return await self._handler.call_whatsapp(method, data, deadline=deadline)
 
     async def group_metadata(self, jid: str) -> dict:
         return await self._call('group_metadata', {'jid': jid})
@@ -60,3 +65,19 @@ class WhatsAppWsClient:
 
     async def send_presence_update(self, presence_type: str, jid: str) -> None:
         await self._call('send_presence_update', {'type': presence_type, 'jid': jid})
+
+    async def download_media(self, message_id: str, source: str) -> bytes:
+        result = await self._call(
+            'download_media',
+            {'message_id': message_id, 'source': source},
+            deadline=MEDIA_TIMEOUT,
+        )
+        return base64.b64decode(result['buffer'])
+
+    async def create_sticker(self, buffer: bytes, sticker_type: str) -> bytes:
+        result = await self._call(
+            'create_sticker',
+            {'buffer': base64.b64encode(buffer).decode(), 'type': sticker_type},
+            deadline=MEDIA_TIMEOUT,
+        )
+        return base64.b64decode(result['buffer'])
