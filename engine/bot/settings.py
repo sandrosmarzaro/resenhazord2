@@ -22,5 +22,6 @@ class Settings(BaseSettings):
     bnet_secret: str = ''
     biblia_token: str = ''
     tmdb_api_key: str = ''
+    jamendo_client_id: str = ''
 
     model_config = {'env_file': '.env', 'extra': 'ignore'}

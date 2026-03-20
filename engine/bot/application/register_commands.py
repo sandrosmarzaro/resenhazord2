@@ -20,6 +20,7 @@ from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
 from bot.domain.commands.magic_the_gathering import MagicTheGatheringCommand
 from bot.domain.commands.mateus import MateusCommand
 from bot.domain.commands.meal_recipes import MealRecipesCommand
+from bot.domain.commands.music import MusicCommand
 from bot.domain.commands.my_anime_list import MyAnimeListCommand
 from bot.domain.commands.oi import OiCommand
 from bot.domain.commands.pokemon import PokemonCommand
@@ -58,6 +59,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(MagicTheGatheringCommand())
     registry.register(MateusCommand())
     registry.register(MealRecipesCommand())
+    registry.register(MusicCommand(jamendo_client_id=settings.jamendo_client_id))
     registry.register(MyAnimeListCommand())
     registry.register(OiCommand())
     registry.register(PokemonCommand())
