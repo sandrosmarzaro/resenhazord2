@@ -13,6 +13,7 @@ logger = structlog.get_logger()
 
 class Rule34Command(Command):
     BANNER_URL = 'https://kanako.store/products/futa-body'
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
