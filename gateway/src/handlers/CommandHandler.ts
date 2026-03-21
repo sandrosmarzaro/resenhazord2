@@ -12,7 +12,7 @@ import { Sentry } from '../infra/Sentry.js';
 export default class CommandHandler {
   static async run(data: WAMessage): Promise<void> {
     const text = GetTextMessage.run(data);
-    const factory = CommandFactory.getInstance(Resenhazord2.adapter ?? undefined);
+    const factory = CommandFactory.getInstance();
     const command = factory.getStrategy(text);
 
     if (command) {
