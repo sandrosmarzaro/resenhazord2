@@ -1,44 +1,8 @@
-from unittest.mock import AsyncMock
-
 import pytest
 
 from bot.domain.commands.drive import DriveCommand
 from bot.domain.services.discord import DiscordService
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
-from tests.factories.mock_whatsapp import create_mock_whatsapp_port
-
-
-def _create_mock_discord() -> AsyncMock:
-    mock = AsyncMock(spec=DiscordService)
-    mock.CATEGORY_TYPE = DiscordService.CATEGORY_TYPE
-    mock.TEXT_CHANNEL_TYPE = DiscordService.TEXT_CHANNEL_TYPE
-    mock.get_channels = AsyncMock(return_value=[])
-    mock.find_category = DiscordService.find_category.__get__(mock)
-    mock.find_channel = DiscordService.find_channel.__get__(mock)
-    mock.create_category = AsyncMock(return_value={'id': 'cat-1', 'name': '2026', 'type': 4})
-    mock.create_channel = AsyncMock(
-        return_value={'id': 'ch-1', 'name': 'churrasco', 'type': 0, 'parent_id': 'cat-1'}
-    )
-    mock.upload_media = AsyncMock(return_value=None)
-    return mock
-
-
-@pytest.fixture
-def mock_whatsapp():
-    return create_mock_whatsapp_port()
-
-
-@pytest.fixture
-def mock_discord():
-    return _create_mock_discord()
-
-
-@pytest.fixture
-def command(mock_whatsapp, mock_discord):
-    cmd = DriveCommand(discord=mock_discord)
-    cmd._whatsapp = mock_whatsapp
-    return cmd
-
 
 MESSAGE_ID = 'MSG_55'
 EXISTING_CATEGORY = {'id': 'cat-1', 'name': '2026', 'type': 4}
@@ -48,6 +12,29 @@ EXISTING_CHANNEL = {
     'type': 0,
     'parent_id': 'cat-1',
 }
+
+
+@pytest.fixture
+def mock_discord(mocker):
+    mock = mocker.AsyncMock(spec=DiscordService)
+    mock.CATEGORY_TYPE = DiscordService.CATEGORY_TYPE
+    mock.TEXT_CHANNEL_TYPE = DiscordService.TEXT_CHANNEL_TYPE
+    mock.get_channels = mocker.AsyncMock(return_value=[])
+    mock.find_category = DiscordService.find_category.__get__(mock)
+    mock.find_channel = DiscordService.find_channel.__get__(mock)
+    mock.create_category = mocker.AsyncMock(return_value={'id': 'cat-1', 'name': '2026', 'type': 4})
+    mock.create_channel = mocker.AsyncMock(
+        return_value={'id': 'ch-1', 'name': 'churrasco', 'type': 0, 'parent_id': 'cat-1'}
+    )
+    mock.upload_media = mocker.AsyncMock(return_value=None)
+    return mock
+
+
+@pytest.fixture
+def command(mock_whatsapp, mock_discord):
+    cmd = DriveCommand(discord=mock_discord)
+    cmd._whatsapp = mock_whatsapp
+    return cmd
 
 
 class TestMatches:
@@ -138,7 +125,7 @@ class TestNewFlag:
     @pytest.mark.anyio
     async def test_creates_both(self, command, mock_discord, mock_whatsapp):
         mock_discord.get_channels.return_value = []
-        mock_whatsapp.download_media = AsyncMock(return_value=b'img-data')
+        mock_whatsapp.download_media.return_value = b'img-data'
         data = GroupCommandDataFactory.build(
             text=',drive 2026 churrasco new',
             media_type='image',
@@ -158,7 +145,7 @@ class TestNewFlag:
     @pytest.mark.anyio
     async def test_creates_only_channel(self, command, mock_discord, mock_whatsapp):
         mock_discord.get_channels.return_value = [EXISTING_CATEGORY]
-        mock_whatsapp.download_media = AsyncMock(return_value=b'img-data')
+        mock_whatsapp.download_media.return_value = b'img-data'
         data = GroupCommandDataFactory.build(
             text=',drive 2026 churrasco new',
             media_type='image',
@@ -176,7 +163,7 @@ class TestSuccessfulUpload:
     @pytest.mark.anyio
     async def test_image_upload(self, command, mock_discord, mock_whatsapp):
         mock_discord.get_channels.return_value = [EXISTING_CATEGORY, EXISTING_CHANNEL]
-        mock_whatsapp.download_media = AsyncMock(return_value=b'img-data')
+        mock_whatsapp.download_media.return_value = b'img-data'
         data = GroupCommandDataFactory.build(
             text=',drive 2026 churrasco',
             media_type='image',
@@ -197,7 +184,7 @@ class TestSuccessfulUpload:
     @pytest.mark.anyio
     async def test_video_upload(self, command, mock_discord, mock_whatsapp):
         mock_discord.get_channels.return_value = [EXISTING_CATEGORY, EXISTING_CHANNEL]
-        mock_whatsapp.download_media = AsyncMock(return_value=b'vid-data')
+        mock_whatsapp.download_media.return_value = b'vid-data'
         data = GroupCommandDataFactory.build(
             text=',drive 2026 churrasco',
             media_type='video',
@@ -214,7 +201,7 @@ class TestSuccessfulUpload:
     @pytest.mark.anyio
     async def test_audio_upload(self, command, mock_discord, mock_whatsapp):
         mock_discord.get_channels.return_value = [EXISTING_CATEGORY, EXISTING_CHANNEL]
-        mock_whatsapp.download_media = AsyncMock(return_value=b'aud-data')
+        mock_whatsapp.download_media.return_value = b'aud-data'
         data = GroupCommandDataFactory.build(
             text=',drive 2026 churrasco',
             media_type='audio',
@@ -231,7 +218,7 @@ class TestSuccessfulUpload:
     @pytest.mark.anyio
     async def test_calls_download_media(self, command, mock_discord, mock_whatsapp):
         mock_discord.get_channels.return_value = [EXISTING_CATEGORY, EXISTING_CHANNEL]
-        mock_whatsapp.download_media = AsyncMock(return_value=b'data')
+        mock_whatsapp.download_media.return_value = b'data'
         data = GroupCommandDataFactory.build(
             text=',drive 2026 churrasco',
             media_type='image',
@@ -248,7 +235,7 @@ class TestUploadError:
     @pytest.mark.anyio
     async def test_returns_error_on_failure(self, command, mock_discord, mock_whatsapp):
         mock_discord.get_channels.return_value = [EXISTING_CATEGORY, EXISTING_CHANNEL]
-        mock_whatsapp.download_media = AsyncMock(return_value=b'data')
+        mock_whatsapp.download_media.return_value = b'data'
         mock_discord.upload_media.side_effect = RuntimeError('upload failed')
         data = GroupCommandDataFactory.build(
             text=',drive 2026 churrasco',

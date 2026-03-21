@@ -2,16 +2,10 @@ import pytest
 
 from bot.domain.commands.ban import BanCommand
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
-from tests.factories.mock_whatsapp import create_mock_whatsapp_port
 
 CHAT_JID = '120363044041082732@g.us'
 BOT_JID = '5500000000000@s.whatsapp.net'
 OWNER_JID = '5511999990099@s.whatsapp.net'
-
-
-@pytest.fixture
-def mock_whatsapp():
-    return create_mock_whatsapp_port()
 
 
 @pytest.fixture

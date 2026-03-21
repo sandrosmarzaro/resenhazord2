@@ -1,5 +1,3 @@
-from unittest.mock import AsyncMock, patch
-
 import pytest
 
 from bot.domain.commands.borges import BorgesCommand
@@ -13,13 +11,8 @@ def command():
 
 
 @pytest.fixture
-def mock_collection():
-    collection = AsyncMock()
-    with patch(
-        'bot.domain.commands.borges.MongoDBConnection.collection',
-        return_value=collection,
-    ):
-        yield collection
+def mock_collection(mock_mongodb_collection):
+    return mock_mongodb_collection('borges')
 
 
 class TestMatches:

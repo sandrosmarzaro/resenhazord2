@@ -1,15 +1,9 @@
-from unittest.mock import AsyncMock
-
 import pytest
 
 from bot.domain.commands.scarra import ScarraCommand
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
-from tests.factories.mock_whatsapp import create_mock_whatsapp_port
 
-
-@pytest.fixture
-def mock_whatsapp():
-    return create_mock_whatsapp_port()
+MESSAGE_ID = 'MSG_77'
 
 
 @pytest.fixture
@@ -17,9 +11,6 @@ def command(mock_whatsapp):
     cmd = ScarraCommand()
     cmd._whatsapp = mock_whatsapp
     return cmd
-
-
-MESSAGE_ID = 'MSG_77'
 
 
 class TestMatches:
@@ -75,7 +66,7 @@ class TestNoViewOnce:
 class TestImageViewOnce:
     @pytest.mark.anyio
     async def test_returns_image_buffer(self, command, mock_whatsapp):
-        mock_whatsapp.download_media = AsyncMock(return_value=b'img-data')
+        mock_whatsapp.download_media.return_value = b'img-data'
         data = GroupCommandDataFactory.build(
             text=',scarra',
             media_type='image',
@@ -93,7 +84,7 @@ class TestImageViewOnce:
 
     @pytest.mark.anyio
     async def test_uses_original_caption(self, command, mock_whatsapp):
-        mock_whatsapp.download_media = AsyncMock(return_value=b'img-data')
+        mock_whatsapp.download_media.return_value = b'img-data'
         data = GroupCommandDataFactory.build(
             text=',scarra',
             media_type='image',
@@ -110,7 +101,7 @@ class TestImageViewOnce:
 class TestVideoViewOnce:
     @pytest.mark.anyio
     async def test_returns_video_buffer(self, command, mock_whatsapp):
-        mock_whatsapp.download_media = AsyncMock(return_value=b'vid-data')
+        mock_whatsapp.download_media.return_value = b'vid-data'
         data = GroupCommandDataFactory.build(
             text=',scarra',
             media_type='video',
@@ -129,7 +120,7 @@ class TestVideoViewOnce:
 class TestAudioViewOnce:
     @pytest.mark.anyio
     async def test_returns_audio_buffer(self, command, mock_whatsapp):
-        mock_whatsapp.download_media = AsyncMock(return_value=b'aud-data')
+        mock_whatsapp.download_media.return_value = b'aud-data'
         data = GroupCommandDataFactory.build(
             text=',scarra',
             media_type='audio',
@@ -147,7 +138,6 @@ class TestAudioViewOnce:
 class TestProactiveMediaBuffer:
     @pytest.mark.anyio
     async def test_uses_proactive_buffer_skips_download(self, command, mock_whatsapp):
-        mock_whatsapp.download_media = AsyncMock()
         data = GroupCommandDataFactory.build(
             text=',scarra',
             media_type='image',

@@ -2,7 +2,6 @@ import contextlib
 import io
 import struct
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from PIL import Image
@@ -113,13 +112,13 @@ class TestStickerCreatorImage:
 
 class TestStickerCreatorVideo:
     @pytest.mark.anyio
-    async def test_video_calls_ffmpeg(self) -> None:
+    async def test_video_calls_ffmpeg(self, mocker) -> None:
         img = Image.new('RGBA', (512, 512), 'red')
         buf = io.BytesIO()
         img.save(buf, format='WEBP')
         webp_bytes = buf.getvalue()
 
-        mock_proc = AsyncMock()
+        mock_proc = mocker.AsyncMock()
         mock_proc.communicate.return_value = (b'', b'')
         mock_proc.returncode = 0
 
@@ -130,33 +129,34 @@ class TestStickerCreatorVideo:
             write_fake_output(*args)
             return mock_proc
 
-        with patch(
+        mock_exec = mocker.patch(
             'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
             side_effect=fake_exec,
-        ) as mock_exec:
-            video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
-            result = await StickerCreator.create(video_buffer, 'full')
+        )
+        video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
 
-            mock_exec.assert_called_once()
-            call_args = mock_exec.call_args[0]
-            assert call_args[0] == 'ffmpeg'
-            assert '-vcodec' in call_args
-            assert 'libwebp' in call_args
-            assert _has_exif_chunk(result)
+        result = await StickerCreator.create(video_buffer, 'full')
+
+        mock_exec.assert_called_once()
+        call_args = mock_exec.call_args[0]
+        assert call_args[0] == 'ffmpeg'
+        assert '-vcodec' in call_args
+        assert 'libwebp' in call_args
+        assert _has_exif_chunk(result)
 
     @pytest.mark.anyio
-    async def test_video_ffmpeg_error_propagates(self) -> None:
-        mock_proc = AsyncMock()
+    async def test_video_ffmpeg_error_propagates(self, mocker) -> None:
+        mock_proc = mocker.AsyncMock()
         mock_proc.communicate.return_value = (b'', b'conversion failed')
         mock_proc.returncode = 1
-
-        with patch(
+        mocker.patch(
             'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
             return_value=mock_proc,
-        ):
-            video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
-            with pytest.raises(RuntimeError, match='ffmpeg failed'):
-                await StickerCreator.create(video_buffer, 'full')
+        )
+        video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
+
+        with pytest.raises(RuntimeError, match='ffmpeg failed'):
+            await StickerCreator.create(video_buffer, 'full')
 
 
 class TestIsVideo:

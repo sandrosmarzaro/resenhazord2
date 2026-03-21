@@ -57,8 +57,8 @@ class TestDynamicMenu:
     async def test_builds_dynamic_menu(self, command):
         registry = CommandRegistry.instance()
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -77,8 +77,8 @@ class TestDynamicMenu:
         registry.register(D20Command())
         registry.register(OiCommand())
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         text = messages[0].content.text
@@ -94,8 +94,8 @@ class TestDynamicMenu:
         registry = CommandRegistry.instance()
         registry.register(D20Command())
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         text = messages[0].content.text
@@ -104,9 +104,7 @@ class TestDynamicMenu:
         assert 'visualização única' in text
 
     @pytest.mark.anyio
-    async def test_skips_commands_without_category(self, command):
-        from unittest.mock import PropertyMock, patch
-
+    async def test_skips_commands_without_category(self, command, mocker):
         from bot.domain.commands.base import CommandConfig
         from bot.domain.commands.d20 import D20Command
 
@@ -114,11 +112,13 @@ class TestDynamicMenu:
         registry = CommandRegistry.instance()
         registry.register(d20)
         registry.register(command)
-
         no_category = CommandConfig(name='d20', category=None)
-        with patch.object(type(d20), 'config', new_callable=PropertyMock, return_value=no_category):
-            data = GroupCommandDataFactory.build(text=',menu')
-            messages = await command.run(data)
+        mocker.patch.object(
+            type(d20), 'config', new_callable=mocker.PropertyMock, return_value=no_category
+        )
+        data = GroupCommandDataFactory.build(text=',menu')
+
+        messages = await command.run(data)
 
         text = messages[0].content.text
         assert ',d20' not in text
@@ -132,8 +132,8 @@ class TestFormatOptions:
         registry = CommandRegistry.instance()
         registry.register(MyAnimeListCommand())
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         text = messages[0].content.text
@@ -146,8 +146,8 @@ class TestFormatOptions:
         registry = CommandRegistry.instance()
         registry.register(FatoCommand())
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         text = messages[0].content.text
@@ -160,8 +160,8 @@ class TestFormatOptions:
         registry = CommandRegistry.instance()
         registry.register(DownloadCommand())
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         text = messages[0].content.text
@@ -175,8 +175,8 @@ class TestFormatOptions:
         token = 'test'  # noqa: S105
         registry.register(BibliaCommand(biblia_token=token))
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         text = messages[0].content.text
@@ -190,8 +190,8 @@ class TestFormatOptions:
         token = 'test'  # noqa: S105
         registry.register(BibliaCommand(biblia_token=token))
         registry.register(command)
-
         data = GroupCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         text = messages[0].content.text
@@ -215,6 +215,7 @@ class TestPrivateChat:
     @pytest.mark.anyio
     async def test_works_in_private(self, command):
         data = PrivateCommandDataFactory.build(text=',menu')
+
         messages = await command.run(data)
 
         # MenuCommand has no group_only restriction

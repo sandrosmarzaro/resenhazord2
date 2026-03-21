@@ -1,29 +1,11 @@
-from unittest.mock import AsyncMock, MagicMock, patch
-
+import httpx
 import pytest
 
-from bot.domain.services.steal_group import StealGroupService
+from bot.domain.services.steal_group import LOREMFLICKR_URL, StealGroupService
 
 BOT_JID = 'bot@s.whatsapp.net'
 RESENHA_JID = 'resenha@g.us'
 GROUP_JID = 'target@g.us'
-
-
-@pytest.fixture
-def mock_whatsapp():
-    wa = MagicMock()
-    wa.group_metadata = AsyncMock()
-    wa.group_participants_update = AsyncMock()
-    wa.group_update_subject = AsyncMock()
-    wa.group_update_description = AsyncMock()
-    wa.send_message = AsyncMock()
-    wa.update_profile_picture = AsyncMock()
-    return wa
-
-
-@pytest.fixture
-def service(mock_whatsapp):
-    return StealGroupService(mock_whatsapp, BOT_JID, RESENHA_JID)
 
 
 def _group_event(action='promote', participants=None):
@@ -34,30 +16,63 @@ def _group_event(action='promote', participants=None):
     }
 
 
+def _metadata(*, participants=None, owner='someone_else@s.whatsapp.net'):
+    return {
+        'participants': participants
+        or [
+            {'id': BOT_JID, 'admin': 'superadmin'},
+            {'id': 'admin1@s.whatsapp.net', 'admin': 'admin'},
+            {'id': 'member@s.whatsapp.net'},
+        ],
+        'ownerPn': owner,
+        'subject': 'Target Group',
+        'desc': 'A group',
+    }
+
+
+@pytest.fixture
+def service(mock_whatsapp):
+    return StealGroupService(mock_whatsapp, BOT_JID, RESENHA_JID)
+
+
+@pytest.fixture
+def colony_collection(mock_mongodb_collection):
+    collection = mock_mongodb_collection('colonias')
+    collection.find_one_and_update.return_value = {'number': 1}
+    return collection
+
+
+@pytest.fixture
+def loremflickr_route(respx_mock):
+    return respx_mock.get(url__startswith=LOREMFLICKR_URL).mock(
+        return_value=httpx.Response(200, content=b'image-data')
+    )
+
+
 class TestIgnoredActions:
     @pytest.mark.anyio
     async def test_ignores_non_promote(self, service, mock_whatsapp):
         await service.run(_group_event(action='demote'))
+
         mock_whatsapp.group_metadata.assert_not_called()
 
     @pytest.mark.anyio
     async def test_ignores_other_participant_promoted(self, service, mock_whatsapp):
         await service.run(_group_event(participants=[{'id': 'other@s.whatsapp.net'}]))
+
         mock_whatsapp.group_metadata.assert_not_called()
 
 
 class TestOwnerIsAdmin:
     @pytest.mark.anyio
     async def test_skips_if_owner_is_admin(self, service, mock_whatsapp):
-        mock_whatsapp.group_metadata.return_value = {
-            'participants': [
+        mock_whatsapp.group_metadata.return_value = _metadata(
+            participants=[
                 {'id': BOT_JID, 'admin': 'superadmin'},
                 {'id': 'owner@s.whatsapp.net', 'admin': 'admin'},
             ],
-            'ownerPn': 'owner@s.whatsapp.net',
-            'subject': 'Test',
-            'desc': '',
-        }
+            owner='owner@s.whatsapp.net',
+        )
 
         await service.run(_group_event())
 
@@ -66,33 +81,12 @@ class TestOwnerIsAdmin:
 
 class TestStealExecution:
     @pytest.mark.anyio
-    async def test_demotes_admins_and_renames(self, service, mock_whatsapp):
-        mock_whatsapp.group_metadata.return_value = {
-            'participants': [
-                {'id': BOT_JID, 'admin': 'superadmin'},
-                {'id': 'admin1@s.whatsapp.net', 'admin': 'admin'},
-                {'id': 'member@s.whatsapp.net'},
-            ],
-            'ownerPn': 'someone_else@s.whatsapp.net',
-            'subject': 'Target Group',
-            'desc': 'A group',
-        }
+    async def test_demotes_admins_and_renames(
+        self, service, mock_whatsapp, colony_collection, loremflickr_route
+    ):
+        mock_whatsapp.group_metadata.return_value = _metadata()
 
-        mock_collection = AsyncMock()
-        mock_collection.find_one_and_update.return_value = {'number': 1}
-
-        with (
-            patch(
-                'bot.domain.services.steal_group.MongoDBConnection.collection',
-                return_value=mock_collection,
-            ),
-            patch(
-                'bot.domain.services.steal_group.HttpClient.get_buffer',
-                new_callable=AsyncMock,
-                return_value=b'image-data',
-            ),
-        ):
-            await service.run(_group_event())
+        await service.run(_group_event())
 
         mock_whatsapp.group_participants_update.assert_called_once_with(
             GROUP_JID, ['admin1@s.whatsapp.net'], 'demote'
@@ -109,29 +103,16 @@ class TestStealExecution:
         mock_whatsapp.update_profile_picture.assert_called_once_with(GROUP_JID, b'image-data')
 
     @pytest.mark.anyio
-    async def test_roman_numeral_increments(self, service, mock_whatsapp):
-        mock_whatsapp.group_metadata.return_value = {
-            'participants': [{'id': BOT_JID, 'admin': 'superadmin'}],
-            'ownerPn': '',
-            'subject': 'G',
-            'desc': '',
-        }
+    async def test_roman_numeral_increments(
+        self, service, mock_whatsapp, colony_collection, loremflickr_route
+    ):
+        mock_whatsapp.group_metadata.return_value = _metadata(
+            participants=[{'id': BOT_JID, 'admin': 'superadmin'}],
+            owner='',
+        )
+        colony_collection.find_one_and_update.return_value = {'number': 42}
 
-        mock_collection = AsyncMock()
-        mock_collection.find_one_and_update.return_value = {'number': 42}
-
-        with (
-            patch(
-                'bot.domain.services.steal_group.MongoDBConnection.collection',
-                return_value=mock_collection,
-            ),
-            patch(
-                'bot.domain.services.steal_group.HttpClient.get_buffer',
-                new_callable=AsyncMock,
-                return_value=b'img',
-            ),
-        ):
-            await service.run(_group_event())
+        await service.run(_group_event())
 
         subject_call = mock_whatsapp.group_update_subject.call_args[0][1]
         assert 'XLII' in subject_call

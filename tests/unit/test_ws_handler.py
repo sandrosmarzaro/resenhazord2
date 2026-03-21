@@ -1,7 +1,6 @@
 """Tests for WebSocket message routing."""
 
 import json
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -28,25 +27,24 @@ class EchoCommand(Command):
         return [Reply.to(data).text(f'Echo: {parsed.rest or "nothing"}')]
 
 
-def _make_ws_mock() -> AsyncMock:
-    ws = AsyncMock()
-    ws.send_json = AsyncMock()
-    ws.send_bytes = AsyncMock()
+@pytest.fixture
+def mock_ws(mocker):
+    ws = mocker.AsyncMock()
+    ws.send_json = mocker.AsyncMock()
+    ws.send_bytes = mocker.AsyncMock()
     return ws
 
 
-def _make_handler(ws: AsyncMock) -> WebSocketHandler:
+@pytest.fixture
+def handler(mock_ws):
     registry = CommandRegistry.instance()
     registry.register(EchoCommand())
-    return WebSocketHandler(ws, CommandHandler(registry))
+    return WebSocketHandler(mock_ws, CommandHandler(registry))
 
 
 class TestWebSocketHandlerCommand:
     @pytest.mark.anyio
-    async def test_command_match_returns_response(self):
-        ws = _make_ws_mock()
-        handler = _make_handler(ws)
-
+    async def test_command_match_returns_response(self, mock_ws, handler):
         msg = json.dumps(
             {
                 'id': 'test-1',
@@ -62,18 +60,15 @@ class TestWebSocketHandlerCommand:
 
         await handler.handle_message(msg)
 
-        ws.send_json.assert_called_once()
-        call_args = ws.send_json.call_args[0][0]
+        mock_ws.send_json.assert_called_once()
+        call_args = mock_ws.send_json.call_args[0][0]
         assert call_args['id'] == 'test-1'
         assert call_args['type'] == 'command_response'
         assert len(call_args['data']['messages']) == 1
         assert call_args['data']['messages'][0]['content']['text'] == 'Echo: hello'
 
     @pytest.mark.anyio
-    async def test_no_match_returns_no_match(self):
-        ws = _make_ws_mock()
-        handler = _make_handler(ws)
-
+    async def test_no_match_returns_no_match(self, mock_ws, handler):
         msg = json.dumps(
             {
                 'id': 'test-2',
@@ -88,17 +83,14 @@ class TestWebSocketHandlerCommand:
 
         await handler.handle_message(msg)
 
-        ws.send_json.assert_called_once()
-        call_args = ws.send_json.call_args[0][0]
+        mock_ws.send_json.assert_called_once()
+        call_args = mock_ws.send_json.call_args[0][0]
         assert call_args['type'] == 'no_match'
 
 
 class TestWebSocketHandlerWaResult:
     @pytest.mark.anyio
-    async def test_wa_result_resolves_future(self):
-        ws = _make_ws_mock()
-        handler = _make_handler(ws)
-
+    async def test_wa_result_resolves_future(self, mock_ws, handler):
         import asyncio
 
         # Only run on asyncio backend since wa_call uses asyncio.Future
@@ -110,7 +102,6 @@ class TestWebSocketHandlerWaResult:
 
         future: asyncio.Future = loop.create_future()
         handler._pending['call-1'] = future
-
         msg = json.dumps(
             {
                 'id': 'call-1',

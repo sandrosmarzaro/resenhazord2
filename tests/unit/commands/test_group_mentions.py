@@ -1,24 +1,21 @@
-from unittest.mock import AsyncMock
-
 import pytest
 
 from bot.domain.commands.group_mentions import GroupMentionsCommand
 from bot.domain.services.group_mentions import GroupMentionsService
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
+CHAT_JID = '120363044041082732@g.us'
+SENDER_JID = '5511999990000@s.whatsapp.net'
+
 
 @pytest.fixture
-def mock_service():
-    return AsyncMock(spec=GroupMentionsService)
+def mock_service(mocker):
+    return mocker.AsyncMock(spec=GroupMentionsService)
 
 
 @pytest.fixture
 def command(mock_service):
     return GroupMentionsCommand(service=mock_service)
-
-
-CHAT_JID = '120363044041082732@g.us'
-SENDER_JID = '5511999990000@s.whatsapp.net'
 
 
 class TestMatches:
@@ -43,6 +40,7 @@ class TestGroupOnly:
     @pytest.mark.anyio
     async def test_rejects_private_chat(self, command):
         data = PrivateCommandDataFactory.build(text=',grupo list')
+
         messages = await command.run(data)
 
         assert len(messages) == 1

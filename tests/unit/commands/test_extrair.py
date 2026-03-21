@@ -1,12 +1,12 @@
 import io
-from unittest.mock import AsyncMock
 
 import pytest
 from PIL import Image
 
 from bot.domain.commands.extrair import ExtrairCommand
 from tests.factories.command_data import GroupCommandDataFactory
-from tests.factories.mock_whatsapp import create_mock_whatsapp_port
+
+MESSAGE_ID = 'MSG_99'
 
 
 def _make_webp(*, animated: bool = False) -> bytes:
@@ -23,18 +23,10 @@ def _make_webp(*, animated: bool = False) -> bytes:
 
 
 @pytest.fixture
-def mock_whatsapp():
-    return create_mock_whatsapp_port()
-
-
-@pytest.fixture
 def command(mock_whatsapp):
     cmd = ExtrairCommand()
     cmd._whatsapp = mock_whatsapp
     return cmd
-
-
-MESSAGE_ID = 'MSG_99'
 
 
 class TestMatches:
@@ -93,7 +85,7 @@ class TestStaticSticker:
     @pytest.mark.anyio
     async def test_converts_to_png(self, command, mock_whatsapp):
         webp_data = _make_webp(animated=False)
-        mock_whatsapp.download_media = AsyncMock(return_value=webp_data)
+        mock_whatsapp.download_media.return_value = webp_data
         data = GroupCommandDataFactory.build(
             text=',extrair',
             media_type='sticker',
@@ -107,13 +99,12 @@ class TestStaticSticker:
         assert len(messages) == 1
         assert messages[0].content.type == 'image_buffer'
         assert messages[0].content.view_once is True
-
         img = Image.open(io.BytesIO(messages[0].content.data))
         assert img.format == 'PNG'
 
     @pytest.mark.anyio
     async def test_calls_download_media(self, command, mock_whatsapp):
-        mock_whatsapp.download_media = AsyncMock(return_value=_make_webp())
+        mock_whatsapp.download_media.return_value = _make_webp()
         data = GroupCommandDataFactory.build(
             text=',extrair',
             media_type='sticker',
@@ -130,7 +121,7 @@ class TestAnimatedSticker:
     @pytest.mark.anyio
     async def test_converts_to_gif_video(self, command, mock_whatsapp):
         webp_data = _make_webp(animated=True)
-        mock_whatsapp.download_media = AsyncMock(return_value=webp_data)
+        mock_whatsapp.download_media.return_value = webp_data
         data = GroupCommandDataFactory.build(
             text=',extrair',
             media_type='sticker',
@@ -150,7 +141,7 @@ class TestAnimatedSticker:
 class TestConversionError:
     @pytest.mark.anyio
     async def test_returns_error_on_bad_data(self, command, mock_whatsapp):
-        mock_whatsapp.download_media = AsyncMock(return_value=b'not-an-image')
+        mock_whatsapp.download_media.return_value = b'not-an-image'
         data = GroupCommandDataFactory.build(
             text=',extrair',
             media_type='sticker',
@@ -169,7 +160,6 @@ class TestProactiveMediaBuffer:
     @pytest.mark.anyio
     async def test_uses_proactive_buffer_skips_download(self, command, mock_whatsapp):
         webp_data = _make_webp(animated=False)
-        mock_whatsapp.download_media = AsyncMock()
         data = GroupCommandDataFactory.build(
             text=',extrair',
             media_type='sticker',
