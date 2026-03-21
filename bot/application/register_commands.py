@@ -16,6 +16,7 @@ from bot.domain.commands.carro import CarroCommand
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.commands.d20 import D20Command
+from bot.domain.commands.dev import DevCommand
 from bot.domain.commands.download import DownloadCommand
 from bot.domain.commands.drive import DriveCommand
 from bot.domain.commands.extrair import ExtrairCommand
@@ -72,6 +73,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(ClashRoyaleCommand())
     registry.register(CountryFlagCommand())
     registry.register(D20Command())
+    registry.register(DevCommand())
     registry.register(DownloadCommand())
     registry.register(
         DriveCommand(
