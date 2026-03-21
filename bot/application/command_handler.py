@@ -1,6 +1,7 @@
 import structlog
 
 from bot.application.command_registry import CommandRegistry
+from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -21,6 +22,8 @@ class CommandHandler:
 
         try:
             return await command.run(data)
+        except BotError:
+            raise
         except Exception:
             logger.exception('command_execution_failed', command=command.config.name)
             raise

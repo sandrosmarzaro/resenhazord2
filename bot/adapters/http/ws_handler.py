@@ -9,6 +9,8 @@ from starlette.websockets import WebSocket
 
 from bot.adapters.http.schemas import WSCommandData, WSMessage
 from bot.application.command_handler import CommandHandler
+from bot.domain.builders.reply import Reply
+from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.steal_group import StealGroupService
@@ -74,6 +76,8 @@ class WebSocketHandler:
 
         try:
             messages = await self._command_handler.handle(command_data)
+        except BotError as e:
+            messages = [Reply.to(command_data).text(e.user_message)]
         except Exception as e:
             logger.exception('command_handler_error', id=msg.id)
             await self._send_error(msg.id, str(e), 'EXECUTION_ERROR')
