@@ -86,6 +86,7 @@ class CarroCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='carro',
+            aliases=['car'],
             flags=['show', 'dm', 'wiki'],
             category='aleatórias',
         )

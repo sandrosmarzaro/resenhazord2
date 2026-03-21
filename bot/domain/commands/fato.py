@@ -8,7 +8,7 @@ from bot.infrastructure.http_client import HttpClient
 class FatoCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='fato', flags=['hoje'], category='aleatórias')
+        return CommandConfig(name='fato', aliases=['fact'], flags=['hoje'], category='aleatórias')
 
     @property
     def menu_description(self) -> str:

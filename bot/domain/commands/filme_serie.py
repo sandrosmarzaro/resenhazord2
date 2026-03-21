@@ -10,6 +10,7 @@ from bot.infrastructure.http_client import HttpClient
 class FilmeSerieCommand(Command):
     MAX_PAGE = 25
     POSTER_SIZE = 'w500'
+    MOVIE_NAMES: frozenset[str] = frozenset({'filme', 'movie'})
 
     def __init__(self, *, tmdb_api_key: str = '') -> None:
         super().__init__()
@@ -19,7 +20,7 @@ class FilmeSerieCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='filme',
-            aliases=['série'],
+            aliases=['série', 'movie', 'series'],
             options=[OptionDef(name='mode', values=['top', 'pop'])],
             flags=['show', 'dm'],
             category='aleatórias',
@@ -30,7 +31,7 @@ class FilmeSerieCommand(Command):
         return 'Receba aleatoriamente um filme ou série top 500 em popularidade ou por nota.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        media_type = 'movie' if parsed.command_name == 'filme' else 'tv'
+        media_type = 'movie' if parsed.command_name in self.MOVIE_NAMES else 'tv'
         mode_value = parsed.options.get('mode')
         mode = 'top_rated' if mode_value == 'top' else 'popular'
         url = f'https://api.themoviedb.org/3/{media_type}/{mode}'

@@ -29,6 +29,7 @@ class MusicCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='música',
+            aliases=['music'],
             flags=['free', 'show', 'dm'],
             args=ArgType.OPTIONAL,
             category='download',

@@ -20,7 +20,12 @@ class CountryFlagCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='bandeira', flags=['show', 'dm'], category='aleatórias')
+        return CommandConfig(
+            name='bandeira',
+            aliases=['flag'],
+            flags=['show', 'dm'],
+            category='aleatórias',
+        )
 
     @property
     def menu_description(self) -> str:

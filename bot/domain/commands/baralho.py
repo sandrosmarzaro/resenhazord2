@@ -8,7 +8,12 @@ from bot.infrastructure.http_client import HttpClient
 class BaralhoCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='carta', flags=['show', 'dm'], category='aleatórias')
+        return CommandConfig(
+            name='carta',
+            aliases=['card'],
+            flags=['show', 'dm'],
+            category='aleatórias',
+        )
 
     @property
     def menu_description(self) -> str:

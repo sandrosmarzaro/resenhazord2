@@ -36,6 +36,7 @@ class GroupMentionsCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='grupo',
+            aliases=['group'],
             args=ArgType.OPTIONAL,
             group_only=True,
             category='grupo',

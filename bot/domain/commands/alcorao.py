@@ -14,6 +14,7 @@ class AlcoraoCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='alcorão',
+            aliases=['quran'],
             options=[OptionDef(name='lang', values=['ar', 'pt'])],
             category='aleatórias',
         )

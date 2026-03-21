@@ -10,7 +10,12 @@ class MealRecipesCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='comida', flags=['show', 'dm'], category='aleatórias')
+        return CommandConfig(
+            name='comida',
+            aliases=['food'],
+            flags=['show', 'dm'],
+            category='aleatórias',
+        )
 
     @property
     def menu_description(self) -> str:

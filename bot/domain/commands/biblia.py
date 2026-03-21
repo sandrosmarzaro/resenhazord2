@@ -19,6 +19,7 @@ class BibliaCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='bíblia',
+            aliases=['bible'],
             options=[
                 OptionDef(name='lang', values=['pt', 'en']),
                 OptionDef(name='version', values=['nvi', 'ra', 'acf', 'kjv', 'bbe', 'apee', 'rvr']),

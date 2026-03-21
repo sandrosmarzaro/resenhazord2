@@ -14,7 +14,7 @@ logger = structlog.get_logger()
 class ExtrairCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='extrair', category='download')
+        return CommandConfig(name='extrair', aliases=['extract'], category='download')
 
     @property
     def menu_description(self) -> str:

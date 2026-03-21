@@ -24,6 +24,7 @@ class TorahCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='torá',
+            aliases=['torah'],
             options=[OptionDef(name='lang', values=['he', 'en'])],
             args=ArgType.OPTIONAL,
             flags=['dm', 'show'],

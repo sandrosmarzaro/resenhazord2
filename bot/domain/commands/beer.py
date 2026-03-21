@@ -21,7 +21,12 @@ class BeerCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='cerveja', flags=['show', 'dm'], category='aleatórias')
+        return CommandConfig(
+            name='cerveja',
+            aliases=['beer'],
+            flags=['show', 'dm'],
+            category='aleatórias',
+        )
 
     @property
     def menu_description(self) -> str:

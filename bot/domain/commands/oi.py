@@ -8,7 +8,7 @@ from bot.domain.models.message import BotMessage
 class OiCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='oi', category='outras')
+        return CommandConfig(name='oi', aliases=['hi'], category='outras')
 
     @property
     def menu_description(self) -> str:
