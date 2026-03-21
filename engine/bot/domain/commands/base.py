@@ -75,6 +75,12 @@ class Command(ABC):
     @abstractmethod
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]: ...
 
+    async def _get_media(self, data: CommandData) -> bytes:
+        """Return proactively-downloaded media buffer, or fall back to wa_call."""
+        if data.media_buffer is not None:
+            return data.media_buffer
+        return await self._whatsapp.download_media(data.message_id, data.media_source)
+
     def _apply_flags(
         self, data: CommandData, parsed: ParsedCommand, messages: list[BotMessage]
     ) -> list[BotMessage]:

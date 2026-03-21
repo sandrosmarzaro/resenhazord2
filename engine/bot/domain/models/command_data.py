@@ -18,6 +18,7 @@ class CommandData:
     media_source: str | None = None
     media_is_animated: bool = False
     media_caption: str | None = None
+    media_buffer: bytes | None = None
     message_id: str | None = None
     push_name: str | None = None
 
@@ -40,6 +41,7 @@ class CommandData:
             media_source=data.get('media_source'),
             media_is_animated=data.get('media_is_animated', False),
             media_caption=data.get('media_caption'),
+            media_buffer=data.get('media_buffer'),
             message_id=data.get('message_id'),
             push_name=data.get('push_name'),
         )

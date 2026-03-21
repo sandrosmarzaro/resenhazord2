@@ -31,7 +31,7 @@ class ExtrairCommand(Command):
         )
 
         try:
-            buffer = await self._whatsapp.download_media(data.message_id, data.media_source)
+            buffer = await self._get_media(data)
             if data.media_is_animated:
                 gif_buffer = self._convert_to_gif(buffer)
                 return [Reply.to(data).video_buffer(gif_buffer, gif_playback=True)]

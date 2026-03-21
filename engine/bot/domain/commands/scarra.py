@@ -34,7 +34,7 @@ class ScarraCommand(Command):
             media_type=data.media_type,
         )
 
-        buffer = await self._whatsapp.download_media(data.message_id, data.media_source)
+        buffer = await self._get_media(data)
         caption = data.media_caption or self.DEFAULT_CAPTION
 
         if data.media_type == 'image':

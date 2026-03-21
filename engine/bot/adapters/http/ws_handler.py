@@ -46,6 +46,7 @@ class WebSocketHandler:
             return
 
         cmd_data = WSCommandData.model_validate(msg.data)
+        media_buffer = self.take_binary() if cmd_data.media_buffer_size > 0 else None
         command_data = CommandData(
             text=cmd_data.text,
             jid=cmd_data.jid,
@@ -59,6 +60,7 @@ class WebSocketHandler:
             media_source=cmd_data.media_source,
             media_is_animated=cmd_data.media_is_animated,
             media_caption=cmd_data.media_caption,
+            media_buffer=media_buffer,
             message_id=cmd_data.message_id,
             push_name=cmd_data.push_name,
         )

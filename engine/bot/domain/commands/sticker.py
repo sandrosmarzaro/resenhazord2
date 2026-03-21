@@ -45,6 +45,6 @@ class StickerCommand(Command):
             sticker_type=sticker_type,
         )
 
-        buffer = await self._whatsapp.download_media(data.message_id, data.media_source)
+        buffer = await self._get_media(data)
         sticker = await StickerCreator.create(buffer, sticker_type)
         return [Reply.to(data).sticker(sticker)]

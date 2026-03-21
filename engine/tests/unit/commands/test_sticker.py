@@ -181,3 +181,25 @@ class TestStickerCreation:
 
         assert messages[0].content.type == 'sticker'
         assert messages[0].content.data == b'webp-sticker'
+
+    @pytest.mark.anyio
+    async def test_uses_proactive_media_buffer(self, command, mock_whatsapp):
+        mock_whatsapp.download_media = AsyncMock()
+        data = GroupCommandDataFactory.build(
+            text=',stic',
+            media_type='image',
+            media_source='direct',
+            message_id=MESSAGE_ID,
+            media_buffer=b'proactive-image',
+        )
+
+        with patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            new_callable=AsyncMock,
+            return_value=b'sticker-data',
+        ) as mock_create:
+            messages = await command.run(data)
+
+        assert len(messages) == 1
+        mock_whatsapp.download_media.assert_not_called()
+        mock_create.assert_called_once_with(b'proactive-image', 'full')

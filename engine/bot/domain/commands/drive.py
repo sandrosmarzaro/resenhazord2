@@ -99,7 +99,7 @@ class DriveCommand(Command):
                 ]
             target_channel = await self._discord.create_channel(channel, category_channel['id'])
 
-        buffer = await self._whatsapp.download_media(data.message_id, data.media_source)
+        buffer = await self._get_media(data)
 
         ext = EXTENSIONS[data.media_type]
         label = TYPE_LABELS[data.media_type]

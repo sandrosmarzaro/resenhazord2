@@ -163,3 +163,24 @@ class TestConversionError:
 
         assert len(messages) == 1
         assert 'extrair' in messages[0].content.text.lower()
+
+
+class TestProactiveMediaBuffer:
+    @pytest.mark.anyio
+    async def test_uses_proactive_buffer_skips_download(self, command, mock_whatsapp):
+        webp_data = _make_webp(animated=False)
+        mock_whatsapp.download_media = AsyncMock()
+        data = GroupCommandDataFactory.build(
+            text=',extrair',
+            media_type='sticker',
+            media_source='quoted',
+            media_is_animated=False,
+            message_id=MESSAGE_ID,
+            media_buffer=webp_data,
+        )
+
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert messages[0].content.type == 'image_buffer'
+        mock_whatsapp.download_media.assert_not_called()

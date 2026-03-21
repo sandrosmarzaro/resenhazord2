@@ -142,3 +142,22 @@ class TestAudioViewOnce:
         assert len(messages) == 1
         assert messages[0].content.type == 'audio_buffer'
         assert messages[0].content.data == b'aud-data'
+
+
+class TestProactiveMediaBuffer:
+    @pytest.mark.anyio
+    async def test_uses_proactive_buffer_skips_download(self, command, mock_whatsapp):
+        mock_whatsapp.download_media = AsyncMock()
+        data = GroupCommandDataFactory.build(
+            text=',scarra',
+            media_type='image',
+            media_source='view_once',
+            message_id=MESSAGE_ID,
+            media_buffer=b'proactive-img',
+        )
+
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert messages[0].content.data == b'proactive-img'
+        mock_whatsapp.download_media.assert_not_called()

@@ -95,6 +95,15 @@ export default class PythonBridge {
       this.messageStore.set(messageId, data as WAMessage);
     }
 
+    let mediaBuffer: Buffer | null = null;
+    if (mediaInfo && this.mediaHandler) {
+      try {
+        mediaBuffer = await this.mediaHandler.downloadMedia(data as WAMessage, mediaInfo.source);
+      } catch (error) {
+        Sentry.logger.warn(Sentry.logger.fmt`Proactive media download failed: ${error}`);
+      }
+    }
+
     const msg: WSMessage = {
       id,
       type: 'command',
@@ -113,10 +122,14 @@ export default class PythonBridge {
         media_source: mediaInfo?.source ?? null,
         media_is_animated: mediaInfo?.isAnimated ?? false,
         media_caption: mediaInfo?.caption ?? null,
+        media_buffer_size: mediaBuffer?.length ?? 0,
       },
     };
 
     try {
+      if (mediaBuffer) {
+        this.ws!.send(mediaBuffer);
+      }
       const response = await this.sendAndWait(id, msg);
 
       if (response.type === 'no_match') return null;

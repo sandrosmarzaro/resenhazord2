@@ -18,6 +18,7 @@ class WSCommandData(BaseModel):
     media_source: str | None = None
     media_is_animated: bool = False
     media_caption: str | None = None
+    media_buffer_size: int = 0
     message_id: str | None = None
     push_name: str | None = None
 
