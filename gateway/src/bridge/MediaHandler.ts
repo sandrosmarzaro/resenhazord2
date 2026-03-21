@@ -29,6 +29,8 @@ const TYPE_MAP: Record<string, MediaInfo['type']> = {
   stickerMessage: 'sticker',
 };
 
+const DOWNLOAD_TIMEOUT_MS = 50_000;
+
 export default class MediaHandler {
   constructor(private readonly whatsapp: WhatsAppPort) {}
 
@@ -127,7 +129,7 @@ export default class MediaHandler {
       );
     }
 
-    const buffer = await downloadMediaMessage(
+    const download = downloadMediaMessage(
       message,
       'buffer',
       {},
@@ -137,7 +139,11 @@ export default class MediaHandler {
       },
     );
 
-    return buffer as Buffer;
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Media download timed out')), DOWNLOAD_TIMEOUT_MS),
+    );
+
+    return (await Promise.race([download, timeout])) as Buffer;
   }
 
   async createSticker(inputBuffer: Buffer, type: string = 'full'): Promise<Buffer> {
