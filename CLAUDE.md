@@ -53,228 +53,9 @@ Pre-push hook runs (from gateway/): lint, typecheck, format:check.
 
 ## Architecture
 
-### Message Flow
+The gateway receives WhatsApp messages via Baileys, downloads media proactively, and sends command data + binary frames over WebSocket to Python. Python matches commands via `CommandRegistry`, executes them, and returns `BotMessage[]` responses. Commands raise `BotError` subclasses for user-facing errors, caught centrally by the WebSocket handler.
 
-1. Baileys socket receives a message → `messages.upsert` event
-2. `MessageUpsertEvent` filters messages (only specific group JIDs)
-3. `CommandHandler.run(message)` extracts text and finds a matching command
-4. `CommandFactory.getStrategy(text)` iterates registered commands, matching via regex
-5. The matched `Command.run(data)` executes and returns `Message[]`
-6. Messages are sent back via the WhatsApp adapter
-
-### Command System
-
-Every command extends the abstract `Command` class (`bot/domain/commands/base.py`):
-
-- `config: CommandConfig` — declarative config for matching and parsing
-- `menu_description: str` — description shown in the `,menu` command
-- `execute(data: CommandData, parsed: ParsedCommand) -> list[BotMessage]` — command logic
-
-The base `Command.run()` is a template method that:
-
-1. Checks `group_only` and returns an error if used in a private chat
-2. Parses the message text via `CommandParser` into a `ParsedCommand`
-3. Calls the subclass `execute()` method
-4. Applies `dm` and `show` flags centrally (commands don't handle these)
-
-`CommandParser` (`bot/domain/parsers/command_parser.py`) auto-generates a regex from the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in names/flags/options are replaced with `.` in the regex.
-
-`CommandRegistry` (`bot/application/command_registry.py`) is a singleton that holds all command instances and selects the first match.
-
-The TS gateway mirrors the parser (`gateway/src/parsers/CommandParser.ts`) for initial command matching before forwarding to Python.
-
-### Ports & Adapters
-
-`WhatsAppPort` (`gateway/src/ports/WhatsAppPort.ts`) abstracts WhatsApp operations behind an interface (sendMessage, groupMetadata, groupParticipantsUpdate, onWhatsApp, updateMediaMessage, etc.).
-
-`BaileysAdapter` (`gateway/src/adapters/BaileysAdapter.ts`) implements `WhatsAppPort` by wrapping the Baileys `WASocket`.
-
-`Resenhazord2.adapter` (static, public) is the entry point; `socket` is private. On reconnection, a new adapter is created.
-
-Commands that need WhatsApp operations receive `WhatsAppPort` via constructor injection. Python commands access WhatsApp via `self._whatsapp` (the `WhatsAppWsClient` that delegates to TS over WebSocket).
-
-### Media Download
-
-Media is downloaded proactively by the TS gateway when a message arrives. The bytes are sent as a binary WebSocket frame before the command JSON. Python commands access media via `self._get_media(data)` which returns the proactive buffer or falls back to a `wa_call download_media` round-trip.
-
-### Reply Builder
-
-`Reply` (`bot/domain/builders/reply.py`) provides a fluent API for building `BotMessage` objects:
-
-```ts
-Reply.to(data).text('hello');
-Reply.to(data).image(url, caption);
-```
-
-`Reply.to(data)` captures the `CommandData` context. Terminal methods return a `Message`:
-
-- `text(text)` — plain text
-- `textWith(text, mentions)` — text with mentions
-- `image(url, caption?)` — image from URL (viewOnce: true)
-- `imageBuffer(buffer, caption?)` — image from buffer (viewOnce: true)
-- `video(url, caption?)` — video from URL (viewOnce: true)
-- `audio(url)` — audio from URL
-- `sticker(buffer)` — sticker from buffer
-- `raw(content)` — arbitrary `AnyMessageContent`
-
-Automatically sets `jid`, `quoted`, and `ephemeralExpiration` from the `CommandData`. Media methods default to `viewOnce: true` (base class handles the `show` flag to override this).
-
-### CommandConfig (`gateway/src/types/commandConfig.ts`)
-
-| Field         | Type           | Description                                                                          |
-| ------------- | -------------- | ------------------------------------------------------------------------------------ |
-| `name`        | `string`       | Primary command name. Diacritics auto-handled (e.g., `'pokémon'` matches `,pokemon`) |
-| `aliases`     | `string[]?`    | Alternative names (e.g., `['série']` for FilmeSerieCommand)                          |
-| `flags`       | `string[]?`    | Boolean on/off toggles. `dm` and `show` are handled by the base class                |
-| `options`     | `OptionDef[]?` | Named parameters that select one value from a set or match a pattern                 |
-| `args`        | `ArgType?`     | `None` (default), `Required`, or `Optional` — free-text after command                |
-| `argsPattern` | `RegExp?`      | Validation regex for args (e.g., `/^(?:@\d+(?:\s+@\d+)*)?$/`)                        |
-| `groupOnly`   | `boolean?`     | Restricts command to group chats (handled by base class)                             |
-
-**Flags** = boolean toggles (present or absent): `,pokemon team`, `,musica free`
-**Options** = select one value from alternatives: `,img hd flux-pro`, `,biblia pt nvi`
-
-Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for options, and `parsed.rest` for free-text args.
-
-**Base class auto-handles:**
-
-- `groupOnly` — returns error message for private chats
-- `dm` flag — redirects response to sender's DM
-- `show` flag — sets `viewOnce: false` (commands set `viewOnce: true` by default)
-
-### Adding a New Command
-
-1. Create `bot/domain/commands/foo.py` extending `Command`
-2. Define `config: CommandConfig` with appropriate name, flags, options, args
-3. Implement `execute(data, parsed)` — use `parsed.flags`, `parsed.options`, `parsed.rest`
-4. Use `Reply.to(data)` to build responses (media methods default to `view_once=True`)
-5. If the command needs WhatsApp operations, accept `WhatsAppPort` in constructor
-6. Register it in `bot/application/register_commands.py`
-7. Create `tests/unit/commands/test_foo.py`
-
-### Key Types
-
-- `CommandData` (`bot/domain/models/command_data.py`) — platform-agnostic command data with text, jid, media info, etc.
-- `BotMessage` (`bot/domain/models/message.py`) — response message with content and metadata
-- `CommandConfig` (`bot/domain/commands/base.py`) — declarative config: name, aliases, flags, options, args, group_only
-- `ParsedCommand` (`bot/domain/commands/base.py`) — parser output: command_name, flags (`set`), options (`dict`), rest (`str`)
-
-### Group Metadata Cache
-
-`gateway/src/cache/` implements a layered cache for `GroupMetadata` using the decorator pattern:
-
-- `CachePort<V>` (`gateway/src/cache/CachePort.ts`) — generic interface: `get(key): Promise<V | undefined>`, `set(key, value): Promise<void>`
-- `MemoryGroupMetadataCache` — `Map`-backed, always available, no TTL
-- `RedisGroupMetadataCache` — wraps `@upstash/redis`; TTL = 3600 s; `Redis` injected via constructor
-- `FallbackGroupMetadataCache` — decorator: `get` tries primary → falls back on miss or error; `set` writes fallback first (reliable), then primary (errors swallowed)
-- `gateway/src/cache/index.ts` — factory singleton: if `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, returns `FallbackGroupMetadataCache(Redis, Memory)`; otherwise `MemoryGroupMetadataCache`
-
-Populated in `Resenhazord2` via `groups.upsert` and `group-participants.update` events.
-
-### Singletons
-
-`CommandFactory`, `MongoDBConnection`, `AxiosClient` all use the singleton pattern. `CommandFactory` has `reset()` for reconnection (new adapter → new factory instance).
-
-**Always use existing singletons** — never instantiate `axios`, `new MongoClient()`, or similar clients directly. Use `AxiosClient.get()` / `AxiosClient.post()` / `AxiosClient.getBuffer()` for all HTTP requests. These singletons provide centralized retry logic, timeout defaults, and Sentry breadcrumbs. Creating new instances bypasses these guarantees.
-
-### Sentry
-
-`gateway/src/infra/Sentry.ts` initializes `@sentry/bun`. Always import as:
-
-```ts
-import { Sentry } from './src/infra/Sentry.js';
-```
-
-**Structured Logs** — `Sentry.logger.<level>()` with `fmt` tagged template for interpolation:
-
-```ts
-Sentry.logger.warn(Sentry.logger.fmt`Cache miss for key ${key}: ${error}`);
-```
-
-Levels (low → high): `trace` · `debug` · `info` · `warn` · `error` · `fatal`
-
-**Error capture** — always include `extra` context to aid debugging:
-
-```ts
-Sentry.captureException(error, { extra: { method: 'create', chatJid } });
-Sentry.captureMessage('Bot logged out', 'warning'); // levels: debug|info|log|warning|error|fatal
-```
-
-**Breadcrumbs** — trail of events before an error occurs:
-
-```ts
-Sentry.addBreadcrumb({ category: 'command', message: 'Executing FooCommand', level: 'info' });
-```
-
-**Scoped context** — tag errors with structured metadata:
-
-```ts
-Sentry.withScope((scope) => {
-  scope.setTag('command', command.constructor.name);
-  scope.setExtra('jid', jid);
-  Sentry.captureException(error);
-});
-```
-
-**Traces** — `tracesSampleRate: 0.1` (10%) configured in `Sentry.ts`; no manual spans currently.
-
-**Sentry CLI** — uses `SENTRY_TOKEN` from `.env` for releases and source maps:
-
-```bash
-SENTRY_AUTH_TOKEN=$SENTRY_TOKEN sentry-cli releases ...
-SENTRY_AUTH_TOKEN=$SENTRY_TOKEN sentry-cli sourcemaps upload ...
-```
-
-### Querying Issues
-
-Use `SENTRY_TOKEN` from `.env` to query issues via the REST API without opening the web UI.
-
-**List recent unresolved issues:**
-
-```bash
-curl -s \
-  -H "Authorization: Bearer $SENTRY_TOKEN" \
-  "https://sentry.io/api/0/projects/smarzaro/resenhazord2/issues/?query=is:unresolved&limit=10" \
-  | python3 -c "import json,sys; [print(i['id'], i['shortId'], i['title']) for i in json.load(sys.stdin)]"
-```
-
-**Fetch a specific issue (title, culprit, tags):**
-
-```bash
-curl -s \
-  -H "Authorization: Bearer $SENTRY_TOKEN" \
-  "https://sentry.io/api/0/issues/<ISSUE_ID>/" \
-  | python3 -m json.tool
-```
-
-**Get the latest event with full stack trace:**
-
-```bash
-curl -s \
-  -H "Authorization: Bearer $SENTRY_TOKEN" \
-  "https://sentry.io/api/0/issues/<ISSUE_ID>/events/latest/" \
-  | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-for entry in d.get('entries', []):
-    if entry.get('type') == 'exception':
-        for exc in entry['data']['values']:
-            print(exc.get('type'), exc.get('value'))
-            for f in exc['stacktrace']['frames']:
-                if f.get('inApp'):
-                    print(f'  {f[\"filename\"]}:{f[\"lineNo\"]} in {f[\"function\"]}')
-"
-```
-
-Replace `<ISSUE_ID>` with the numeric ID from the issue URL (e.g. `7333954839`) or use `shortId` like `RESENHAZORD2-9`.
-
-**Test mock** — all Sentry APIs are mocked in `gateway/tests/setup.ts`. When adding new `Sentry.logger` usage,
-ensure `fmt` is mocked as a tagged template literal:
-
-```ts
-fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
-  String.raw({ raw: strings }, ...values);
-```
+See [docs/architecture.md](docs/architecture.md) for full details (message flow, command system, ports & adapters, reply builder, CommandConfig, key types, error handling, caches, singletons).
 
 ## Code Conventions
 
@@ -284,7 +65,7 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 - **Exports**: Default exports for TS class files, named exports for data files
 - **Data files**: Large lookup tables, emoji maps, and static datasets belong in `bot/data/`. Do not define big mappings inline in service or command files.
 - **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
-- **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (double quotes, 100 char width)
+- **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (single quotes, 100 char width)
 
 ### Python Code Quality
 
@@ -309,9 +90,6 @@ Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
 - **Data files** — all dicts, lists, sets, and lookup tables (even small ones) belong in
   `bot/data/` as named exports. Import them in the command file. Never define
   inline data structures in command or service files
-- **Test fixtures in separate files** — shared test helpers (mock response builders,
-  HTML fixtures, data builders) belong in `tests/conftest.py` or
-  `tests/fixtures/`. Do not duplicate helper functions across test files
 - **Polymorphic behavior** — prefer `to_dict()` / `__str__()` methods on data classes
   over isinstance chains. Keep serialization logic close to the data it describes
 
@@ -350,8 +128,8 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/en/
 - **Body** (optional): explain *why*, not *what* — the diff shows what changed
 - **Scope** (optional): area affected, e.g. `feat(command):`, `fix(cache):`
 - **Breaking changes**: add `!` after type or `BREAKING CHANGE:` in footer
-- **Atomic commits**: each commit should represent one logical change. Group related file changes together, but split unrelated changes into separate commits
-- **Ordering**: when restructuring or migrating, commit in dependency order (sources before configs, moves before edits)
+- **Atomic commits**: each commit should represent one logical change
+- **Commit as you go** — create each commit immediately after completing its logical unit of work, not after finishing all changes
 
 ### Examples
 
@@ -360,9 +138,6 @@ feat: add hentai command with hitomi default and nhentai fallback
 fix(cache): handle Redis connection timeout gracefully
 refactor: move TypeScript service to gateway/
 test: add Python unit and integration test structure
-ci: update deploy workflow for monorepo working directories
-chore: update .gitignore for Python artifacts
-docs: add conventional commits guidelines to CLAUDE.md
 ```
 
 ## Testing
@@ -372,14 +147,26 @@ docs: add conventional commits guidelines to CLAUDE.md
 - **Framework**: Vitest with globals enabled
 - **Fixtures**: `gateway/tests/fixtures/index.js` provides `GroupCommandData` and `PrivateCommandData` factories (using Fishery)
 - **Setup**: `gateway/tests/setup.ts` mocks external dependencies (pino, mongodb, @sentry/bun)
-- **Pattern**: Tests instantiate the command directly, use factories for `CommandData`, and assert on the returned `Message[]`
-- **WhatsApp mock**: `createMockWhatsAppPort()` from `gateway/tests/fixtures/factories/MockWhatsAppPort.ts` provides a mock `WhatsAppPort` for commands that need it (constructor-injected)
+- **WhatsApp mock**: `createMockWhatsAppPort()` from `gateway/tests/fixtures/factories/MockWhatsAppPort.ts`
 
 ### Python
 
-- **Framework**: pytest with anyio for async tests
-- **Fixtures**: `tests/factories/` provides `CommandDataFactory` and `MockWhatsAppPort`
+- **Framework**: pytest with anyio for async tests (`@pytest.mark.anyio`)
+- **Mocking**: Use `pytest-mock`'s `mocker` fixture exclusively — never `from unittest.mock import ...`
+- **HTTP mocking**: Use `respx` with `respx_mock` fixture for HTTP calls (MockRouter pattern)
+- **Factories**: `GroupCommandDataFactory` and `PrivateCommandDataFactory` from `tests/factories/command_data.py`
+- **Shared fixtures** in `tests/conftest.py`:
+  - `mock_whatsapp` — AsyncMock with WhatsApp port defaults
+  - `mock_mongodb_collection(name)` — factory that returns a mocked collection
+  - `mock_subprocess(target, calls=[...])` — factory for mocking `asyncio.create_subprocess_exec`
+- **Pattern**: AAA (Arrange-Act-Assert) with blank lines between sections
+- **Organization**: Group tests by behavior in classes (e.g., `TestCreate`, `TestDelete`, `TestErrors`)
+- **No docstrings** in test files — test names and code should be self-documenting
 - **Config**: `pyproject.toml` under `[tool.pytest.ini_options]` and `pytest.toml`
+
+## Sentry
+
+Gateway uses `@sentry/bun` for error tracking and structured logging. See [docs/sentry.md](docs/sentry.md) for setup, structured logs, error capture, breadcrumbs, CLI queries, and test mocks.
 
 ## AI Guidelines
 
@@ -397,70 +184,15 @@ docs: add conventional commits guidelines to CLAUDE.md
 - When adding fields to object literals in config blocks, prefer multi-line
   formatting if the single-line form would exceed 100 chars
 - Always commit changes using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
-  and atomic commits — each commit should represent one logical change (e.g., one
-  feature, one bug fix, one refactor). Group related file changes together, but split
-  unrelated changes into separate commits. Commit in dependency order when migrating
-  or restructuring (sources before configs, moves before edits)
-- **Commit as you go** — create each commit immediately after completing its logical
-  unit of work, not after finishing all changes. The git history should reflect the
-  real evolution of modifications. Never batch an entire wave or feature into one
-  commit at the end
+  and atomic commits — each commit should represent one logical change. Commit as you go.
 
 ## External API Integration
 
-1. **Test APIs first** — curl endpoints before implementing to check response format, latency, and payload size
-2. **Read API docs fully** — look for simpler endpoints (e.g., `/random/card` instead of multi-step fetch), recommended formats (webp vs png), and asset URL construction rules
-3. **Pre-download media as buffers** — use `AxiosClient.getBuffer()` + `Reply.to(data).imageBuffer()` so download errors are caught inside the command's try-catch, not in `sendMessages()` which only has the generic CommandHandler error handler
-4. **Disable retries for slow APIs** — pass `retries: 0` in config; default 3 retries with exponential backoff silently multiply latency
-5. **Prefer small formats** — use webp over png for images (can be 10x+ smaller); check API docs for recommended formats
-6. **Set realistic timeouts** — consider production server latency, not local; production servers may have higher latency to external APIs
-7. **Test media/asset URLs with curl — not just the API endpoint** — APIs often return
-   asset URLs (images, audio) served by a CDN that requires extra headers the API call
-   does not. Test the asset URL directly with and without `Referer`, `Origin`, and
-   `Authorization` headers. CDNs commonly require `Referer` to the source site
-   (e.g., `Referer: https://hitomi.la/` for hitomi CDN). A 404 on the asset after a
-   successful API response is the signature of a missing header.
-
-   ```bash
-   # Without headers (will 404 on many CDNs):
-   curl -I "<asset-url>"
-   # With Referer:
-   curl -I -H "Referer: https://example.com/" "<asset-url>"
-   ```
-
-8. **Verify fallback sources independently** — if a scraper has a primary + fallback
-   path (try A, catch → try B), test B in isolation _before_ shipping. A broken fallback
-   that swallows all errors and exhausts retries is worse than no fallback: it silently
-   delays the real error. If the fallback source is known-broken (e.g. nhentai.xxx API),
-   either remove it or gate it behind a guard that throws immediately.
+Guidelines for integrating external APIs (test first, pre-download buffers, disable retries for slow APIs, test asset URLs with headers, verify fallbacks independently). See [docs/api-integration.md](docs/api-integration.md) for full details.
 
 ## Security
 
-### CommandParser — regex safety
-
-`CommandParser.replaceDiacritics()` (`gateway/src/parsers/CommandParser.ts`) escapes ASCII regex metacharacters before replacing non-ASCII chars with `.`:
-
-```ts
-s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[^\x00-\x7F]/g, '.');
-```
-
-This means command `name`, `aliases`, `flags`, and `options[].values` are safe to use even if they contain chars like `+`, `|`, `(`, etc. Non-ASCII chars still intentionally become `.` (matches the unaccented equivalent).
-
-### argsPattern — avoid ReDoS
-
-Never use nested quantifiers inside repeating groups (e.g. `(?:@\d+\s*)*`). The outer `\s*` injected by `buildRegex()` creates overlap and causes catastrophic backtracking.
-
-**Safe pattern** — separate the whitespace outside the repeating unit:
-
-```ts
-// Bad — nested quantifiers cause ReDoS
-argsPattern: /^(?:@\d+\s*)*$/;
-
-// Good — no nested overlap
-argsPattern: /^(?:@\d+(?:\s+@\d+)*)?$/;
-```
-
-The outer `?` handles the optional/empty case. `\s+` between mentions eliminates ambiguity with the surrounding `\s*` injected by the parser.
+CommandParser regex safety and argsPattern ReDoS prevention. See [docs/security.md](docs/security.md) for details.
 
 ## Environment
 
