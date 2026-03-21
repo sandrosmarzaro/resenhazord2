@@ -2,7 +2,6 @@ import structlog
 from bs4 import BeautifulSoup
 
 from bot.data.browser_headers import BROWSER_HEADERS
-from bot.data.rule34 import BANNER_URL
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -13,6 +12,7 @@ logger = structlog.get_logger()
 
 
 class Rule34Command(Command):
+    BANNER_URL = 'https://kanako.store/products/futa-body'
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -44,6 +44,6 @@ class Rule34Command(Command):
             msg = 'Nenhuma imagem encontrada'
             raise ValueError(msg)
 
-        url = images[1] if images[0] == BANNER_URL and len(images) > 1 else images[0]
+        url = images[1] if images[0] == self.BANNER_URL and len(images) > 1 else images[0]
 
         return [Reply.to(data).image(url, 'Aqui está a imagem que você pediu 🤗')]
