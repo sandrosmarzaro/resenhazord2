@@ -26,6 +26,7 @@ from bot.domain.commands.game import GameCommand
 from bot.domain.commands.group_mentions import GroupMentionsCommand
 from bot.domain.commands.hearthstone import HearthstoneCommand
 from bot.domain.commands.hentai import HentaiCommand
+from bot.domain.commands.jackpot import JackpotCommand
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
 from bot.domain.commands.magic_the_gathering import MagicTheGatheringCommand
 from bot.domain.commands.mateus import MateusCommand
@@ -90,6 +91,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
     )
     registry.register(GroupMentionsCommand())
     registry.register(HentaiCommand())
+    registry.register(JackpotCommand())
     registry.register(FuckCommand())
     registry.register(
         HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
