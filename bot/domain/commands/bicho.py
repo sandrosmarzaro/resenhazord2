@@ -1,5 +1,6 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+import httpx
 import structlog
 from bs4 import BeautifulSoup
 
@@ -16,6 +17,7 @@ logger = structlog.get_logger()
 
 class BichoCommand(Command):
     BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
+    YESTERDAY_URL = 'https://www.eojogodobicho.com/resultados/rio/resultados-do-bicho-{date}.html'
     MIN_COLUMNS = 3
 
     @property
@@ -33,37 +35,24 @@ class BichoCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
-            draws = await self._fetch_draws()
+            draws = await self._fetch_draws(self.BICHO_URL)
             arg = parsed.rest.lower().strip()
 
             if arg:
                 draw_id = ARG_TO_DRAW_ID.get(arg)
                 draw = next((d for d in draws if d['id'] == draw_id), None)
-            else:
-                published = [d for d in draws if d['published']]
-                draw = published[-1] if published else None
+                if not draw:
+                    return [Reply.to(data).text('Nenhum sorteio publicado ainda hoje. 🎲')]
+                if not draw['published']:
+                    return [
+                        Reply.to(data).text(f'Sorteio {draw["label"]} ainda não foi publicado. ⏳')
+                    ]
+                return [self._format_draw(data, draw)]
+            published = [d for d in draws if d['published']]
+            if published:
+                return [self._format_draw(data, published[-1])]
 
-            if not draw:
-                return [Reply.to(data).text('Nenhum sorteio publicado ainda hoje. 🎲')]
-
-            if not draw['published']:
-                return [Reply.to(data).text(f'Sorteio {draw["label"]} ainda não foi publicado. ⏳')]
-
-            now = datetime.now(tz=UTC)
-            date_str = now.strftime('%d/%m/%Y')
-            lines = [
-                f'🎲 *Jogo do Bicho — {draw["label"]}*',
-                f'📅 {date_str}',
-                '',
-            ]
-            for i, prize in enumerate(draw['prizes']):
-                emoji = PRIZE_EMOJIS[i] if i < len(PRIZE_EMOJIS) else f'{i + 1}:'
-                lines.append(
-                    f'{emoji}  {prize["milhar"]} · {prize["emoji"]} *{prize["animal"]}* '
-                    f'(grupo {prize["group"]})'
-                )
-
-            return [Reply.to(data).text('\n'.join(lines))]
+            return await self._fallback_yesterday(data)
         except Exception:
             logger.exception('bicho_fetch_error')
             return [
@@ -71,6 +60,42 @@ class BichoCommand(Command):
                     'Erro ao buscar resultados do Jogo do Bicho. Tente novamente! 🎲'
                 )
             ]
+
+    async def _fallback_yesterday(self, data: CommandData) -> list[BotMessage]:
+        yesterday = datetime.now(tz=UTC) - timedelta(days=1)
+        date_str = yesterday.strftime('%d-%m-%Y')
+        url = self.YESTERDAY_URL.format(date=date_str)
+        try:
+            draws = await self._fetch_draws(url)
+            published = [d for d in draws if d['published']]
+            if published:
+                return [self._format_draw(data, published[-1], yesterday=True)]
+        except (httpx.HTTPError, ValueError, KeyError):
+            logger.warning('bicho_yesterday_fetch_failed', date=date_str)
+        return [Reply.to(data).text('Nenhum sorteio publicado ainda hoje. 🎲')]
+
+    @staticmethod
+    def _format_draw(data: CommandData, draw: dict, *, yesterday: bool = False) -> BotMessage:
+        now = datetime.now(tz=UTC)
+        if yesterday:
+            display_date = now - timedelta(days=1)
+            suffix = ' (ontem)'
+        else:
+            display_date = now
+            suffix = ''
+        date_str = display_date.strftime('%d/%m/%Y')
+        lines = [
+            f'🎲 *Jogo do Bicho — {draw["label"]}*{suffix}',
+            f'📅 {date_str}',
+            '',
+        ]
+        for i, prize in enumerate(draw['prizes']):
+            emoji = PRIZE_EMOJIS[i] if i < len(PRIZE_EMOJIS) else f'{i + 1}:'
+            lines.append(
+                f'{emoji}  {prize["milhar"]} · {prize["emoji"]} *{prize["animal"]}* '
+                f'(grupo {prize["group"]})'
+            )
+        return Reply.to(data).text('\n'.join(lines))
 
     @staticmethod
     def _parse_prize_row(row) -> dict | None:  # type: ignore[no-untyped-def]
@@ -105,8 +130,8 @@ class BichoCommand(Command):
         return prizes
 
     @classmethod
-    async def _fetch_draws(cls) -> list[dict]:
-        response = await HttpClient.get(cls.BICHO_URL, headers=BROWSER_HEADERS)
+    async def _fetch_draws(cls, url: str) -> list[dict]:
+        response = await HttpClient.get(url, headers=BROWSER_HEADERS)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
