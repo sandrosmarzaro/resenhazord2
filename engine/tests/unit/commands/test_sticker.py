@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -84,7 +84,6 @@ class TestStickerCreation:
     @pytest.mark.anyio
     async def test_creates_sticker_from_direct_image(self, command, mock_whatsapp):
         mock_whatsapp.download_media = AsyncMock(return_value=b'image-data')
-        mock_whatsapp.create_sticker = AsyncMock(return_value=b'sticker-data')
         data = GroupCommandDataFactory.build(
             text=',stic',
             media_type='image',
@@ -92,17 +91,21 @@ class TestStickerCreation:
             message_id=MESSAGE_ID,
         )
 
-        messages = await command.run(data)
+        with patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            new_callable=AsyncMock,
+            return_value=b'sticker-data',
+        ) as mock_create:
+            messages = await command.run(data)
 
         assert len(messages) == 1
         assert messages[0].content.data == b'sticker-data'
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'direct')
-        mock_whatsapp.create_sticker.assert_called_once_with(b'image-data', 'full')
+        mock_create.assert_called_once_with(b'image-data', 'full')
 
     @pytest.mark.anyio
     async def test_creates_sticker_from_quoted_video(self, command, mock_whatsapp):
         mock_whatsapp.download_media = AsyncMock(return_value=b'video-data')
-        mock_whatsapp.create_sticker = AsyncMock(return_value=b'sticker-data')
         data = GroupCommandDataFactory.build(
             text=',stic',
             media_type='video',
@@ -110,15 +113,19 @@ class TestStickerCreation:
             message_id=MESSAGE_ID,
         )
 
-        await command.run(data)
+        with patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            new_callable=AsyncMock,
+            return_value=b'sticker-data',
+        ) as mock_create:
+            await command.run(data)
 
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'quoted')
-        mock_whatsapp.create_sticker.assert_called_once_with(b'video-data', 'full')
+        mock_create.assert_called_once_with(b'video-data', 'full')
 
     @pytest.mark.anyio
     async def test_sticker_type_option(self, command, mock_whatsapp):
         mock_whatsapp.download_media = AsyncMock(return_value=b'image-data')
-        mock_whatsapp.create_sticker = AsyncMock(return_value=b'sticker-data')
         data = GroupCommandDataFactory.build(
             text=',stic crop',
             media_type='image',
@@ -126,15 +133,19 @@ class TestStickerCreation:
             message_id=MESSAGE_ID,
         )
 
-        await command.run(data)
+        with patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            new_callable=AsyncMock,
+            return_value=b'sticker-data',
+        ) as mock_create:
+            await command.run(data)
 
-        mock_whatsapp.create_sticker.assert_called_once_with(b'image-data', 'crop')
+        mock_create.assert_called_once_with(b'image-data', 'crop')
 
     @pytest.mark.anyio
     @pytest.mark.parametrize('sticker_type', ['crop', 'full', 'circle', 'rounded'])
     async def test_all_sticker_types(self, command, mock_whatsapp, sticker_type):
         mock_whatsapp.download_media = AsyncMock(return_value=b'data')
-        mock_whatsapp.create_sticker = AsyncMock(return_value=b'sticker')
         data = GroupCommandDataFactory.build(
             text=f',stic {sticker_type}',
             media_type='image',
@@ -142,14 +153,18 @@ class TestStickerCreation:
             message_id=MESSAGE_ID,
         )
 
-        await command.run(data)
+        with patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            new_callable=AsyncMock,
+            return_value=b'sticker',
+        ) as mock_create:
+            await command.run(data)
 
-        mock_whatsapp.create_sticker.assert_called_once_with(b'data', sticker_type)
+        mock_create.assert_called_once_with(b'data', sticker_type)
 
     @pytest.mark.anyio
     async def test_returns_sticker_content(self, command, mock_whatsapp):
         mock_whatsapp.download_media = AsyncMock(return_value=b'img')
-        mock_whatsapp.create_sticker = AsyncMock(return_value=b'webp-sticker')
         data = GroupCommandDataFactory.build(
             text=',stic',
             media_type='image',
@@ -157,7 +172,12 @@ class TestStickerCreation:
             message_id=MESSAGE_ID,
         )
 
-        messages = await command.run(data)
+        with patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            new_callable=AsyncMock,
+            return_value=b'webp-sticker',
+        ):
+            messages = await command.run(data)
 
         assert messages[0].content.type == 'sticker'
         assert messages[0].content.data == b'webp-sticker'

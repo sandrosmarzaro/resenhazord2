@@ -6,6 +6,7 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.sticker_creator import StickerCreator
 
 logger = structlog.get_logger()
 
@@ -45,5 +46,5 @@ class StickerCommand(Command):
         )
 
         buffer = await self._whatsapp.download_media(data.message_id, data.media_source)
-        sticker = await self._whatsapp.create_sticker(buffer, sticker_type)
+        sticker = await StickerCreator.create(buffer, sticker_type)
         return [Reply.to(data).sticker(sticker)]

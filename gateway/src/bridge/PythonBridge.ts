@@ -233,15 +233,6 @@ export default class PythonBridge {
         const buffer = await this.mediaHandler.downloadMedia(stored, data.source as string);
         return { buffer: buffer.toString('base64') };
       }
-      case 'create_sticker': {
-        if (!this.mediaHandler) throw new Error('MediaHandler not available');
-        const inputBuffer = Buffer.from(data.buffer as string, 'base64');
-        const stickerBuffer = await this.mediaHandler.createSticker(
-          inputBuffer,
-          (data.type as string) || 'full',
-        );
-        return { buffer: stickerBuffer.toString('base64') };
-      }
       default:
         throw new Error(`Unknown wa_call method: ${method}`);
     }

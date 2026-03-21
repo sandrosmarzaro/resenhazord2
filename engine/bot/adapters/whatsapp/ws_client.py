@@ -73,11 +73,3 @@ class WhatsAppWsClient:
             deadline=MEDIA_TIMEOUT,
         )
         return base64.b64decode(result['buffer'])
-
-    async def create_sticker(self, buffer: bytes, sticker_type: str) -> bytes:
-        result = await self._call(
-            'create_sticker',
-            {'buffer': base64.b64encode(buffer).decode(), 'type': sticker_type},
-            deadline=MEDIA_TIMEOUT,
-        )
-        return base64.b64decode(result['buffer'])

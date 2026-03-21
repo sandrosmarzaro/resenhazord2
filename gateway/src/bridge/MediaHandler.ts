@@ -144,19 +144,4 @@ export default class MediaHandler {
 
     return (await Promise.race([download, timeout])) as Buffer;
   }
-
-  async createSticker(inputBuffer: Buffer, type: string = 'full'): Promise<Buffer> {
-    const { Sticker } = await import('wa-sticker-formatter');
-    const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
-    const ffmpeg = await import('fluent-ffmpeg');
-    ffmpeg.default.setFfmpegPath(ffmpegPath);
-    const sticker = await new Sticker(inputBuffer)
-      .setPack('Resenhazord2')
-      .setAuthor('Resenha')
-      .setType(type)
-      .setCategories(['Resenha', 'Bot'])
-      .setQuality(50)
-      .build();
-    return Buffer.from(sticker);
-  }
 }
