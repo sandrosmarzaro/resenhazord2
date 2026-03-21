@@ -15,6 +15,15 @@ class ArgType(StrEnum):
     OPTIONAL = 'optional'
 
 
+class CommandScope(StrEnum):
+    PUBLIC = 'public'
+    INTERNAL = 'internal'
+    DISABLED = 'disabled'
+    ADMIN = 'admin'
+    NSFW = 'nsfw'
+    DEV = 'dev'
+
+
 @dataclass(frozen=True)
 class OptionDef:
     name: str
@@ -31,6 +40,7 @@ class CommandConfig:
     args: ArgType = ArgType.NONE
     args_pattern: str | None = None
     args_label: str | None = None
+    scope: CommandScope = CommandScope.PUBLIC
     group_only: bool = False
     category: str | None = None
 
