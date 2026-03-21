@@ -1,5 +1,6 @@
 """FastAPI app with WebSocket endpoint and health check."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -44,12 +45,15 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     registry.set_whatsapp(WhatsAppWsClient(handler))
 
     app.state.ws_handler = handler
+    tasks: set[asyncio.Task[None]] = set()
 
     try:
         while True:
             data = await ws.receive()
             if 'text' in data:
-                await handler.handle_message(data['text'])
+                task = asyncio.create_task(handler.handle_message(data['text']))
+                tasks.add(task)
+                task.add_done_callback(tasks.discard)
             elif 'bytes' in data:
                 handler.receive_binary(data['bytes'])
     except (WebSocketDisconnect, RuntimeError):
