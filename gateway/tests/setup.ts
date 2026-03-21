@@ -11,7 +11,9 @@ vi.mock('@sentry/bun', () => ({
   addBreadcrumb: vi.fn(),
   consoleLoggingIntegration: vi.fn(() => ({})),
   logger: {
+    info: vi.fn(),
     warn: vi.fn(),
+    error: vi.fn(),
     fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
       String.raw({ raw: strings }, ...values),
   },
