@@ -58,6 +58,7 @@ class TestRun:
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
         assert messages[0].content.url == 'https://example.com/card.png'
+        assert messages[0].content.caption is not None
         assert 'carta' in messages[0].content.caption.lower()
 
     @pytest.mark.anyio

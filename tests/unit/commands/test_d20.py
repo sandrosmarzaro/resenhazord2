@@ -61,6 +61,7 @@ class TestRun:
         for _ in range(100):
             messages = await command.run(data)
             match = re.search(r': (\d+)', messages[0].content.text)
+            assert match is not None
             results.add(int(match.group(1)))
 
         assert len(results) > 1

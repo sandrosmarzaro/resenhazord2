@@ -1,12 +1,15 @@
 {
-  "include": ["bot"],
-  "exclude": ["tests", "**/__pycache__"],
+  "include": ["bot", "tests"],
+  "exclude": ["**/__pycache__"],
   "pythonVersion": "3.13",
   "typeCheckingMode": "standard",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
   "reportUnusedImport": true,
   "reportUnusedVariable": true,
+  "reportPrivateImportUsage": false,
+  "reportIncompatibleVariableOverride": false,
+  "reportOperatorIssue": false,
   "venvPath": ".",
   "venv": ".venv"
 }

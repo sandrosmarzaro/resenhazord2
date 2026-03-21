@@ -5,7 +5,7 @@ import pytest
 from bot.adapters.http.ws_handler import WebSocketHandler
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -13,7 +13,7 @@ from bot.domain.models.message import BotMessage
 class EchoCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='echo', args='optional')
+        return CommandConfig(name='echo', args=ArgType.OPTIONAL)
 
     @property
     def menu_description(self) -> str:
