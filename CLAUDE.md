@@ -49,7 +49,9 @@ docker compose build   # Build both services
 docker compose up -d   # Start both services
 ```
 
-Pre-push hook runs (from gateway/): lint, typecheck, format:check.
+**Git hooks:**
+- **Pre-commit** (Python): ruff lint+fix, ruff format, gitleaks secret scanning, large file check, merge conflict check
+- **Pre-push** (gateway/): eslint, tsc --noEmit, prettier check
 
 ## Architecture
 
