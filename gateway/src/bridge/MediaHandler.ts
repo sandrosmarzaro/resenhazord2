@@ -1,8 +1,5 @@
 import type { WAMessage } from '@whiskeysockets/baileys';
 import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
-import { Sticker } from 'wa-sticker-formatter';
-import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
-import ffmpeg from 'fluent-ffmpeg';
 import pino from 'pino';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import type { CommandData } from '../types/command.js';
@@ -144,7 +141,10 @@ export default class MediaHandler {
   }
 
   async createSticker(inputBuffer: Buffer, type: string = 'full'): Promise<Buffer> {
-    ffmpeg.setFfmpegPath(ffmpegPath);
+    const { Sticker } = await import('wa-sticker-formatter');
+    const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
+    const ffmpeg = await import('fluent-ffmpeg');
+    ffmpeg.default.setFfmpegPath(ffmpegPath);
     const sticker = await new Sticker(inputBuffer)
       .setPack('Resenhazord2')
       .setAuthor('Resenha')

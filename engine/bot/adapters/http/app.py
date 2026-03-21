@@ -52,6 +52,6 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 await handler.handle_message(data['text'])
             elif 'bytes' in data:
                 handler.receive_binary(data['bytes'])
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         logger.info('websocket_disconnected')
         app.state.ws_handler = None

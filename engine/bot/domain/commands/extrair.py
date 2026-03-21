@@ -30,16 +30,15 @@ class ExtrairCommand(Command):
             is_animated=data.media_is_animated,
         )
 
-        buffer = await self._whatsapp.download_media(data.message_id, data.media_source)
-
         try:
+            buffer = await self._whatsapp.download_media(data.message_id, data.media_source)
             if data.media_is_animated:
                 gif_buffer = self._convert_to_gif(buffer)
                 return [Reply.to(data).video_buffer(gif_buffer, gif_playback=True)]
             png_buffer = self._convert_to_png(buffer)
             return [Reply.to(data).image_buffer(png_buffer)]
         except Exception:
-            logger.exception('extrair_conversion_error', jid=data.jid)
+            logger.exception('extrair_error', jid=data.jid)
             return [Reply.to(data).text('Não consegui extrair a imagem do sticker 😅')]
 
     @staticmethod
