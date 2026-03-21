@@ -28,6 +28,7 @@ from bot.domain.commands.hearthstone import HearthstoneCommand
 from bot.domain.commands.hentai import HentaiCommand
 from bot.domain.commands.jackpot import JackpotCommand
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
+from bot.domain.commands.lua import LuaCommand
 from bot.domain.commands.magic_the_gathering import MagicTheGatheringCommand
 from bot.domain.commands.mateus import MateusCommand
 from bot.domain.commands.meal_recipes import MealRecipesCommand
@@ -97,6 +98,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
         HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
     )
     registry.register(LeagueOfLegendsCommand())
+    registry.register(LuaCommand())
     registry.register(MagicTheGatheringCommand())
     registry.register(MateusCommand())
     registry.register(MealRecipesCommand())
