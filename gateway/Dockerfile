@@ -1,30 +1,15 @@
 FROM oven/bun:1.3.9-slim AS builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libvips-dev build-essential python3 \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 FROM oven/bun:1.3.9-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium \
-    fonts-freefont-ttf \
     git \
     ca-certificates \
-    python3 \
-    python3-pip \
-    ffmpeg \
-    libvips42 \
-    && pip3 install --no-cache-dir --break-system-packages yt-dlp \
     && rm -rf /var/lib/apt/lists/*
-
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules

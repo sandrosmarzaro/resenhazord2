@@ -17,45 +17,6 @@ vi.mock('@sentry/bun', () => ({
   },
 }));
 
-vi.mock('google-tts-api', () => {
-  const tts = vi.fn().mockResolvedValue('mocked-audio-base64');
-  (tts as unknown as Record<string, unknown>).getAllAudioUrls = vi
-    .fn()
-    .mockReturnValue([{ url: 'https://translate.google.com/translate_tts?q=mocked&tl=pt-br' }]);
-  return { default: tts };
-});
-
-vi.mock('@google/generative-ai', () => {
-  class MockGoogleGenerativeAI {
-    getGenerativeModel = vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: { text: () => 'Mocked AI response' },
-      }),
-    }));
-  }
-  return { GoogleGenerativeAI: MockGoogleGenerativeAI };
-});
-
-vi.mock('nsfwhub', () => {
-  class MockNSFW {
-    fetch = vi.fn().mockResolvedValue({
-      image: { url: 'https://example.com/nsfw.mp4' },
-    });
-  }
-  return { NSFW: MockNSFW };
-});
-
-vi.mock('sharp', () => {
-  const sharpInstance = {
-    resize: vi.fn().mockReturnThis(),
-    png: vi.fn().mockReturnThis(),
-    gif: vi.fn().mockReturnThis(),
-    toBuffer: vi.fn().mockResolvedValue(Buffer.from('mock-image')),
-  };
-  const sharpFn = vi.fn().mockReturnValue(sharpInstance);
-  return { default: sharpFn };
-});
-
 vi.mock('pino', () => ({
   default: vi.fn(() => ({ level: 'silent' })),
 }));
