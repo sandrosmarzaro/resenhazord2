@@ -1,3 +1,6 @@
+import re
+from dataclasses import replace
+
 import structlog
 import structlog.contextvars
 
@@ -13,6 +16,8 @@ logger = structlog.get_logger()
 
 DISABLED_MSG = 'Esse comando está desativado. 🚫'
 DEV_ONLY_MSG = 'Esse comando é apenas para desenvolvedores. 🛠️'
+BATCH_PATTERN = re.compile(r'^\s*(\d+)x\s*(?=,)')
+MAX_BATCH = 5
 
 
 class CommandHandler:
@@ -26,6 +31,8 @@ class CommandHandler:
 
     async def handle(self, data: CommandData) -> list[BotMessage] | None:
         """Returns messages if a command matched, None if no match."""
+        repeat, data = self._parse_batch(data)
+
         command = self._registry.get_strategy(data.text)
         if command is None:
             return None
@@ -35,15 +42,32 @@ class CommandHandler:
         scope = command.config.scope
         if scope == CommandScope.DISABLED:
             return [Reply.to(data).text(DISABLED_MSG)]
-        if scope == CommandScope.DEV and not await self._dev_list.is_dev(data.sender_jid):
-            return [Reply.to(data).text(DEV_ONLY_MSG)]
 
-        logger.info('executing_command')
+        is_dev = await self._dev_list.is_dev(data.sender_jid)
+        if scope == CommandScope.DEV and not is_dev:
+            return [Reply.to(data).text(DEV_ONLY_MSG)]
+        if repeat > 1 and not is_dev:
+            repeat = 1
+
+        logger.info('executing_command', batch=repeat if repeat > 1 else None)
 
         try:
-            return await command.run(data)
+            messages: list[BotMessage] = []
+            for _ in range(repeat):
+                messages.extend(await command.run(data))
         except BotError:
             raise
         except Exception:
             logger.exception('command_execution_failed')
             raise
+        else:
+            return messages
+
+    @staticmethod
+    def _parse_batch(data: CommandData) -> tuple[int, CommandData]:
+        match = BATCH_PATTERN.match(data.text)
+        if not match:
+            return 1, data
+        count = min(int(match.group(1)), MAX_BATCH)
+        stripped_text = data.text[match.end() :]
+        return max(count, 1), replace(data, text=stripped_text)

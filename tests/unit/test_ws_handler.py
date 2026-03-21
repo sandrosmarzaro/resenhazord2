@@ -34,10 +34,17 @@ def mock_ws(mocker):
 
 
 @pytest.fixture
-def handler(mock_ws):
+def mock_dev_list(mocker):
+    dev_list = mocker.AsyncMock()
+    dev_list.is_dev.return_value = False
+    return dev_list
+
+
+@pytest.fixture
+def handler(mock_ws, mock_dev_list):
     registry = CommandRegistry.instance()
     registry.register(EchoCommand())
-    return WebSocketHandler(mock_ws, CommandHandler(registry))
+    return WebSocketHandler(mock_ws, CommandHandler(registry, dev_list=mock_dev_list))
 
 
 class TestWebSocketHandlerCommand:
