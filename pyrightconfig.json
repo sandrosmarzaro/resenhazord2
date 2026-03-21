@@ -7,9 +7,6 @@
   "reportMissingTypeStubs": false,
   "reportUnusedImport": true,
   "reportUnusedVariable": true,
-  "reportPrivateImportUsage": false,
-  "reportIncompatibleVariableOverride": false,
-  "reportOperatorIssue": false,
   "venvPath": ".",
   "venv": ".venv"
 }

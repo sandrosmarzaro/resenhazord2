@@ -56,6 +56,7 @@ class TestRun:
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Heineken' in caption
         assert '5.0%' in caption
         assert '330ml' in caption
@@ -69,6 +70,7 @@ class TestRun:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Netherlands' in caption
         assert 'en:' not in caption
 

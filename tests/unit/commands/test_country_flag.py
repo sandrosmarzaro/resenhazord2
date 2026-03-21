@@ -59,6 +59,7 @@ class TestRun:
         assert isinstance(messages[0].content, ImageContent)
         assert messages[0].content.url == 'https://flagcdn.com/w320/br.png'
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Brazil' in caption
         assert 'Brasília' in caption
         assert 'América do Sul' in caption
@@ -74,6 +75,7 @@ class TestRun:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Federative Republic of Brazil' in caption
 
     @pytest.mark.anyio
@@ -86,6 +88,7 @@ class TestRun:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
+        assert caption is not None
         assert caption.count('Japan') == 1
 
     @pytest.mark.anyio
@@ -98,6 +101,7 @@ class TestRun:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Antártida' in caption
 
     @pytest.mark.anyio

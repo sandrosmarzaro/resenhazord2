@@ -66,6 +66,7 @@ class TestRun:
         assert route.called
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
+        assert messages[0].content.caption is not None
         assert 'Labrador' in messages[0].content.caption
 
     @pytest.mark.anyio
@@ -82,6 +83,7 @@ class TestRun:
         assert route.called
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageBufferContent)
+        assert messages[0].content.caption is not None
         assert 'Cat' in messages[0].content.caption
 
     @pytest.mark.anyio

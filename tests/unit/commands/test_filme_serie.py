@@ -74,6 +74,7 @@ class TestRun:
         assert isinstance(messages[0].content, ImageContent)
         assert '/matrix.jpg' in messages[0].content.url
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'The Matrix' in caption
         assert 'Ação' in caption
         assert '1999' in caption
@@ -91,6 +92,7 @@ class TestRun:
 
         assert len(messages) == 1
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Breaking Bad' in caption
         assert 'Drama' in caption
 

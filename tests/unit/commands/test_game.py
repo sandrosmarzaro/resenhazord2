@@ -101,6 +101,7 @@ class TestIgdb:
 
         messages = await command.run(data)
         caption = messages[0].content.caption
+        assert caption is not None
 
         assert 'The Witcher 3' in caption
         assert '2015' in caption
@@ -126,6 +127,7 @@ class TestIgdb:
 
         messages = await command.run(data)
         caption = messages[0].content.caption
+        assert caption is not None
 
         assert '⭐' not in caption
 
@@ -137,6 +139,7 @@ class TestIgdb:
 
         messages = await command.run(data)
         caption = messages[0].content.caption
+        assert caption is not None
 
         assert '(?)' in caption
 
@@ -164,6 +167,7 @@ class TestRawgFallback:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
+        assert messages[0].content.caption is not None
         assert 'Portal 2' in messages[0].content.caption
 
     @pytest.mark.anyio
@@ -174,6 +178,7 @@ class TestRawgFallback:
 
         messages = await command.run(data)
         caption = messages[0].content.caption
+        assert caption is not None
 
         assert 'Portal 2' in caption
         assert '2011' in caption

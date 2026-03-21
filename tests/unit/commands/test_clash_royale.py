@@ -65,6 +65,7 @@ class TestRun:
         assert isinstance(messages[0].content, ImageContent)
         assert 'knight.png' in messages[0].content.url
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Knight' in caption
         assert 'Troop' in caption
         assert 'Common' in caption

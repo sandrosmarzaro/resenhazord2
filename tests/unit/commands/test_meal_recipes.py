@@ -75,6 +75,7 @@ class TestRun:
         assert isinstance(messages[0].content, ImageContent)
         assert messages[0].content.url == 'https://example.com/meal.jpg'
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Spaghetti Bolognese' in caption
         assert 'Italian' in caption
         assert 'Spaghetti' in caption
@@ -90,6 +91,7 @@ class TestRun:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
+        assert caption is not None
         assert '- Spaghetti | 200g' in caption
         assert '- Tomato | 3' in caption
 
@@ -102,6 +104,7 @@ class TestRun:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
+        assert caption is not None
         # Should only have 2 ingredients (strIngredient3 is empty)
         assert caption.count('- ') == 2
 
@@ -113,4 +116,5 @@ class TestRun:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Sem País' in caption

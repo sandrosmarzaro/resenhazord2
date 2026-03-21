@@ -75,6 +75,7 @@ class TestRun:
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'Naruto' in caption
         assert 'Action' in caption
         assert 'Studio Pierrot' in caption
@@ -91,6 +92,7 @@ class TestRun:
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
         caption = messages[0].content.caption
+        assert caption is not None
         assert 'One Piece' in caption
         assert 'Oda, Eiichiro' in caption
         assert '📚' in caption
