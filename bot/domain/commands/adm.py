@@ -24,7 +24,7 @@ class AdmCommand(Command):
         return 'Xingue aleatoriamente todos os administradores do grupo.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        metadata = await self._whatsapp.group_metadata(data.jid)
+        metadata = await self.whatsapp.group_metadata(data.jid)
         admins = [p for p in metadata['participants'] if p.get('admin')]
         admin_jids = [a['id'] for a in admins]
         admin_mentions = [f'@{strip_jid(a["id"])} ' for a in admins]

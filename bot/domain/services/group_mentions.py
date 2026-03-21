@@ -183,6 +183,8 @@ class GroupMentionsService:
                 {'_id': chat_jid, 'groups.name': group_name},
                 projection={'groups.$': 1},
             )
+            if not group_doc:
+                return {'ok': False, 'message': 'Grupo não encontrado 😔'}
             group_data = group_doc['groups'][0]
             to_remove = [
                 group_data['participants'][i - 1]

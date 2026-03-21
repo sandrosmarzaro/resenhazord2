@@ -41,7 +41,7 @@ class AddCommand(Command):
         return 'Adiciona um número ao grupo. Aleatório ou específico.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        metadata = await self._whatsapp.group_metadata(data.jid)
+        metadata = await self.whatsapp.group_metadata(data.jid)
         participants = metadata['participants']
 
         bot_entry = next((p for p in participants if p['id'] == self._bot_jid), None)
@@ -73,10 +73,10 @@ class AddCommand(Command):
             while len(phone) < size:
                 phone += str(random.randint(0, 9))  # noqa: S311
 
-            consult = await self._whatsapp.on_whatsapp([f'{self.COUNTRY_CODE}{phone}'])
+            consult = await self.whatsapp.on_whatsapp([f'{self.COUNTRY_CODE}{phone}'])
             if consult and consult[0].get('exists'):
                 try:
-                    await self._whatsapp.group_participants_update(
+                    await self.whatsapp.group_participants_update(
                         data.jid, [consult[0]['jid']], 'add'
                     )
                 except Exception:
@@ -85,11 +85,11 @@ class AddCommand(Command):
                 return []
 
     async def _add_phone(self, data: CommandData, phone: str) -> list[BotMessage]:
-        consult = await self._whatsapp.on_whatsapp([f'{self.COUNTRY_CODE}{phone}'])
+        consult = await self.whatsapp.on_whatsapp([f'{self.COUNTRY_CODE}{phone}'])
         has_whatsapp = consult and consult[0].get('exists')
         jid = consult[0]['jid'] if has_whatsapp else f'{self.COUNTRY_CODE}{phone}@lid'
         try:
-            await self._whatsapp.group_participants_update(data.jid, [jid], 'add')
+            await self.whatsapp.group_participants_update(data.jid, [jid], 'add')
         except Exception:
             logger.exception('add_phone_error', jid=data.jid, phone=phone)
             return [Reply.to(data).text(f'Não consegui adicionar o número {phone} 😔')]

@@ -75,11 +75,21 @@ class Command(ABC):
     @abstractmethod
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]: ...
 
+    @property
+    def whatsapp(self) -> WhatsAppPort:
+        if self._whatsapp is None:
+            msg = f'{type(self).__name__} requires WhatsAppPort but none was injected'
+            raise RuntimeError(msg)
+        return self._whatsapp
+
     async def _get_media(self, data: CommandData) -> bytes:
         """Return proactively-downloaded media buffer, or fall back to wa_call."""
         if data.media_buffer is not None:
             return data.media_buffer
-        return await self._whatsapp.download_media(data.message_id, data.media_source)
+        if data.message_id is None or data.media_source is None:
+            msg = 'No media buffer and no message_id/media_source to download from'
+            raise RuntimeError(msg)
+        return await self.whatsapp.download_media(data.message_id, data.media_source)
 
     def _apply_flags(
         self, data: CommandData, parsed: ParsedCommand, messages: list[BotMessage]

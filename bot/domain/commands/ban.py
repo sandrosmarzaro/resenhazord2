@@ -36,7 +36,7 @@ class BanCommand(Command):
         return 'Remove aleatoriamente um ou especificamente um ou mais participantes do grupo.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        metadata = await self._whatsapp.group_metadata(data.jid)
+        metadata = await self.whatsapp.group_metadata(data.jid)
         participants = metadata['participants']
         owner = metadata.get('owner')
 
@@ -60,7 +60,7 @@ class BanCommand(Command):
             if target['id'] == self._bot_jid or target['id'] == owner:
                 continue
             try:
-                await self._whatsapp.group_participants_update(data.jid, [target['id']], 'remove')
+                await self.whatsapp.group_participants_update(data.jid, [target['id']], 'remove')
             except Exception:
                 logger.exception('ban_random_error', jid=data.jid)
                 break
@@ -84,7 +84,7 @@ class BanCommand(Command):
             if jid == owner and owner_is_admin:
                 continue
             try:
-                await self._whatsapp.group_participants_update(data.jid, [jid], 'remove')
+                await self.whatsapp.group_participants_update(data.jid, [jid], 'remove')
             except Exception:
                 logger.exception('ban_mentioned_error', jid=data.jid, target=jid)
                 continue

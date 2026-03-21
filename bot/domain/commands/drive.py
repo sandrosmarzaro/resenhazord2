@@ -21,6 +21,13 @@ class DriveCommand(Command):
         self._discord = discord
 
     @property
+    def discord(self) -> DiscordService:
+        if self._discord is None:
+            msg = 'DriveCommand requires DiscordService but none was injected'
+            raise RuntimeError(msg)
+        return self._discord
+
+    @property
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='drive',
@@ -76,9 +83,9 @@ class DriveCommand(Command):
         *,
         is_new: bool,
     ) -> list[BotMessage]:
-        channels = await self._discord.get_channels()
+        channels = await self.discord.get_channels()
 
-        category_channel = self._discord.find_category(channels, category)
+        category_channel = self.discord.find_category(channels, category)
         if not category_channel:
             if not is_new:
                 return [
@@ -86,9 +93,9 @@ class DriveCommand(Command):
                         f'Categoria *{category}* não encontrada. Use a flag `new` para criar.'
                     )
                 ]
-            category_channel = await self._discord.create_category(category)
+            category_channel = await self.discord.create_category(category)
 
-        target_channel = self._discord.find_channel(channels, channel, category_channel['id'])
+        target_channel = self.discord.find_channel(channels, channel, category_channel['id'])
         if not target_channel:
             if not is_new:
                 return [
@@ -97,15 +104,17 @@ class DriveCommand(Command):
                         ' Use a flag `new` para criar.'
                     )
                 ]
-            target_channel = await self._discord.create_channel(channel, category_channel['id'])
+            target_channel = await self.discord.create_channel(channel, category_channel['id'])
 
         buffer = await self._get_media(data)
 
+        if not data.media_type:
+            return [Reply.to(data).text('Tipo de mídia não identificado.')]
         ext = EXTENSIONS[data.media_type]
         label = TYPE_LABELS[data.media_type]
         timestamp = int(time.time() * 1000)
         filename = f'{label}_{timestamp}.{ext}'
 
-        await self._discord.upload_media(target_channel['id'], buffer, filename)
+        await self.discord.upload_media(target_channel['id'], buffer, filename)
 
         return [Reply.to(data).text(f'✅ Mídia salva em *{category}* > *#{channel}*')]
