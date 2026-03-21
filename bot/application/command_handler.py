@@ -1,4 +1,5 @@
 import structlog
+import structlog.contextvars
 
 from bot.application.command_registry import CommandRegistry
 from bot.domain.exceptions import BotError
@@ -18,12 +19,13 @@ class CommandHandler:
         if command is None:
             return None
 
-        logger.info('executing_command', command=command.config.name, jid=data.jid)
+        structlog.contextvars.bind_contextvars(command=command.config.name)
+        logger.info('executing_command')
 
         try:
             return await command.run(data)
         except BotError:
             raise
         except Exception:
-            logger.exception('command_execution_failed', command=command.config.name)
+            logger.exception('command_execution_failed')
             raise

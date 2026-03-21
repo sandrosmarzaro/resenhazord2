@@ -5,6 +5,7 @@ import uuid
 from typing import Any
 
 import structlog
+import structlog.contextvars
 from starlette.websockets import WebSocket
 
 from bot.adapters.http.schemas import WSCommandData, WSMessage
@@ -73,6 +74,13 @@ class WebSocketHandler:
             media_buffer=media_buffer,
             message_id=cmd_data.message_id,
             push_name=cmd_data.push_name,
+        )
+
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            jid=command_data.jid,
+            sender=command_data.sender_jid,
+            msg_id=msg.id,
         )
 
         try:
