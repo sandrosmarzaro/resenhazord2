@@ -123,6 +123,44 @@ class TestRun:
         assert messages[0].jid == data.jid
 
 
+class TestQuotedTextFallback:
+    @pytest.mark.anyio
+    async def test_uses_quoted_text_when_no_args(self, command):
+        data = GroupCommandDataFactory.build(
+            text=', áudio',
+            quoted_text='Texto da mensagem respondida',
+        )
+
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert isinstance(messages[0].content, AudioContent)
+        parsed = parse_qs(urlparse(messages[0].content.url).query)
+        assert parsed['q'] == ['Texto da mensagem respondida']
+
+    @pytest.mark.anyio
+    async def test_explicit_text_wins_over_quoted(self, command):
+        data = GroupCommandDataFactory.build(
+            text=', áudio texto explícito',
+            quoted_text='Texto ignorado',
+        )
+
+        messages = await command.run(data)
+
+        assert isinstance(messages[0].content, AudioContent)
+        parsed = parse_qs(urlparse(messages[0].content.url).query)
+        assert parsed['q'] == ['texto explícito']
+
+    @pytest.mark.anyio
+    async def test_no_args_no_quote_returns_error(self, command):
+        data = GroupCommandDataFactory.build(text=', áudio')
+
+        messages = await command.run(data)
+
+        assert isinstance(messages[0].content, TextContent)
+        assert 'Cadê o texto' in messages[0].content.text
+
+
 class TestSplitLongText:
     def test_short_text_not_split(self, command):
         result = command._split_long_text('Hello world')

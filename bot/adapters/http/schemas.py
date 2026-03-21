@@ -14,6 +14,7 @@ class WSCommandData(BaseModel):
     expiration: int | None = None
     mentioned_jids: list[str] = []
     quoted_message_id: str | None = None
+    quoted_text: str | None = None
     media_type: str | None = None
     media_source: str | None = None
     media_is_animated: bool = False

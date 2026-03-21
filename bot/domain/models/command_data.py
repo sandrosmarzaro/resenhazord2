@@ -14,6 +14,7 @@ class CommandData:
     expiration: int | None = None
     mentioned_jids: list[str] = field(default_factory=list)
     quoted_message_id: str | None = None
+    quoted_text: str | None = None
     media_type: str | None = None
     media_source: str | None = None
     media_is_animated: bool = False
@@ -37,6 +38,7 @@ class CommandData:
             expiration=data.get('expiration'),
             mentioned_jids=data.get('mentioned_jids', []),
             quoted_message_id=data.get('quoted_message_id'),
+            quoted_text=data.get('quoted_text'),
             media_type=data.get('media_type'),
             media_source=data.get('media_source'),
             media_is_animated=data.get('media_is_animated', False),

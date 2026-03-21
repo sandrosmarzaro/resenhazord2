@@ -15,6 +15,7 @@ class GroupCommandDataFactory(factory.Factory):
     expiration = None
     mentioned_jids = factory.LazyFunction(list)
     quoted_message_id = None
+    quoted_text = None
     media_type = None
     media_source = None
     media_is_animated = False
@@ -38,6 +39,7 @@ class PrivateCommandDataFactory(factory.Factory):
     expiration = None
     mentioned_jids = factory.LazyFunction(list)
     quoted_message_id = None
+    quoted_text = None
     media_type = None
     media_source = None
     media_is_animated = False

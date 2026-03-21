@@ -34,7 +34,7 @@ class AudioCommand(Command):
         if language not in LANGUAGES:
             return [Reply.to(data).text('Burro burro! O idioma 🏳️‍🌈 não existe!')]
 
-        text = parsed.rest.strip()
+        text = parsed.rest.strip() or (data.quoted_text or '').strip()
         if not text:
             return [Reply.to(data).text('Burro burro! Cadê o texto? 🤨')]
 

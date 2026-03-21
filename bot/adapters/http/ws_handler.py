@@ -65,6 +65,7 @@ class WebSocketHandler:
             expiration=cmd_data.expiration,
             mentioned_jids=cmd_data.mentioned_jids,
             quoted_message_id=cmd_data.quoted_message_id,
+            quoted_text=cmd_data.quoted_text,
             media_type=cmd_data.media_type,
             media_source=cmd_data.media_source,
             media_is_animated=cmd_data.media_is_animated,
