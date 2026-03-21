@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Resenhazord2 is a WhatsApp chatbot structured as a monorepo with two services:
+Resenhazord2 is a WhatsApp chatbot with Python as the primary language:
 
-- **`gateway/`** — TypeScript (Bun + Baileys) — WhatsApp adapter, command system, message handling
-- **`engine/`** — Python (FastAPI + uvicorn) — business logic, command processing via WebSocket bridge
+- **Root** — Python (FastAPI + uvicorn) — all 46 commands, business logic, services
+- **`gateway/`** — TypeScript (Bun + Baileys) — WhatsApp adapter, media handling, WebSocket bridge
 
-Commands are prefixed with `,` (comma). The gateway receives WhatsApp messages and either handles them directly or forwards them to the engine via WebSocket.
+Commands are prefixed with `,` (comma). The gateway receives WhatsApp messages, proactively downloads any attached media, and forwards everything to the Python engine via WebSocket. All command logic lives in Python.
 
 ## MCP Tools
 
@@ -33,10 +33,9 @@ bun format             # Prettier format
 bun format:check       # Prettier check
 ```
 
-### Engine (Python)
+### Python (from root)
 
 ```bash
-cd engine
 uv run pytest -v       # Run tests
 uv run ruff check .    # Lint
 uv run ruff format .   # Format
@@ -65,22 +64,24 @@ Pre-push hook runs (from gateway/): lint, typecheck, format:check.
 
 ### Command System
 
-Every command extends the abstract `Command` class (`gateway/src/commands/Command.ts`):
+Every command extends the abstract `Command` class (`bot/domain/commands/base.py`):
 
-- `config: CommandConfig` — declarative config for matching and parsing (see below)
-- `menuDescription: string` — description shown in the `,menu` command
-- `execute(data: CommandData, parsed: ParsedCommand): Promise<Message[]>` — command logic
+- `config: CommandConfig` — declarative config for matching and parsing
+- `menu_description: str` — description shown in the `,menu` command
+- `execute(data: CommandData, parsed: ParsedCommand) -> list[BotMessage]` — command logic
 
 The base `Command.run()` is a template method that:
 
-1. Checks `groupOnly` and returns an error if used in a private chat
+1. Checks `group_only` and returns an error if used in a private chat
 2. Parses the message text via `CommandParser` into a `ParsedCommand`
 3. Calls the subclass `execute()` method
 4. Applies `dm` and `show` flags centrally (commands don't handle these)
 
-`CommandParser` (`gateway/src/parsers/CommandParser.ts`) auto-generates a regex from the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in names/flags/options are replaced with `.` in the regex.
+`CommandParser` (`bot/domain/parsers/command_parser.py`) auto-generates a regex from the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in names/flags/options are replaced with `.` in the regex.
 
-`CommandFactory` (`gateway/src/factories/CommandFactory.ts`) is a singleton that holds all command instances and selects the first match via `getStrategy(text)`.
+`CommandRegistry` (`bot/application/command_registry.py`) is a singleton that holds all command instances and selects the first match.
+
+The TS gateway mirrors the parser (`gateway/src/parsers/CommandParser.ts`) for initial command matching before forwarding to Python.
 
 ### Ports & Adapters
 
@@ -90,11 +91,15 @@ The base `Command.run()` is a template method that:
 
 `Resenhazord2.adapter` (static, public) is the entry point; `socket` is private. On reconnection, a new adapter is created.
 
-Commands that need WhatsApp operations receive `WhatsAppPort` via constructor injection (`this.whatsapp`). 7 commands use it: AddCommand, AdmCommand, AllCommand, BanCommand, StickerCommand, ScarraCommand, DriveCommand.
+Commands that need WhatsApp operations receive `WhatsAppPort` via constructor injection. Python commands access WhatsApp via `self._whatsapp` (the `WhatsAppWsClient` that delegates to TS over WebSocket).
+
+### Media Download
+
+Media is downloaded proactively by the TS gateway when a message arrives. The bytes are sent as a binary WebSocket frame before the command JSON. Python commands access media via `self._get_media(data)` which returns the proactive buffer or falls back to a `wa_call download_media` round-trip.
 
 ### Reply Builder
 
-`Reply` (`gateway/src/builders/Reply.ts`) provides a fluent API for building `Message` objects:
+`Reply` (`bot/domain/builders/reply.py`) provides a fluent API for building `BotMessage` objects:
 
 ```ts
 Reply.to(data).text('hello');
@@ -137,37 +142,22 @@ Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for optio
 - `dm` flag — redirects response to sender's DM
 - `show` flag — sets `viewOnce: false` (commands set `viewOnce: true` by default)
 
-### Import pattern for command subclasses
-
-`Command.ts` re-exports all types subclasses need — **never import from `../types/`** in a command file:
-
-```ts
-import Command, {
-  type CommandData,
-  type CommandConfig,
-  type ParsedCommand,
-  type Message,
-} from './Command.js';
-```
-
-Add `ArgType` (value export), `type WhatsAppPort`, or `type CommandCategory` to that same import as needed. Keep any `@whiskeysockets/baileys` imports on a separate line above.
-
 ### Adding a New Command
 
-1. Create `gateway/src/commands/FooCommand.ts` extending `Command`
+1. Create `bot/domain/commands/foo.py` extending `Command`
 2. Define `config: CommandConfig` with appropriate name, flags, options, args
 3. Implement `execute(data, parsed)` — use `parsed.flags`, `parsed.options`, `parsed.rest`
-4. Use `Reply.to(data)` to build responses (media methods default to `viewOnce: true`)
-5. If the command needs WhatsApp operations (group metadata, etc.), accept `WhatsAppPort` in constructor and register with it in `CommandFactory`
-6. Import and register it in `CommandFactory`'s constructor
-7. Create `gateway/tests/unit/commands/FooCommand.test.ts`
+4. Use `Reply.to(data)` to build responses (media methods default to `view_once=True`)
+5. If the command needs WhatsApp operations, accept `WhatsAppPort` in constructor
+6. Register it in `bot/application/register_commands.py`
+7. Create `tests/unit/commands/test_foo.py`
 
 ### Key Types
 
-- `CommandData` — extends `WAMessage` with `text: string` and `expiration: number | undefined`
-- `Message` — `{ jid, content: AnyMessageContent, options? }`
-- `CommandConfig` — declarative config: name, aliases, flags, options, args, groupOnly
-- `ParsedCommand` — parser output: commandName, flags (`Set`), options (`Map`), rest (`string`)
+- `CommandData` (`bot/domain/models/command_data.py`) — platform-agnostic command data with text, jid, media info, etc.
+- `BotMessage` (`bot/domain/models/message.py`) — response message with content and metadata
+- `CommandConfig` (`bot/domain/commands/base.py`) — declarative config: name, aliases, flags, options, args, group_only
+- `ParsedCommand` (`bot/domain/commands/base.py`) — parser output: command_name, flags (`set`), options (`dict`), rest (`str`)
 
 ### Group Metadata Cache
 
@@ -288,20 +278,20 @@ fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
 
 ## Code Conventions
 
-- **Runtime**: Bun (not Node.js) for gateway, Python 3.13+ for engine
+- **Runtime**: Python 3.13+ for the bot, Bun (not Node.js) for gateway
 - **Modules**: ES modules with `.js` extensions in imports (even for `.ts` files)
 - **File naming**: PascalCase for TS classes (e.g., `OiCommand.ts`), snake_case for Python (e.g., `command_parser.py`)
 - **Exports**: Default exports for TS class files, named exports for data files
-- **Data files**: Large lookup tables, emoji maps, and static datasets belong in `gateway/src/data/` (e.g., `bichoAnimalEmojis.ts`, `pokemonTypeEmojis.ts`). Do not define big mappings inline in service or command files.
+- **Data files**: Large lookup tables, emoji maps, and static datasets belong in `bot/data/`. Do not define big mappings inline in service or command files.
 - **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
 - **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (double quotes, 100 char width)
 
-### Python Code Quality (Engine)
+### Python Code Quality
 
 Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
 
 - **No magic numbers** — use named constants to describe every numeric literal. Place
-  constants as class attributes (`MAX_PAGE = 50`) or in `engine/bot/data/` files, never
+  constants as class attributes (`MAX_PAGE = 50`) or in `bot/data/` files, never
   as bare numbers in logic
 - **Early returns** — prefer returning early to reduce nesting. Avoid deeply nested
   if-elif-else blocks; flatten with guard clauses
@@ -314,14 +304,14 @@ Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
   adding a new suppression
 - **No module-level variables** — never define bare `FOO = ...` at module scope in
   command or service files. Use class attributes (with `ClassVar` for mutable types)
-  for constants that belong to a class, or place shared data in `engine/bot/data/`
+  for constants that belong to a class, or place shared data in `bot/data/`
   modules. The only exception is `logger = structlog.get_logger()`
 - **Data files** — all dicts, lists, sets, and lookup tables (even small ones) belong in
-  `engine/bot/data/` as named exports. Import them in the command file. Never define
+  `bot/data/` as named exports. Import them in the command file. Never define
   inline data structures in command or service files
 - **Test fixtures in separate files** — shared test helpers (mock response builders,
-  HTML fixtures, data builders) belong in `engine/tests/conftest.py` or
-  `engine/tests/fixtures/`. Do not duplicate helper functions across test files
+  HTML fixtures, data builders) belong in `tests/conftest.py` or
+  `tests/fixtures/`. Do not duplicate helper functions across test files
 - **Polymorphic behavior** — prefer `to_dict()` / `__str__()` methods on data classes
   over isinstance chains. Keep serialization logic close to the data it describes
 
@@ -381,15 +371,15 @@ docs: add conventional commits guidelines to CLAUDE.md
 
 - **Framework**: Vitest with globals enabled
 - **Fixtures**: `gateway/tests/fixtures/index.js` provides `GroupCommandData` and `PrivateCommandData` factories (using Fishery)
-- **Setup**: `gateway/tests/setup.ts` mocks external dependencies (google-tts-api, Gemini, sharp, pino, mongodb, @sentry/bun)
+- **Setup**: `gateway/tests/setup.ts` mocks external dependencies (pino, mongodb, @sentry/bun)
 - **Pattern**: Tests instantiate the command directly, use factories for `CommandData`, and assert on the returned `Message[]`
 - **WhatsApp mock**: `createMockWhatsAppPort()` from `gateway/tests/fixtures/factories/MockWhatsAppPort.ts` provides a mock `WhatsAppPort` for commands that need it (constructor-injected)
 
-### Engine (Python)
+### Python
 
 - **Framework**: pytest with anyio for async tests
-- **Fixtures**: `engine/tests/factories/` provides `CommandDataFactory` and `MockWhatsAppPort`
-- **Config**: `engine/pyproject.toml` under `[tool.pytest.ini_options]`
+- **Fixtures**: `tests/factories/` provides `CommandDataFactory` and `MockWhatsAppPort`
+- **Config**: `pyproject.toml` under `[tool.pytest.ini_options]` and `pytest.toml`
 
 ## AI Guidelines
 
@@ -399,7 +389,7 @@ docs: add conventional commits guidelines to CLAUDE.md
   vs newly introduced errors
 - Always run `cd gateway && bun test:run` after TS changes and verify all previously passing
   tests still pass
-- Always run `cd engine && uv run ruff check . && uv run ruff format --check .` after Python changes
+- Always run `uv run ruff check . && uv run ruff format --check .` after Python changes
 - Always ask/talk about of implementation of code, which design use
   pattern/library/algorithms/architecture/design system, suggesting and
   listing alternatives approaches (prefer free/freemium ways) with pros and cons
@@ -474,4 +464,4 @@ The outer `?` handles the optional/empty case. `\s+` between mentions eliminates
 
 ## Environment
 
-Requires a `.env` file at the repo root (see `.env.example`) with keys for: WhatsApp JIDs, Gemini API, MongoDB URI, TMDB, and other service credentials. Symlinked into `gateway/.env` and `engine/.env` for local development.
+Requires a `.env` file at the repo root (see `.env.example`) with keys for: WhatsApp JIDs, Gemini API, MongoDB URI, TMDB, and other service credentials. Symlinked into `gateway/.env` for local development.
