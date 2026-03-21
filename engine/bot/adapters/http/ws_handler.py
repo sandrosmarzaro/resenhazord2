@@ -11,6 +11,7 @@ from bot.adapters.http.schemas import WSCommandData, WSMessage
 from bot.application.command_handler import CommandHandler
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.steal_group import StealGroupService
 
 logger = structlog.get_logger()
 
@@ -21,12 +22,18 @@ class WebSocketHandler:
         self._command_handler = command_handler
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._pending_binary: bytes | None = None
+        self._steal_group: StealGroupService | None = None
+
+    def set_steal_group_service(self, service: StealGroupService) -> None:
+        self._steal_group = service
 
     async def handle_message(self, raw: str) -> None:
         msg = WSMessage.model_validate_json(raw)
 
         if msg.type == 'command':
             await self._handle_command(msg)
+        elif msg.type == 'group_event':
+            await self._handle_group_event(msg)
         elif msg.type == 'wa_result':
             self._resolve_pending(msg)
         else:
@@ -77,6 +84,14 @@ class WebSocketHandler:
             return
 
         await self._send_command_response(msg.id, messages)
+
+    async def _handle_group_event(self, msg: WSMessage) -> None:
+        if not self._steal_group or msg.data is None:
+            return
+        try:
+            await self._steal_group.run(msg.data)
+        except Exception:
+            logger.exception('group_event_error', id=msg.id)
 
     async def _send_command_response(self, msg_id: str, messages: list[BotMessage]) -> None:
         # Send binary frames BEFORE JSON so the TS side receives them

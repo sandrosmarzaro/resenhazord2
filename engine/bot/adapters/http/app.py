@@ -12,7 +12,9 @@ from bot.adapters.whatsapp.ws_client import WhatsAppWsClient
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
+from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.mongodb import MongoDBConnection
+from bot.settings import Settings
 
 logger = structlog.get_logger()
 
@@ -42,7 +44,13 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     registry = CommandRegistry.instance()
     command_handler = CommandHandler(registry)
     handler = WebSocketHandler(ws, command_handler)
-    registry.set_whatsapp(WhatsAppWsClient(handler))
+    ws_client = WhatsAppWsClient(handler)
+    registry.set_whatsapp(ws_client)
+
+    settings = Settings()
+    handler.set_steal_group_service(
+        StealGroupService(ws_client, settings.resenhazord2_jid, settings.resenha_jid)
+    )
 
     app.state.ws_handler = handler
     tasks: set[asyncio.Task[None]] = set()

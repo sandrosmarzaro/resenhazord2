@@ -1,8 +1,6 @@
 """WhatsApp operations via WebSocket — sends wa_call, awaits wa_result."""
 
-import asyncio
 import base64
-import uuid
 from typing import Any
 
 from bot.adapters.http.ws_handler import WebSocketHandler
@@ -43,19 +41,10 @@ class WhatsAppWsClient:
         )
 
     async def update_profile_picture(self, jid: str, image: bytes) -> None:
-        msg_id = str(uuid.uuid4())
-        future: asyncio.Future[dict] = asyncio.get_event_loop().create_future()
-        self._handler._pending[msg_id] = future
-        await self._handler._ws.send_json(
-            {
-                'id': msg_id,
-                'type': 'wa_call',
-                'method': 'update_profile_picture',
-                'data': {'jid': jid},
-            }
+        await self._call(
+            'update_profile_picture',
+            {'jid': jid, 'image': base64.b64encode(image).decode()},
         )
-        await self._handler._ws.send_bytes(image)
-        await asyncio.wait_for(future, timeout=30.0)
 
     async def group_update_subject(self, jid: str, subject: str) -> None:
         await self._call('group_update_subject', {'jid': jid, 'subject': subject})

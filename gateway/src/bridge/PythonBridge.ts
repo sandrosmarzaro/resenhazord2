@@ -151,6 +151,17 @@ export default class PythonBridge {
     }
   }
 
+  sendGroupEvent(data: Record<string, unknown>): void {
+    if (!this.isConnected) return;
+    this.ws!.send(
+      JSON.stringify({
+        id: crypto.randomUUID(),
+        type: 'group_event',
+        data,
+      }),
+    );
+  }
+
   private async handleMessage(event: MessageEvent): Promise<void> {
     if (typeof event.data !== 'string') {
       // Binary frame — associate with the first pending binary response
@@ -245,6 +256,11 @@ export default class PythonBridge {
         if (!stored) throw new Error(`Message ${messageId} not found in store`);
         const buffer = await this.mediaHandler.downloadMedia(stored, data.source as string);
         return { buffer: buffer.toString('base64') };
+      }
+      case 'update_profile_picture': {
+        const imgBuffer = Buffer.from(data.image as string, 'base64');
+        await this.whatsapp.updateProfilePicture(data.jid as string, imgBuffer);
+        return {};
       }
       default:
         throw new Error(`Unknown wa_call method: ${method}`);
