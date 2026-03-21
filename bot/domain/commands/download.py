@@ -1,12 +1,16 @@
-"""Download video from URL using yt-dlp subprocess."""
-
 import asyncio
 import re
 
 import structlog
 
+from bot.data.download_errors import (
+    FALLBACK_MESSAGE,
+    FILE_TOO_LARGE_MESSAGE,
+    YTDLP_ERROR_MESSAGES,
+)
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.exceptions import DownloadError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -15,7 +19,6 @@ logger = structlog.get_logger()
 
 class YtDlpService:
     MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
-    """Async wrapper around yt-dlp CLI."""
 
     @classmethod
     async def download(cls, url: str) -> tuple[bytes, str]:
@@ -80,7 +83,18 @@ class DownloadCommand(Command):
 
         try:
             video_buffer, title = await YtDlpService.download(url)
-            return [Reply.to(data).video_buffer(video_buffer, title)]
-        except Exception:
-            logger.exception('download_error', url=url)
-            return [Reply.to(data).text('Não consegui baixar esse vídeo 😅')]
+        except RuntimeError as e:
+            raise DownloadError(self._match_error(str(e)), detail=str(e)) from e
+        except ValueError as e:
+            raise DownloadError(FILE_TOO_LARGE_MESSAGE, detail=str(e)) from e
+        except Exception as e:
+            raise DownloadError(FALLBACK_MESSAGE, detail=str(e)) from e
+
+        return [Reply.to(data).video_buffer(video_buffer, title)]
+
+    @staticmethod
+    def _match_error(error: str) -> str:
+        for pattern, message in YTDLP_ERROR_MESSAGES.items():
+            if pattern in error:
+                return message
+        return FALLBACK_MESSAGE
