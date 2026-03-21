@@ -40,42 +40,17 @@ class CommandParser:
         tokens = [t for t in remaining.split() if t]
 
         for token in tokens:
-            consumed = False
+            opt = self._try_match_option(token, options)
+            if opt:
+                options[opt[0]] = opt[1]
+                continue
 
-            for opt in self._config.options:
-                if opt.name in options:
-                    continue
-                if opt.values:
-                    matched_value = None
-                    for v in opt.values:
-                        pattern = self._replace_diacritics(v)
-                        if re.match(f'^{pattern}$', token, re.IGNORECASE):
-                            matched_value = v
-                            break
-                    if matched_value is not None:
-                        options[opt.name] = matched_value
-                        consumed = True
-                        break
-                if opt.pattern and re.match(f'^{opt.pattern}$', token, re.IGNORECASE):
-                    options[opt.name] = token
-                    consumed = True
-                    break
+            flag = self._try_match_flag(token, flags)
+            if flag:
+                flags.add(flag)
+                continue
 
-            if not consumed:
-                matched_flag = None
-                for f in self._config.flags:
-                    if f in flags:
-                        continue
-                    pattern = self._replace_diacritics(f)
-                    if re.match(f'^{pattern}$', token, re.IGNORECASE):
-                        matched_flag = f
-                        break
-                if matched_flag is not None:
-                    flags.add(matched_flag)
-                    consumed = True
-
-            if not consumed:
-                rest_parts.append(token)
+            rest_parts.append(token)
 
         return ParsedCommand(
             command_name=command_name,
@@ -83,6 +58,28 @@ class CommandParser:
             options=options,
             rest=' '.join(rest_parts),
         )
+
+    def _try_match_option(self, token: str, matched: dict[str, str]) -> tuple[str, str] | None:
+        for opt in self._config.options:
+            if opt.name in matched:
+                continue
+            if opt.values:
+                for v in opt.values:
+                    pattern = self._replace_diacritics(v)
+                    if re.match(f'^{pattern}$', token, re.IGNORECASE):
+                        return (opt.name, v)
+            if opt.pattern and re.match(f'^{opt.pattern}$', token, re.IGNORECASE):
+                return (opt.name, token)
+        return None
+
+    def _try_match_flag(self, token: str, matched: set[str]) -> str | None:
+        for f in self._config.flags:
+            if f in matched:
+                continue
+            pattern = self._replace_diacritics(f)
+            if re.match(f'^{pattern}$', token, re.IGNORECASE):
+                return f
+        return None
 
     def _build_regex(self) -> re.Pattern[str]:
         from bot.domain.commands.base import ArgType
