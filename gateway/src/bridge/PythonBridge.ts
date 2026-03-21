@@ -211,65 +211,121 @@ export default class PythonBridge {
     }
   }
 
+  private getWaMethodHandlers(): Record<
+    string,
+    (data: Record<string, unknown>) => Promise<Record<string, unknown>>
+  > {
+    return {
+      group_metadata: async (d) => {
+        const metadata = await this.whatsapp!.groupMetadata(d.jid as string);
+        return metadata as unknown as Record<string, unknown>;
+      },
+      group_participants_update: async (d) => {
+        const results = await this.whatsapp!.groupParticipantsUpdate(
+          d.jid as string,
+          d.participants as string[],
+          d.action as 'add' | 'remove' | 'promote' | 'demote',
+        );
+        return { results };
+      },
+      on_whatsapp: async (d) => {
+        const results = await this.whatsapp!.onWhatsApp(...(d.jids as string[]));
+        return { results };
+      },
+      send_message: async (d) => {
+        const result = await this.whatsapp!.sendMessage(
+          d.jid as string,
+          d.content as AnyMessageContent,
+          d.options as Record<string, unknown> | undefined,
+        );
+        return (result ?? {}) as Record<string, unknown>;
+      },
+      group_update_subject: async (d) => {
+        await this.whatsapp!.groupUpdateSubject(d.jid as string, d.subject as string);
+        return {};
+      },
+      group_update_description: async (d) => {
+        await this.whatsapp!.groupUpdateDescription(d.jid as string, d.description as string);
+        return {};
+      },
+      send_presence_update: async (d) => {
+        await this.whatsapp!.sendPresenceUpdate(
+          d.type as 'available' | 'composing' | 'recording' | 'paused' | 'unavailable',
+          d.jid as string,
+        );
+        return {};
+      },
+      download_media: async (d) => {
+        if (!this.mediaHandler) throw new Error('MediaHandler not available');
+        const messageId = d.message_id as string;
+        const stored = this.messageStore.get(messageId);
+        if (!stored) throw new Error(`Message ${messageId} not found in store`);
+        const buffer = await this.mediaHandler.downloadMedia(stored, d.source as string);
+        return { buffer: buffer.toString('base64') };
+      },
+      update_profile_picture: async (d) => {
+        const imgBuffer = Buffer.from(d.image as string, 'base64');
+        await this.whatsapp!.updateProfilePicture(d.jid as string, imgBuffer);
+        return {};
+      },
+    };
+  }
+
   private async executeWaMethod(
     method: string,
     data: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     if (!this.whatsapp) throw new Error('WhatsApp not available');
+    const handler = this.getWaMethodHandlers()[method];
+    if (!handler) throw new Error(`Unknown wa_call method: ${method}`);
+    return handler(data);
+  }
 
-    switch (method) {
-      case 'group_metadata': {
-        const metadata = await this.whatsapp.groupMetadata(data.jid as string);
-        return metadata as unknown as Record<string, unknown>;
-      }
-      case 'group_participants_update': {
-        const results = await this.whatsapp.groupParticipantsUpdate(
-          data.jid as string,
-          data.participants as string[],
-          data.action as 'add' | 'remove' | 'promote' | 'demote',
-        );
-        return { results };
-      }
-      case 'on_whatsapp': {
-        const results = await this.whatsapp.onWhatsApp(...(data.jids as string[]));
-        return { results };
-      }
-      case 'send_message': {
-        const result = await this.whatsapp.sendMessage(
-          data.jid as string,
-          data.content as AnyMessageContent,
-          data.options as Record<string, unknown> | undefined,
-        );
-        return (result ?? {}) as Record<string, unknown>;
-      }
-      case 'group_update_subject':
-        await this.whatsapp.groupUpdateSubject(data.jid as string, data.subject as string);
-        return {};
-      case 'group_update_description':
-        await this.whatsapp.groupUpdateDescription(data.jid as string, data.description as string);
-        return {};
-      case 'send_presence_update':
-        await this.whatsapp.sendPresenceUpdate(
-          data.type as 'available' | 'composing' | 'recording' | 'paused' | 'unavailable',
-          data.jid as string,
-        );
-        return {};
-      case 'download_media': {
-        if (!this.mediaHandler) throw new Error('MediaHandler not available');
-        const messageId = data.message_id as string;
-        const stored = this.messageStore.get(messageId);
-        if (!stored) throw new Error(`Message ${messageId} not found in store`);
-        const buffer = await this.mediaHandler.downloadMedia(stored, data.source as string);
-        return { buffer: buffer.toString('base64') };
-      }
-      case 'update_profile_picture': {
-        const imgBuffer = Buffer.from(data.image as string, 'base64');
-        await this.whatsapp.updateProfilePicture(data.jid as string, imgBuffer);
-        return {};
-      }
-      default:
-        throw new Error(`Unknown wa_call method: ${method}`);
-    }
+  private getContentDeserializers(
+    buffers: Buffer[],
+    idx: { value: number },
+  ): Record<
+    string,
+    (cd: Record<string, unknown>, caption: string | undefined) => AnyMessageContent
+  > {
+    return {
+      text: (cd) =>
+        cd.mentions
+          ? { text: cd.text as string, mentions: cd.mentions as string[] }
+          : { text: cd.text as string },
+      image: (cd, cap) => ({
+        image: { url: cd.url as string },
+        viewOnce: cd.view_once as boolean,
+        caption: cap,
+      }),
+      image_buffer: (cd, cap) => ({
+        image: buffers[idx.value++] ?? Buffer.alloc(0),
+        viewOnce: cd.view_once as boolean,
+        caption: cap,
+      }),
+      video: (cd, cap) => ({
+        video: { url: cd.url as string },
+        viewOnce: cd.view_once as boolean,
+        caption: cap,
+      }),
+      video_buffer: (cd, cap) => ({
+        video: buffers[idx.value++] ?? Buffer.alloc(0),
+        viewOnce: cd.view_once as boolean,
+        gifPlayback: (cd.gif_playback as boolean) ?? false,
+        caption: cap,
+      }),
+      audio: (cd) => ({
+        audio: { url: cd.url as string },
+        viewOnce: cd.view_once as boolean,
+        mimetype: (cd.mimetype as string) ?? 'audio/mp4',
+      }),
+      audio_buffer: (cd) => ({
+        audio: buffers[idx.value++] ?? Buffer.alloc(0),
+        mimetype: (cd.mimetype as string) ?? 'audio/mp4',
+      }),
+      sticker: () => ({ sticker: buffers[idx.value++] ?? Buffer.alloc(0) }),
+      raw: (cd) => cd.content as AnyMessageContent,
+    };
   }
 
   private deserializeMessages(requestId: string, response: WSMessage): Message[] {
@@ -277,75 +333,20 @@ export default class PythonBridge {
     const buffers = this.pendingBinary.get(requestId) ?? [];
     this.pendingBinary.delete(requestId);
 
-    let bufferIdx = 0;
+    const idx = { value: 0 };
+    const deserializers = this.getContentDeserializers(buffers, idx);
+
     return msgs.map((m) => {
-      const contentData = m.content as Record<string, unknown>;
-      const contentType = contentData.type as string;
-      const jid = m.jid as string;
+      const cd = m.content as Record<string, unknown>;
+      const contentType = cd.type as string;
+      const caption = cd.caption as string | undefined;
 
-      let content: AnyMessageContent;
+      const deserializer = deserializers[contentType];
+      const content: AnyMessageContent = deserializer
+        ? deserializer(cd, caption)
+        : { text: `Unknown content type: ${contentType}` };
 
-      const caption = contentData.caption as string | undefined;
-
-      switch (contentType) {
-        case 'text':
-          content = contentData.mentions
-            ? { text: contentData.text as string, mentions: contentData.mentions as string[] }
-            : { text: contentData.text as string };
-          break;
-        case 'image':
-          content = {
-            image: { url: contentData.url as string },
-            viewOnce: contentData.view_once as boolean,
-            caption,
-          };
-          break;
-        case 'image_buffer':
-          content = {
-            image: buffers[bufferIdx++] ?? Buffer.alloc(0),
-            viewOnce: contentData.view_once as boolean,
-            caption,
-          };
-          break;
-        case 'video':
-          content = {
-            video: { url: contentData.url as string },
-            viewOnce: contentData.view_once as boolean,
-            caption,
-          };
-          break;
-        case 'video_buffer':
-          content = {
-            video: buffers[bufferIdx++] ?? Buffer.alloc(0),
-            viewOnce: contentData.view_once as boolean,
-            gifPlayback: (contentData.gif_playback as boolean) ?? false,
-            caption,
-          };
-          break;
-        case 'audio':
-          content = {
-            audio: { url: contentData.url as string },
-            viewOnce: contentData.view_once as boolean,
-            mimetype: (contentData.mimetype as string) ?? 'audio/mp4',
-          };
-          break;
-        case 'audio_buffer':
-          content = {
-            audio: buffers[bufferIdx++] ?? Buffer.alloc(0),
-            mimetype: (contentData.mimetype as string) ?? 'audio/mp4',
-          };
-          break;
-        case 'sticker':
-          content = { sticker: buffers[bufferIdx++] ?? Buffer.alloc(0) };
-          break;
-        case 'raw':
-          content = contentData.content as AnyMessageContent;
-          break;
-        default:
-          content = { text: `Unknown content type: ${contentType}` };
-      }
-
-      const message: Message = { jid, content };
+      const message: Message = { jid: m.jid as string, content };
 
       if (m.quoted_message_id) {
         message.options = {
