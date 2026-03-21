@@ -17,6 +17,7 @@ from bot.domain.commands.clash_royale import ClashRoyaleCommand
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.commands.d20 import D20Command
 from bot.domain.commands.download import DownloadCommand
+from bot.domain.commands.drive import DriveCommand
 from bot.domain.commands.extrair import ExtrairCommand
 from bot.domain.commands.fato import FatoCommand
 from bot.domain.commands.filme_serie import FilmeSerieCommand
@@ -42,6 +43,7 @@ from bot.domain.commands.scarra import ScarraCommand
 from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
+from bot.domain.services.discord import DiscordService
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
 
@@ -69,6 +71,13 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(CountryFlagCommand())
     registry.register(D20Command())
     registry.register(DownloadCommand())
+    registry.register(
+        DriveCommand(
+            discord=DiscordService(settings.discord_token, settings.discord_guild_id)
+            if settings.discord_token and settings.discord_guild_id
+            else None
+        )
+    )
     registry.register(ExtrairCommand())
     registry.register(FatoCommand())
     registry.register(FilmeSerieCommand(tmdb_api_key=settings.tmdb_api_key))

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     debug: bool = False
 
     resenhazord2_jid: str = ''
+    discord_token: str = ''
+    discord_guild_id: str = ''
 
     bnet_id: str = ''
     bnet_secret: str = ''
