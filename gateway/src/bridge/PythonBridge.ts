@@ -116,6 +116,11 @@ export default class PythonBridge {
         expiration: data.expiration ?? null,
         mentioned_jids: data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [],
         quoted_message_id: data.message?.extendedTextMessage?.contextInfo?.stanzaId ?? null,
+        quoted_text: (() => {
+          const quoted = data.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+          if (!quoted) return null;
+          return quoted.conversation ?? quoted.extendedTextMessage?.text ?? null;
+        })(),
         message_id: messageId,
         push_name: data.pushName ?? null,
         media_type: mediaInfo?.type ?? null,
