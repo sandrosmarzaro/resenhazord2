@@ -7,15 +7,15 @@ gateway/src/auth/google_secret.json
 gateway/coverage/
 gateway/.wwebjs_cache/
 
-# Python (engine)
-engine/.venv/
-engine/__pycache__/
-engine/**/__pycache__/
-engine/**/*.pyc
-engine/.pytest_cache/
-engine/.ruff_cache/
-engine/.coverage
-engine/coverage.xml
+# Python
+.venv/
+__pycache__/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
 
 # Shared
 .env

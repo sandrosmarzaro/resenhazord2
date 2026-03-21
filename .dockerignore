@@ -3,5 +3,12 @@
 .vscode
 .claude
 .devcontainer
+gateway
+docs
 LICENSE
 README.md
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+tests
