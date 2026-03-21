@@ -12,15 +12,13 @@ from bot.domain.models.message import BotMessage
 
 logger = structlog.get_logger()
 
-URL_REGEX = re.compile(r'https?://\S+')
-MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
-
 
 class YtDlpService:
+    MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
     """Async wrapper around yt-dlp CLI."""
 
-    @staticmethod
-    async def download(url: str) -> tuple[bytes, str]:
+    @classmethod
+    async def download(cls, url: str) -> tuple[bytes, str]:
         title_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
             '--print',
@@ -51,7 +49,7 @@ class YtDlpService:
             msg = f'yt-dlp failed: {error_msg}'
             raise RuntimeError(msg)
 
-        if len(video_stdout) > MAX_BUFFER:
+        if len(video_stdout) > cls.MAX_BUFFER:
             msg = 'Video exceeds maximum buffer size'
             raise ValueError(msg)
 
@@ -59,6 +57,8 @@ class YtDlpService:
 
 
 class DownloadCommand(Command):
+    URL_REGEX = re.compile(r'https?://\S+')
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -75,7 +75,7 @@ class DownloadCommand(Command):
         return 'Baixe vídeos de qualquer URL (YouTube, Instagram, TikTok, etc.).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        match = URL_REGEX.search(parsed.rest)
+        match = self.URL_REGEX.search(parsed.rest)
         url = match.group(0) if match else parsed.rest
 
         try:

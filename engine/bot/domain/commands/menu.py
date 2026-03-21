@@ -1,5 +1,7 @@
 """Menu command — displays available commands grouped by category."""
 
+from typing import ClassVar
+
 from bot.application.command_registry import CommandRegistry
 from bot.data.menu_messages import (
     ALEATORIA_SUBHEADER,
@@ -13,13 +15,13 @@ from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef,
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
-SECTION_MENUS: dict[str, str] = {
-    'grupo': MENU_GRUPO,
-    'bíblia': MENU_BIBLIA,
-}
-
 
 class MenuCommand(Command):
+    SECTION_MENUS: ClassVar[dict[str, str]] = {
+        'grupo': MENU_GRUPO,
+        'bíblia': MENU_BIBLIA,
+    }
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -35,8 +37,8 @@ class MenuCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         section = parsed.options.get('section')
-        if section and section in SECTION_MENUS:
-            return [Reply.to(data).text(SECTION_MENUS[section])]
+        if section and section in self.SECTION_MENUS:
+            return [Reply.to(data).text(self.SECTION_MENUS[section])]
         return [Reply.to(data).text(self._build_menu())]
 
     def _build_menu(self) -> str:

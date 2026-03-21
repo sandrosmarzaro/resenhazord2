@@ -312,9 +312,10 @@ Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
   `# fmt: off` without strong justification. Only suppress for genuinely unavoidable
   cases (e.g., `# noqa: S311` for non-crypto `random` usage). Ask the user before
   adding a new suppression
-- **No module-level variables** — avoid bare `FOO = ...` at module scope in command or
-  service files. Use class attributes for constants that belong to a class, or place
-  shared data in `engine/bot/data/` modules
+- **No module-level variables** — never define bare `FOO = ...` at module scope in
+  command or service files. Use class attributes (with `ClassVar` for mutable types)
+  for constants that belong to a class, or place shared data in `engine/bot/data/`
+  modules. The only exception is `logger = structlog.get_logger()`
 - **Data files** — all dicts, lists, sets, and lookup tables (even small ones) belong in
   `engine/bot/data/` as named exports. Import them in the command file. Never define
   inline data structures in command or service files

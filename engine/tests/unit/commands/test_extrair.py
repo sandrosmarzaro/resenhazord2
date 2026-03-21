@@ -9,7 +9,7 @@ from tests.factories.command_data import GroupCommandDataFactory
 from tests.factories.mock_whatsapp import create_mock_whatsapp_port
 
 
-def _make_webp(animated: bool = False) -> bytes:
+def _make_webp(*, animated: bool = False) -> bytes:
     """Create a minimal WebP image for testing."""
     if animated:
         frames = [Image.new('RGBA', (10, 10), color) for color in ['red', 'blue']]

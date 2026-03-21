@@ -22,11 +22,7 @@ class ExtrairCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         if data.media_type != 'sticker' or data.media_source != 'quoted':
-            return [
-                Reply.to(data).text(
-                    'Responda a um sticker para extrair a imagem! 🤦\u200d♂️'
-                )
-            ]
+            return [Reply.to(data).text('Responda a um sticker para extrair a imagem! 🤦\u200d♂️')]
 
         logger.info(
             'extrair_command',
@@ -44,9 +40,7 @@ class ExtrairCommand(Command):
             return [Reply.to(data).image_buffer(png_buffer)]
         except Exception:
             logger.exception('extrair_conversion_error', jid=data.jid)
-            return [
-                Reply.to(data).text('Não consegui extrair a imagem do sticker 😅')
-            ]
+            return [Reply.to(data).text('Não consegui extrair a imagem do sticker 😅')]
 
     @staticmethod
     def _convert_to_png(buffer: bytes) -> bytes:

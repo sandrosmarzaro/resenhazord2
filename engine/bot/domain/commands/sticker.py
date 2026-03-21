@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import structlog
 
 from bot.domain.builders.reply import Reply
@@ -7,16 +9,16 @@ from bot.domain.models.message import BotMessage
 
 logger = structlog.get_logger()
 
-MEDIA_TYPES = frozenset(('image', 'video'))
-STICKER_TYPES = ['crop', 'full', 'circle', 'rounded']
-
 
 class StickerCommand(Command):
+    MEDIA_TYPES = frozenset(('image', 'video'))
+    STICKER_TYPES: ClassVar[list[str]] = ['crop', 'full', 'circle', 'rounded']
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='stic',
-            options=[OptionDef(name='type', values=STICKER_TYPES)],
+            options=[OptionDef(name='type', values=self.STICKER_TYPES)],
             category='download',
         )
 
@@ -25,7 +27,7 @@ class StickerCommand(Command):
         return 'Transforme sua imagem anexada em sticker.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        if not data.has_media or data.media_type not in MEDIA_TYPES:
+        if not data.has_media or data.media_type not in self.MEDIA_TYPES:
             return [
                 Reply.to(data).text(
                     'Burro burro! Você precisa enviar uma imagem ou gif'

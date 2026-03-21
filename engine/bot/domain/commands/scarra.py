@@ -7,14 +7,9 @@ from bot.domain.models.message import BotMessage
 
 logger = structlog.get_logger()
 
-SEND_KEY = {
-    'image': 'image_buffer',
-    'video': 'video_buffer',
-    'audio': 'audio_buffer',
-}
-
 
 class ScarraCommand(Command):
+    SUPPORTED_MEDIA = frozenset(('image', 'video', 'audio'))
     DEFAULT_CAPTION = 'Escarrado! 😝'
 
     @property
@@ -26,11 +21,10 @@ class ScarraCommand(Command):
         return 'Baixe a mídia de visualização única marcada.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        if data.media_source != 'view_once' or data.media_type not in SEND_KEY:
+        if data.media_source != 'view_once' or data.media_type not in self.SUPPORTED_MEDIA:
             return [
                 Reply.to(data).text(
-                    'Burro burro! Você precisa marcar uma mensagem'
-                    ' única pra eu escarrar! 🤦\u200d♂️'
+                    'Burro burro! Você precisa marcar uma mensagem única pra eu escarrar! 🤦\u200d♂️'
                 )
             ]
 
