@@ -10,7 +10,6 @@ MESSAGE_ID = 'MSG_99'
 
 
 def _make_webp(*, animated: bool = False) -> bytes:
-    """Create a minimal WebP image for testing."""
     if animated:
         frames = [Image.new('RGBA', (10, 10), color) for color in ['red', 'blue']]
         output = io.BytesIO()

@@ -1,5 +1,3 @@
-"""Port of tests/unit/parsers/CommandParser.test.ts."""
-
 import pytest
 
 from bot.domain.commands.base import ArgType, CommandConfig, OptionDef

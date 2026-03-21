@@ -1,5 +1,3 @@
-"""Tests for CommandRegistry — dispatch and singleton behavior."""
-
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData

@@ -10,7 +10,6 @@ from bot.domain.services.sticker_creator import StickerCreator
 
 
 def _create_test_image(width: int = 100, height: int = 80, color: str = 'red') -> bytes:
-    """Create a small test PNG image."""
     img = Image.new('RGBA', (width, height), color)
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -18,17 +17,14 @@ def _create_test_image(width: int = 100, height: int = 80, color: str = 'red') -
 
 
 def _webp_to_image(webp_bytes: bytes) -> Image.Image:
-    """Open a WebP sticker result as a PIL Image."""
     return Image.open(io.BytesIO(webp_bytes))
 
 
 def _has_exif_chunk(webp_bytes: bytes) -> bool:
-    """Check if WebP file contains an EXIF RIFF chunk."""
     return b'EXIF' in webp_bytes
 
 
 def _extract_exif_strings(webp_bytes: bytes) -> list[str]:
-    """Extract readable strings from the EXIF chunk."""
     idx = webp_bytes.find(b'EXIF')
     if idx == -1:
         return []

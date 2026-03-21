@@ -1,5 +1,3 @@
-"""Port of tests/unit/builders/Reply.test.ts."""
-
 from bot.domain.builders.reply import Reply
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import (

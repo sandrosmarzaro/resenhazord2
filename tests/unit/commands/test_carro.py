@@ -46,7 +46,6 @@ def command():
 
 @pytest.fixture
 def fipe_routes(respx_mock):
-    """Set up the 3 sequential FIPE API routes + Wikipedia route."""
     respx_mock.get(url__regex=r'.*/fipe/api/v1/carros/marcas/\d+/modelos$').mock(
         return_value=httpx.Response(200, json=MOCK_MODELS)
     )

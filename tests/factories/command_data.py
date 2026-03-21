@@ -1,5 +1,3 @@
-"""Factory Boy factories for CommandData — replaces Fishery fixtures."""
-
 import factory
 
 from bot.domain.models.command_data import CommandData

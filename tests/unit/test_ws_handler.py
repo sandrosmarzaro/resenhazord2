@@ -1,5 +1,3 @@
-"""Tests for WebSocket message routing."""
-
 import json
 
 import pytest

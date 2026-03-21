@@ -1,5 +1,3 @@
-"""Global pytest fixtures."""
-
 import pytest
 
 from bot.application.command_registry import CommandRegistry
@@ -9,7 +7,6 @@ from bot.infrastructure.mongodb import MongoDBConnection
 
 @pytest.fixture(autouse=True)
 def _reset_singletons():
-    """Reset singletons between tests."""
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
@@ -21,7 +18,6 @@ def _reset_singletons():
 
 @pytest.fixture
 def mock_whatsapp(mocker):
-    """Shared WhatsAppPort mock with sensible defaults."""
     mock = mocker.AsyncMock()
     mock.group_metadata = mocker.AsyncMock(
         return_value={'participants': [], 'subject': 'Test Group'}
@@ -40,14 +36,6 @@ def mock_whatsapp(mocker):
 
 @pytest.fixture
 def mock_mongodb_collection(mocker):
-    """Mock MongoDBConnection.collection — returns a factory that yields an AsyncMock collection.
-
-    Usage:
-        def test_something(mock_mongodb_collection):
-            collection = mock_mongodb_collection("my_collection")
-            collection.find_one_and_update.return_value = {"key": "value"}
-    """
-
     def _factory(collection_name: str):
         collection = mocker.AsyncMock()
         mocker.patch(
@@ -61,19 +49,6 @@ def mock_mongodb_collection(mocker):
 
 @pytest.fixture
 def mock_subprocess(mocker):
-    """Factory for mocking asyncio.create_subprocess_exec.
-
-    Usage:
-        def test_something(mock_subprocess):
-            mock_subprocess(
-                "bot.domain.commands.download.asyncio.create_subprocess_exec",
-                calls=[
-                    (b"stdout1", b"", 0),  # (stdout, stderr, returncode)
-                    (b"stdout2", b"", 0),
-                ],
-            )
-    """
-
     def _factory(target: str, *, calls: list[tuple[bytes, bytes, int]]):
         procs = []
         for stdout, stderr, returncode in calls:
