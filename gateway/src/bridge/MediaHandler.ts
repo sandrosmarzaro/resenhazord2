@@ -14,7 +14,6 @@ export interface MediaInfo {
 type AnyMsg = Record<string, Record<string, unknown> | undefined>;
 
 const MEDIA_TYPES = ['imageMessage', 'videoMessage', 'audioMessage'] as const;
-type MediaType = (typeof MEDIA_TYPES)[number];
 
 const VIEW_ONCE_WRAPPERS = [
   'viewOnceMessageV2',
