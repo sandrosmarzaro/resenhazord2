@@ -15,7 +15,7 @@ def init_observability(dsn: str | None = None) -> None:
 
     structlog.configure(
         processors=[
-            structlog.contextvars.merge_contextvars_context,
+            structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
             structlog.processors.TimeStamper(fmt='iso'),
             structlog.dev.ConsoleRenderer(),
