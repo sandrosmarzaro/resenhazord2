@@ -16,6 +16,7 @@ logger = structlog.get_logger()
 
 class BichoCommand(Command):
     BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
+    MIN_COLUMNS = 3
 
     @property
     def config(self) -> CommandConfig:
@@ -71,12 +72,41 @@ class BichoCommand(Command):
                 )
             ]
 
+    @staticmethod
+    def _parse_prize_row(row) -> dict | None:  # type: ignore[no-untyped-def]
+        cols = row.find_all('td')
+        milhar_td = row.find('td', class_='dnp-milhar')
+        milhar = milhar_td.get_text(strip=True) if milhar_td else ''
+        group_a = cols[2].find('a') if len(cols) >= BichoCommand.MIN_COLUMNS else None
+        group_text = group_a.get_text(strip=True) if group_a else ''
+        animal_a = cols[-1].find('a') if cols else None
+        animal = animal_a.get_text(strip=True) if animal_a else ''
+
+        if not (milhar and animal and group_text.isdigit()):
+            return None
+
+        return {
+            'milhar': milhar,
+            'animal': animal,
+            'group': int(group_text),
+            'emoji': ANIMAL_EMOJIS.get(animal, '🐾'),
+        }
+
+    @staticmethod
+    def _parse_prizes(block) -> list[dict]:  # type: ignore[no-untyped-def]
+        table = block.find('table', class_='dnp-table')
+        if not table:
+            return []
+        prizes = []
+        for row in table.find('tbody').find_all('tr'):  # type: ignore[union-attr]
+            prize = BichoCommand._parse_prize_row(row)
+            if prize:
+                prizes.append(prize)
+        return prizes
+
     @classmethod
     async def _fetch_draws(cls) -> list[dict]:
-        response = await HttpClient.get(
-            cls.BICHO_URL,
-            headers=BROWSER_HEADERS,
-        )
+        response = await HttpClient.get(cls.BICHO_URL, headers=BROWSER_HEADERS)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -84,31 +114,7 @@ class BichoCommand(Command):
         for draw_info in DRAWS:
             block = soup.find(id=f'bloco-{draw_info["id"]}')
             published = bool(block and block.find(class_='status-publicado'))
-            prizes: list[dict] = []
-
-            if published and block:
-                table = block.find('table', class_='dnp-table')
-                if table:
-                    for row in table.find('tbody').find_all('tr'):  # type: ignore[union-attr]
-                        cols = row.find_all('td')
-                        milhar_td = row.find('td', class_='dnp-milhar')
-                        milhar = milhar_td.get_text(strip=True) if milhar_td else ''
-                        min_cols = 3
-                        group_a = cols[2].find('a') if len(cols) >= min_cols else None
-                        group_text = group_a.get_text(strip=True) if group_a else ''
-                        animal_a = cols[-1].find('a') if cols else None
-                        animal = animal_a.get_text(strip=True) if animal_a else ''
-
-                        if milhar and animal and group_text.isdigit():
-                            prizes.append(
-                                {
-                                    'milhar': milhar,
-                                    'animal': animal,
-                                    'group': int(group_text),
-                                    'emoji': ANIMAL_EMOJIS.get(animal, '🐾'),
-                                }
-                            )
-
+            prizes = cls._parse_prizes(block) if published and block else []
             results.append(
                 {
                     'id': draw_info['id'],
