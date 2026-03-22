@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from bot.domain.services.steal_group import LOREMFLICKR_URL, StealGroupService
+from bot.domain.services.steal_group import StealGroupService
 
 BOT_JID = 'bot@s.whatsapp.net'
 RESENHA_JID = 'resenha@g.us'
@@ -44,7 +44,7 @@ def colony_collection(mock_mongodb_collection):
 
 @pytest.fixture
 def loremflickr_route(respx_mock):
-    return respx_mock.get(url__startswith=LOREMFLICKR_URL).mock(
+    return respx_mock.get(url__startswith=StealGroupService.LOREMFLICKR_URL).mock(
         return_value=httpx.Response(200, content=b'image-data')
     )
 

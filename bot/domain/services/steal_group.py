@@ -1,5 +1,3 @@
-"""Steal group service — takes over a group when the bot is promoted to admin."""
-
 import structlog
 
 from bot.adapters.whatsapp.port import WhatsAppPort
@@ -9,14 +7,12 @@ from bot.infrastructure.mongodb import MongoDBConnection
 
 logger = structlog.get_logger()
 
-COLONY_EMOJI = '🐮🎣🍆'
-COLONY_DESCRIPTION = 'Este grupo pertece agora a Resenha 🔒'
-NOTIFICATION_EXPIRATION = 86400
-LOREMFLICKR_URL = 'https://loremflickr.com/900/900/'
-
 
 class StealGroupService:
-    """Handle group takeover when bot is promoted to admin."""
+    COLONY_EMOJI = '🐮🎣🍆'
+    COLONY_DESCRIPTION = 'Este grupo pertece agora a Resenha 🔒'
+    NOTIFICATION_EXPIRATION = 86400
+    LOREMFLICKR_URL = 'https://loremflickr.com/900/900/'
 
     def __init__(self, whatsapp: WhatsAppPort, resenhazord2_jid: str, resenha_jid: str) -> None:
         self._whatsapp = whatsapp
@@ -60,16 +56,16 @@ class StealGroupService:
         desc = metadata.get('desc', '')
 
         await self._whatsapp.group_update_subject(
-            group_jid, f'Colônia da Resenha {roman} {COLONY_EMOJI}'
+            group_jid, f'Colônia da Resenha {roman} {self.COLONY_EMOJI}'
         )
         await self._whatsapp.send_message(
             self._resenha_jid,
             {'text': f'Colônia obtida!\n\n*{subject}\n*{desc}'},
-            {'ephemeralExpiration': NOTIFICATION_EXPIRATION},
+            {'ephemeralExpiration': self.NOTIFICATION_EXPIRATION},
         )
-        await self._whatsapp.group_update_description(group_jid, COLONY_DESCRIPTION)
+        await self._whatsapp.group_update_description(group_jid, self.COLONY_DESCRIPTION)
 
-        image_buffer = await HttpClient.get_buffer(LOREMFLICKR_URL)
+        image_buffer = await HttpClient.get_buffer(self.LOREMFLICKR_URL)
         await self._whatsapp.update_profile_picture(group_jid, image_buffer)
 
         logger.info('group_stolen', group_jid=group_jid, colony=roman)
