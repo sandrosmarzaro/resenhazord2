@@ -19,7 +19,7 @@ class JackpotCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='jackpot',
-            aliases=['slot', 'caçaníqueis'],
+            aliases=['slot', 'caçaníqueis', 'tigrinho'],
             category='aleatórias',
         )
 
