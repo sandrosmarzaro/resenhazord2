@@ -13,11 +13,9 @@ logger = structlog.get_logger()
 
 
 class CountryFlagCommand(Command):
-    BASE_FIELDS = 'name,flags,flag,capital,region,subregion,population,area,languages,currencies'
-    DETAIL_FIELDS = 'timezones,borders,idd,latlng,car'
+    API_URL = 'https://restcountries.com/v3.1/all'
     LATLNG_PAIR_LEN = 2
     MAX_IDD_SUFFIXES = 3
-    API_URL = f'https://restcountries.com/v3.1/all?fields={BASE_FIELDS},{DETAIL_FIELDS}'
 
     @property
     def config(self) -> CommandConfig:
