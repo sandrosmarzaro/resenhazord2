@@ -2,7 +2,6 @@ import httpx
 import pytest
 
 from bot.domain.commands.hearthstone import HearthstoneCommand
-from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.message import ImageBufferContent, ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -263,8 +262,12 @@ class TestBooster:
         assert 'Fireball' in caption
 
     @pytest.mark.anyio
-    async def test_booster_raises_when_oauth_fails(self, command, respx_mock):
+    async def test_booster_returns_error_when_oauth_fails(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', hs booster')
         respx_mock.post(OAUTH_URL).mock(side_effect=Exception('OAuth Error'))
-        with pytest.raises(ExternalServiceError, match='OAuth token unavailable'):
-            await command.run(data)
+
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert isinstance(messages[0].content, TextContent)
+        assert 'Erro ao montar o booster' in messages[0].content.text
