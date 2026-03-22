@@ -27,6 +27,7 @@ class DownloadCommand(Command):
             flags=['show', 'dm'],
             args=ArgType.REQUIRED,
             args_pattern=r'https?://\S+[\s\S]*',
+            args_label='url',
             category='download',
         )
 

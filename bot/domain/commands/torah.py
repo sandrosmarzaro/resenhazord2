@@ -27,6 +27,7 @@ class TorahCommand(Command):
             aliases=['torah'],
             options=[OptionDef(name='lang', values=['he', 'en'])],
             args=ArgType.OPTIONAL,
+            args_label='livro capítulo:versículo',
             flags=['dm', 'show'],
             category='random',
         )

@@ -21,6 +21,7 @@ class HoroscopeCommand(Command):
             name='horóscopo',
             aliases=['horoscope'],
             args=ArgType.OPTIONAL,
+            args_label='signo',
             options=[OptionDef(name='signo', values=SIGN_NAMES)],
             flags=['dm', 'show'],
             category='random',

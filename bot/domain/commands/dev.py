@@ -27,6 +27,7 @@ class DevCommand(Command):
             name='dev',
             scope=CommandScope.DEV,
             args=ArgType.OPTIONAL,
+            args_label='add/remove @número',
         )
 
     @property

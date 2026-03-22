@@ -36,6 +36,7 @@ class GroupMentionsCommand(Command):
             name='grupo',
             aliases=['group'],
             args=ArgType.OPTIONAL,
+            args_label='subcomando',
             group_only=True,
             category='group',
         )

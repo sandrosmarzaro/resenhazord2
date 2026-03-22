@@ -30,6 +30,7 @@ class MusicCommand(Command):
             aliases=['music'],
             flags=['free', 'show', 'dm'],
             args=ArgType.OPTIONAL,
+            args_label='gênero',
             category='download',
         )
 

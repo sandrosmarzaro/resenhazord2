@@ -26,6 +26,7 @@ class LotteryCommand(Command):
             name='bicho',
             args=ArgType.OPTIONAL,
             args_pattern=r'^(?:ppt|ptm|pt|ptv|ptn|cor)?$',
+            args_label='sorteio',
             category='other',
         )
 

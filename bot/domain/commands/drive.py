@@ -33,6 +33,7 @@ class DriveCommand(Command):
             name='drive',
             flags=['new'],
             args=ArgType.REQUIRED,
+            args_label='categoria canal',
             group_only=True,
             category='group',
         )

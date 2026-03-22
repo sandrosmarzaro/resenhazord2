@@ -25,6 +25,7 @@ class BibleCommand(Command):
                 OptionDef(name='version', values=['nvi', 'ra', 'acf', 'kjv', 'bbe', 'apee', 'rvr']),
             ],
             args=ArgType.OPTIONAL,
+            args_label='livro capítulo:versículo',
             category='random',
         )
 
