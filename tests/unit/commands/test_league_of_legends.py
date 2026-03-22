@@ -79,7 +79,7 @@ class TestRun:
         assert 'Ahri' in caption
         assert 'Nine-Tailed Fox' in caption
         assert 'Mage' in caption
-        assert 'Ataque: 3/10' in caption
+        assert '3/10' in caption
 
     @pytest.mark.anyio
     async def test_returns_error_on_failure(self, command, respx_mock):

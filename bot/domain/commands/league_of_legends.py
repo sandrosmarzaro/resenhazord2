@@ -48,8 +48,8 @@ class LeagueOfLegendsCommand(Command):
                 '',
                 roles_line,
                 '',
-                f'⚔️ Ataque: {info["attack"]}/10   🛡️ Defesa: {info["defense"]}/10',
-                f'🔮 Magia: {info["magic"]}/10   🎯 Dificuldade: {info["difficulty"]}/10',
+                f'⚔️ {info["attack"]}/10   🛡️ {info["defense"]}/10',
+                f'🔮 {info["magic"]}/10   🎯 {info["difficulty"]}/10',
                 '',
                 f'> {champion["blurb"]}',
             ]
