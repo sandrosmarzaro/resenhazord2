@@ -2,6 +2,7 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.translator import Translator
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -19,7 +20,7 @@ class MealRecipesCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Receba aleatoriamente uma receita e suas instruções em inglês.'
+        return 'Receba aleatoriamente uma receita e suas instruções.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         url = 'https://www.themealdb.com/api/json/v1/1/random.php'
@@ -34,6 +35,8 @@ class MealRecipesCommand(Command):
         if tags:
             meta += f'   🏷️ {tags}'
 
+        instructions_pt = await Translator.to_pt(meal['strInstructions'])
+
         caption = f'*{meal["strMeal"]}*\n\n'
         caption += f'{meta}\n'
         caption += '\n🍲 Ingredientes:\n'
@@ -44,7 +47,7 @@ class MealRecipesCommand(Command):
             measure = meal.get(f'strMeasure{i}') or ''
             caption += f'- {ingredient} | {measure}\n'
         caption += '\n📝 Passo a passo:\n'
-        caption += f'{meal["strInstructions"]}\n'
+        caption += f'{instructions_pt}\n'
         youtube = meal.get('strYoutube')
         source = meal.get('strSource')
         if youtube:

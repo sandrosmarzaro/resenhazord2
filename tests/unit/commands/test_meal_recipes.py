@@ -6,6 +6,7 @@ from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 MEAL_API_URL = 'https://www.themealdb.com/api/json/v1/1/random.php'
+TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
 
 
 @pytest.fixture
@@ -52,6 +53,12 @@ class TestMatches:
         assert command.matches(text) is expected
 
 
+def _mock_translate(respx_mock, translated='Instruções traduzidas.'):
+    respx_mock.get(url__startswith=TRANSLATE_URL).mock(
+        return_value=httpx.Response(200, json=[[[translated, 'original']]])
+    )
+
+
 class TestRun:
     @pytest.mark.anyio
     async def test_calls_api(self, command, respx_mock):
@@ -59,16 +66,18 @@ class TestRun:
         route = respx_mock.get(MEAL_API_URL).mock(
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
+        _mock_translate(respx_mock)
         await command.run(data)
 
         assert route.called
 
     @pytest.mark.anyio
-    async def test_returns_image_with_recipe(self, command, respx_mock):
+    async def test_returns_image_with_translated_recipe(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', comida')
         respx_mock.get(MEAL_API_URL).mock(
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
+        _mock_translate(respx_mock, 'Cozinhe a massa. Adicione o molho.')
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -80,7 +89,7 @@ class TestRun:
         assert 'Italian' in caption
         assert 'Spaghetti' in caption
         assert '200g' in caption
-        assert 'Cook the pasta' in caption
+        assert 'Cozinhe a massa' in caption
 
     @pytest.mark.anyio
     async def test_includes_ingredients_list(self, command, respx_mock):
@@ -88,6 +97,7 @@ class TestRun:
         respx_mock.get(MEAL_API_URL).mock(
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
+        _mock_translate(respx_mock)
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -101,6 +111,7 @@ class TestRun:
         respx_mock.get(MEAL_API_URL).mock(
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
+        _mock_translate(respx_mock)
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -113,6 +124,7 @@ class TestRun:
         data = GroupCommandDataFactory.build(text=', comida')
         meal = _mock_meal(strArea=None, strTags=None, strYoutube=None, strSource=None)
         respx_mock.get(MEAL_API_URL).mock(return_value=httpx.Response(200, json={'meals': [meal]}))
+        _mock_translate(respx_mock)
         messages = await command.run(data)
 
         caption = messages[0].content.caption
