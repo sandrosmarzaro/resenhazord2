@@ -5,6 +5,8 @@ from bot.domain.commands.torah import TorahCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
+TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
+
 
 @pytest.fixture
 def command():
@@ -21,6 +23,12 @@ def _sefaria_response(**overrides):
     }
 
 
+def _mock_translate(respx_mock, translated='No início Deus criou os céus e a terra.'):
+    respx_mock.get(url__startswith=TRANSLATE_URL).mock(
+        return_value=httpx.Response(200, json=[[[translated, 'original']]])
+    )
+
+
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -31,6 +39,7 @@ class TestMatches:
             (', tora', True),
             (', torá he', True),
             (', torá en', True),
+            (', torá pt', True),
             (', torá Genesis 1:1', True),
             ('  , torá  ', True),
             ('torá', False),
@@ -43,11 +52,12 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_random_verse_returns_both_languages(self, command, respx_mock):
+    async def test_random_verse_returns_hebrew_and_portuguese(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', torá')
         respx_mock.get(url__startswith='https://www.sefaria.org/api/texts/').mock(
             return_value=httpx.Response(200, json=_sefaria_response())
         )
+        _mock_translate(respx_mock)
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -55,7 +65,7 @@ class TestRun:
         text = messages[0].content.text
         assert 'Genesis 1:1' in text
         assert 'בראשית' in text
-        assert 'beginning' in text
+        assert 'No início' in text
 
     @pytest.mark.anyio
     async def test_hebrew_only_with_he_option(self, command, respx_mock):
@@ -82,11 +92,26 @@ class TestRun:
         assert 'בְּרֵאשִׁ֖ית' not in text
 
     @pytest.mark.anyio
+    async def test_portuguese_only_with_pt_option(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', torá pt')
+        respx_mock.get(url__startswith='https://www.sefaria.org/api/texts/').mock(
+            return_value=httpx.Response(200, json=_sefaria_response())
+        )
+        _mock_translate(respx_mock)
+        messages = await command.run(data)
+
+        text = messages[0].content.text
+        assert 'No início' in text
+        assert 'בְּרֵאשִׁ֖ית' not in text
+        assert 'beginning' not in text
+
+    @pytest.mark.anyio
     async def test_specific_verse_with_args(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', torá Exodus 3:14')
         route = respx_mock.get(url__startswith='https://www.sefaria.org/api/texts/').mock(
             return_value=httpx.Response(200, json=_sefaria_response(ref='Exodus 3:14'))
         )
+        _mock_translate(respx_mock)
         await command.run(data)
 
         url = str(route.calls.last.request.url)
@@ -130,8 +155,9 @@ class TestRun:
                 json=_sefaria_response(he=['<b>part1</b>', 'part2'], text=['hello', 'world']),
             )
         )
+        _mock_translate(respx_mock, 'olá mundo')
         messages = await command.run(data)
 
         text = messages[0].content.text
         assert 'part1 part2' in text
-        assert 'hello world' in text
+        assert 'olá mundo' in text

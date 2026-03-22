@@ -6,6 +6,7 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.translator import Translator
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -25,7 +26,7 @@ class TorahCommand(Command):
         return CommandConfig(
             name='torá',
             aliases=['torah'],
-            options=[OptionDef(name='lang', values=['he', 'en'])],
+            options=[OptionDef(name='lang', values=['he', 'en', 'pt'])],
             args=ArgType.OPTIONAL,
             args_label='livro capítulo:versículo',
             flags=['dm', 'show'],
@@ -34,7 +35,7 @@ class TorahCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Receba um versículo aleatório da Torá em hebraico e inglês.'
+        return 'Receba um versículo aleatório da Torá em hebraico e português.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         rest = parsed.rest.strip()
@@ -62,7 +63,7 @@ class TorahCommand(Command):
         if not he_raw and not en_raw:
             return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
 
-        return [self._build_reply(data, payload, lang, he_raw, en_raw)]
+        return [await self._build_reply(data, payload, lang, he_raw, en_raw)]
 
     def _parse_ref(self, rest: str) -> str | None:
         if not rest:
@@ -81,7 +82,7 @@ class TorahCommand(Command):
         return f'{book["name"]}.{chapter_idx + 1}.{verse}'
 
     @staticmethod
-    def _build_reply(
+    async def _build_reply(
         data: CommandData,
         payload: dict,
         lang: str | None,
@@ -95,6 +96,10 @@ class TorahCommand(Command):
             body = f'> {he}'
         elif lang == 'en':
             body = f'> {en}'
+        elif lang == 'pt':
+            pt = await Translator.to_pt(en)
+            body = f'> {pt}'
         else:
-            body = f'> {he}\n\n> {en}'
+            pt = await Translator.to_pt(en)
+            body = f'> {he}\n\n> {pt}'
         return Reply.to(data).text(f'{header}\n\n{body}')
