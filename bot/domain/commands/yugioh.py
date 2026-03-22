@@ -67,6 +67,23 @@ class YugiohCommand(CardBoosterCommand):
 
         return '\n'.join(lines)
 
+    @staticmethod
+    def _build_booster_label(card: dict) -> str:
+        card_type = card.get('humanReadableCardType', card.get('type', ''))
+        parts: list[str] = [card['name']]
+        if card_type:
+            parts.append(card_type)
+        meta: list[str] = []
+        attr = card.get('attribute')
+        if attr:
+            emoji = YGO_ATTRIBUTE_EMOJIS.get(attr, '')
+            meta.append(f'{emoji} {attr}' if emoji else attr)
+        if 'atk' in card:
+            meta.append(f'⚔️ {card["atk"]}')
+        if meta:
+            parts.append('   '.join(meta))
+        return '\n'.join(parts)
+
     async def _fetch_booster_items(self) -> list[CardItem]:
         results: list[CardItem | None] = [None] * self.BOOSTER_CONFIG.count
 
@@ -76,7 +93,7 @@ class YugiohCommand(CardBoosterCommand):
             card = response.json()['data'][0]
             results[index] = CardItem(
                 image_url=card['card_images'][0]['image_url'],
-                label=card['name'],
+                label=self._build_booster_label(card),
             )
 
         async with anyio.create_task_group() as tg:

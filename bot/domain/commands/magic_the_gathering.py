@@ -100,6 +100,20 @@ class MagicTheGatheringCommand(CardBoosterCommand):
         msg = 'MTG: no card with image after retries'
         raise ExternalServiceError(msg)
 
+    @staticmethod
+    def _build_booster_label(card: dict) -> str:
+        parts: list[str] = [card['name']]
+        if card.get('type'):
+            parts.append(card['type'])
+        meta: list[str] = []
+        if card.get('rarity'):
+            meta.append(f'💎 {card["rarity"]}')
+        if card.get('manaCost'):
+            meta.append(replace_mana_symbols(card['manaCost']))
+        if meta:
+            parts.append('   '.join(meta))
+        return '\n'.join(parts)
+
     async def _fetch_booster_items(self) -> list[CardItem]:
         total_pages = await self._fetch_total_pages()
         results: list[CardItem | None] = [None] * self.BOOSTER_CONFIG.count
@@ -108,7 +122,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
             card = await self._fetch_single_card(total_pages)
             results[index] = CardItem(
                 image_url=card['imageUrl'],
-                label=card['name'],
+                label=self._build_booster_label(card),
             )
 
         async with anyio.create_task_group() as tg:
