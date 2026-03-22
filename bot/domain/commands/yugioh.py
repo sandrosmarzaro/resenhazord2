@@ -1,6 +1,7 @@
 import anyio
 import structlog
 
+from bot.data.yugioh import YGO_ATTRIBUTE_EMOJIS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import CommandConfig, ParsedCommand
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
@@ -34,11 +35,37 @@ class YugiohCommand(CardBoosterCommand):
         response.raise_for_status()
         card = response.json()['data'][0]
 
-        desc = card['desc'].replace('\n', '')
-        caption = f'*{card["name"]}*\n\n> {desc}'
+        caption = self._build_caption(card)
         image_url = card['card_images'][0]['image_url']
 
         return [Reply.to(data).image(image_url, caption)]
+
+    @staticmethod
+    def _build_caption(card: dict) -> str:
+        card_type = card.get('humanReadableCardType', card.get('type', ''))
+        lines: list[str] = [f'*{card["name"]}* — {card_type}']
+
+        is_monster = 'atk' in card
+        if is_monster:
+            stats = f'⚔️ ATK: {card["atk"]}  🛡️ DEF: {card.get("def", "?")}'
+            if 'level' in card:
+                stats += f'  ⭐ Lv. {card["level"]}'
+            lines.append(stats)
+
+        meta: list[str] = []
+        attr = card.get('attribute')
+        if attr:
+            emoji = YGO_ATTRIBUTE_EMOJIS.get(attr, '')
+            meta.append(f'{emoji} {attr}' if emoji else attr)
+        if is_monster and card.get('race'):
+            meta.append(card['race'])
+        if meta:
+            lines.append('   '.join(meta))
+
+        desc = card['desc'].replace('\n', ' ')
+        lines.append(f'\n> {desc}')
+
+        return '\n'.join(lines)
 
     async def _fetch_booster_items(self) -> list[CardItem]:
         results: list[CardItem | None] = [None] * self.BOOSTER_CONFIG.count

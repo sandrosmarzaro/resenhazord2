@@ -38,8 +38,30 @@ class MagicTheGatheringCommand(CardBoosterCommand):
         total_pages = await self._fetch_total_pages()
         card = await self._fetch_single_card(total_pages)
 
-        caption = f'*{card["name"]}*\n\n> {card.get("text", "")}'
+        caption = self._build_caption(card)
         return [Reply.to(data).image(card['imageUrl'], caption)]
+
+    @staticmethod
+    def _build_caption(card: dict) -> str:
+        card_type = card.get('type', '')
+        lines: list[str] = [f'*{card["name"]}* — {card_type}']
+
+        meta: list[str] = []
+        if card.get('rarity'):
+            meta.append(f'💎 {card["rarity"]}')
+        if card.get('manaCost'):
+            meta.append(card['manaCost'])
+        if meta:
+            lines.append('   '.join(meta))
+
+        if card.get('power') is not None and card.get('toughness') is not None:
+            lines.append(f'⚔️ {card["power"]}/{card["toughness"]}')
+
+        text = card.get('text', '')
+        if text:
+            lines.append(f'\n> {text}')
+
+        return '\n'.join(lines)
 
     async def _fetch_total_pages(self) -> int:
         response = await HttpClient.get(f'{self.API_URL}?pageSize={self.PAGE_SIZE}')

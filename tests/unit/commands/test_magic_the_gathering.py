@@ -7,8 +7,22 @@ from tests.factories.command_data import GroupCommandDataFactory
 
 MOCK_CARD = {
     'name': 'Lightning Bolt',
+    'type': 'Instant',
+    'rarity': 'Common',
+    'manaCost': '{R}',
     'text': 'Lightning Bolt deals 3 damage to any target.',
     'imageUrl': 'https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=234704',
+}
+
+MOCK_CREATURE = {
+    'name': 'Tarmogoyf',
+    'type': 'Creature — Lhurgoyf',
+    'rarity': 'Mythic Rare',
+    'manaCost': '{1}{G}',
+    'text': "Tarmogoyf's power is equal to the number of card types among cards in all graveyards.",
+    'power': '*',
+    'toughness': '1+*',
+    'imageUrl': 'https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=370404',
 }
 
 
@@ -60,7 +74,7 @@ class TestSingleCard:
         assert messages[0].content.url == MOCK_CARD['imageUrl']
 
     @pytest.mark.anyio
-    async def test_caption_contains_card_info(self, command, cards_route, respx_mock):
+    async def test_caption_contains_name_type_and_rarity(self, command, cards_route, respx_mock):
         data = GroupCommandDataFactory.build(text=', mtg')
         cards_route.mock(
             side_effect=[
@@ -72,8 +86,26 @@ class TestSingleCard:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
-        assert '*Lightning Bolt*' in caption
+        assert '*Lightning Bolt* — Instant' in caption
+        assert '💎 Common' in caption
+        assert '{R}' in caption
         assert 'Lightning Bolt deals 3 damage' in caption
+
+    @pytest.mark.anyio
+    async def test_creature_shows_power_toughness(self, command, cards_route, respx_mock):
+        data = GroupCommandDataFactory.build(text=', mtg')
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'cards': []}, headers={'total-count': '500'}),
+                httpx.Response(200, json={'cards': [MOCK_CREATURE]}),
+            ]
+        )
+        respx_mock.get(MOCK_CREATURE['imageUrl']).mock(return_value=httpx.Response(200))
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '⚔️ */1+*' in caption
+        assert '💎 Mythic Rare' in caption
 
     @pytest.mark.anyio
     async def test_view_once_true_by_default(self, command, cards_route, respx_mock):

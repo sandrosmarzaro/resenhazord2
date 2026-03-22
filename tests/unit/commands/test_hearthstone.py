@@ -9,9 +9,22 @@ OAUTH_URL = 'https://oauth.battle.net/token'
 
 MOCK_CARD = {
     'name': 'Fireball',
+    'manaCost': 4,
+    'attack': None,
+    'health': None,
     'text': 'Deal <b>6</b> damage to a minion.',
     'flavorText': 'This spell is useful for dealing with pesky minions.',
     'image': 'https://d15f34w2p8l1cc.cloudfront.net/hearthstone/fireball.png',
+}
+
+MOCK_MINION = {
+    'name': 'Ragnaros the Firelord',
+    'manaCost': 8,
+    'attack': 8,
+    'health': 8,
+    'text': "Can't attack. At the end of your turn, deal <b>8</b> damage to a random enemy.",
+    'flavorText': 'BY FIRE BE PURGED!',
+    'image': 'https://d15f34w2p8l1cc.cloudfront.net/hearthstone/ragnaros.png',
 }
 
 
@@ -111,6 +124,37 @@ class TestSingleCard:
         messages = await command.run(data)
 
         assert messages[0].content.view_once is False
+
+    @pytest.mark.anyio
+    async def test_caption_shows_mana_cost(self, command, oauth_route, cards_route):
+        data = GroupCommandDataFactory.build(text=', hs')
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [MOCK_CARD]}),
+            ]
+        )
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '💎 4' in caption
+
+    @pytest.mark.anyio
+    async def test_minion_shows_attack_and_health(self, command, oauth_route, cards_route):
+        data = GroupCommandDataFactory.build(text=', hs')
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(200, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(200, json={'cards': [MOCK_MINION]}),
+            ]
+        )
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '💎 8' in caption
+        assert '⚔️ 8' in caption
+        assert '❤️ 8' in caption
+        assert 'Ragnaros' in caption
 
     @pytest.mark.anyio
     async def test_returns_error_when_oauth_fails(self, command, respx_mock):

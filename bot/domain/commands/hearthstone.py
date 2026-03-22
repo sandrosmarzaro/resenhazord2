@@ -113,17 +113,29 @@ class HearthstoneCommand(CardBoosterCommand):
         return ''
 
     def _build_caption(self, card: dict) -> str:
+        name = self._safe_text(card.get('name', ''))
+        lines: list[str] = [f'*{name}*']
+
+        stats: list[str] = []
+        if card.get('manaCost') is not None:
+            stats.append(f'💎 {card["manaCost"]}')
+        if card.get('attack') is not None:
+            stats.append(f'⚔️ {card["attack"]}')
+        if card.get('health') is not None:
+            stats.append(f'❤️ {card["health"]}')
+        if stats:
+            lines.append('   '.join(stats))
+
+        flavor = self._safe_text(card.get('flavorText', ''))
+        if flavor:
+            lines.append(f'\n> "{flavor}"')
+
         raw_text = self._safe_text(card.get('text', ''))
         description = self.BOLD_RE.sub('*', raw_text)
         description = self.ITALIC_RE.sub('_', description)
-
-        flavor = self._safe_text(card.get('flavorText', ''))
-        name = self._safe_text(card.get('name', ''))
-        lines = [f'*{name}*']
-        if flavor:
-            lines.append(f'\n> "{flavor}"')
         if description:
             lines.append(f'\n{description}')
+
         return '\n'.join(lines)
 
     async def _get_access_token(self) -> str | None:

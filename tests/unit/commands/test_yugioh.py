@@ -11,9 +11,31 @@ MOCK_CARD_DATA = {
     'data': [
         {
             'name': 'Dark Magician',
+            'type': 'Normal Monster',
+            'humanReadableCardType': 'Normal Monster',
             'desc': 'The ultimate wizard\nin terms of attack\nand defense.',
+            'atk': 2500,
+            'def': 2100,
+            'level': 7,
+            'race': 'Spellcaster',
+            'attribute': 'DARK',
             'card_images': [
                 {'image_url': 'https://images.ygoprodeck.com/images/cards/46986414.jpg'}
+            ],
+        }
+    ]
+}
+
+MOCK_SPELL_DATA = {
+    'data': [
+        {
+            'name': 'Monster Reborn',
+            'type': 'Spell Card',
+            'humanReadableCardType': 'Normal Spell',
+            'desc': 'Target 1 monster in either GY; Special Summon it.',
+            'race': 'Normal',
+            'card_images': [
+                {'image_url': 'https://images.ygoprodeck.com/images/cards/83764718.jpg'}
             ],
         }
     ]
@@ -52,21 +74,54 @@ class TestSingleCard:
         assert messages[0].content.url == 'https://images.ygoprodeck.com/images/cards/46986414.jpg'
 
     @pytest.mark.anyio
-    async def test_strips_newlines_from_description(self, command, respx_mock):
+    async def test_caption_contains_name_and_type(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo')
         respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
         caption = messages[0].content.caption
-        assert 'The ultimate wizardin terms of attackand defense.' in caption
+        assert '*Dark Magician* — Normal Monster' in caption
 
     @pytest.mark.anyio
-    async def test_caption_contains_card_name(self, command, respx_mock):
+    async def test_caption_shows_atk_def_level(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo')
         respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
-        assert '*Dark Magician*' in messages[0].content.caption
+        caption = messages[0].content.caption
+        assert 'ATK: 2500' in caption
+        assert 'DEF: 2100' in caption
+        assert 'Lv. 7' in caption
+
+    @pytest.mark.anyio
+    async def test_caption_shows_attribute_and_race(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', ygo')
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '🌑 DARK' in caption
+        assert 'Spellcaster' in caption
+
+    @pytest.mark.anyio
+    async def test_caption_strips_newlines_from_desc(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', ygo')
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert 'The ultimate wizard in terms of attack and defense.' in caption
+
+    @pytest.mark.anyio
+    async def test_spell_card_omits_monster_stats(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', ygo')
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_SPELL_DATA))
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '*Monster Reborn* — Normal Spell' in caption
+        assert 'ATK' not in caption
+        assert 'DEF' not in caption
 
     @pytest.mark.anyio
     async def test_view_once_true_by_default(self, command, respx_mock):
