@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from bot.data.bicho import ANIMAL_EMOJIS, ARG_TO_DRAW_ID, DRAWS, PRIZE_EMOJIS
 from bot.data.browser_headers import BROWSER_HEADERS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -17,7 +17,10 @@ logger = structlog.get_logger()
 
 class LotteryCommand(Command):
     BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
-    YESTERDAY_URL = 'https://www.eojogodobicho.com/resultados/rio/resultados-do-bicho-{date}.html'
+    YESTERDAY_URL = (
+        'https://www.eojogodobicho.com/resultados/{region}/resultados-do-bicho-{date}.html'
+    )
+    DEFAULT_REGION = 'rio'
     MIN_COLUMNS = 3
 
     @property
@@ -27,6 +30,7 @@ class LotteryCommand(Command):
             args=ArgType.OPTIONAL,
             args_pattern=r'^(?:ppt|ptm|pt|ptv|ptn|cor)?$',
             args_label='sorteio',
+            options=[OptionDef(name='regiao', values=['rio', 'sp', 'mg', 'ba', 'go', 'ce'])],
             category='other',
         )
 
@@ -36,6 +40,7 @@ class LotteryCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
+            region = parsed.options.get('regiao', self.DEFAULT_REGION)
             draws = await self._fetch_draws(self.BICHO_URL)
             arg = parsed.rest.lower().strip()
 
@@ -53,7 +58,7 @@ class LotteryCommand(Command):
             if published:
                 return [self._format_draw(data, published[-1])]
 
-            return await self._fallback_yesterday(data)
+            return await self._fallback_yesterday(data, region)
         except Exception:
             logger.exception('bicho_fetch_error')
             return [
@@ -62,10 +67,12 @@ class LotteryCommand(Command):
                 )
             ]
 
-    async def _fallback_yesterday(self, data: CommandData) -> list[BotMessage]:
+    async def _fallback_yesterday(
+        self, data: CommandData, region: str = 'rio'
+    ) -> list[BotMessage]:
         yesterday = datetime.now(tz=UTC) - timedelta(days=1)
         date_str = yesterday.strftime('%d-%m-%Y')
-        url = self.YESTERDAY_URL.format(date=date_str)
+        url = self.YESTERDAY_URL.format(region=region, date=date_str)
         try:
             draws = await self._fetch_draws(url)
             published = [d for d in draws if d['published']]
