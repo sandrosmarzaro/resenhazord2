@@ -43,6 +43,7 @@ class CommandConfig:
     scope: CommandScope = CommandScope.PUBLIC
     group_only: bool = False
     category: str | None = None
+    platforms: list[str] = field(default_factory=lambda: ['whatsapp'])
 
 
 @dataclass
