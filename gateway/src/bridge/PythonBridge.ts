@@ -31,7 +31,7 @@ export default class PythonBridge {
   private shouldReconnect = true;
 
   constructor(url?: string) {
-    this.url = url ?? process.env.PYTHON_BRIDGE_URL ?? 'ws://python-core:8000/ws';
+    this.url = url ?? process.env.PYTHON_BRIDGE_URL ?? 'ws://bot:8000/ws';
   }
 
   setWhatsApp(whatsapp: WhatsAppPort): void {
