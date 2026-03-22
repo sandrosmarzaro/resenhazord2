@@ -1,12 +1,8 @@
-from bot.data.horoscope import SIGN_LIST_TEXT, SIGN_LOOKUP, SIGN_NAMES, SIGNS
+import unicodedata
+
+from bot.data.horoscope import SIGN_LIST_TEXT, SIGN_LOOKUP, SIGNS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import (
-    ArgType,
-    Command,
-    CommandConfig,
-    OptionDef,
-    ParsedCommand,
-)
+from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -22,7 +18,6 @@ class HoroscopeCommand(Command):
             aliases=['horoscope'],
             args=ArgType.OPTIONAL,
             args_label='signo',
-            options=[OptionDef(name='signo', values=SIGN_NAMES)],
             flags=['dm', 'show'],
             category='random',
         )
@@ -32,11 +27,14 @@ class HoroscopeCommand(Command):
         return 'Horóscopo diário para o seu signo.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        sign_input = parsed.options.get('signo')
+        sign_input = parsed.rest.strip().lower() if parsed.rest else ''
         if not sign_input:
             return [Reply.to(data).text(f'Uso: ,horóscopo <signo>\n\n{SIGN_LIST_TEXT}')]
 
-        api_name = SIGN_LOOKUP[sign_input]
+        normalized = self._strip_accents(sign_input)
+        api_name = SIGN_LOOKUP.get(sign_input) or SIGN_LOOKUP.get(normalized)
+        if not api_name:
+            return [Reply.to(data).text(f'Signo inválido! 🤔\n\n{SIGN_LIST_TEXT}')]
         sign = SIGNS[api_name]
 
         response = await HttpClient.get(self.API_URL, params={'sign': api_name})
@@ -45,3 +43,9 @@ class HoroscopeCommand(Command):
 
         header = f'{sign.emoji} *{sign.pt_name}* ({sign.dates})'
         return [Reply.to(data).text(f'{header}\n\n> {horoscope}')]
+
+    @staticmethod
+    def _strip_accents(text: str) -> str:
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn'
+        )

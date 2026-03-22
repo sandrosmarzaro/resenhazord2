@@ -60,8 +60,5 @@ SIGN_LOOKUP: dict[str, str] = {
     'pisces': 'pisces',
 }
 
-# All valid names for CommandParser OptionDef values.
-SIGN_NAMES: list[str] = list(SIGN_LOOKUP.keys())
-
 # Formatted list of all signs for usage messages.
 SIGN_LIST_TEXT: str = '  '.join(f'{s.emoji} {s.pt_name}' for s in SIGNS.values())
