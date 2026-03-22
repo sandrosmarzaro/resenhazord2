@@ -14,10 +14,23 @@ MOCK_RESPONSE = {
     },
 }
 
+MOCK_TRANSLATION = [
+    [['Hoje é um ótimo dia para novos começos.', 'Today is a great day for new beginnings.']],
+]
+
 
 @pytest.fixture
 def command():
     return HoroscopeCommand()
+
+
+def _mock_horoscope_apis(respx_mock, horoscope_json=None):
+    respx_mock.get('https://freehoroscopeapi.com/api/v1/get-horoscope/daily').mock(
+        return_value=httpx.Response(200, json=horoscope_json or MOCK_RESPONSE)
+    )
+    respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/single').mock(
+        return_value=httpx.Response(200, json=MOCK_TRANSLATION)
+    )
 
 
 class TestMatches:
@@ -45,12 +58,9 @@ class TestMatches:
 
 class TestExecute:
     @pytest.mark.anyio
-    async def test_returns_horoscope_for_portuguese_sign(self, command, respx_mock):
+    async def test_returns_translated_horoscope(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', horóscopo áries')
-
-        respx_mock.get('https://freehoroscopeapi.com/api/v1/get-horoscope/daily').mock(
-            return_value=httpx.Response(200, json=MOCK_RESPONSE)
-        )
+        _mock_horoscope_apis(respx_mock)
 
         messages = await command.run(data)
 
@@ -60,16 +70,14 @@ class TestExecute:
         assert '♈' in text
         assert 'Áries' in text
         assert '21/03 - 19/04' in text
-        assert 'Today is a great day' in text
+        assert 'Hoje é um ótimo dia' in text
 
     @pytest.mark.anyio
     async def test_returns_horoscope_for_english_sign(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', horóscopo taurus')
-
-        respx_mock.get('https://freehoroscopeapi.com/api/v1/get-horoscope/daily').mock(
-            return_value=httpx.Response(
-                200, json={'data': {**MOCK_RESPONSE['data'], 'sign': 'Taurus'}}
-            )
+        _mock_horoscope_apis(
+            respx_mock,
+            horoscope_json={'data': {**MOCK_RESPONSE['data'], 'sign': 'Taurus'}},
         )
 
         messages = await command.run(data)
@@ -91,16 +99,36 @@ class TestExecute:
         assert 'Áries' in text
 
     @pytest.mark.anyio
+    async def test_shows_invalid_sign_message(self, command):
+        data = GroupCommandDataFactory.build(text=', horóscopo xyz')
+
+        messages = await command.run(data)
+
+        assert 'Signo inválido' in messages[0].content.text
+
+    @pytest.mark.anyio
     async def test_accent_insensitive_matching(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', horoscopo aries')
-
-        respx_mock.get('https://freehoroscopeapi.com/api/v1/get-horoscope/daily').mock(
-            return_value=httpx.Response(200, json=MOCK_RESPONSE)
-        )
+        _mock_horoscope_apis(respx_mock)
 
         messages = await command.run(data)
 
         assert 'Áries' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_falls_back_to_english_on_translate_failure(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', horóscopo áries')
+        respx_mock.get('https://freehoroscopeapi.com/api/v1/get-horoscope/daily').mock(
+            return_value=httpx.Response(200, json=MOCK_RESPONSE)
+        )
+        respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/single').mock(
+            return_value=httpx.Response(200, json=[])
+        )
+
+        messages = await command.run(data)
+
+        text = messages[0].content.text
+        assert 'Today is a great day' in text
 
     @pytest.mark.anyio
     async def test_api_called_with_correct_sign(self, command, respx_mock):
@@ -113,6 +141,9 @@ class TestExecute:
             return_value=httpx.Response(
                 200, json={'data': {**MOCK_RESPONSE['data'], 'sign': 'Scorpio'}}
             )
+        )
+        respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/single').mock(
+            return_value=httpx.Response(200, json=MOCK_TRANSLATION)
         )
 
         await command.run(data)
