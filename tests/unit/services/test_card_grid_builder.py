@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from bot.services.card_grid_builder import build_card_grid
+from bot.domain.services.card_grid_builder import build_card_grid
 
 
 def _make_card_image(width: int = 200, height: int = 300, color: str = 'red') -> bytes:

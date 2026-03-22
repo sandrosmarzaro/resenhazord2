@@ -9,8 +9,8 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.card_grid_builder import build_card_grid
 from bot.infrastructure.http_client import HttpClient
-from bot.services.card_grid_builder import build_card_grid
 
 
 @dataclass(frozen=True)
