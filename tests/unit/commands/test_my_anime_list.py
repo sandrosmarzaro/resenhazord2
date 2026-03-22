@@ -54,6 +54,9 @@ class TestMatches:
             (',manga', True),
             (', anime show', True),
             (', anime dm', True),
+            (', anime top100', True),
+            (', anime top50', True),
+            (', manga top250', True),
             ('anime', False),
             ('hello', False),
             (', anime extra', False),
@@ -118,3 +121,31 @@ class TestRun:
 
         url = str(route.calls.last.request.url)
         assert '/top/manga' in url
+
+    @pytest.mark.anyio
+    async def test_top100_limits_page_range(self, command, respx_mock, mocker):
+        data = GroupCommandDataFactory.build(text=', anime top100')
+        respx_mock.get(url__regex=r'.*/top/anime.*').mock(
+            return_value=httpx.Response(200, json={'data': [_anime_item()]})
+        )
+        mock_randint = mocker.patch(
+            'bot.domain.commands.my_anime_list.random.randint', return_value=1
+        )
+
+        await command.run(data)
+
+        mock_randint.assert_called_once_with(1, 4)
+
+    @pytest.mark.anyio
+    async def test_default_uses_full_range(self, command, respx_mock, mocker):
+        data = GroupCommandDataFactory.build(text=', anime')
+        respx_mock.get(url__regex=r'.*/top/anime.*').mock(
+            return_value=httpx.Response(200, json={'data': [_anime_item()]})
+        )
+        mock_randint = mocker.patch(
+            'bot.domain.commands.my_anime_list.random.randint', return_value=1
+        )
+
+        await command.run(data)
+
+        mock_randint.assert_called_once_with(1, 20)

@@ -1,14 +1,15 @@
 import random
 
+from bot.data.my_anime_list import RANGE_PAGES
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
 
 class MyAnimeListCommand(Command):
-    MAX_PAGE = 20
+    DEFAULT_MAX_PAGE = 20
 
     @property
     def config(self) -> CommandConfig:
@@ -16,6 +17,7 @@ class MyAnimeListCommand(Command):
             name='anime',
             aliases=['manga'],
             flags=['show', 'dm'],
+            options=[OptionDef(name='range', values=list(RANGE_PAGES.keys()))],
             category='random',
         )
 
@@ -26,7 +28,8 @@ class MyAnimeListCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         base_url = 'https://api.jikan.moe/v4'
         media_type = 'anime' if parsed.command_name == 'anime' else 'manga'
-        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
+        max_page = RANGE_PAGES.get(parsed.options.get('range', ''), self.DEFAULT_MAX_PAGE)
+        page = random.randint(1, max_page)  # noqa: S311
 
         response = await HttpClient.get(f'{base_url}/top/{media_type}', params={'page': page})
         response.raise_for_status()
