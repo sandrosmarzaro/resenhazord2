@@ -114,11 +114,11 @@ class CountryFlagCommand(Command):
 
         borders = country.get('borders', [])
         if borders:
-            lines.append(f'🗺️ Fronteiras: {", ".join(borders)}')
+            lines.append(f'🗺️ {", ".join(borders)}')
 
         car = country.get('car', {})
         side = car.get('side', '')
         if side:
-            lines.append(f'🚗 Mão: {DRIVING_SIDE_PT.get(side, side)}')
+            lines.append(f'🚗 {DRIVING_SIDE_PT.get(side, side)}')
 
         return lines

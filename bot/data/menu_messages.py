@@ -76,5 +76,5 @@ CATEGORY_ORDER: list[str] = ['group', 'random', 'download', 'other']
 
 ALEATORIA_SUBHEADER = (
     '\n\n_(use as opções *show* e/ou *dm* para enviar imagens'
-    ' no chat privado e sem visualização única respectivamente)_'
+    ' sem visualização única e no chat privado respectivamente)_'
 )
