@@ -188,6 +188,10 @@ Gateway uses `@sentry/bun` for error tracking and structured logging. See [docs/
 - Always commit changes using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
   and atomic commits — each commit should represent one logical change. Commit as you go.
 
+## Response Formatting
+
+Conventions for bot response text and image captions (title formatting, stats layout, quote blocks, spacing, errors). See [docs/response-conventions.md](docs/response-conventions.md) for full details.
+
 ## External API Integration
 
 Guidelines for integrating external APIs (test first, pre-download buffers, disable retries for slow APIs, test asset URLs with headers, verify fallbacks independently). See [docs/api-integration.md](docs/api-integration.md) for full details.
