@@ -1,5 +1,3 @@
-"""Create WhatsApp stickers from images and videos using Pillow + ffmpeg."""
-
 import asyncio
 import io
 import struct
@@ -8,29 +6,18 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageOps
 
-STICKER_SIZE = (512, 512)
-WEBP_QUALITY = 50
-MAX_VIDEO_DURATION = 10
-VIDEO_FPS = 15
-PACK_NAME = 'Resenhazord2'
-PACK_AUTHOR = 'Resenha'
-MIN_VIDEO_SIGNATURE_LEN = 12
-
 
 class StickerCreator:
-    """Convert images and videos into WhatsApp-compatible WebP stickers."""
+    STICKER_SIZE = (512, 512)
+    WEBP_QUALITY = 50
+    MAX_VIDEO_DURATION = 10
+    VIDEO_FPS = 15
+    PACK_NAME = 'Resenhazord2'
+    PACK_AUTHOR = 'Resenha'
+    MIN_VIDEO_SIGNATURE_LEN = 12
 
     @classmethod
     async def create(cls, buffer: bytes, sticker_type: str = 'full') -> bytes:
-        """Create a sticker from an image or video buffer.
-
-        Args:
-            buffer: Raw image or video bytes.
-            sticker_type: One of 'full', 'crop', 'circle', 'rounded'.
-
-        Returns:
-            WebP sticker bytes with EXIF metadata.
-        """
         if cls._is_video(buffer):
             return await cls._create_from_video(buffer)
         return cls._create_from_image(buffer, sticker_type)
@@ -41,7 +28,7 @@ class StickerCreator:
 
         match sticker_type:
             case 'crop':
-                img = ImageOps.fit(img, STICKER_SIZE)
+                img = ImageOps.fit(img, cls.STICKER_SIZE)
             case 'circle':
                 img = cls._apply_circle_mask(img)
             case 'rounded':
@@ -50,7 +37,7 @@ class StickerCreator:
                 img = cls._contain_on_transparent(img)
 
         output = io.BytesIO()
-        img.save(output, format='WEBP', quality=WEBP_QUALITY)
+        img.save(output, format='WEBP', quality=cls.WEBP_QUALITY)
         return cls._inject_exif(output.getvalue())
 
     @classmethod
@@ -69,13 +56,13 @@ class StickerCreator:
                 '-vf',
                 (
                     'scale=512:512:force_original_aspect_ratio=decrease,'
-                    f'fps={VIDEO_FPS},'
+                    f'fps={cls.VIDEO_FPS},'
                     'pad=512:512:-1:-1:color=0x00000000'
                 ),
                 '-loop',
                 '0',
                 '-t',
-                str(MAX_VIDEO_DURATION),
+                str(cls.MAX_VIDEO_DURATION),
                 '-preset',
                 'default',
                 '-an',
@@ -95,41 +82,37 @@ class StickerCreator:
 
     @classmethod
     def _contain_on_transparent(cls, img: Image.Image) -> Image.Image:
-        """Resize to fit within 512x512 and center on transparent canvas."""
-        img = ImageOps.contain(img, STICKER_SIZE)
-        canvas = Image.new('RGBA', STICKER_SIZE, (0, 0, 0, 0))
-        x = (STICKER_SIZE[0] - img.width) // 2
-        y = (STICKER_SIZE[1] - img.height) // 2
+        img = ImageOps.contain(img, cls.STICKER_SIZE)
+        canvas = Image.new('RGBA', cls.STICKER_SIZE, (0, 0, 0, 0))
+        x = (cls.STICKER_SIZE[0] - img.width) // 2
+        y = (cls.STICKER_SIZE[1] - img.height) // 2
         canvas.paste(img, (x, y), img)
         return canvas
 
     @classmethod
     def _apply_circle_mask(cls, img: Image.Image) -> Image.Image:
-        """Crop to square, resize to 512x512, apply circular mask."""
-        img = ImageOps.fit(img, STICKER_SIZE)
-        mask = Image.new('L', STICKER_SIZE, 0)
+        img = ImageOps.fit(img, cls.STICKER_SIZE)
+        mask = Image.new('L', cls.STICKER_SIZE, 0)
         draw = ImageDraw.Draw(mask)
-        draw.ellipse((0, 0, *STICKER_SIZE), fill=255)
-        canvas = Image.new('RGBA', STICKER_SIZE, (0, 0, 0, 0))
+        draw.ellipse((0, 0, *cls.STICKER_SIZE), fill=255)
+        canvas = Image.new('RGBA', cls.STICKER_SIZE, (0, 0, 0, 0))
         canvas.paste(img, mask=mask)
         return canvas
 
     @classmethod
     def _apply_rounded_mask(cls, img: Image.Image) -> Image.Image:
-        """Crop to square, resize to 512x512, apply rounded corners."""
-        img = ImageOps.fit(img, STICKER_SIZE)
-        radius = STICKER_SIZE[0] // 8
-        mask = Image.new('L', STICKER_SIZE, 0)
+        img = ImageOps.fit(img, cls.STICKER_SIZE)
+        radius = cls.STICKER_SIZE[0] // 8
+        mask = Image.new('L', cls.STICKER_SIZE, 0)
         draw = ImageDraw.Draw(mask)
-        draw.rounded_rectangle((0, 0, *STICKER_SIZE), radius=radius, fill=255)
-        canvas = Image.new('RGBA', STICKER_SIZE, (0, 0, 0, 0))
+        draw.rounded_rectangle((0, 0, *cls.STICKER_SIZE), radius=radius, fill=255)
+        canvas = Image.new('RGBA', cls.STICKER_SIZE, (0, 0, 0, 0))
         canvas.paste(img, mask=mask)
         return canvas
 
-    @staticmethod
-    def _is_video(buffer: bytes) -> bool:
-        """Detect video by checking common file signatures."""
-        if len(buffer) < MIN_VIDEO_SIGNATURE_LEN:
+    @classmethod
+    def _is_video(cls, buffer: bytes) -> bool:
+        if len(buffer) < cls.MIN_VIDEO_SIGNATURE_LEN:
             return False
         # MP4/MOV: ftyp box at offset 4
         if buffer[4:8] == b'ftyp':
@@ -142,13 +125,8 @@ class StickerCreator:
 
     @classmethod
     def _build_exif(cls) -> bytes:
-        """Build EXIF bytes with WhatsApp sticker pack metadata.
-
-        Uses custom EXIF tags 0x4501 (pack name) and 0x4502 (author)
-        in a standard TIFF/IFD structure (little-endian).
-        """
-        pack_bytes = PACK_NAME.encode('utf-8') + b'\x00'
-        author_bytes = PACK_AUTHOR.encode('utf-8') + b'\x00'
+        pack_bytes = cls.PACK_NAME.encode('utf-8') + b'\x00'
+        author_bytes = cls.PACK_AUTHOR.encode('utf-8') + b'\x00'
 
         num_entries = 2
         # IFD: 2 bytes count + entries * 12 bytes + 4 bytes next offset
@@ -168,7 +146,6 @@ class StickerCreator:
 
     @classmethod
     def _inject_exif(cls, webp_data: bytes) -> bytes:
-        """Inject EXIF metadata into a WebP file's RIFF structure."""
         exif_payload = cls._build_exif()
         # EXIF chunk: 'EXIF' + size (little-endian u32) + data
         exif_chunk = b'EXIF' + struct.pack('<I', len(exif_payload)) + exif_payload
