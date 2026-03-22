@@ -1,8 +1,9 @@
 import httpx
 import pytest
 
-from bot.domain.commands.game import GameCommand, IgdbSource
+from bot.domain.commands.game import GameCommand
 from bot.domain.models.message import ImageContent, TextContent
+from bot.domain.services.game_source import GameInfo, IgdbSource
 from tests.factories.command_data import GroupCommandDataFactory
 
 MOCK_IGDB_TOKEN = {'access_token': 'test-token'}
@@ -242,8 +243,6 @@ class TestBothSourcesFail:
 
 class TestCaption:
     def test_build_caption_with_rating(self):
-        from bot.domain.commands.game import GameInfo
-
         game = GameInfo(
             name='Zelda',
             year='2023',
@@ -260,8 +259,6 @@ class TestCaption:
         assert '⭐ 97/100' in caption
 
     def test_build_caption_without_rating(self):
-        from bot.domain.commands.game import GameInfo
-
         game = GameInfo(
             name='Zelda',
             year='2023',
