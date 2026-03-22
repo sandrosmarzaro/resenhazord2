@@ -4,6 +4,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 
 import anyio
+import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, ParsedCommand
@@ -11,6 +12,8 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.card_grid_builder import build_card_grid
 from bot.infrastructure.http_client import HttpClient
+
+logger = structlog.get_logger()
 
 
 @dataclass(frozen=True)
@@ -34,25 +37,29 @@ class CardBoosterCommand(Command):
     async def _fetch_booster_items(self) -> list[CardItem]: ...
 
     async def _run_booster(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        items = await self._fetch_booster_items()
-        cfg = self.BOOSTER_CONFIG
+        try:
+            items = await self._fetch_booster_items()
+            cfg = self.BOOSTER_CONFIG
 
-        results: list[bytes | None] = [None] * len(items)
+            results: list[bytes | None] = [None] * len(items)
 
-        async def _download(index: int, url: str) -> None:
-            results[index] = await HttpClient.get_buffer(url)
+            async def _download(index: int, url: str) -> None:
+                results[index] = await HttpClient.get_buffer(url)
 
-        async with anyio.create_task_group() as tg:
-            for i, item in enumerate(items):
-                tg.start_soon(_download, i, item.image_url)
+            async with anyio.create_task_group() as tg:
+                for i, item in enumerate(items):
+                    tg.start_soon(_download, i, item.image_url)
 
-        image_buffers: list[bytes] = [r for r in results if r is not None]
-        grid_buffer = build_card_grid(
-            image_buffers,
-            columns=cfg.columns,
-            cell_width=cfg.cell_width,
-            cell_height=cfg.cell_height,
-        )
+            image_buffers: list[bytes] = [r for r in results if r is not None]
+            grid_buffer = build_card_grid(
+                image_buffers,
+                columns=cfg.columns,
+                cell_width=cfg.cell_width,
+                cell_height=cfg.cell_height,
+            )
 
-        caption = '\n\n'.join(f'*{i + 1}.* {item.label}' for i, item in enumerate(items))
-        return [Reply.to(data).image_buffer(grid_buffer, caption)]
+            caption = '\n\n'.join(f'*{i + 1}.* {item.label}' for i, item in enumerate(items))
+            return [Reply.to(data).image_buffer(grid_buffer, caption)]
+        except Exception:
+            logger.exception('booster_error', command=type(self).__name__)
+            return [Reply.to(data).text('Erro ao montar o booster. Tente novamente mais tarde! 🃏')]

@@ -32,7 +32,18 @@ export default class CommandHandler {
       let messages: Message[] | null;
       try {
         messages = await Resenhazord2.bridge.sendCommand(commandData);
-      } catch {
+      } catch (error) {
+        Sentry.withScope((scope) => {
+          scope.setTag('command', 'python');
+          scope.setExtra('jid', commandData.key?.remoteJid);
+          scope.setExtra('text', text?.slice(0, 200));
+          Sentry.captureException(error);
+        });
+        await Resenhazord2.adapter!.sendMessage(
+          commandData.key.remoteJid!,
+          { text: 'Ocorreu um erro ao processar o comando 😔' },
+          { quoted: commandData, ephemeralExpiration: commandData.expiration },
+        );
         return;
       }
 
