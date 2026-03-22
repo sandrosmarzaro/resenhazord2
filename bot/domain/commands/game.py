@@ -7,6 +7,7 @@ import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -78,7 +79,7 @@ class IgdbSource(GameSource):
         games = res.json()
         if not games:
             msg = 'No game returned from IGDB'
-            raise ValueError(msg)
+            raise ExternalServiceError(msg)
 
         game = games[0]
         release_ts = game.get('first_release_date')
@@ -126,7 +127,7 @@ class RawgSource(GameSource):
         games = [g for g in results if g.get('background_image')]
         if not games:
             msg = 'No games with images found'
-            raise ValueError(msg)
+            raise ExternalServiceError(msg)
 
         game = random.choice(games)  # noqa: S311
         year = (game.get('released') or '?')[:4]

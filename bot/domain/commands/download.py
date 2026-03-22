@@ -54,7 +54,7 @@ class YtDlpService:
 
         if len(video_stdout) > cls.MAX_BUFFER:
             msg = 'Video exceeds maximum buffer size'
-            raise ValueError(msg)
+            raise DownloadError(msg)
 
         return video_stdout, title
 

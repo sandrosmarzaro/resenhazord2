@@ -11,6 +11,7 @@ import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -132,7 +133,7 @@ class NhentaiScraper:
                 raise
 
         msg = 'Failed to fetch nhentai gallery after max retries'
-        raise ValueError(msg)
+        raise ExternalServiceError(msg)
 
     def _parse(self, data: dict) -> HentaiGallery:
         artists = [t['name'] for t in data['tags'] if t['type'] == 'artist']

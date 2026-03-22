@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from bot.data.browser_headers import BROWSER_HEADERS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -43,7 +44,7 @@ class Rule34Command(Command):
 
         if not images:
             msg = 'Nenhuma imagem encontrada'
-            raise ValueError(msg)
+            raise ExternalServiceError(msg)
 
         url = images[1] if images[0] == self.BANNER_URL and len(images) > 1 else images[0]
 

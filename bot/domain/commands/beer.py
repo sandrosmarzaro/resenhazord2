@@ -6,6 +6,7 @@ import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -87,7 +88,7 @@ class BeerCommand(Command):
 
         if not products:
             msg = 'Nenhuma cerveja encontrada'
-            raise ValueError(msg)
+            raise ExternalServiceError(msg)
 
         product = random.choice(products)  # noqa: S311
         return {

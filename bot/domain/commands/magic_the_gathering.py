@@ -7,6 +7,7 @@ import structlog
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import CommandConfig, ParsedCommand
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -89,7 +90,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
                 return card
 
         msg = 'MTG: no card with image after retries'
-        raise ValueError(msg)
+        raise ExternalServiceError(msg)
 
     async def _fetch_booster_items(self) -> list[CardItem]:
         total_pages = await self._fetch_total_pages()

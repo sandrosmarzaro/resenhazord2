@@ -8,6 +8,7 @@ from bot.data.browser_headers import BROWSER_HEADERS
 from bot.data.nsfw_tags import NSFW_TAGS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -87,7 +88,7 @@ class PornoCommand(Command):
 
         if not links:
             msg = 'Nenhum vídeo encontrado na listagem'
-            raise ValueError(msg)
+            raise ExternalServiceError(msg)
 
         random_link = random.choice(links)  # noqa: S311
         video_page_url = f'https://www.xvideos.com{random_link}'
@@ -109,6 +110,6 @@ class PornoCommand(Command):
 
         if not video_url:
             msg = 'Não foi possível extrair URL do vídeo'
-            raise ValueError(msg)
+            raise ExternalServiceError(msg)
 
         return {'url': video_url, 'title': title}

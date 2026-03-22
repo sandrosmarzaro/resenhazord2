@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 from bot.data.languages import LANGUAGES
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.exceptions import ValidationError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -85,7 +86,7 @@ class AudioCommand(Command):
             split_pos = self._last_space_or_punct(text, start, end)
             if split_pos == -1:
                 msg = f'Word too long to split: {text[start : start + self.MAX_CHUNK_LENGTH]}...'
-                raise ValueError(msg)
+                raise ValidationError(msg)
 
             result.append(text[start : split_pos + 1])
             start = split_pos + 1

@@ -5,6 +5,7 @@ from bot.data.pokemon_type_emojis import POKEMON_TYPE_EMOJIS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import CommandConfig, ParsedCommand
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -90,7 +91,7 @@ class PokemonTCGCommand(CardBoosterCommand):
             if card.get('image'):
                 return card
         msg = 'PokemonTCG: no card with image after retries'
-        raise ValueError(msg)
+        raise ExternalServiceError(msg)
 
     def _type_emojis(self, card: dict) -> str:
         types: list[str] = card.get('types') or []

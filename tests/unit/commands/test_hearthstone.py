@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.hearthstone import HearthstoneCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.message import ImageBufferContent, ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -265,5 +266,5 @@ class TestBooster:
     async def test_booster_raises_when_oauth_fails(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', hs booster')
         respx_mock.post(OAUTH_URL).mock(side_effect=Exception('OAuth Error'))
-        with pytest.raises(ValueError, match='OAuth token unavailable'):
+        with pytest.raises(ExternalServiceError, match='OAuth token unavailable'):
             await command.run(data)

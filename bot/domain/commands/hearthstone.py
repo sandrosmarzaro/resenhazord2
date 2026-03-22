@@ -7,6 +7,7 @@ import structlog
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import CommandConfig, ParsedCommand
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -76,7 +77,7 @@ class HearthstoneCommand(CardBoosterCommand):
         token = await self._get_access_token()
         if not token:
             msg = 'Hearthstone: OAuth token unavailable'
-            raise ValueError(msg)
+            raise ExternalServiceError(msg)
 
         headers = {'Authorization': f'Bearer {token}'}
         first = await HttpClient.get(self.API_URL, headers=headers, params={'pageSize': 1})
