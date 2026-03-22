@@ -7,13 +7,13 @@ from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
-SYNODIC_MONTH = 29.53058770576
-KNOWN_NEW_MOON = datetime(2000, 1, 6, 18, 14, tzinfo=UTC)
-SECONDS_PER_DAY = 86400
-PHASE_COUNT = 8
-
 
 class LuaCommand(Command):
+    SYNODIC_MONTH = 29.53058770576
+    KNOWN_NEW_MOON = datetime(2000, 1, 6, 18, 14, tzinfo=UTC)
+    SECONDS_PER_DAY = 86400
+    PHASE_COUNT = 8
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(name='lua', aliases=['moon'], category='outras')
@@ -31,16 +31,16 @@ class LuaCommand(Command):
         text = f'{phase["emoji"]} *{phase["name"]}*\n📅 {date_str}\n🔭 Iluminação: ~{illumination}%'
         return [Reply.to(data).text(text)]
 
-    @staticmethod
-    def _moon_age(dt: datetime) -> float:
-        diff = (dt - KNOWN_NEW_MOON).total_seconds() / SECONDS_PER_DAY
-        return diff % SYNODIC_MONTH
+    @classmethod
+    def _moon_age(cls, dt: datetime) -> float:
+        diff = (dt - cls.KNOWN_NEW_MOON).total_seconds() / cls.SECONDS_PER_DAY
+        return diff % cls.SYNODIC_MONTH
 
-    @staticmethod
-    def _phase_index(age: float) -> int:
-        half_phase = SYNODIC_MONTH / (PHASE_COUNT * 2)
-        return int((age + half_phase) / SYNODIC_MONTH * PHASE_COUNT) % PHASE_COUNT
+    @classmethod
+    def _phase_index(cls, age: float) -> int:
+        half_phase = cls.SYNODIC_MONTH / (cls.PHASE_COUNT * 2)
+        return int((age + half_phase) / cls.SYNODIC_MONTH * cls.PHASE_COUNT) % cls.PHASE_COUNT
 
-    @staticmethod
-    def _illumination(age: float) -> int:
-        return round(50 * (1 - math.cos(2 * math.pi * age / SYNODIC_MONTH)))
+    @classmethod
+    def _illumination(cls, age: float) -> int:
+        return round(50 * (1 - math.cos(2 * math.pi * age / cls.SYNODIC_MONTH)))

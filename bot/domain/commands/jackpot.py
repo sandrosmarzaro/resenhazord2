@@ -7,12 +7,12 @@ from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
-MATCH_ALL = 3
-MATCH_PAIR = 2
-REEL_COUNT = 3
-
 
 class JackpotCommand(Command):
+    MATCH_ALL = 3
+    MATCH_PAIR = 2
+    REEL_COUNT = 3
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -26,7 +26,7 @@ class JackpotCommand(Command):
         return 'Jogue na máquina caça-níqueis de emojis.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        reels = random.choices(SLOT_SYMBOLS, k=REEL_COUNT)  # noqa: S311
+        reels = random.choices(SLOT_SYMBOLS, k=self.REEL_COUNT)  # noqa: S311
         result = self._evaluate(reels)
         text = (
             f'🎰 *JACKPOT* 🎰\n'
@@ -37,11 +37,11 @@ class JackpotCommand(Command):
         )
         return [Reply.to(data).text(text)]
 
-    @staticmethod
-    def _evaluate(reels: list[str]) -> str:
+    @classmethod
+    def _evaluate(cls, reels: list[str]) -> str:
         most_common = Counter(reels).most_common(1)[0][1]
-        if most_common == MATCH_ALL:
+        if most_common == cls.MATCH_ALL:
             return JACKPOT_MESSAGE
-        if most_common == MATCH_PAIR:
+        if most_common == cls.MATCH_PAIR:
             return PARTIAL_WIN_MESSAGE
         return LOSS_MESSAGE
