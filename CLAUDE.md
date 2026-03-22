@@ -75,7 +75,8 @@ Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
 
 - **No magic numbers** — use named constants to describe every numeric literal. Place
   constants as class attributes (`MAX_PAGE = 50`) or in `bot/data/` files, never
-  as bare numbers in logic
+  as bare numbers in logic. Use `from http import HTTPStatus` for HTTP status
+  comparisons — never compare against bare integer literals
 - **Early returns** — prefer returning early to reduce nesting. Avoid deeply nested
   if-elif-else blocks; flatten with guard clauses
 - **Dict mapping over if-elif chains** — when dispatching on a value (e.g., file

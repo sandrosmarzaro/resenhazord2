@@ -1,5 +1,6 @@
 import random
 import re
+from http import HTTPStatus
 
 import anyio
 import httpx
@@ -76,7 +77,7 @@ class AnimalCommand(Command):
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429:  # noqa: PLR2004
+                if exc.response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
                     retry_after = exc.response.headers.get('retry-after')
                     wait_seconds = int(retry_after) if retry_after else self.RATE_LIMIT_DEFAULT_WAIT
                     await anyio.sleep(wait_seconds)

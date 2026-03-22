@@ -3,6 +3,7 @@ import random
 import struct
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from http import HTTPStatus
 from typing import ClassVar
 
 import httpx
@@ -109,7 +110,7 @@ class NhentaiScraper:
 
     MAX_ID = 500_000
     MAX_RETRIES = 5
-    NOT_FOUND = 404
+    NOT_FOUND = HTTPStatus.NOT_FOUND
     EXT_MAP: ClassVar[dict[str, str]] = {'j': 'jpg', 'p': 'png', 'g': 'gif', 'w': 'webp'}
 
     def __init__(self, mirror_url: str = 'https://nhentai.net') -> None:
