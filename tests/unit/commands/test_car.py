@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from bot.data.car_brands import FIPE_BRANDS
-from bot.domain.commands.carro import CarroCommand
+from bot.domain.commands.car import CarCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
@@ -41,7 +41,7 @@ MOCK_WIKI_RESPONSE = {
 
 @pytest.fixture
 def command():
-    return CarroCommand()
+    return CarCommand()
 
 
 @pytest.fixture
@@ -157,7 +157,7 @@ class TestWikipedia:
     @pytest.mark.anyio
     async def test_brand_only_article_uses_brand_logo(self, command, respx_mock, mocker):
         mocker.patch(
-            'bot.domain.commands.carro.random.choice',
+            'bot.domain.commands.car.random.choice',
             side_effect=[
                 next(b for b in FIPE_BRANDS if b.name == 'Acura'),
                 MOCK_MODELS['modelos'][0],
@@ -258,7 +258,7 @@ class TestBrandDetection:
     @pytest.mark.anyio
     async def test_cross_brand_page_rejected_uses_brand_logo(self, command, respx_mock, mocker):
         mocker.patch(
-            'bot.domain.commands.carro.random.choice',
+            'bot.domain.commands.car.random.choice',
             side_effect=[
                 next(b for b in FIPE_BRANDS if b.name == 'Jeep'),
                 MOCK_MODELS['modelos'][0],
@@ -385,7 +385,7 @@ class TestYearRetryLogic:
     @pytest.mark.anyio
     async def test_fallback_caption_when_all_years_fail(self, command, respx_mock, mocker):
         mocker.patch(
-            'bot.domain.commands.carro.random.choice',
+            'bot.domain.commands.car.random.choice',
             side_effect=[FIPE_BRANDS[0], MOCK_MODELS['modelos'][0]],
         )
         respx_mock.get(url__regex=r'.*/fipe/api/v1/carros/marcas/\d+/modelos$').mock(
@@ -490,7 +490,7 @@ class TestYearFormatting:
         ],
     )
     def test_format_year(self, year, expected):
-        assert CarroCommand._format_year(year) == expected
+        assert CarCommand._format_year(year) == expected
 
     @pytest.mark.anyio
     async def test_caption_shows_zero_km_for_fipe_32000(self, command, respx_mock):
@@ -529,7 +529,7 @@ class TestModelNameParsing:
         ],
     )
     def test_base_model_name(self, nome, expected):
-        assert CarroCommand._base_model_name(nome) == expected
+        assert CarCommand._base_model_name(nome) == expected
 
     @pytest.mark.parametrize(
         ('nome', 'expected'),
@@ -541,4 +541,4 @@ class TestModelNameParsing:
         ],
     )
     def test_wiki_model_name(self, nome, expected):
-        assert CarroCommand._wiki_model_name(nome) == expected
+        assert CarCommand._wiki_model_name(nome) == expected

@@ -141,10 +141,10 @@ class TestFormatOptions:
 
     @pytest.mark.anyio
     async def test_shows_flags(self, command):
-        from bot.domain.commands.fato import FatoCommand
+        from bot.domain.commands.fact import FactCommand
 
         registry = CommandRegistry.instance()
-        registry.register(FatoCommand())
+        registry.register(FactCommand())
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
 
@@ -169,11 +169,11 @@ class TestFormatOptions:
 
     @pytest.mark.anyio
     async def test_shows_optional_args(self, command):
-        from bot.domain.commands.biblia import BibliaCommand
+        from bot.domain.commands.bible import BibleCommand
 
         registry = CommandRegistry.instance()
         token = 'test'  # noqa: S105
-        registry.register(BibliaCommand(biblia_token=token))
+        registry.register(BibleCommand(biblia_token=token))
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
 
@@ -184,11 +184,11 @@ class TestFormatOptions:
 
     @pytest.mark.anyio
     async def test_shows_option_values(self, command):
-        from bot.domain.commands.biblia import BibliaCommand
+        from bot.domain.commands.bible import BibleCommand
 
         registry = CommandRegistry.instance()
         token = 'test'  # noqa: S105
-        registry.register(BibliaCommand(biblia_token=token))
+        registry.register(BibleCommand(biblia_token=token))
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
 

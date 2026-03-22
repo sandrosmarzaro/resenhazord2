@@ -7,7 +7,7 @@ from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
 
-class AlcoraoCommand(Command):
+class QuranCommand(Command):
     TOTAL_AYAHS = 6236
 
     @property

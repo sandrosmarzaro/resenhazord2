@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.rule34 import Rule34Command
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -82,7 +83,7 @@ class TestRun:
         respx_mock.get(url__startswith='https://rule34.xxx/').mock(
             return_value=httpx.Response(200, text=NO_IMAGES_HTML)
         )
-        with pytest.raises(ValueError, match='Nenhuma imagem encontrada'):
+        with pytest.raises(ExternalServiceError, match='Nenhuma imagem encontrada'):
             await command.run(data)
 
     @pytest.mark.anyio

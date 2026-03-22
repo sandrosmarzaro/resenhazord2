@@ -11,7 +11,7 @@ from bot.domain.models.message import BotMessage
 logger = structlog.get_logger()
 
 
-class ExtrairCommand(Command):
+class ExtractCommand(Command):
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(name='extrair', aliases=['extract'], category='download')

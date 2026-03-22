@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from bot.domain.commands.fato import FatoCommand
+from bot.domain.commands.fact import FactCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -11,7 +11,7 @@ TODAY_URL = 'https://uselessfacts.jsph.pl/api/v2/facts/today'
 
 @pytest.fixture
 def command():
-    return FatoCommand()
+    return FactCommand()
 
 
 class TestMatches:

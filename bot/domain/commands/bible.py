@@ -7,7 +7,7 @@ from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
 
-class BibliaCommand(Command):
+class BibleCommand(Command):
     BASE_URL = 'https://www.abibliadigital.com.br/api'
     VERSE_PATTERN = re.compile(r'\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?')
 

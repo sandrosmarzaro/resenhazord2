@@ -7,7 +7,7 @@ from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
 
-class FilmeSerieCommand(Command):
+class MovieSeriesCommand(Command):
     MAX_PAGE = 25
     POSTER_SIZE = 'w500'
     MOVIE_NAMES: frozenset[str] = frozenset({'filme', 'movie'})

@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from bot.domain.commands.baralho import BaralhoCommand
+from bot.domain.commands.playing_card import PlayingCardCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -10,7 +10,7 @@ DECK_API_URL = 'https://deckofcardsapi.com/api/deck/new/draw/?count=1'
 
 @pytest.fixture
 def command():
-    return BaralhoCommand()
+    return PlayingCardCommand()
 
 
 class TestMatches:

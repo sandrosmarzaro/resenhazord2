@@ -1,14 +1,14 @@
 import httpx
 import pytest
 
-from bot.domain.commands.biblia import BibliaCommand
+from bot.domain.commands.bible import BibleCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 
 @pytest.fixture
 def command():
-    return BibliaCommand(biblia_token='test-token')  # noqa: S106
+    return BibleCommand(biblia_token='test-token')  # noqa: S106
 
 
 def _verse_response(**overrides):

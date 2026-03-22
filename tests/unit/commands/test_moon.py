@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from bot.domain.commands.lua import LuaCommand
+from bot.domain.commands.moon import MoonCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
@@ -12,7 +12,7 @@ KNOWN_NEW_MOON = datetime(2000, 1, 6, 18, 14, tzinfo=UTC)
 
 @pytest.fixture
 def command():
-    return LuaCommand()
+    return MoonCommand()
 
 
 class TestMatches:
@@ -46,7 +46,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_full_moon_date(self, command, mocker):
         mocker.patch(
-            'bot.domain.commands.lua.datetime',
+            'bot.domain.commands.moon.datetime',
             wraps=datetime,
             now=mocker.Mock(return_value=KNOWN_FULL_MOON),
         )
@@ -61,7 +61,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_new_moon_date(self, command, mocker):
         mocker.patch(
-            'bot.domain.commands.lua.datetime',
+            'bot.domain.commands.moon.datetime',
             wraps=datetime,
             now=mocker.Mock(return_value=KNOWN_NEW_MOON),
         )
@@ -77,7 +77,7 @@ class TestRun:
     async def test_output_contains_date(self, command, mocker):
         fixed = datetime(2026, 3, 21, 12, 0, tzinfo=UTC)
         mocker.patch(
-            'bot.domain.commands.lua.datetime',
+            'bot.domain.commands.moon.datetime',
             wraps=datetime,
             now=mocker.Mock(return_value=fixed),
         )

@@ -1,14 +1,14 @@
 import httpx
 import pytest
 
-from bot.domain.commands.filme_serie import FilmeSerieCommand
+from bot.domain.commands.movie_series import MovieSeriesCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 
 @pytest.fixture
 def command():
-    return FilmeSerieCommand(tmdb_api_key='test-api-key')
+    return MovieSeriesCommand(tmdb_api_key='test-api-key')
 
 
 def _movie_item(**overrides):

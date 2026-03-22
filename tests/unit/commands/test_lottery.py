@@ -3,7 +3,7 @@ import re
 import httpx
 import pytest
 
-from bot.domain.commands.bicho import BichoCommand
+from bot.domain.commands.lottery import LotteryCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -58,7 +58,7 @@ NO_PUBLISHED_HTML = '<div id="bloco-PPT"><span class="status-pendente"></span></
 
 @pytest.fixture
 def command():
-    return BichoCommand()
+    return LotteryCommand()
 
 
 class TestMatches:

@@ -1,14 +1,14 @@
 import httpx
 import pytest
 
-from bot.domain.commands.alcorao import AlcoraoCommand
+from bot.domain.commands.quran import QuranCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 
 @pytest.fixture
 def command():
-    return AlcoraoCommand()
+    return QuranCommand()
 
 
 MOCK_EDITIONS = {

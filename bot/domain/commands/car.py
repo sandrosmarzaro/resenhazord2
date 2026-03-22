@@ -16,7 +16,7 @@ from bot.infrastructure.http_client import HttpClient
 logger = structlog.get_logger()
 
 
-class CarroCommand(Command):
+class CarCommand(Command):
     FIPE_BASE = 'https://parallelum.com.br/fipe/api/v1/carros/marcas'
     WIKI_API = 'https://en.wikipedia.org/w/api.php'
     COMMONS_API = 'https://commons.wikimedia.org/w/api.php'

@@ -1,6 +1,6 @@
 import pytest
 
-from bot.domain.commands.scarra import ScarraCommand
+from bot.domain.commands.spit import SpitCommand
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 MESSAGE_ID = 'MSG_77'
@@ -8,7 +8,7 @@ MESSAGE_ID = 'MSG_77'
 
 @pytest.fixture
 def command(mock_whatsapp):
-    cmd = ScarraCommand()
+    cmd = SpitCommand()
     cmd._whatsapp = mock_whatsapp
     return cmd
 

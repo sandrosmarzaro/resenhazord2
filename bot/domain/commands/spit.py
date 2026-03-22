@@ -8,7 +8,7 @@ from bot.domain.models.message import BotMessage
 logger = structlog.get_logger()
 
 
-class ScarraCommand(Command):
+class SpitCommand(Command):
     SUPPORTED_MEDIA = frozenset(('image', 'video', 'audio'))
     DEFAULT_CAPTION = 'Escarrado! 😝'
 

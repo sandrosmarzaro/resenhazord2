@@ -15,7 +15,7 @@ from bot.infrastructure.http_client import HttpClient
 logger = structlog.get_logger()
 
 
-class BichoCommand(Command):
+class LotteryCommand(Command):
     BICHO_URL = 'https://www.eojogodobicho.com/deu-no-poste.html'
     YESTERDAY_URL = 'https://www.eojogodobicho.com/resultados/rio/resultados-do-bicho-{date}.html'
     MIN_COLUMNS = 3
@@ -102,7 +102,7 @@ class BichoCommand(Command):
         cols = row.find_all('td')
         milhar_td = row.find('td', class_='dnp-milhar')
         milhar = milhar_td.get_text(strip=True) if milhar_td else ''
-        group_a = cols[2].find('a') if len(cols) >= BichoCommand.MIN_COLUMNS else None
+        group_a = cols[2].find('a') if len(cols) >= LotteryCommand.MIN_COLUMNS else None
         group_text = group_a.get_text(strip=True) if group_a else ''
         animal_a = cols[-1].find('a') if cols else None
         animal = animal_a.get_text(strip=True) if animal_a else ''
@@ -124,7 +124,7 @@ class BichoCommand(Command):
             return []
         prizes = []
         for row in table.find('tbody').find_all('tr'):  # type: ignore[union-attr]
-            prize = BichoCommand._parse_prize_row(row)
+            prize = LotteryCommand._parse_prize_row(row)
             if prize:
                 prizes.append(prize)
         return prizes

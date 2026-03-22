@@ -3,7 +3,7 @@ import io
 import pytest
 from PIL import Image
 
-from bot.domain.commands.extrair import ExtrairCommand
+from bot.domain.commands.extract import ExtractCommand
 from tests.factories.command_data import GroupCommandDataFactory
 
 MESSAGE_ID = 'MSG_99'
@@ -23,7 +23,7 @@ def _make_webp(*, animated: bool = False) -> bytes:
 
 @pytest.fixture
 def command(mock_whatsapp):
-    cmd = ExtrairCommand()
+    cmd = ExtractCommand()
     cmd._whatsapp = mock_whatsapp
     return cmd
 

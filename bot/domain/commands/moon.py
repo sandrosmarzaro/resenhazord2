@@ -8,7 +8,7 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
 
-class LuaCommand(Command):
+class MoonCommand(Command):
     SYNODIC_MONTH = 29.53058770576
     KNOWN_NEW_MOON = datetime(2000, 1, 6, 18, 14, tzinfo=UTC)
     SECONDS_PER_DAY = 86400

@@ -5,7 +5,7 @@ from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
 
-class FatoCommand(Command):
+class FactCommand(Command):
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(name='fato', aliases=['fact'], flags=['hoje'], category='aleatórias')
