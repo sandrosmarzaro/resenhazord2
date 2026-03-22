@@ -14,6 +14,7 @@ class MockWebSocket {
   static readonly CLOSED = 3;
 
   readyState = MockWebSocket.OPEN;
+  binaryType = 'blob';
   send = vi.fn();
   close = vi.fn(() => {
     this.readyState = MockWebSocket.CLOSED;
@@ -75,6 +76,10 @@ function simulateJsonMessage(msg: Record<string, unknown>): void {
 
 function simulateBinaryMessage(buffer: Buffer): void {
   mockWs.emit('message', { data: buffer });
+}
+
+function simulateArrayBufferMessage(data: Uint8Array): void {
+  mockWs.emit('message', { data: data.buffer });
 }
 
 async function flushAsync(): Promise<void> {
@@ -919,6 +924,97 @@ describe('PythonBridge', () => {
         (c) => typeof c[0] === 'string' && c[0].includes('wa_result'),
       );
       expect(waResults).toHaveLength(0);
+    });
+  });
+
+  describe('binary frame handling', () => {
+    it('sets binaryType to arraybuffer on connect', () => {
+      createConnectedBridge();
+
+      expect(mockWs.binaryType).toBe('arraybuffer');
+    });
+
+    it('handles binary data received as ArrayBuffer', async () => {
+      const bridge = createConnectedBridge();
+      const data = GroupCommandData.build({ text: ',test' });
+
+      const promise = bridge.sendCommand(data);
+      const sent = lastSentJson();
+
+      const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+      simulateArrayBufferMessage(bytes);
+      simulateJsonMessage({
+        id: sent.id,
+        type: 'command_response',
+        data: {
+          messages: [
+            {
+              jid: 'group@g.us',
+              content: { type: 'image_buffer', view_once: false, caption: 'Test' },
+            },
+          ],
+        },
+      });
+
+      const result = await promise;
+      const content = result![0].content as Record<string, unknown>;
+      expect(Buffer.isBuffer(content.image)).toBe(true);
+      expect((content.image as Buffer).length).toBe(4);
+      expect(content.caption).toBe('Test');
+    });
+
+    it('preserves buffer content through ArrayBuffer conversion', async () => {
+      const bridge = createConnectedBridge();
+      const data = GroupCommandData.build({ text: ',test' });
+
+      const promise = bridge.sendCommand(data);
+      const sent = lastSentJson();
+
+      const original = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+      simulateArrayBufferMessage(original);
+      simulateJsonMessage({
+        id: sent.id,
+        type: 'command_response',
+        data: {
+          messages: [
+            {
+              jid: 'group@g.us',
+              content: { type: 'image_buffer', view_once: true },
+            },
+          ],
+        },
+      });
+
+      const result = await promise;
+      const image = (result![0].content as Record<string, unknown>).image as Buffer;
+      expect([...image]).toEqual([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    });
+
+    it('associates multiple ArrayBuffer frames with correct response', async () => {
+      const bridge = createConnectedBridge();
+      const data = GroupCommandData.build({ text: ',test' });
+
+      const promise = bridge.sendCommand(data);
+      const sent = lastSentJson();
+
+      simulateArrayBufferMessage(new Uint8Array([1, 2, 3]));
+      simulateArrayBufferMessage(new Uint8Array([4, 5, 6]));
+      simulateJsonMessage({
+        id: sent.id,
+        type: 'command_response',
+        data: {
+          messages: [
+            { jid: 'g@g.us', content: { type: 'image_buffer', view_once: false } },
+            { jid: 'g@g.us', content: { type: 'sticker' } },
+          ],
+        },
+      });
+
+      const result = await promise;
+      const img = (result![0].content as Record<string, unknown>).image as Buffer;
+      const sticker = (result![1].content as Record<string, unknown>).sticker as Buffer;
+      expect([...img]).toEqual([1, 2, 3]);
+      expect([...sticker]).toEqual([4, 5, 6]);
     });
   });
 });
