@@ -1,3 +1,4 @@
+import html
 import random
 import re
 
@@ -47,11 +48,14 @@ class PornoCommand(Command):
         url: str = porn['image']['url']
 
         view_once = 'show' not in parsed.flags
-        content: dict = {'viewOnce': view_once, 'caption': 'Aqui está seu vídeo 🤤'}
+        caption_map = {'.mp4': 'vídeo', '.gif': 'GIF'}
+        ext = url[url.rfind('.') :] if '.' in url.rsplit('/', 1)[-1] else ''
+        media_label = caption_map.get(ext, 'imagem')
+        content: dict = {'viewOnce': view_once, 'caption': f'Aqui está seu {media_label} 🤤'}
 
-        if url.endswith('.mp4'):
+        if ext == '.mp4':
             content['video'] = {'url': url}
-        elif url.endswith('.gif'):
+        elif ext == '.gif':
             content['image'] = {'url': url}
             content['gifPlayback'] = True
         else:
@@ -95,15 +99,16 @@ class PornoCommand(Command):
 
         video_resp = await HttpClient.get(video_page_url, timeout=30.0, headers=BROWSER_HEADERS)
         video_resp.raise_for_status()
-        html = video_resp.text
+        page_html = video_resp.text
 
-        title_match = re.search(r'<title>([^<]+)</title>', html)
-        title = (
-            title_match.group(1).replace(' - XVIDEOS.COM', '').strip() if title_match else 'Vídeo'
-        )
+        title_match = re.search(r'<title>([^<]+)</title>', page_html)
+        if title_match:
+            title = html.unescape(title_match.group(1).replace(' - XVIDEOS.COM', '').strip())
+        else:
+            title = 'Vídeo'
 
-        low_match = re.search(r"setVideoUrlLow\('([^']+)'\)", html)
-        high_match = re.search(r"setVideoUrlHigh\('([^']+)'\)", html)
+        low_match = re.search(r"setVideoUrlLow\('([^']+)'\)", page_html)
+        high_match = re.search(r"setVideoUrlHigh\('([^']+)'\)", page_html)
         video_url = (
             low_match.group(1) if low_match else (high_match.group(1) if high_match else None)
         )
