@@ -68,7 +68,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
 
         text = card.get('text', '')
         if text:
-            lines.append(f'\n{replace_mana_symbols(text)}')
+            lines.append(f'\n> {replace_mana_symbols(text)}')
 
         return '\n'.join(lines)
 
