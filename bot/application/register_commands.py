@@ -18,6 +18,7 @@ from bot.domain.commands.download import DownloadCommand
 from bot.domain.commands.drive import DriveCommand
 from bot.domain.commands.extract import ExtractCommand
 from bot.domain.commands.fact import FactCommand
+from bot.domain.commands.fipe import FipeCommand
 from bot.domain.commands.fuck import FuckCommand
 from bot.domain.commands.game import GameCommand
 from bot.domain.commands.group_mentions import GroupMentionsCommand
@@ -59,16 +60,18 @@ def register_all_commands(settings: Settings | None = None) -> None:
     MongoDBConnection.configure(settings.mongodb_uri)
 
     registry = CommandRegistry.instance()
-    registry.register(AddCommand(bot_jid=settings.resenhazord2_jid))
+    _register_simple_commands(registry)
+    _register_configured_commands(registry, settings)
+
+
+def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(AdmCommand())
     registry.register(QuranCommand())
     registry.register(AnimalCommand())
     registry.register(AudioCommand())
     registry.register(PlayingCardCommand())
     registry.register(BeerCommand())
-    registry.register(BibleCommand(biblia_token=settings.biblia_token))
     registry.register(LotteryCommand())
-    registry.register(BanCommand(bot_jid=settings.resenhazord2_jid))
     registry.register(BorgesCommand())
     registry.register(CarCommand())
     registry.register(ClashRoyaleCommand())
@@ -76,38 +79,20 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(D20Command())
     registry.register(DevCommand())
     registry.register(DownloadCommand())
-    registry.register(
-        DriveCommand(
-            discord=DiscordService(settings.discord_token, settings.discord_guild_id)
-            if settings.discord_token and settings.discord_guild_id
-            else None
-        )
-    )
     registry.register(ExtractCommand())
     registry.register(FactCommand())
-    registry.register(MovieSeriesCommand(tmdb_api_key=settings.tmdb_api_key))
-    registry.register(
-        GameCommand(
-            twitch_client_id=settings.twitch_client_id,
-            twitch_client_secret=settings.twitch_client_secret,
-            rawg_api_key=settings.rawg_api_key,
-        )
-    )
+    registry.register(FipeCommand())
     registry.register(GroupMentionsCommand())
     registry.register(HentaiCommand())
     registry.register(HoroscopeCommand())
     registry.register(JackpotCommand())
     registry.register(FuckCommand())
-    registry.register(
-        HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
-    )
     registry.register(LeagueOfLegendsCommand())
     registry.register(MoonCommand())
     registry.register(MagicTheGatheringCommand())
     registry.register(MateusCommand())
     registry.register(MealRecipesCommand())
     registry.register(MenuCommand())
-    registry.register(MusicCommand(jamendo_client_id=settings.jamendo_client_id))
     registry.register(MyAnimeListCommand())
     registry.register(OiCommand())
     registry.register(PokemonCommand())
@@ -119,3 +104,28 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry.register(StickerCommand())
     registry.register(TorahCommand())
     registry.register(YugiohCommand())
+
+
+def _register_configured_commands(registry: CommandRegistry, settings: Settings) -> None:
+    registry.register(AddCommand(bot_jid=settings.resenhazord2_jid))
+    registry.register(BanCommand(bot_jid=settings.resenhazord2_jid))
+    registry.register(BibleCommand(biblia_token=settings.biblia_token))
+    registry.register(
+        DriveCommand(
+            discord=DiscordService(settings.discord_token, settings.discord_guild_id)
+            if settings.discord_token and settings.discord_guild_id
+            else None
+        )
+    )
+    registry.register(MovieSeriesCommand(tmdb_api_key=settings.tmdb_api_key))
+    registry.register(
+        GameCommand(
+            twitch_client_id=settings.twitch_client_id,
+            twitch_client_secret=settings.twitch_client_secret,
+            rawg_api_key=settings.rawg_api_key,
+        )
+    )
+    registry.register(
+        HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
+    )
+    registry.register(MusicCommand(jamendo_client_id=settings.jamendo_client_id))
