@@ -15,7 +15,7 @@ def _mock_country(**overrides):
     return {
         'name': {'common': 'Brazil', 'official': 'Federative Republic of Brazil'},
         'flags': {'png': 'https://flagcdn.com/w320/br.png'},
-        'flag': '🇧🇷',
+        'cca3': 'BRA',
         'capital': ['Brasília'],
         'region': 'Americas',
         'subregion': 'South America',
@@ -23,12 +23,17 @@ def _mock_country(**overrides):
         'area': 8515767,
         'languages': {'por': 'Portuguese'},
         'currencies': {'BRL': {'name': 'Brazilian real', 'symbol': 'R$'}},
+        **overrides,
+    }
+
+
+def _mock_detail():
+    return {
         'timezones': ['UTC-03:00'],
         'latlng': [-15.79, -47.88],
         'idd': {'root': '+5', 'suffixes': ['5']},
         'borders': ['ARG', 'BOL', 'COL'],
         'car': {'side': 'right'},
-        **overrides,
     }
 
 
@@ -130,6 +135,9 @@ class TestDetailFlag:
         respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
             return_value=httpx.Response(200, json=[_mock_country()])
         )
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/alpha/BRA').mock(
+            return_value=httpx.Response(200, json=_mock_detail())
+        )
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -156,9 +164,13 @@ class TestDetailFlag:
     @pytest.mark.anyio
     async def test_detail_handles_missing_fields(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira detail')
-        country = _mock_country(timezones=[], latlng=[], idd={}, borders=[], car={})
         respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[country])
+            return_value=httpx.Response(200, json=[_mock_country()])
+        )
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/alpha/BRA').mock(
+            return_value=httpx.Response(
+                200, json={'timezones': [], 'latlng': [], 'idd': {}, 'borders': [], 'car': {}}
+            )
         )
         messages = await command.run(data)
 

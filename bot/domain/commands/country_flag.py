@@ -13,7 +13,10 @@ logger = structlog.get_logger()
 
 
 class CountryFlagCommand(Command):
-    API_URL = 'https://restcountries.com/v3.1/all'
+    BASE_FIELDS = 'name,flags,cca3,capital,region,subregion,population,area,languages,currencies'
+    API_URL = f'https://restcountries.com/v3.1/all?fields={BASE_FIELDS}'
+    DETAIL_FIELDS = 'timezones,borders,idd,latlng,car'
+    DETAIL_URL = 'https://restcountries.com/v3.1/alpha/{code}?fields={fields}'
     LATLNG_PAIR_LEN = 2
     MAX_IDD_SUFFIXES = 3
 
@@ -37,11 +40,19 @@ class CountryFlagCommand(Command):
             countries = response.json()
             country = random.choice(countries)  # noqa: S311
             detail = 'detail' in parsed.flags
+            if detail:
+                country = await self._fetch_detail(country)
             caption = self._build_caption(country, detail=detail)
             return [Reply.to(data).image(country['flags']['png'], caption)]
         except Exception:
             logger.exception('country_flag_fetch_error')
             return [Reply.to(data).text('Erro ao buscar bandeira. Tente novamente mais tarde! 🌍')]
+
+    async def _fetch_detail(self, country: dict) -> dict:
+        url = self.DETAIL_URL.format(code=country['cca3'], fields=self.DETAIL_FIELDS)
+        response = await HttpClient.get(url)
+        response.raise_for_status()
+        return {**country, **response.json()}
 
     @staticmethod
     def _build_caption(country: dict, *, detail: bool = False) -> str:
