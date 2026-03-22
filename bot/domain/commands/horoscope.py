@@ -41,7 +41,7 @@ class HoroscopeCommand(Command):
 
         response = await HttpClient.get(self.API_URL, params={'sign': api_name})
         response.raise_for_status()
-        horoscope = response.json()['horoscope']
+        horoscope = response.json()['data']['horoscope']
 
         header = f'{sign.emoji} *{sign.pt_name}* ({sign.dates})'
         return [Reply.to(data).text(f'{header}\n\n> {horoscope}')]

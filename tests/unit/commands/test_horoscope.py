@@ -6,10 +6,12 @@ from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 MOCK_RESPONSE = {
-    'date': '2026-03-22',
-    'period': 'daily',
-    'sign': 'Aries',
-    'horoscope': 'Today is a great day for new beginnings.',
+    'data': {
+        'date': '2026-03-22',
+        'period': 'daily',
+        'sign': 'Aries',
+        'horoscope': 'Today is a great day for new beginnings.',
+    },
 }
 
 
@@ -65,7 +67,9 @@ class TestExecute:
         data = GroupCommandDataFactory.build(text=', horóscopo taurus')
 
         respx_mock.get('https://freehoroscopeapi.com/api/v1/get-horoscope/daily').mock(
-            return_value=httpx.Response(200, json={**MOCK_RESPONSE, 'sign': 'Taurus'})
+            return_value=httpx.Response(
+                200, json={'data': {**MOCK_RESPONSE['data'], 'sign': 'Taurus'}}
+            )
         )
 
         messages = await command.run(data)
@@ -105,7 +109,11 @@ class TestExecute:
         route = respx_mock.get(
             'https://freehoroscopeapi.com/api/v1/get-horoscope/daily',
             params={'sign': 'scorpio'},
-        ).mock(return_value=httpx.Response(200, json={**MOCK_RESPONSE, 'sign': 'Scorpio'}))
+        ).mock(
+            return_value=httpx.Response(
+                200, json={'data': {**MOCK_RESPONSE['data'], 'sign': 'Scorpio'}}
+            )
+        )
 
         await command.run(data)
 
