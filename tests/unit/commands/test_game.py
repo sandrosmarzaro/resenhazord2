@@ -75,6 +75,7 @@ class TestMatches:
             (', GAME', True),
             (', game show', True),
             (', game dm', True),
+            (', game rawg', True),
             ('game', False),
             ('hello', False),
             (', game extra', False),
@@ -237,6 +238,29 @@ class TestBothSourcesFail:
         messages = await command.run(data)
 
         assert len(messages) == 1
+        assert isinstance(messages[0].content, TextContent)
+        assert 'Erro ao buscar jogo' in messages[0].content.text
+
+
+class TestRawgOption:
+    @pytest.mark.anyio
+    async def test_rawg_option_skips_igdb(self, command, rawg_route):
+        data = GroupCommandDataFactory.build(text=', game rawg')
+        rawg_route.mock(return_value=httpx.Response(200, json=MOCK_RAWG_RESPONSE))
+
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert isinstance(messages[0].content, ImageContent)
+        assert 'Portal 2' in messages[0].content.caption
+
+    @pytest.mark.anyio
+    async def test_rawg_option_returns_error_on_failure(self, command, rawg_route):
+        data = GroupCommandDataFactory.build(text=', game rawg')
+        rawg_route.mock(side_effect=httpx.ConnectError('timeout'))
+
+        messages = await command.run(data)
+
         assert isinstance(messages[0].content, TextContent)
         assert 'Erro ao buscar jogo' in messages[0].content.text
 

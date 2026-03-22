@@ -1,7 +1,7 @@
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.game_source import GameInfo, GameSource, IgdbSource, RawgSource
@@ -27,6 +27,7 @@ class GameCommand(Command):
         return CommandConfig(
             name='game',
             flags=['show', 'dm'],
+            options=[OptionDef(name='source', values=['rawg'])],
             category='random',
         )
 
@@ -35,7 +36,11 @@ class GameCommand(Command):
         return 'Receba um jogo aleatório com capa e informações.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        for source in self._sources:
+        sources = self._sources
+        if parsed.options.get('source') == 'rawg':
+            sources = [s for s in self._sources if isinstance(s, RawgSource)]
+
+        for source in sources:
             try:
                 game = await source.fetch()
                 caption = self._build_caption(game)
