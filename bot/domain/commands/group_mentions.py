@@ -154,6 +154,8 @@ class GroupMentionsCommand(Command):
     async def _handle_mention(self, data: CommandData, rest: str) -> list[BotMessage]:
         parts = rest.split(maxsplit=1)
         group_name = parts[0] if parts else ''
+        if not group_name:
+            return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
         text = parts[1] if len(parts) > 1 else ''
 
         result = await self._service.mention(data.jid, group_name)
