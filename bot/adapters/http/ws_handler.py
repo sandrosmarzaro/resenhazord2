@@ -39,6 +39,8 @@ class WebSocketHandler:
             await self._handle_group_event(msg)
         elif msg.type == 'wa_result':
             self._resolve_pending(msg)
+        elif msg.type == 'error':
+            self._reject_pending(msg)
         else:
             logger.warning('unknown_message_type', type=msg.type, id=msg.id)
 
@@ -135,6 +137,14 @@ class WebSocketHandler:
             future.set_result(msg.data or {})
         elif future is None:
             logger.warning('no_pending_future', id=msg.id)
+
+    def _reject_pending(self, msg: WSMessage) -> None:
+        future = self._pending.pop(msg.id, None)
+        if future and not future.done():
+            error_msg = (msg.data or {}).get('message', 'Unknown wa_call error')
+            future.set_exception(RuntimeError(error_msg))
+        elif future is None:
+            logger.warning('wa_call_error_no_pending', id=msg.id, data=msg.data)
 
     async def call_whatsapp(
         self, method: str, data: dict[str, Any], *, deadline: float = 30.0
