@@ -67,9 +67,7 @@ class LotteryCommand(Command):
                 )
             ]
 
-    async def _fallback_yesterday(
-        self, data: CommandData, region: str = 'rio'
-    ) -> list[BotMessage]:
+    async def _fallback_yesterday(self, data: CommandData, region: str = 'rio') -> list[BotMessage]:
         yesterday = datetime.now(tz=UTC) - timedelta(days=1)
         date_str = yesterday.strftime('%d-%m-%Y')
         url = self.YESTERDAY_URL.format(region=region, date=date_str)

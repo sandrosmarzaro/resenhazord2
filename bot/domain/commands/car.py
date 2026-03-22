@@ -195,11 +195,7 @@ class CarCommand(Command):
     def _base_model_name(nome: str) -> str:
         words = nome.strip().split()
         stop = next(
-            (
-                i
-                for i, w in enumerate(words)
-                if SPEC_TOKEN.match(w) or w.lower() in SPEC_WORD_BASE
-            ),
+            (i for i, w in enumerate(words) if SPEC_TOKEN.match(w) or w.lower() in SPEC_WORD_BASE),
             -1,
         )
         return ' '.join(words[:stop] if stop > 0 else words)
