@@ -26,7 +26,7 @@ class BeerCommand(Command):
             name='cerveja',
             aliases=['beer'],
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

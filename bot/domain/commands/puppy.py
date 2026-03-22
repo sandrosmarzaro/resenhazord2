@@ -19,7 +19,7 @@ class PuppyCommand(Command):
             name='puppy',
             flags=['show', 'dm'],
             options=[OptionDef(name='tipo', values=['dog', 'cat'])],
-            category='aleatórias',
+            category='random',
         )
 
     @property

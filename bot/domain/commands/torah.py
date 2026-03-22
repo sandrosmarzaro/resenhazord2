@@ -28,7 +28,7 @@ class TorahCommand(Command):
             options=[OptionDef(name='lang', values=['he', 'en'])],
             args=ArgType.OPTIONAL,
             flags=['dm', 'show'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

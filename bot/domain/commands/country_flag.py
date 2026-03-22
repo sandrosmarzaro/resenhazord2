@@ -24,7 +24,7 @@ class CountryFlagCommand(Command):
             name='bandeira',
             aliases=['flag'],
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

@@ -15,7 +15,7 @@ logger = structlog.get_logger()
 class AdmCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='adm', group_only=True, category='grupo')
+        return CommandConfig(name='adm', group_only=True, category='group')
 
     @property
     def menu_description(self) -> str:

@@ -23,7 +23,7 @@ class HoroscopeCommand(Command):
             args=ArgType.OPTIONAL,
             options=[OptionDef(name='signo', values=SIGN_NAMES)],
             flags=['dm', 'show'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

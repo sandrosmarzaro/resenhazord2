@@ -26,7 +26,7 @@ class MenuCommand(Command):
             name='menu',
             options=[OptionDef(name='section', values=['grupo', 'bíblia'])],
             flags=['dm'],
-            category='outras',
+            category='other',
         )
 
     @property
@@ -57,7 +57,7 @@ class MenuCommand(Command):
                 continue
 
             header = CATEGORY_HEADERS[category]
-            if category == 'aleatórias':
+            if category == 'random':
                 header += ALEATORIA_SUBHEADER
 
             entries = [self._format_entry(cmd) for cmd in cmds]

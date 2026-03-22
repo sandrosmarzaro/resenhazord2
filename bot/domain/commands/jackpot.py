@@ -18,7 +18,7 @@ class JackpotCommand(Command):
         return CommandConfig(
             name='jackpot',
             aliases=['slot', 'caçaníqueis', 'tigrinho'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

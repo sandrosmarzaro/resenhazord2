@@ -31,7 +31,7 @@ class AnimalCommand(Command):
         return CommandConfig(
             name='animal',
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

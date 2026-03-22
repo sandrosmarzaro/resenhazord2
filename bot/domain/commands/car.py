@@ -38,7 +38,7 @@ class CarCommand(Command):
             name='carro',
             aliases=['car'],
             flags=['show', 'dm', 'wiki'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

@@ -24,7 +24,7 @@ class PornoCommand(Command):
         return CommandConfig(
             name='porno',
             flags=['ia', 'show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

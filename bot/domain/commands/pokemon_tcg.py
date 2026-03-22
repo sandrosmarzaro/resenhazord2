@@ -24,7 +24,7 @@ class PokemonTCGCommand(CardBoosterCommand):
             name='pokémontcg',
             aliases=['ptcg'],
             flags=['booster', 'show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

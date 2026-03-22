@@ -31,7 +31,7 @@ class AddCommand(Command):
             args_pattern=r'^(?:\d+)?$',
             args_label='número',
             group_only=True,
-            category='grupo',
+            category='group',
         )
 
     @property

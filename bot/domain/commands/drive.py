@@ -34,7 +34,7 @@ class DriveCommand(Command):
             flags=['new'],
             args=ArgType.REQUIRED,
             group_only=True,
-            category='grupo',
+            category='group',
         )
 
     @property

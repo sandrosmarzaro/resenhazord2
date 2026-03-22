@@ -25,7 +25,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
         return CommandConfig(
             name='mtg',
             flags=['booster', 'show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

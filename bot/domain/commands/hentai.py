@@ -24,7 +24,7 @@ class HentaiCommand(Command):
         return CommandConfig(
             name='hentai',
             flags=['dm', 'show', 'hitomi', 'nhentai'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

@@ -16,7 +16,7 @@ class MyAnimeListCommand(Command):
             name='anime',
             aliases=['manga'],
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

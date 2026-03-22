@@ -23,7 +23,7 @@ class MovieSeriesCommand(Command):
             aliases=['série', 'movie', 'series'],
             options=[OptionDef(name='mode', values=['top', 'pop'])],
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

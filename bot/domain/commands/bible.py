@@ -25,7 +25,7 @@ class BibleCommand(Command):
                 OptionDef(name='version', values=['nvi', 'ra', 'acf', 'kjv', 'bbe', 'apee', 'rvr']),
             ],
             args=ArgType.OPTIONAL,
-            category='aleatórias',
+            category='random',
         )
 
     @property

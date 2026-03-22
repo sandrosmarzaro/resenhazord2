@@ -28,7 +28,7 @@ class PokemonCommand(CardBoosterCommand):
         return CommandConfig(
             name='pokémon',
             flags=['team', 'show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

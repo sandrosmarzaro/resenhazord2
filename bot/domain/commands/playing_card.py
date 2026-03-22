@@ -12,7 +12,7 @@ class PlayingCardCommand(Command):
             name='carta',
             aliases=['card'],
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

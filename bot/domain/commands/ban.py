@@ -26,7 +26,7 @@ class BanCommand(Command):
             args_pattern=r'^(?:@\d+(?:\s+@\d+)*)?$',
             args_label='@número',
             group_only=True,
-            category='grupo',
+            category='group',
         )
 
     @property

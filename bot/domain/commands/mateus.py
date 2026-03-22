@@ -12,7 +12,7 @@ class MateusCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='mateus', category='aleatórias')
+        return CommandConfig(name='mateus', category='random')
 
     @property
     def menu_description(self) -> str:

@@ -37,7 +37,7 @@ class GroupMentionsCommand(Command):
             aliases=['group'],
             args=ArgType.OPTIONAL,
             group_only=True,
-            category='grupo',
+            category='group',
         )
 
     @property

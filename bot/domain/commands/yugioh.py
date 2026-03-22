@@ -20,7 +20,7 @@ class YugiohCommand(CardBoosterCommand):
         return CommandConfig(
             name='ygo',
             flags=['booster', 'show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

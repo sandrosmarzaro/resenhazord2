@@ -16,7 +16,7 @@ class QuranCommand(Command):
             name='alcorão',
             aliases=['quran'],
             options=[OptionDef(name='lang', values=['ar', 'pt'])],
-            category='aleatórias',
+            category='random',
         )
 
     @property

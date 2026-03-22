@@ -33,7 +33,7 @@ class HearthstoneCommand(CardBoosterCommand):
         return CommandConfig(
             name='hs',
             flags=['booster', 'show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

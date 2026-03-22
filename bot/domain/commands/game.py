@@ -27,7 +27,7 @@ class GameCommand(Command):
         return CommandConfig(
             name='game',
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

@@ -20,7 +20,7 @@ class Rule34Command(Command):
         return CommandConfig(
             name='rule 34',
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property

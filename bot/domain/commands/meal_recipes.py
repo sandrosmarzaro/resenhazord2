@@ -14,7 +14,7 @@ class MealRecipesCommand(Command):
             name='comida',
             aliases=['food'],
             flags=['show', 'dm'],
-            category='aleatórias',
+            category='random',
         )
 
     @property
