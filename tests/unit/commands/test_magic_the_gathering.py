@@ -88,7 +88,7 @@ class TestSingleCard:
         caption = messages[0].content.caption
         assert '*Lightning Bolt* — Instant' in caption
         assert '💎 Common' in caption
-        assert '{R}' in caption
+        assert '❤️' in caption
         assert 'Lightning Bolt deals 3 damage' in caption
 
     @pytest.mark.anyio

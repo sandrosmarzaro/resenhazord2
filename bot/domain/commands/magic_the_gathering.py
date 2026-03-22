@@ -4,6 +4,7 @@ import random
 import anyio
 import structlog
 
+from bot.data.mtg_symbols import replace_mana_symbols
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import CommandConfig, ParsedCommand
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
@@ -52,7 +53,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
         if card.get('rarity'):
             meta.append(f'💎 {card["rarity"]}')
         if card.get('manaCost'):
-            meta.append(card['manaCost'])
+            meta.append(replace_mana_symbols(card['manaCost']))
         if meta:
             lines.append('   '.join(meta))
 
@@ -61,7 +62,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
 
         text = card.get('text', '')
         if text:
-            lines.append(f'\n> {text}')
+            lines.append(f'\n> {replace_mana_symbols(text)}')
 
         return '\n'.join(lines)
 
