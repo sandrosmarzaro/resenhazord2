@@ -212,7 +212,7 @@ class TestCaptionEdgeCases:
 
         caption = messages[0].content.caption
         assert '*Fireball*' in caption
-        assert '""' not in caption
+        assert '__' not in caption
 
 
 class TestBooster:

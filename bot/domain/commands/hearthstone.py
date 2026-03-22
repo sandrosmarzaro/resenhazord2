@@ -126,15 +126,15 @@ class HearthstoneCommand(CardBoosterCommand):
         if stats:
             lines.append('   '.join(stats))
 
-        flavor = self._safe_text(card.get('flavorText', ''))
-        if flavor:
-            lines.append(f'\n> "{flavor}"')
-
         raw_text = self._safe_text(card.get('text', ''))
         description = self.BOLD_RE.sub('*', raw_text)
         description = self.ITALIC_RE.sub('_', description)
         if description:
-            lines.append(f'\n{description}')
+            lines.append(f'\n> {description}')
+
+        flavor = self._safe_text(card.get('flavorText', ''))
+        if flavor:
+            lines.append(f'\n_{flavor}_')
 
         return '\n'.join(lines)
 

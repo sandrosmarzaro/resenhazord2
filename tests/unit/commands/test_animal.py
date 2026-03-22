@@ -66,7 +66,6 @@ class TestRun:
 
         caption = messages[0].content.caption
         assert '🐼 Panda' in caption
-        assert '📝' in caption
         assert 'giant panda is a bear species' in caption
 
     @pytest.mark.anyio
@@ -98,7 +97,7 @@ class TestRun:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert '📝' in messages[0].content.text
+        assert 'giant panda is a bear species' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_extracts_first_two_sentences(self, command, wiki_route, image_route):

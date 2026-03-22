@@ -67,9 +67,9 @@ class MusicCommand(Command):
         caption = (
             f'🎵 *{track["title"]}*\n'
             f'👨\u200d🦱 _{track["artist"]["name"]}_\n'
-            f'> 📚 {track["album"]["title"]}\n'
-            f'> 🧬 {tag}\n'
-            f'> ⏱️ {duration}'
+            f'\n📚 {track["album"]["title"]}\n'
+            f'🧬 {tag}\n'
+            f'⏱️ {duration}'
         )
 
         return [
@@ -101,10 +101,10 @@ class MusicCommand(Command):
         caption = (
             f'🎵 *{track["name"]}*\n'
             f'👨\u200d🦱 _{track["artist_name"]}_\n'
-            f'> 📚 {track["album_name"]}\n'
-            f'> 🧬 {genre}\n'
-            f'> ⏱️ {duration}\n'
-            f'> 📅 {track["releasedate"]}'
+            f'\n📚 {track["album_name"]}\n'
+            f'🧬 {genre}\n'
+            f'⏱️ {duration}\n'
+            f'📅 {track["releasedate"]}'
         )
 
         return [

@@ -35,7 +35,7 @@ class BeerCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
             beer = await self._get_random_beer()
-            lines = [f'🍺 *{beer["name"]}*', f'🏭 _{beer["brand"]}_']
+            lines = [f'🍺 *{beer["name"]}*', f'🏭 _{beer["brand"]}_', '']
 
             drink_parts: list[str] = []
             if beer.get('alcohol') is not None:
@@ -45,10 +45,13 @@ class BeerCommand(Command):
             if drink_parts:
                 lines.append(f'🍷 {" · ".join(drink_parts)}')
 
+            location: list[str] = []
             if beer.get('origin'):
-                lines.append(f'📍 _{beer["origin"]}_')
+                location.append(f'📍 _{beer["origin"]}_')
             if beer.get('sold_in'):
-                lines.append(f'🌍 _{beer["sold_in"]}_')
+                location.append(f'🌍 _{beer["sold_in"]}_')
+            if location:
+                lines.append('   '.join(location))
             if beer.get('ingredients'):
                 lines.append(f'\n> {beer["ingredients"]}')
 

@@ -52,7 +52,7 @@ class AnimalCommand(Command):
             fact = self._extract_fact(animal_data['extract'])
             emoji = ANIMAL_EMOJIS[animal_type]
             name = self._format_name(animal_type)
-            caption = f'*{emoji} {name}*\n\n📝 {fact}'
+            caption = f'*{emoji} {name}*\n\n> {fact}'
 
             thumbnail = animal_data.get('thumbnail')
             if not thumbnail:

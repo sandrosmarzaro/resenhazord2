@@ -63,7 +63,7 @@ class PokemonCommand(CardBoosterCommand):
         types = self._format_types(pokemon['types'])
         image_url = self._resolve_image(pokemon)
 
-        caption = f'*Nome*: {name}\n*Tipo*: {types}\n*Pokédex*: #{pokemon["id"]}'
+        caption = f'*{name}* — {types}\n\n📖 Pokédex #{pokemon["id"]}'
         buffer = await HttpClient.get_buffer(image_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
 

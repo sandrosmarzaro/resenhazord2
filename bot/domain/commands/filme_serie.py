@@ -62,7 +62,7 @@ class FilmeSerieCommand(Command):
 
         caption = f'*{name}*\n\n'
         caption += f'🧬 {genres_names}\n'
-        caption += f'⭐ {item.get("vote_average") or "Sem Nota"}\t📅 {year or "Sem Data"}\n\n'
+        caption += f'⭐ {item.get("vote_average") or "Sem Nota"}   📅 {year or "Sem Data"}\n\n'
         caption += f'> {item.get("overview", "")}'
 
         return [Reply.to(data).image(poster_url, caption)]

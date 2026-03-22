@@ -35,8 +35,10 @@ class ClashRoyaleCommand(Command):
             rarity_emoji = RARITY_EMOJIS.get(card['rarity'], '❓')
             type_emoji = TYPE_EMOJIS.get(card['type'], '❓')
 
-            stats = f'⚡ {card["elixir"]}  •  {type_emoji} {card["type"]}'
-            stats += f'  •  {rarity_emoji} {card["rarity"]}'
+            stats = (
+                f'⚡ {card["elixir"]}   {type_emoji} {card["type"]}'
+                f'   {rarity_emoji} {card["rarity"]}'
+            )
             lines = [
                 f'*{card["name"]}*',
                 '',

@@ -27,9 +27,15 @@ class MealRecipesCommand(Command):
         response.raise_for_status()
         meal = response.json()['meals'][0]
 
+        area = meal.get('strArea') or 'Sem País'
+        category = meal.get('strCategory') or ''
+        tags = meal.get('strTags') or ''
+        meta = f'🗺️ {area}   🍽️ {category}'
+        if tags:
+            meta += f'   🏷️ {tags}'
+
         caption = f'*{meal["strMeal"]}*\n\n'
-        caption += f'🗺️ {meal.get("strArea") or "Sem País"}\n'
-        caption += f'🍽️ {meal.get("strCategory") or ""} {meal.get("strTags") or ""}\n'
+        caption += f'{meta}\n'
         caption += '\n🍲 Ingredientes:\n'
         for i in range(1, self.MAX_INGREDIENTS + 1):
             ingredient = meal.get(f'strIngredient{i}')
@@ -38,7 +44,11 @@ class MealRecipesCommand(Command):
             measure = meal.get(f'strMeasure{i}') or ''
             caption += f'- {ingredient} | {measure}\n'
         caption += '\n📝 Passo a passo:\n'
-        caption += f'{meal["strInstructions"]}\n\n'
-        caption += f'🎥 {meal.get("strYoutube") or ""}\n'
-        caption += f'🔗 {meal.get("strSource") or ""}\n'
+        caption += f'> {meal["strInstructions"]}\n'
+        youtube = meal.get('strYoutube')
+        source = meal.get('strSource')
+        if youtube:
+            caption += f'\n🎥 {youtube}'
+        if source:
+            caption += f'\n🔗 {source}'
         return [Reply.to(data).image(meal['strMealThumb'], caption)]
