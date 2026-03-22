@@ -23,6 +23,11 @@ def _mock_country(**overrides):
         'area': 8515767,
         'languages': {'por': 'Portuguese'},
         'currencies': {'BRL': {'name': 'Brazilian real', 'symbol': 'R$'}},
+        'timezones': ['UTC-03:00'],
+        'latlng': [-15.79, -47.88],
+        'idd': {'root': '+5', 'suffixes': ['5']},
+        'borders': ['ARG', 'BOL', 'COL'],
+        'car': {'side': 'right'},
         **overrides,
     }
 
@@ -35,6 +40,7 @@ class TestMatches:
             (',bandeira', True),
             (', BANDEIRA', True),
             (', bandeira show', True),
+            (', bandeira detail', True),
             (', bandeira dm', True),
             ('  , bandeira  ', True),
             ('bandeira', False),
@@ -115,3 +121,49 @@ class TestRun:
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'Erro' in messages[0].content.text
+
+
+class TestDetailFlag:
+    @pytest.mark.anyio
+    async def test_detail_flag_adds_extra_info(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bandeira detail')
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            return_value=httpx.Response(200, json=[_mock_country()])
+        )
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert caption is not None
+        assert 'UTC-03:00' in caption
+        assert '-15.79' in caption
+        assert '+55' in caption
+        assert 'ARG' in caption
+        assert 'Direita' in caption
+
+    @pytest.mark.anyio
+    async def test_without_detail_flag_omits_extra_info(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bandeira')
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            return_value=httpx.Response(200, json=[_mock_country()])
+        )
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert caption is not None
+        assert 'UTC-03:00' not in caption
+        assert 'Fronteiras' not in caption
+
+    @pytest.mark.anyio
+    async def test_detail_handles_missing_fields(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bandeira detail')
+        country = _mock_country(timezones=[], latlng=[], idd={}, borders=[], car={})
+        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
+            return_value=httpx.Response(200, json=[country])
+        )
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert caption is not None
+        assert 'Brazil' in caption
+        assert 'Fronteiras' not in caption
+        assert 'Mão' not in caption

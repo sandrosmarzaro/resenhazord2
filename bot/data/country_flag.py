@@ -1,3 +1,8 @@
+DRIVING_SIDE_PT: dict[str, str] = {
+    'right': 'Direita',
+    'left': 'Esquerda',
+}
+
 REGION_MAP: dict[str, dict[str, str]] = {
     'Africa': {'emoji': '🌍', 'label': 'África'},
     'Americas': {'emoji': '🌎', 'label': 'Américas'},

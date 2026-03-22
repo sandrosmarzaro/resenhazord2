@@ -2,7 +2,7 @@ import random
 
 import structlog
 
-from bot.data.country_flag import REGION_MAP, SUBREGION_PT
+from bot.data.country_flag import DRIVING_SIDE_PT, REGION_MAP, SUBREGION_PT
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -13,17 +13,18 @@ logger = structlog.get_logger()
 
 
 class CountryFlagCommand(Command):
-    API_URL = (
-        'https://restcountries.com/v3.1/all'
-        '?fields=name,flags,flag,capital,region,subregion,population,area,languages,currencies'
-    )
+    BASE_FIELDS = 'name,flags,flag,capital,region,subregion,population,area,languages,currencies'
+    DETAIL_FIELDS = 'timezones,borders,idd,latlng,car'
+    LATLNG_PAIR_LEN = 2
+    MAX_IDD_SUFFIXES = 3
+    API_URL = f'https://restcountries.com/v3.1/all?fields={BASE_FIELDS},{DETAIL_FIELDS}'
 
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='bandeira',
             aliases=['flag'],
-            flags=['show', 'dm'],
+            flags=['show', 'dm', 'detail'],
             category='random',
         )
 
@@ -37,14 +38,15 @@ class CountryFlagCommand(Command):
             response.raise_for_status()
             countries = response.json()
             country = random.choice(countries)  # noqa: S311
-            caption = self._build_caption(country)
+            detail = 'detail' in parsed.flags
+            caption = self._build_caption(country, detail=detail)
             return [Reply.to(data).image(country['flags']['png'], caption)]
         except Exception:
             logger.exception('country_flag_fetch_error')
             return [Reply.to(data).text('Erro ao buscar bandeira. Tente novamente mais tarde! 🌍')]
 
     @staticmethod
-    def _build_caption(country: dict) -> str:
+    def _build_caption(country: dict, *, detail: bool = False) -> str:
         region_info = REGION_MAP.get(
             country.get('region', ''), {'emoji': '🌐', 'label': country.get('region', '')}
         )
@@ -78,4 +80,36 @@ class CountryFlagCommand(Command):
         lines.append(f'🗣️ {languages}')
         lines.append(f'💰 {currencies}')
 
+        if detail:
+            lines.extend(CountryFlagCommand._build_detail_lines(country))
+
         return '\n'.join(lines)
+
+    @staticmethod
+    def _build_detail_lines(country: dict) -> list[str]:
+        lines = ['']
+        timezones = country.get('timezones', [])
+        if timezones:
+            lines.append(f'🕐 {", ".join(timezones)}')
+
+        latlng = country.get('latlng', [])
+        if len(latlng) == CountryFlagCommand.LATLNG_PAIR_LEN:
+            lines.append(f'📍 {latlng[0]:.2f}, {latlng[1]:.2f}')
+
+        idd = country.get('idd', {})
+        root = idd.get('root', '')
+        suffixes = idd.get('suffixes', [])
+        if root and suffixes:
+            codes = ', '.join(f'{root}{s}' for s in suffixes[: CountryFlagCommand.MAX_IDD_SUFFIXES])
+            lines.append(f'📞 {codes}')
+
+        borders = country.get('borders', [])
+        if borders:
+            lines.append(f'🗺️ Fronteiras: {", ".join(borders)}')
+
+        car = country.get('car', {})
+        side = car.get('side', '')
+        if side:
+            lines.append(f'🚗 Mão: {DRIVING_SIDE_PT.get(side, side)}')
+
+        return lines
