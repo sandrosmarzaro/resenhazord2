@@ -35,14 +35,20 @@ class MagicTheGatheringCommand(CardBoosterCommand):
         return 'Receba uma carta aleatória de Magic: The Gathering.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        if 'booster' in parsed.flags:
-            return await self._run_booster(data, parsed)
+        try:
+            if 'booster' in parsed.flags:
+                return await self._run_booster(data, parsed)
 
-        total_pages = await self._fetch_total_pages()
-        card = await self._fetch_single_card(total_pages)
+            total_pages = await self._fetch_total_pages()
+            card = await self._fetch_single_card(total_pages)
 
-        caption = self._build_caption(card)
-        return [Reply.to(data).image(card['imageUrl'], caption)]
+            caption = self._build_caption(card)
+            return [Reply.to(data).image(card['imageUrl'], caption)]
+        except Exception:
+            logger.exception('mtg_fetch_error')
+            return [
+                Reply.to(data).text('Erro ao buscar carta de MTG. Tente novamente mais tarde! 🃏')
+            ]
 
     @staticmethod
     def _build_caption(card: dict) -> str:
@@ -62,7 +68,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
 
         text = card.get('text', '')
         if text:
-            lines.append(f'\n> {replace_mana_symbols(text)}')
+            lines.append(f'\n{replace_mana_symbols(text)}')
 
         return '\n'.join(lines)
 
