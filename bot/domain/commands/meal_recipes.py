@@ -44,7 +44,7 @@ class MealRecipesCommand(Command):
             measure = meal.get(f'strMeasure{i}') or ''
             caption += f'- {ingredient} | {measure}\n'
         caption += '\n📝 Passo a passo:\n'
-        caption += f'> {meal["strInstructions"]}\n'
+        caption += f'{meal["strInstructions"]}\n'
         youtube = meal.get('strYoutube')
         source = meal.get('strSource')
         if youtube:
