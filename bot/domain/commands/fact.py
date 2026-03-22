@@ -2,6 +2,7 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.translator import Translator
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -12,7 +13,7 @@ class FactCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Descubra um fato aleatório ou de hoje em inglês.'
+        return 'Descubra um fato aleatório ou de hoje.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         rest_link = 'today' if 'hoje' in parsed.flags else 'random'
@@ -20,4 +21,5 @@ class FactCommand(Command):
         response = await HttpClient.get(url)
         response.raise_for_status()
         fact = response.json()
-        return [Reply.to(data).text(f'FATO 🤓☝️\n{fact["text"]}')]
+        text_pt = await Translator.to_pt(fact['text'])
+        return [Reply.to(data).text(f'FATO 🤓☝️\n{text_pt}')]
