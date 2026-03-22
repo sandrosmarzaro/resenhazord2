@@ -19,6 +19,7 @@ class StickerCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='stic',
+            aliases=['fig', 'figurinha', 'sticker'],
             options=[OptionDef(name='type', values=self.STICKER_TYPES)],
             category='download',
         )

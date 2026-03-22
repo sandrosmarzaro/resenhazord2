@@ -24,6 +24,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='mtg',
+            aliases=['magic'],
             flags=['booster', 'show', 'dm'],
             category='random',
         )

@@ -32,6 +32,7 @@ class HearthstoneCommand(CardBoosterCommand):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='hs',
+            aliases=['hearthstone'],
             flags=['booster', 'show', 'dm'],
             category='random',
         )
