@@ -1,5 +1,6 @@
 import random
 
+from bot.data.mateus import PROBABILITY_TIERS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -21,6 +22,5 @@ class MateusCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         raw = random.uniform(self.MIN_PROBABILITY, self.MAX_PROBABILITY)  # noqa: S311
         probability = f'{raw:.2f}'.replace('.', ',')
-        return [
-            Reply.to(data).text(f'A probabilidade de Mateus nascer agora é de {probability} % 🧐')
-        ]
+        template = next(t for threshold, t in PROBABILITY_TIERS if raw >= threshold)
+        return [Reply.to(data).text(template.format(prob=probability))]
