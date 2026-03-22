@@ -35,7 +35,7 @@ class TestRun:
     async def test_returns_video_buffer(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Test Video Title\n', b'', 0),
                 (b'fake-video-data', b'', 0),
@@ -52,7 +52,7 @@ class TestRun:
     async def test_video_data_is_buffer(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Title\n', b'', 0),
                 (b'\x00\x01\x02video', b'', 0),
@@ -69,7 +69,7 @@ class TestRun:
             text=',dl check this https://tiktok.com/@user/video/123 nice'
         )
         mock_exec = mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'TikTok\n', b'', 0),
                 (b'data', b'', 0),
@@ -85,7 +85,7 @@ class TestRun:
     async def test_empty_title_defaults_to_video(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://example.com/v')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'\n', b'', 0),
                 (b'data', b'', 0),
@@ -102,7 +102,7 @@ class TestErrors:
     async def test_generic_ytdlp_error(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Title\n', b'', 0),
                 (b'', b'ERROR: not found', 1),
@@ -118,7 +118,7 @@ class TestErrors:
     async def test_no_video_in_post(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://instagram.com/p/abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Title\n', b'', 0),
                 (b'', b'ERROR: There is no video in this post', 1),
@@ -134,7 +134,7 @@ class TestErrors:
     async def test_private_video(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Title\n', b'', 0),
                 (b'', b'ERROR: Private video', 1),
@@ -150,7 +150,7 @@ class TestErrors:
     async def test_video_unavailable(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Title\n', b'', 0),
                 (b'', b'ERROR: Video unavailable', 1),
@@ -166,7 +166,7 @@ class TestErrors:
     async def test_age_restricted(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Title\n', b'', 0),
                 (b'', b'ERROR: Sign in to confirm your age', 1),
@@ -182,7 +182,7 @@ class TestErrors:
     async def test_forbidden(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mock_subprocess(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
                 (b'Title\n', b'', 0),
                 (b'', b'HTTP Error 403: Forbidden', 1),
@@ -198,7 +198,7 @@ class TestErrors:
     async def test_subprocess_exception(self, command, mocker):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mocker.patch(
-            'bot.domain.commands.download.asyncio.create_subprocess_exec',
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             side_effect=FileNotFoundError('yt-dlp not found'),
         )
 

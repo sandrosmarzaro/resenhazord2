@@ -1,11 +1,9 @@
-import asyncio
 import re
 
 import structlog
 
 from bot.data.download_errors import (
     FALLBACK_MESSAGE,
-    FILE_TOO_LARGE_MESSAGE,
     YTDLP_ERROR_MESSAGES,
 )
 from bot.domain.builders.reply import Reply
@@ -13,50 +11,9 @@ from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedComm
 from bot.domain.exceptions import DownloadError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.ytdlp import YtDlpService
 
 logger = structlog.get_logger()
-
-
-class YtDlpService:
-    MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
-
-    @classmethod
-    async def download(cls, url: str) -> tuple[bytes, str]:
-        title_proc = await asyncio.create_subprocess_exec(
-            'yt-dlp',
-            '--print',
-            'title',
-            url,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        title_stdout, _ = await title_proc.communicate()
-        title = title_stdout.decode().strip() or 'Vídeo'
-
-        video_proc = await asyncio.create_subprocess_exec(
-            'yt-dlp',
-            '-f',
-            'best[ext=mp4]/best',
-            '--max-filesize',
-            '50m',
-            '-o',
-            '-',
-            url,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        video_stdout, video_stderr = await video_proc.communicate()
-
-        if video_proc.returncode != 0:
-            error_msg = video_stderr.decode().strip()
-            msg = f'yt-dlp failed: {error_msg}'
-            raise RuntimeError(msg)
-
-        if len(video_stdout) > cls.MAX_BUFFER:
-            msg = 'Video exceeds maximum buffer size'
-            raise DownloadError(msg)
-
-        return video_stdout, title
 
 
 class DownloadCommand(Command):
@@ -85,8 +42,8 @@ class DownloadCommand(Command):
             video_buffer, title = await YtDlpService.download(url)
         except RuntimeError as e:
             raise DownloadError(self._match_error(str(e)), detail=str(e)) from e
-        except ValueError as e:
-            raise DownloadError(FILE_TOO_LARGE_MESSAGE, detail=str(e)) from e
+        except DownloadError:
+            raise
         except Exception as e:
             raise DownloadError(FALLBACK_MESSAGE, detail=str(e)) from e
 
