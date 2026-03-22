@@ -1,5 +1,3 @@
-"""Random animal with Wikipedia fact and image."""
-
 import random
 import re
 

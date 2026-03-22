@@ -1,5 +1,3 @@
-"""Jackpot command — emoji slot machine."""
-
 import random
 from collections import Counter
 

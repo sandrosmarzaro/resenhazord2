@@ -1,5 +1,3 @@
-"""Random music command — Deezer preview or full Jamendo track."""
-
 import random
 
 import structlog

@@ -1,5 +1,3 @@
-"""Ban command — remove random or mentioned participants from a group."""
-
 import random
 
 import structlog

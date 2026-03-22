@@ -1,5 +1,3 @@
-"""Dev command — manage the developer list."""
-
 import re
 
 from bot.domain.builders.reply import Reply

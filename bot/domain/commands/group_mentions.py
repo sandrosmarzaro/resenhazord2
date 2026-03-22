@@ -1,5 +1,3 @@
-"""Group mentions management command — create, rename, delete, list, add, exit, mention."""
-
 import re
 from collections.abc import Awaitable, Callable
 

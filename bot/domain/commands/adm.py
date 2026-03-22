@@ -1,5 +1,3 @@
-"""Adm command — insult all group administrators with a random swearing."""
-
 import random
 
 import structlog

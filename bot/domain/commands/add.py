@@ -1,5 +1,3 @@
-"""Add command — add a random or specific phone number to a WhatsApp group."""
-
 import random
 
 import structlog

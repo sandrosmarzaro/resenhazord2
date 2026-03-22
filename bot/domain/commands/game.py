@@ -1,5 +1,3 @@
-"""Random game command — IGDB (primary) with RAWG fallback."""
-
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass

@@ -1,5 +1,3 @@
-"""Borges narga counter command — increments and displays counter from MongoDB."""
-
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData

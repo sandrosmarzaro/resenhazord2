@@ -1,5 +1,3 @@
-"""Random car with FIPE price and Wikipedia/Commons image."""
-
 import random
 import re
 from typing import ClassVar

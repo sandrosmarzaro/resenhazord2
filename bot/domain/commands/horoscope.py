@@ -1,5 +1,3 @@
-"""Horoscope command — daily zodiac horoscope."""
-
 from bot.data.horoscope import SIGN_LIST_TEXT, SIGN_LOOKUP, SIGN_NAMES, SIGNS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (

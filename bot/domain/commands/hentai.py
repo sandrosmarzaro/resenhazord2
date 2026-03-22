@@ -1,5 +1,3 @@
-"""Random hentai gallery command — Hitomi (primary) with Nhentai fallback."""
-
 import json
 import random
 import struct

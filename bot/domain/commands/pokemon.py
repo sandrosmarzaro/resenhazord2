@@ -1,5 +1,3 @@
-"""Random Pokémon command — single random or team of 6."""
-
 import random
 
 import structlog

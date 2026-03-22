@@ -1,5 +1,3 @@
-"""Lua command — show current moon phase using synodic cycle calculation."""
-
 import math
 from datetime import UTC, datetime
 

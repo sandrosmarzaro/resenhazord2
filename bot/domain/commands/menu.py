@@ -1,5 +1,3 @@
-"""Menu command — displays available commands grouped by category."""
-
 from typing import ClassVar
 
 from bot.application.command_registry import CommandRegistry
