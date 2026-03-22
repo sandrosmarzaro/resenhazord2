@@ -1,9 +1,13 @@
+import structlog
+
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.translator import Translator
 from bot.infrastructure.http_client import HttpClient
+
+logger = structlog.get_logger()
 
 
 class MealRecipesCommand(Command):
@@ -23,6 +27,13 @@ class MealRecipesCommand(Command):
         return 'Receba aleatoriamente uma receita e suas instruções.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        try:
+            return await self._fetch_and_build(data)
+        except Exception:
+            logger.exception('meal_recipes_error')
+            return [Reply.to(data).text('Erro ao buscar receita. Tente novamente mais tarde! 🍽️')]
+
+    async def _fetch_and_build(self, data: CommandData) -> list[BotMessage]:
         url = 'https://www.themealdb.com/api/json/v1/1/random.php'
         response = await HttpClient.get(url)
         response.raise_for_status()
