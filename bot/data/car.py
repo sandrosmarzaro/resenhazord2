@@ -1,0 +1,51 @@
+import re
+
+SPEC_TOKEN = re.compile(r'^\d+\.\d|^\d+[pP]$|\d+cv$', re.IGNORECASE)
+
+SPEC_WORD_BASE: set[str] = {
+    'flex',
+    'gasolina',
+    'diesel',
+    'aut.',
+    'mec.',
+    'cvt',
+    'turbo',
+}
+
+SPEC_WORD_WIKI: set[str] = {
+    'flex',
+    'gasolina',
+    'diesel',
+    'aut',
+    'mec',
+    'cvt',
+    'turbo',
+    'sedan',
+    'hatch',
+    'sw',
+    'furgão',
+    'furgao',
+    'cabine',
+    'pickup',
+    'dlx',
+    'lx',
+    'lxl',
+    'ex',
+    'elx',
+    'glx',
+    'gls',
+    'gli',
+    'vip',
+    'luxury',
+    'elite',
+    'premium',
+    'limited',
+    'sport',
+    'comfort',
+    'exclusive',
+    'country',
+    'land',
+    'adv',
+    'ext',
+    'adventure',
+}

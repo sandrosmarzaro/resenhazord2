@@ -1,11 +1,11 @@
 import random
 import re
-from typing import ClassVar
 from urllib.parse import quote
 
 import httpx
 import structlog
 
+from bot.data.car import SPEC_TOKEN, SPEC_WORD_BASE, SPEC_WORD_WIKI
 from bot.data.car_brands import FIPE_BRANDS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
@@ -27,58 +27,10 @@ class CarroCommand(Command):
     MAX_YEAR_RETRIES = 3
     MAX_VALID_YEAR = 2030
 
-    _BRAND_NAMES_LOWER: ClassVar[frozenset[str]] = frozenset(b.name.lower() for b in FIPE_BRANDS)
+    _BRAND_NAMES_LOWER: frozenset[str] = frozenset(b.name.lower() for b in FIPE_BRANDS)
     _BRAND_SUFFIX_PATTERN = re.compile(
         r'^(.+?)\s+(?:motors?|automobiles?|automotive|group|corporation|trucks?)$'
     )
-
-    SPEC_TOKEN = re.compile(r'^\d+\.\d|^\d+[pP]$|\d+cv$', re.IGNORECASE)
-    SPEC_WORD_BASE: ClassVar[set[str]] = {
-        'flex',
-        'gasolina',
-        'diesel',
-        'aut.',
-        'mec.',
-        'cvt',
-        'turbo',
-    }
-    SPEC_WORD_WIKI: ClassVar[set[str]] = {
-        'flex',
-        'gasolina',
-        'diesel',
-        'aut',
-        'mec',
-        'cvt',
-        'turbo',
-        'sedan',
-        'hatch',
-        'sw',
-        'furgão',
-        'furgao',
-        'cabine',
-        'pickup',
-        'dlx',
-        'lx',
-        'lxl',
-        'ex',
-        'elx',
-        'glx',
-        'gls',
-        'gli',
-        'vip',
-        'luxury',
-        'elite',
-        'premium',
-        'limited',
-        'sport',
-        'comfort',
-        'exclusive',
-        'country',
-        'land',
-        'adv',
-        'ext',
-        'adventure',
-    }
 
     @property
     def config(self) -> CommandConfig:
@@ -239,21 +191,21 @@ class CarroCommand(Command):
         first = next(iter(pages.values()), {})
         return (first.get('thumbnail') or {}).get('source')
 
-    @classmethod
-    def _base_model_name(cls, nome: str) -> str:
+    @staticmethod
+    def _base_model_name(nome: str) -> str:
         words = nome.strip().split()
         stop = next(
             (
                 i
                 for i, w in enumerate(words)
-                if cls.SPEC_TOKEN.match(w) or w.lower() in cls.SPEC_WORD_BASE
+                if SPEC_TOKEN.match(w) or w.lower() in SPEC_WORD_BASE
             ),
             -1,
         )
         return ' '.join(words[:stop] if stop > 0 else words)
 
-    @classmethod
-    def _wiki_model_name(cls, nome: str) -> str:
+    @staticmethod
+    def _wiki_model_name(nome: str) -> str:
         words = []
         for token in nome.strip().split():
             words.extend(token.split('/'))
@@ -261,7 +213,7 @@ class CarroCommand(Command):
             (
                 i
                 for i, w in enumerate(words)
-                if cls.SPEC_TOKEN.match(w) or w.rstrip('.,').lower() in cls.SPEC_WORD_WIKI
+                if SPEC_TOKEN.match(w) or w.rstrip('.,').lower() in SPEC_WORD_WIKI
             ),
             -1,
         )
