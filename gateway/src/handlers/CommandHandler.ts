@@ -57,6 +57,18 @@ export default class CommandHandler {
         await TypingIndicator.start(commandData.key.remoteJid!);
         try {
           await this.sendMessages(messages);
+        } catch (error) {
+          Sentry.withScope((scope) => {
+            scope.setTag('command', 'python');
+            scope.setExtra('jid', commandData.key?.remoteJid);
+            scope.setExtra('text', text?.slice(0, 200));
+            Sentry.captureException(error);
+          });
+          await Resenhazord2.adapter!.sendMessage(
+            commandData.key.remoteJid!,
+            { text: 'Ocorreu um erro ao processar o comando 😔' },
+            { quoted: commandData, ephemeralExpiration: commandData.expiration },
+          );
         } finally {
           await TypingIndicator.stop(commandData.key.remoteJid!);
         }

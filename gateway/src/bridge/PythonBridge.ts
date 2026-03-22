@@ -45,6 +45,7 @@ export default class PythonBridge {
 
     try {
       this.ws = new WebSocket(this.url);
+      this.ws.binaryType = 'arraybuffer';
     } catch {
       this.scheduleReconnect();
       return;
@@ -169,9 +170,8 @@ export default class PythonBridge {
 
   private async handleMessage(event: MessageEvent): Promise<void> {
     if (typeof event.data !== 'string') {
-      // Binary frame — associate with the first pending binary response
-      const raw = event.data instanceof Blob ? await event.data.arrayBuffer() : event.data;
-      const buffer = Buffer.from(raw);
+      // Binary frame — store synchronously to avoid race with the JSON response
+      const buffer = Buffer.from(event.data as ArrayBuffer);
       for (const [, buffers] of this.pendingBinary) {
         buffers.push(buffer);
         break;
