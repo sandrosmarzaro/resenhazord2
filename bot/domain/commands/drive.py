@@ -2,7 +2,7 @@ import time
 
 import structlog
 
-from bot.data.drive import EXTENSIONS, TYPE_LABELS
+from bot.data.drive import EXTENSIONS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -112,9 +112,8 @@ class DriveCommand(Command):
         if not data.media_type:
             return [Reply.to(data).text('Tipo de mídia não identificado.')]
         ext = EXTENSIONS[data.media_type]
-        label = TYPE_LABELS[data.media_type]
         timestamp = int(time.time() * 1000)
-        filename = f'{label}_{timestamp}.{ext}'
+        filename = f'{data.media_type}_{timestamp}.{ext}'
 
         await self.discord.upload_media(target_channel['id'], buffer, filename)
 
