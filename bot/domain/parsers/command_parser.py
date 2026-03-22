@@ -24,7 +24,7 @@ class CommandParser:
         remaining = re.sub(r'^\s*,\s*', '', text)
 
         command_name = ''
-        names = [self._config.name, *self._config.aliases]
+        names = sorted([self._config.name, *self._config.aliases], key=len, reverse=True)
         for name in names:
             name_pattern = re.sub(r'\s+', r'\\s*', self._replace_diacritics(name))
             match = re.match(name_pattern, remaining, re.IGNORECASE)
@@ -88,7 +88,7 @@ class CommandParser:
 
         parts.append(r'^\s*,\s*')
 
-        names = [self._config.name, *self._config.aliases]
+        names = sorted([self._config.name, *self._config.aliases], key=len, reverse=True)
         name_patterns = [re.sub(r'\s+', r'\\s*', self._replace_diacritics(n)) for n in names]
         if len(name_patterns) == 1:
             parts.append(name_patterns[0])
