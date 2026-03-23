@@ -129,7 +129,7 @@ class TestBatch:
     @pytest.mark.anyio
     async def test_batch_repeats_for_dev(self, handler, mock_dev_list):
         mock_dev_list.is_dev.return_value = True
-        data = GroupCommandDataFactory.build(text='3x, pub')
+        data = GroupCommandDataFactory.build(text=', pub 3x')
 
         result = await handler.handle(data)
 
@@ -140,7 +140,7 @@ class TestBatch:
     @pytest.mark.anyio
     async def test_batch_ignored_for_non_dev(self, handler, mock_dev_list):
         mock_dev_list.is_dev.return_value = False
-        data = GroupCommandDataFactory.build(text='3x, pub')
+        data = GroupCommandDataFactory.build(text=', pub 3x')
 
         result = await handler.handle(data)
 
@@ -150,7 +150,7 @@ class TestBatch:
     @pytest.mark.anyio
     async def test_batch_capped_at_max(self, handler, mock_dev_list):
         mock_dev_list.is_dev.return_value = True
-        data = GroupCommandDataFactory.build(text='99x, pub')
+        data = GroupCommandDataFactory.build(text=', pub 99x')
 
         result = await handler.handle(data)
 
@@ -158,20 +158,10 @@ class TestBatch:
         assert len(result) == 5
 
     @pytest.mark.anyio
-    async def test_no_batch_prefix_runs_once(self, handler):
+    async def test_no_batch_suffix_runs_once(self, handler):
         data = GroupCommandDataFactory.build(text=', pub')
 
         result = await handler.handle(data)
 
         assert result is not None
         assert len(result) == 1
-
-    @pytest.mark.anyio
-    async def test_batch_with_no_space(self, handler, mock_dev_list):
-        mock_dev_list.is_dev.return_value = True
-        data = GroupCommandDataFactory.build(text='2x,pub')
-
-        result = await handler.handle(data)
-
-        assert result is not None
-        assert len(result) == 2

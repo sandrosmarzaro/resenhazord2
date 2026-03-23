@@ -16,7 +16,7 @@ logger = structlog.get_logger()
 
 DISABLED_MSG = 'Esse comando está desativado. 🚫'
 DEV_ONLY_MSG = 'Esse comando é apenas para desenvolvedores. 🛠️'
-BATCH_PATTERN = re.compile(r'^\s*(\d+)x\s*(?=,)')
+BATCH_PATTERN = re.compile(r'\s+(\d+)x\s*$')
 MAX_BATCH = 5
 
 
@@ -65,9 +65,9 @@ class CommandHandler:
 
     @staticmethod
     def _parse_batch(data: CommandData) -> tuple[int, CommandData]:
-        match = BATCH_PATTERN.match(data.text)
+        match = BATCH_PATTERN.search(data.text)
         if not match:
             return 1, data
         count = min(int(match.group(1)), MAX_BATCH)
-        stripped_text = data.text[match.end() :]
+        stripped_text = data.text[: match.start()]
         return max(count, 1), replace(data, text=stripped_text)
