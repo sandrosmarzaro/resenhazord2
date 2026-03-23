@@ -18,10 +18,6 @@ def _webp_to_image(webp_bytes: bytes) -> Image.Image:
     return Image.open(io.BytesIO(webp_bytes))
 
 
-def _has_exif_chunk(webp_bytes: bytes) -> bool:
-    return b'EXIF' in webp_bytes
-
-
 class TestStickerCreatorImage:
     @pytest.mark.anyio
     async def test_full_creates_512x512_webp(self) -> None:
@@ -73,27 +69,6 @@ class TestStickerCreatorImage:
         assert center_pixel[3] > 0
 
     @pytest.mark.anyio
-    async def test_exif_metadata_present(self) -> None:
-        result = await StickerCreator.create(_create_test_image(), 'full')
-        assert _has_exif_chunk(result)
-
-    @pytest.mark.anyio
-    async def test_exif_contains_default_pack_and_author(self) -> None:
-        result = await StickerCreator.create(_create_test_image(), 'full')
-        exif = _webp_to_image(result).getexif()
-        assert exif.get(0x4501) == 'Resenha'
-        assert exif.get(0x4502) == 'Resenhazord2'
-
-    @pytest.mark.anyio
-    async def test_exif_contains_custom_pack_and_author(self) -> None:
-        result = await StickerCreator.create(
-            _create_test_image(), 'full', pack='Anime', author='Sandro'
-        )
-        exif = _webp_to_image(result).getexif()
-        assert exif.get(0x4501) == 'Anime'
-        assert exif.get(0x4502) == 'Sandro'
-
-    @pytest.mark.anyio
     async def test_default_type_is_full(self) -> None:
         default_result = await StickerCreator.create(_create_test_image())
         full_result = await StickerCreator.create(_create_test_image(), 'full')
@@ -125,14 +100,13 @@ class TestStickerCreatorVideo:
         )
         video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
 
-        result = await StickerCreator.create(video_buffer, 'full')
+        await StickerCreator.create(video_buffer, 'full')
 
         mock_exec.assert_called_once()
         call_args = mock_exec.call_args[0]
         assert call_args[0] == 'ffmpeg'
         assert '-vcodec' in call_args
         assert 'libwebp' in call_args
-        assert _has_exif_chunk(result)
 
     @pytest.mark.anyio
     async def test_video_ffmpeg_error_propagates(self, mocker) -> None:

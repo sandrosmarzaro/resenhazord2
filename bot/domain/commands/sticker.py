@@ -54,7 +54,7 @@ class StickerCommand(Command):
         )
 
         buffer = await self._get_media(data)
-        sticker = await StickerCreator.create(buffer, sticker_type, pack, author)
+        sticker = await StickerCreator.create(buffer, sticker_type)
         return [Reply.to(data).sticker(sticker, pack=pack, author=author)]
 
     @staticmethod

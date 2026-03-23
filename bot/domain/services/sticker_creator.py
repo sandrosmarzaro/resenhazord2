@@ -1,6 +1,5 @@
 import asyncio
 import io
-import struct
 import tempfile
 from pathlib import Path
 
@@ -15,32 +14,19 @@ class StickerCreator:
     DEFAULT_PACK = 'Resenha'
     DEFAULT_AUTHOR = 'Resenhazord2'
     MIN_VIDEO_SIGNATURE_LEN = 12
-    EXIF_TAG_PACK = 0x4501
-    EXIF_TAG_AUTHOR = 0x4502
 
     @classmethod
     async def create(
         cls,
         buffer: bytes,
         sticker_type: str = 'full',
-        pack: str = '',
-        author: str = '',
     ) -> bytes:
-        pack = pack or cls.DEFAULT_PACK
-        author = author or cls.DEFAULT_AUTHOR
         if cls._is_video(buffer):
-            return await cls._create_from_video(buffer, pack, author)
-        return cls._create_from_image(buffer, sticker_type, pack, author)
+            return await cls._create_from_video(buffer)
+        return cls._create_from_image(buffer, sticker_type)
 
     @classmethod
-    def _build_exif_bytes(cls, pack: str, author: str) -> bytes:
-        exif = Image.Exif()
-        exif[cls.EXIF_TAG_PACK] = pack
-        exif[cls.EXIF_TAG_AUTHOR] = author
-        return exif.tobytes()
-
-    @classmethod
-    def _create_from_image(cls, buffer: bytes, sticker_type: str, pack: str, author: str) -> bytes:
+    def _create_from_image(cls, buffer: bytes, sticker_type: str) -> bytes:
         img = Image.open(io.BytesIO(buffer)).convert('RGBA')
 
         match sticker_type:
@@ -54,16 +40,11 @@ class StickerCreator:
                 img = cls._contain_on_transparent(img)
 
         output = io.BytesIO()
-        img.save(
-            output,
-            format='WEBP',
-            quality=cls.WEBP_QUALITY,
-            exif=cls._build_exif_bytes(pack, author),
-        )
+        img.save(output, format='WEBP', quality=cls.WEBP_QUALITY)
         return output.getvalue()
 
     @classmethod
-    async def _create_from_video(cls, buffer: bytes, pack: str, author: str) -> bytes:
+    async def _create_from_video(cls, buffer: bytes) -> bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
             input_path = Path(tmpdir) / 'input'
             output_path = Path(tmpdir) / 'output.webp'
@@ -100,7 +81,7 @@ class StickerCreator:
                 msg = f'ffmpeg failed: {stderr.decode().strip()}'
                 raise RuntimeError(msg)
 
-            return cls._inject_exif(output_path.read_bytes(), pack, author)
+            return output_path.read_bytes()
 
     @classmethod
     def _contain_on_transparent(cls, img: Image.Image) -> Image.Image:
@@ -144,38 +125,3 @@ class StickerCreator:
             return True
         # MKV/WebM
         return buffer[:4] == b'\x1a\x45\xdf\xa3'
-
-    @classmethod
-    def _inject_exif(cls, webp_data: bytes, pack: str, author: str) -> bytes:
-        exif_payload = cls._build_exif_bytes(pack, author)
-        # EXIF chunk: 'EXIF' + size (little-endian u32) + data
-        exif_chunk = b'EXIF' + struct.pack('<I', len(exif_payload)) + exif_payload
-        # Pad to even length (RIFF requirement)
-        if len(exif_payload) % 2 != 0:
-            exif_chunk += b'\x00'
-
-        # Check if this is an extended WebP (VP8X) or simple
-        fourcc = webp_data[12:16]
-        if fourcc == b'VP8X':
-            # Set EXIF flag (bit 3) in VP8X flags byte
-            flags = webp_data[20]
-            flags |= 0x08  # Set Exif metadata present flag
-            result = webp_data[:20] + bytes([flags]) + webp_data[21:] + exif_chunk
-        else:
-            # Simple WebP (VP8 or VP8L) — wrap in VP8X container
-            width = Image.open(io.BytesIO(webp_data)).size[0] - 1
-            height = Image.open(io.BytesIO(webp_data)).size[1] - 1
-            # VP8X: flags(4) + width-1(3 bytes LE) + height-1(3 bytes LE) = 10 bytes
-            vp8x_flags = 0x08  # EXIF present
-            vp8x_data = struct.pack('<I', vp8x_flags)
-            vp8x_data += struct.pack('<I', width)[:3]
-            vp8x_data += struct.pack('<I', height)[:3]
-            vp8x_chunk = b'VP8X' + struct.pack('<I', 10) + vp8x_data
-            # Rebuild: RIFF header + WEBP + VP8X + original payload + EXIF
-            original_payload = webp_data[12:]  # After 'RIFF' + size + 'WEBP'
-            result = b'RIFF\x00\x00\x00\x00WEBP' + vp8x_chunk
-            result += original_payload + exif_chunk
-
-        # Update RIFF size (total file size - 8)
-        riff_size = len(result) - 8
-        return result[:4] + struct.pack('<I', riff_size) + result[8:]
