@@ -96,7 +96,7 @@ class TestStickerCreation:
         assert len(messages) == 1
         assert messages[0].content.data == b'sticker-data'
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'direct')
-        mock_create.assert_called_once_with(b'image-data', 'full', '', '')
+        mock_create.assert_called_once_with(b'image-data', 'full', 'Resenha', 'Resenhazord2')
 
     @pytest.mark.anyio
     async def test_creates_sticker_from_quoted_video(self, command, mock_whatsapp, mocker):
@@ -115,7 +115,7 @@ class TestStickerCreation:
         await command.run(data)
 
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'quoted')
-        mock_create.assert_called_once_with(b'video-data', 'full', '', '')
+        mock_create.assert_called_once_with(b'video-data', 'full', 'Resenha', 'Resenhazord2')
 
     @pytest.mark.anyio
     async def test_sticker_type_option(self, command, mock_whatsapp, mocker):
@@ -133,7 +133,7 @@ class TestStickerCreation:
 
         await command.run(data)
 
-        mock_create.assert_called_once_with(b'image-data', 'crop', '', '')
+        mock_create.assert_called_once_with(b'image-data', 'crop', 'Resenha', 'Resenhazord2')
 
     @pytest.mark.anyio
     @pytest.mark.parametrize('sticker_type', ['crop', 'full', 'circle', 'rounded'])
@@ -152,7 +152,7 @@ class TestStickerCreation:
 
         await command.run(data)
 
-        mock_create.assert_called_once_with(b'data', sticker_type, '', '')
+        mock_create.assert_called_once_with(b'data', sticker_type, 'Resenha', 'Resenhazord2')
 
     @pytest.mark.anyio
     async def test_returns_sticker_content(self, command, mock_whatsapp, mocker):
@@ -172,6 +172,8 @@ class TestStickerCreation:
 
         assert messages[0].content.type == 'sticker'
         assert messages[0].content.data == b'webp-sticker'
+        assert messages[0].content.pack == 'Resenha'
+        assert messages[0].content.author == 'Resenhazord2'
 
     @pytest.mark.anyio
     async def test_uses_proactive_media_buffer(self, command, mock_whatsapp, mocker):
@@ -191,7 +193,7 @@ class TestStickerCreation:
 
         assert len(messages) == 1
         mock_whatsapp.download_media.assert_not_called()
-        mock_create.assert_called_once_with(b'proactive-image', 'full', '', '')
+        mock_create.assert_called_once_with(b'proactive-image', 'full', 'Resenha', 'Resenhazord2')
 
 
 class TestPackAuthor:
@@ -229,7 +231,7 @@ class TestPackAuthor:
 
         await command.run(data)
 
-        mock_create.assert_called_once_with(b'img', 'full', 'Meu Pack', '')
+        mock_create.assert_called_once_with(b'img', 'full', 'Meu Pack', 'Resenhazord2')
 
     @pytest.mark.anyio
     async def test_custom_pack_with_type(self, command, mock_whatsapp, mocker):

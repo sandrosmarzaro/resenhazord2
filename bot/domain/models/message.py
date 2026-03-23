@@ -142,6 +142,8 @@ class AudioBufferContent:
 @dataclass
 class StickerContent:
     data: bytes
+    pack: str = ''
+    author: str = ''
     type: str = 'sticker'
 
     @property
@@ -153,7 +155,12 @@ class StickerContent:
         return self.data
 
     def to_dict(self) -> dict:
-        return {'type': self.type}
+        d: dict = {'type': self.type}
+        if self.pack:
+            d['pack'] = self.pack
+        if self.author:
+            d['author'] = self.author
+        return d
 
 
 @dataclass

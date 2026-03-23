@@ -3,6 +3,7 @@ import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import MediaHandler from './MediaHandler.js';
+import injectStickerExif from '../utils/StickerExif.js';
 import { Sentry } from '../infra/Sentry.js';
 
 interface WSMessage {
@@ -146,7 +147,7 @@ export default class PythonBridge {
       }
 
       if (response.type === 'command_response') {
-        return this.deserializeMessages(id, response);
+        return await this.deserializeMessages(id, response);
       }
 
       return null;
@@ -287,7 +288,10 @@ export default class PythonBridge {
     idx: { value: number },
   ): Record<
     string,
-    (cd: Record<string, unknown>, caption: string | undefined) => AnyMessageContent
+    (
+      cd: Record<string, unknown>,
+      caption: string | undefined,
+    ) => AnyMessageContent | Promise<AnyMessageContent>
   > {
     const takeBuffer = (): Buffer => {
       const buf = buffers[idx.value++];
@@ -334,12 +338,21 @@ export default class PythonBridge {
         audio: takeBuffer(),
         mimetype: (cd.mimetype as string) ?? 'audio/mp4',
       }),
-      sticker: () => ({ sticker: takeBuffer() }),
+      sticker: async (cd) => {
+        const buf = takeBuffer();
+        const pack = (cd.pack as string) ?? '';
+        const author = (cd.author as string) ?? '';
+        if (pack || author) {
+          const injected = await injectStickerExif(buf, pack, author);
+          return { sticker: injected };
+        }
+        return { sticker: buf };
+      },
       raw: (cd) => cd.content as AnyMessageContent,
     };
   }
 
-  private deserializeMessages(requestId: string, response: WSMessage): Message[] {
+  private async deserializeMessages(requestId: string, response: WSMessage): Promise<Message[]> {
     const msgs = (response.data?.messages as Array<Record<string, unknown>>) ?? [];
     const buffers = this.pendingBinary.get(requestId) ?? [];
     this.pendingBinary.delete(requestId);
@@ -347,33 +360,35 @@ export default class PythonBridge {
     const idx = { value: 0 };
     const deserializers = this.getContentDeserializers(buffers, idx);
 
-    return msgs.map((m) => {
-      const cd = m.content as Record<string, unknown>;
-      const contentType = cd.type as string;
-      const caption = cd.caption as string | undefined;
+    return Promise.all(
+      msgs.map(async (m) => {
+        const cd = m.content as Record<string, unknown>;
+        const contentType = cd.type as string;
+        const caption = cd.caption as string | undefined;
 
-      const deserializer = deserializers[contentType];
-      const content: AnyMessageContent = deserializer
-        ? deserializer(cd, caption)
-        : { text: `Unknown content type: ${contentType}` };
+        const deserializer = deserializers[contentType];
+        const content: AnyMessageContent = deserializer
+          ? await deserializer(cd, caption)
+          : { text: `Unknown content type: ${contentType}` };
 
-      const message: Message = { jid: m.jid as string, content };
+        const message: Message = { jid: m.jid as string, content };
 
-      if (m.quoted_message_id) {
-        message.options = {
-          ...message.options,
-          quoted: { key: { id: m.quoted_message_id as string } } as WAMessage,
-        };
-      }
-      if (m.expiration) {
-        message.options = {
-          ...message.options,
-          ephemeralExpiration: m.expiration as number,
-        };
-      }
+        if (m.quoted_message_id) {
+          message.options = {
+            ...message.options,
+            quoted: { key: { id: m.quoted_message_id as string } } as WAMessage,
+          };
+        }
+        if (m.expiration) {
+          message.options = {
+            ...message.options,
+            ephemeralExpiration: m.expiration as number,
+          };
+        }
 
-      return message;
-    });
+        return message;
+      }),
+    );
   }
 
   private sendAndWait(id: string, msg: WSMessage, timeout = 60000): Promise<WSMessage> {

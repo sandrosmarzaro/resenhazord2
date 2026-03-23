@@ -41,6 +41,8 @@ class StickerCommand(Command):
 
         sticker_type = parsed.options.get('type', 'full')
         pack, author = self._parse_pack_author(parsed.rest)
+        pack = pack or StickerCreator.DEFAULT_PACK
+        author = author or StickerCreator.DEFAULT_AUTHOR
 
         logger.info(
             'sticker_command',
@@ -53,7 +55,7 @@ class StickerCommand(Command):
 
         buffer = await self._get_media(data)
         sticker = await StickerCreator.create(buffer, sticker_type, pack, author)
-        return [Reply.to(data).sticker(sticker)]
+        return [Reply.to(data).sticker(sticker, pack=pack, author=author)]
 
     @staticmethod
     def _parse_pack_author(args: str) -> tuple[str, str]:
