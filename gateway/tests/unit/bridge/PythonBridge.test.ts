@@ -990,6 +990,35 @@ describe('PythonBridge', () => {
       expect([...image]).toEqual([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
     });
 
+    it('cleans up pendingBinary after no_match so next binary command works', async () => {
+      const bridge = createConnectedBridge();
+
+      // First command returns no_match
+      const data1 = GroupCommandData.build({ text: ',unknown' });
+      const promise1 = bridge.sendCommand(data1);
+      const sent1 = lastSentJson();
+      simulateJsonMessage({ id: sent1.id, type: 'no_match' });
+      await promise1;
+
+      // Second command returns a sticker with binary
+      const data2 = GroupCommandData.build({ text: ',sticker' });
+      const promise2 = bridge.sendCommand(data2);
+      const sent2 = lastSentJson();
+
+      simulateArrayBufferMessage(new Uint8Array([0x52, 0x49, 0x46, 0x46]));
+      simulateJsonMessage({
+        id: sent2.id,
+        type: 'command_response',
+        data: {
+          messages: [{ jid: 'g@g.us', content: { type: 'sticker' } }],
+        },
+      });
+
+      const result = await promise2;
+      const sticker = (result![0].content as Record<string, unknown>).sticker as Buffer;
+      expect([...sticker]).toEqual([0x52, 0x49, 0x46, 0x46]);
+    });
+
     it('associates multiple ArrayBuffer frames with correct response', async () => {
       const bridge = createConnectedBridge();
       const data = GroupCommandData.build({ text: ',test' });

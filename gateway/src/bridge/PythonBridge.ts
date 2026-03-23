@@ -151,6 +151,7 @@ export default class PythonBridge {
 
       return null;
     } finally {
+      this.pendingBinary.delete(id);
       if (messageId) {
         this.messageStore.delete(messageId);
       }
@@ -288,6 +289,16 @@ export default class PythonBridge {
     string,
     (cd: Record<string, unknown>, caption: string | undefined) => AnyMessageContent
   > {
+    const takeBuffer = (): Buffer => {
+      const buf = buffers[idx.value++];
+      if (!buf || buf.length === 0) {
+        throw new Error(
+          `Missing binary frame at index ${idx.value - 1} (received ${buffers.length} frames)`,
+        );
+      }
+      return buf;
+    };
+
     return {
       text: (cd) =>
         cd.mentions
@@ -299,7 +310,7 @@ export default class PythonBridge {
         caption: cap,
       }),
       image_buffer: (cd, cap) => ({
-        image: buffers[idx.value++] ?? Buffer.alloc(0),
+        image: takeBuffer(),
         viewOnce: cd.view_once as boolean,
         caption: cap,
       }),
@@ -309,7 +320,7 @@ export default class PythonBridge {
         caption: cap,
       }),
       video_buffer: (cd, cap) => ({
-        video: buffers[idx.value++] ?? Buffer.alloc(0),
+        video: takeBuffer(),
         viewOnce: cd.view_once as boolean,
         gifPlayback: (cd.gif_playback as boolean) ?? false,
         caption: cap,
@@ -320,10 +331,10 @@ export default class PythonBridge {
         mimetype: (cd.mimetype as string) ?? 'audio/mp4',
       }),
       audio_buffer: (cd) => ({
-        audio: buffers[idx.value++] ?? Buffer.alloc(0),
+        audio: takeBuffer(),
         mimetype: (cd.mimetype as string) ?? 'audio/mp4',
       }),
-      sticker: () => ({ sticker: buffers[idx.value++] ?? Buffer.alloc(0) }),
+      sticker: () => ({ sticker: takeBuffer() }),
       raw: (cd) => cd.content as AnyMessageContent,
     };
   }
