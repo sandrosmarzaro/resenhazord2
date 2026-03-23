@@ -50,7 +50,7 @@ export default class CommandHandler {
       if (messages) {
         for (const msg of messages) {
           if (msg.options?.quoted) {
-            msg.options.quoted = data;
+            msg.options.quoted = structuredClone(data) as WAMessage;
           }
         }
         await ReactMessage.run(data);
@@ -120,8 +120,12 @@ export default class CommandHandler {
     }
   }
 
+  private static readonly BATCH_DELAY_MS = 1000;
+
   private static async sendMessages(messages: Message[]): Promise<void> {
-    for (const msg of messages) {
+    for (let i = 0; i < messages.length; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, CommandHandler.BATCH_DELAY_MS));
+      const msg = messages[i];
       await Resenhazord2.adapter!.sendMessage(msg.jid, msg.content, msg.options);
     }
   }

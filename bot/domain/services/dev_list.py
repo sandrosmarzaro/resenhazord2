@@ -1,6 +1,9 @@
 """Dev list service — manages developer JIDs in MongoDB."""
 
+from bot.domain.jid import strip_jid
 from bot.infrastructure.mongodb import MongoDBConnection
+
+_JID_SUFFIXES = ('@lid', '@s.whatsapp.net')
 
 
 class DevListService:
@@ -8,7 +11,9 @@ class DevListService:
 
     async def is_dev(self, jid: str) -> bool:
         col = MongoDBConnection.collection(self.COLLECTION)
-        return await col.find_one({'_id': jid}) is not None
+        number = strip_jid(jid)
+        candidates = [f'{number}{s}' for s in _JID_SUFFIXES]
+        return await col.find_one({'_id': {'$in': candidates}}) is not None
 
     async def add(self, jid: str) -> bool:
         col = MongoDBConnection.collection(self.COLLECTION)
