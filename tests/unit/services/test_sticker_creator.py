@@ -1,6 +1,4 @@
-import contextlib
 import io
-import struct
 from pathlib import Path
 
 import pytest
@@ -22,24 +20,6 @@ def _webp_to_image(webp_bytes: bytes) -> Image.Image:
 
 def _has_exif_chunk(webp_bytes: bytes) -> bool:
     return b'EXIF' in webp_bytes
-
-
-def _extract_exif_strings(webp_bytes: bytes) -> list[str]:
-    idx = webp_bytes.find(b'EXIF')
-    if idx == -1:
-        return []
-    chunk_size = struct.unpack_from('<I', webp_bytes, idx + 4)[0]
-    exif_data = webp_bytes[idx + 8 : idx + 8 + chunk_size]
-    strings = []
-    current = bytearray()
-    for byte in exif_data:
-        if byte == 0 and current:
-            with contextlib.suppress(UnicodeDecodeError):
-                strings.append(current.decode('utf-8'))
-            current = bytearray()
-        elif byte >= 32:  # printable
-            current.append(byte)
-    return strings
 
 
 class TestStickerCreatorImage:
@@ -98,11 +78,20 @@ class TestStickerCreatorImage:
         assert _has_exif_chunk(result)
 
     @pytest.mark.anyio
-    async def test_exif_contains_pack_name_and_author(self) -> None:
+    async def test_exif_contains_default_pack_and_author(self) -> None:
         result = await StickerCreator.create(_create_test_image(), 'full')
-        strings = _extract_exif_strings(result)
-        assert 'Resenhazord2' in strings
-        assert 'Resenha' in strings
+        exif = _webp_to_image(result).getexif()
+        assert exif.get(0x4501) == 'Resenha'
+        assert exif.get(0x4502) == 'Resenhazord2'
+
+    @pytest.mark.anyio
+    async def test_exif_contains_custom_pack_and_author(self) -> None:
+        result = await StickerCreator.create(
+            _create_test_image(), 'full', pack='Anime', author='Sandro'
+        )
+        exif = _webp_to_image(result).getexif()
+        assert exif.get(0x4501) == 'Anime'
+        assert exif.get(0x4502) == 'Sandro'
 
     @pytest.mark.anyio
     async def test_default_type_is_full(self) -> None:

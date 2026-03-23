@@ -38,14 +38,26 @@ class StickerCommand(Command):
             ]
 
         sticker_type = parsed.options.get('type', 'full')
+        pack, author = self._parse_pack_author(parsed.rest)
 
         logger.info(
             'sticker_command',
             jid=data.jid,
             media_type=data.media_type,
             sticker_type=sticker_type,
+            pack=pack,
+            author=author,
         )
 
         buffer = await self._get_media(data)
-        sticker = await StickerCreator.create(buffer, sticker_type)
+        sticker = await StickerCreator.create(buffer, sticker_type, pack, author)
         return [Reply.to(data).sticker(sticker)]
+
+    @staticmethod
+    def _parse_pack_author(args: str) -> tuple[str, str]:
+        if not args:
+            return '', ''
+        if '|' in args:
+            parts = args.split('|', maxsplit=1)
+            return parts[0].strip(), parts[1].strip()
+        return args.strip(), ''

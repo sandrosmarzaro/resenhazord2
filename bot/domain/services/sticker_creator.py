@@ -12,18 +12,35 @@ class StickerCreator:
     WEBP_QUALITY = 50
     MAX_VIDEO_DURATION = 10
     VIDEO_FPS = 15
-    PACK_NAME = 'Resenhazord2'
-    PACK_AUTHOR = 'Resenha'
+    DEFAULT_PACK = 'Resenha'
+    DEFAULT_AUTHOR = 'Resenhazord2'
     MIN_VIDEO_SIGNATURE_LEN = 12
+    EXIF_TAG_PACK = 0x4501
+    EXIF_TAG_AUTHOR = 0x4502
 
     @classmethod
-    async def create(cls, buffer: bytes, sticker_type: str = 'full') -> bytes:
+    async def create(
+        cls,
+        buffer: bytes,
+        sticker_type: str = 'full',
+        pack: str = '',
+        author: str = '',
+    ) -> bytes:
+        pack = pack or cls.DEFAULT_PACK
+        author = author or cls.DEFAULT_AUTHOR
         if cls._is_video(buffer):
-            return await cls._create_from_video(buffer)
-        return cls._create_from_image(buffer, sticker_type)
+            return await cls._create_from_video(buffer, pack, author)
+        return cls._create_from_image(buffer, sticker_type, pack, author)
 
     @classmethod
-    def _create_from_image(cls, buffer: bytes, sticker_type: str) -> bytes:
+    def _build_exif_bytes(cls, pack: str, author: str) -> bytes:
+        exif = Image.Exif()
+        exif[cls.EXIF_TAG_PACK] = pack
+        exif[cls.EXIF_TAG_AUTHOR] = author
+        return exif.tobytes()
+
+    @classmethod
+    def _create_from_image(cls, buffer: bytes, sticker_type: str, pack: str, author: str) -> bytes:
         img = Image.open(io.BytesIO(buffer)).convert('RGBA')
 
         match sticker_type:
@@ -37,11 +54,16 @@ class StickerCreator:
                 img = cls._contain_on_transparent(img)
 
         output = io.BytesIO()
-        img.save(output, format='WEBP', quality=cls.WEBP_QUALITY)
-        return cls._inject_exif(output.getvalue())
+        img.save(
+            output,
+            format='WEBP',
+            quality=cls.WEBP_QUALITY,
+            exif=cls._build_exif_bytes(pack, author),
+        )
+        return output.getvalue()
 
     @classmethod
-    async def _create_from_video(cls, buffer: bytes) -> bytes:
+    async def _create_from_video(cls, buffer: bytes, pack: str, author: str) -> bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
             input_path = Path(tmpdir) / 'input'
             output_path = Path(tmpdir) / 'output.webp'
@@ -78,7 +100,7 @@ class StickerCreator:
                 msg = f'ffmpeg failed: {stderr.decode().strip()}'
                 raise RuntimeError(msg)
 
-            return cls._inject_exif(output_path.read_bytes())
+            return cls._inject_exif(output_path.read_bytes(), pack, author)
 
     @classmethod
     def _contain_on_transparent(cls, img: Image.Image) -> Image.Image:
@@ -124,29 +146,8 @@ class StickerCreator:
         return buffer[:4] == b'\x1a\x45\xdf\xa3'
 
     @classmethod
-    def _build_exif(cls) -> bytes:
-        pack_bytes = cls.PACK_NAME.encode('utf-8') + b'\x00'
-        author_bytes = cls.PACK_AUTHOR.encode('utf-8') + b'\x00'
-
-        num_entries = 2
-        # IFD: 2 bytes count + entries * 12 bytes + 4 bytes next offset
-        ifd_size = 2 + num_entries * 12 + 4
-        data_start = 8 + ifd_size  # 8 bytes TIFF header
-
-        # Entry format: tag(2) + type(2) + count(4) + value_or_offset(4)
-        # Type 2 = ASCII
-        entry1 = struct.pack('<HHII', 0x4501, 2, len(pack_bytes), data_start)
-        entry2 = struct.pack('<HHII', 0x4502, 2, len(author_bytes), data_start + len(pack_bytes))
-
-        # TIFF header (little-endian)
-        header = b'\x49\x49\x2a\x00\x08\x00\x00\x00'
-        ifd = struct.pack('<H', num_entries) + entry1 + entry2 + b'\x00\x00\x00\x00'
-
-        return header + ifd + pack_bytes + author_bytes
-
-    @classmethod
-    def _inject_exif(cls, webp_data: bytes) -> bytes:
-        exif_payload = cls._build_exif()
+    def _inject_exif(cls, webp_data: bytes, pack: str, author: str) -> bytes:
+        exif_payload = cls._build_exif_bytes(pack, author)
         # EXIF chunk: 'EXIF' + size (little-endian u32) + data
         exif_chunk = b'EXIF' + struct.pack('<I', len(exif_payload)) + exif_payload
         # Pad to even length (RIFF requirement)
