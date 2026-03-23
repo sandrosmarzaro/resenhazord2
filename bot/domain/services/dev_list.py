@@ -3,16 +3,15 @@
 from bot.domain.jid import strip_jid
 from bot.infrastructure.mongodb import MongoDBConnection
 
-_JID_SUFFIXES = ('@lid', '@s.whatsapp.net')
-
 
 class DevListService:
     COLLECTION = 'dev_list'
+    JID_SUFFIXES = ('@lid', '@s.whatsapp.net')
 
     async def is_dev(self, jid: str) -> bool:
         col = MongoDBConnection.collection(self.COLLECTION)
         number = strip_jid(jid)
-        candidates = [f'{number}{s}' for s in _JID_SUFFIXES]
+        candidates = [f'{number}{s}' for s in self.JID_SUFFIXES]
         return await col.find_one({'_id': {'$in': candidates}}) is not None
 
     async def add(self, jid: str) -> bool:
