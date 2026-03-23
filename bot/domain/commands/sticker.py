@@ -3,7 +3,7 @@ from typing import ClassVar
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.sticker_creator import StickerCreator
@@ -21,6 +21,8 @@ class StickerCommand(Command):
             name='stic',
             aliases=['fig', 'figurinha', 'sticker'],
             options=[OptionDef(name='type', values=self.STICKER_TYPES)],
+            args=ArgType.OPTIONAL,
+            args_label='pack | autor',
             category='download',
         )
 
