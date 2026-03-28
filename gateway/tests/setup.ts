@@ -19,8 +19,24 @@ vi.mock('@sentry/bun', () => ({
   },
 }));
 
+const mockLoggerMethods = {
+  level: 'silent',
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  child: vi.fn(function () {
+    return mockLoggerMethods;
+  }),
+};
+
 vi.mock('pino', () => ({
-  default: vi.fn(() => ({ level: 'silent' })),
+  default: Object.assign(
+    vi.fn(() => mockLoggerMethods),
+    {
+      stdTimeFunctions: { isoTime: vi.fn() },
+    },
+  ),
 }));
 
 vi.mock('mongodb', () => {

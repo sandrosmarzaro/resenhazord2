@@ -1,6 +1,7 @@
 import { Sentry } from './src/infra/Sentry.js';
 import Resenhazord2 from './src/models/Resenhazord2.js';
 import MongoDBConnection from './src/infra/MongoDBConnection.js';
+import logger from './src/infra/Logger.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,7 +16,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const shutdown = async () => {
-  console.log('Shutting down...');
+  logger.info({ event: 'shutdown' });
   await Resenhazord2.cleanup();
   await MongoDBConnection.close();
   process.exit(0);

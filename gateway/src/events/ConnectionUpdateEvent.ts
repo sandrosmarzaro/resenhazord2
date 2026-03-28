@@ -3,6 +3,7 @@ import { DisconnectReason } from '@whiskeysockets/baileys';
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import { Sentry } from '../infra/Sentry.js';
+import logger from '../infra/Logger.js';
 
 export default class ConnectionUpdateEvent {
   private static readonly DISCONNECT_REASON_METHOD_NOT_ALLOWED = 405;
@@ -24,7 +25,7 @@ export default class ConnectionUpdateEvent {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      Sentry.logger.info(Sentry.logger.fmt`QR Code received: ${qr}`);
+      logger.info({ event: 'qr_received', qr });
     }
 
     if (connection === 'close') {
@@ -42,21 +43,22 @@ export default class ConnectionUpdateEvent {
         level: 'warning',
         data: { statusCode, error: error?.message },
       });
-      Sentry.logger.warn(
-        Sentry.logger.fmt`Connection closed. Status code: ${statusCode ?? 'unknown'}`,
-      );
-      Sentry.logger.warn(Sentry.logger.fmt`Error: ${error?.message ?? 'Unknown error'}`);
-      Sentry.logger.info(Sentry.logger.fmt`Reconnect attempts so far: ${this.reconnectAttempts}`);
+      logger.warn({
+        event: 'connection_closed',
+        statusCode: statusCode ?? 'unknown',
+        error: error?.message ?? 'Unknown error',
+        reconnectAttempts: this.reconnectAttempts,
+      });
 
       if (statusCode === DisconnectReason.loggedOut) {
-        Sentry.logger.warn('Logged out. Please scan QR code again.');
+        logger.warn({ event: 'logged_out' });
         Sentry.captureMessage('Bot logged out', 'warning');
         this.reset();
         return;
       }
 
       if (statusCode === DisconnectReason.badSession) {
-        Sentry.logger.warn('Bad session. Delete auth_session folder and restart.');
+        logger.warn({ event: 'bad_session' });
         this.reset();
         return;
       }
@@ -69,13 +71,13 @@ export default class ConnectionUpdateEvent {
       if (shouldReconnect) {
         await this.scheduleReconnect();
       } else {
-        Sentry.logger.warn(Sentry.logger.fmt`Not reconnecting for status code: ${statusCode}`);
+        logger.warn({ event: 'reconnect_skipped', statusCode });
         this.reset();
       }
     } else if (connection === 'connecting') {
-      Sentry.logger.info('Connecting to WhatsApp...');
+      logger.info({ event: 'connecting' });
     } else if (connection === 'open') {
-      Sentry.logger.info('Connection opened successfully');
+      logger.info({ event: 'connection_opened' });
       Sentry.addBreadcrumb({
         category: 'whatsapp.connection',
         message: `Status: ${connection}`,
@@ -87,10 +89,7 @@ export default class ConnectionUpdateEvent {
 
   static async scheduleReconnect(): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      Sentry.logger.error(
-        Sentry.logger
-          .fmt`Max reconnection attempts (${this.maxReconnectAttempts}) reached. Stopping.`,
-      );
+      logger.error({ event: 'max_reconnect_attempts_reached', max: this.maxReconnectAttempts });
       Sentry.captureMessage(
         `Max reconnection attempts (${this.maxReconnectAttempts}) reached`,
         'fatal',
@@ -103,21 +102,23 @@ export default class ConnectionUpdateEvent {
 
     const delay = Math.min(3000 * 2 ** (this.reconnectAttempts - 1), 48000);
 
-    Sentry.logger.info(
-      Sentry.logger
-        .fmt`Reconnecting in ${delay / 1000}s... (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-    );
+    logger.info({
+      event: 'reconnect_scheduled',
+      delaySeconds: delay / 1000,
+      attempt: this.reconnectAttempts,
+      maxAttempts: this.maxReconnectAttempts,
+    });
 
     this.reconnectTimer = setTimeout(async () => {
       if (this.isReconnecting) {
-        Sentry.logger.warn('Previous reconnection still in progress');
+        logger.warn({ event: 'reconnect_already_in_progress' });
         return;
       }
 
       this.isReconnecting = true;
 
       try {
-        Sentry.logger.info('Attempting to reconnect...');
+        logger.info({ event: 'reconnecting' });
 
         await Resenhazord2.cleanup?.();
 
@@ -125,7 +126,7 @@ export default class ConnectionUpdateEvent {
         await Resenhazord2.handlerEvents();
       } catch (error) {
         Sentry.captureException(error, { extra: { attempt: this.reconnectAttempts } });
-        Sentry.logger.error(Sentry.logger.fmt`Reconnection failed: ${(error as Error).message}`);
+        logger.error({ event: 'reconnect_failed', error: (error as Error).message });
 
         await this.scheduleReconnect();
       } finally {

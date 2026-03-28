@@ -11,6 +11,7 @@ import groupMetadataCache from '../cache/index.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import PythonBridge from '../bridge/PythonBridge.js';
 import { Sentry } from '../infra/Sentry.js';
+import logger from '../infra/Logger.js';
 
 export default class Resenhazord2 {
   static auth_state: MongoDBAuthResult | null = null;
@@ -21,7 +22,7 @@ export default class Resenhazord2 {
 
   static async connectToWhatsApp(): Promise<void> {
     if (this.isConnecting) {
-      console.log('Connection already in progress...');
+      logger.info({ event: 'connection_already_in_progress' });
       return;
     }
     this.isConnecting = true;
@@ -31,10 +32,10 @@ export default class Resenhazord2 {
       this.adapter = new BaileysAdapter(this.socket);
       this.bridge.setWhatsApp(this.adapter);
       this.bridge.connect();
-      console.log('Socket created successfully');
+      logger.info({ event: 'socket_created' });
     } catch (error) {
       Sentry.captureException(error);
-      console.error('Failed to connect:', (error as Error).message);
+      logger.error({ event: 'connection_failed', error: (error as Error).message });
       throw error;
     } finally {
       this.isConnecting = false;
@@ -62,14 +63,14 @@ export default class Resenhazord2 {
       const meta = await Resenhazord2.adapter!.groupMetadata(data.id);
       await groupMetadataCache.set(data.id, meta);
     } catch (error) {
-      Sentry.logger.warn(Sentry.logger.fmt`Failed to update group metadata cache: ${error}`);
+      logger.warn({ event: 'group_metadata_cache_update_failed', error: String(error) });
     }
     await GroupParticipantsUpdateEvent.run(data);
   }
 
   static async handlerEvents(): Promise<void> {
     if (!this.socket) {
-      console.error('Cannot setup handlers: socket is null');
+      logger.error({ event: 'handler_setup_failed', reason: 'socket_is_null' });
       return;
     }
     this.socket.ev.removeAllListeners('connection.update');
@@ -83,14 +84,14 @@ export default class Resenhazord2 {
 
   static async cleanup(): Promise<void> {
     if (this.socket) {
-      console.log('Cleaning up existing socket...');
+      logger.info({ event: 'cleanup_started' });
 
       try {
         (this.socket.ev as unknown as { removeAllListeners(): void }).removeAllListeners();
         await this.socket.end(undefined);
       } catch (error) {
         Sentry.captureException(error);
-        console.error('Error during cleanup:', (error as Error).message);
+        logger.error({ event: 'cleanup_failed', error: (error as Error).message });
       }
       this.socket = null;
       this.adapter = null;

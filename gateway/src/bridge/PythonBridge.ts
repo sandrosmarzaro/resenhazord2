@@ -5,6 +5,7 @@ import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import MediaHandler from './MediaHandler.js';
 import injectStickerExif from '../utils/StickerExif.js';
 import { Sentry } from '../infra/Sentry.js';
+import logger from '../infra/Logger.js';
 
 interface WSMessage {
   id: string;
@@ -54,7 +55,7 @@ export default class PythonBridge {
     }
 
     this.ws.addEventListener('open', () => {
-      Sentry.logger.info('PythonBridge connected');
+      logger.info({ event: 'python_bridge_connected' });
       this.reconnectDelay = 1000;
     });
 
@@ -63,7 +64,7 @@ export default class PythonBridge {
     });
 
     this.ws.addEventListener('close', () => {
-      Sentry.logger.warn('PythonBridge disconnected');
+      logger.warn({ event: 'python_bridge_disconnected' });
       this.ws = null;
       this.rejectAllPending('WebSocket closed');
       this.scheduleReconnect();
@@ -106,7 +107,7 @@ export default class PythonBridge {
       try {
         mediaBuffer = await this.mediaHandler.downloadMedia(data as WAMessage, mediaInfo.source);
       } catch (error) {
-        Sentry.logger.warn(Sentry.logger.fmt`Proactive media download failed: ${error}`);
+        logger.warn({ event: 'media_download_failed', error: String(error) });
       }
     }
 
