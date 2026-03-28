@@ -1,30 +1,32 @@
 """Async MongoDB connection singleton using Motor."""
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
+from typing import Any
 
-DATABASE_NAME = 'resenhazord2'
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
 
 
 class MongoDBConnection:
-    _client: AsyncIOMotorClient | None = None  # type: ignore[type-arg]
+    _client: AsyncIOMotorClient[Any] | None = None
     _uri: str = ''
+    _db_name: str = 'resenhazord2'
 
     @classmethod
-    def configure(cls, uri: str) -> None:
+    def configure(cls, uri: str, db_name: str = 'resenhazord2') -> None:
         cls._uri = uri
+        cls._db_name = db_name
 
     @classmethod
-    def client(cls) -> AsyncIOMotorClient:  # type: ignore[type-arg]
+    def client(cls) -> AsyncIOMotorClient[Any]:
         if cls._client is None:
             cls._client = AsyncIOMotorClient(cls._uri)
         return cls._client
 
     @classmethod
-    def database(cls) -> AsyncIOMotorDatabase:  # type: ignore[type-arg]
-        return cls.client()[DATABASE_NAME]
+    def database(cls) -> AsyncIOMotorDatabase[Any]:
+        return cls.client()[cls._db_name]
 
     @classmethod
-    def collection(cls, name: str) -> AsyncIOMotorCollection:  # type: ignore[type-arg]
+    def collection(cls, name: str) -> AsyncIOMotorCollection[Any]:
         return cls.database()[name]
 
     @classmethod

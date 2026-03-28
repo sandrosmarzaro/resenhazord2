@@ -57,7 +57,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
     if settings is None:
         settings = Settings()
 
-    MongoDBConnection.configure(settings.mongodb_uri)
+    MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
 
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
