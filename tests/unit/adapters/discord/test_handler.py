@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from bot.adapters.discord.handler import DiscordInteractionHandler
+from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef
+from bot.domain.exceptions import BotError
+from bot.domain.models.contents.image_content import ImageContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 
@@ -32,6 +35,12 @@ def make_interaction(
     return interaction
 
 
+def make_strategy(messages: list[BotMessage]) -> MagicMock:
+    strategy = MagicMock()
+    strategy.run = AsyncMock(return_value=messages)
+    return strategy
+
+
 @pytest.fixture
 def handler():
     return DiscordInteractionHandler()
@@ -40,20 +49,32 @@ def handler():
 @pytest.fixture
 def port():
     port = AsyncMock()
-    port.send_response = AsyncMock()
+    port.send_message = AsyncMock()
     port.send_followup = AsyncMock()
+    port.defer = AsyncMock()
+    port.is_deferred = False
     return port
 
 
 class TestHandle:
     @pytest.mark.anyio
-    async def test_calls_send_response_with_dice_roll(self, handler, port, mocker):
+    async def test_defers_before_executing(self, handler, port, mocker):
         interaction = make_interaction()
-        strategy = AsyncMock()
-        strategy.run = AsyncMock(
-            return_value=[
-                BotMessage(jid='111222333', content=TextContent(text='Aqui está sua rolada: 7 🎲'))
-            ]
+        strategy = make_strategy([BotMessage(jid='111', content=TextContent(text='roll: 7'))])
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.defer.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_text_command_sends_followup(self, handler, port, mocker):
+        interaction = make_interaction()
+        strategy = make_strategy(
+            [BotMessage(jid='111', content=TextContent(text='Aqui esta sua rolada: 7 🎲'))]
         )
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
@@ -62,7 +83,93 @@ class TestHandle:
 
         await handler.handle(port, interaction)
 
-        port.send_response.assert_called_once_with('Aqui está sua rolada: 7 🎲')
+        port.send_followup.assert_called_once_with(
+            'Aqui esta sua rolada: 7 🎲', embed=None, file=None
+        )
+
+    @pytest.mark.anyio
+    async def test_image_command_sends_embed(self, handler, port, mocker):
+        interaction = make_interaction()
+        strategy = make_strategy(
+            [BotMessage(jid='111', content=ImageContent(url='https://example.com/img.jpg'))]
+        )
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        call_kwargs = port.send_followup.call_args
+        assert call_kwargs.kwargs['embed'] is not None
+        assert call_kwargs.args[0] is None
+
+    @pytest.mark.anyio
+    async def test_no_command_name_returns_early(self, handler, port, mocker):
+        interaction = make_interaction()
+        interaction.command = None
+        mocker.patch('bot.adapters.discord.handler.CommandRegistry.instance')
+
+        await handler.handle(port, interaction)
+
+        port.send_message.assert_not_called()
+        port.defer.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_no_match_sends_error(self, handler, port, mocker):
+        interaction = make_interaction(command_name='unknown')
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=None)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.send_message.assert_called_once()
+        assert 'reconhecido' in port.send_message.call_args[0][0]
+
+    @pytest.mark.anyio
+    async def test_bot_error_sends_user_message(self, handler, port, mocker):
+        interaction = make_interaction()
+        strategy = MagicMock()
+        strategy.run = AsyncMock(side_effect=BotError('Erro amigavel'))
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.send_followup.assert_called_once_with('Erro amigavel')
+
+    @pytest.mark.anyio
+    async def test_generic_error_sends_fallback(self, handler, port, mocker):
+        interaction = make_interaction()
+        strategy = MagicMock()
+        strategy.run = AsyncMock(side_effect=RuntimeError('boom'))
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.send_followup.assert_called_once()
+        assert 'erro' in port.send_followup.call_args[0][0]
+
+    @pytest.mark.anyio
+    async def test_empty_messages_sends_no_response(self, handler, port, mocker):
+        interaction = make_interaction()
+        strategy = make_strategy([])
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.send_followup.assert_called_once()
+        assert 'resposta' in port.send_followup.call_args[0][0]
 
     @pytest.mark.anyio
     async def test_builds_command_data_correctly(self, handler, port, mocker):
@@ -118,40 +225,83 @@ class TestHandle:
 
         assert captured[0].is_group is False
 
-    @pytest.mark.anyio
-    async def test_no_match_sends_error_response(self, handler, port, mocker):
-        interaction = make_interaction(command_name='unknown')
+
+class TestBuildCommandText:
+    def _make_strategy(self, config: CommandConfig) -> MagicMock:
+        strategy = MagicMock(spec=Command)
+        strategy.config = config
+        return strategy
+
+    def _make_handler(self, strategy: MagicMock | None, mocker) -> DiscordInteractionHandler:
+        handler = DiscordInteractionHandler()
+        registry = MagicMock()
+        registry.get_strategy = MagicMock(return_value=strategy)
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=None)),
+            return_value=registry,
+        )
+        return handler
+
+    def test_simple_command(self, mocker):
+        config = CommandConfig(name='d20')
+        strategy = self._make_strategy(config)
+        handler = self._make_handler(strategy, mocker)
+
+        result = handler._build_command_text('d20', {})
+
+        assert result == ',d20'
+
+    def test_command_with_args(self, mocker):
+        config = CommandConfig(name='horoscopo', args=ArgType.OPTIONAL)
+        strategy = self._make_strategy(config)
+        handler = self._make_handler(strategy, mocker)
+
+        result = handler._build_command_text('horoscopo', {'args': 'leao'})
+
+        assert result == ',horoscopo leao'
+
+    def test_command_with_option(self, mocker):
+        config = CommandConfig(
+            name='stic',
+            options=[OptionDef(name='type', values=['crop', 'full', 'circle', 'rounded'])],
+        )
+        strategy = self._make_strategy(config)
+        handler = self._make_handler(strategy, mocker)
+
+        result = handler._build_command_text('stic', {'type': 'crop'})
+
+        assert result == ',stic crop'
+
+    def test_command_with_flag_true(self, mocker):
+        config = CommandConfig(name='bandeira', flags=['detail'])
+        strategy = self._make_strategy(config)
+        handler = self._make_handler(strategy, mocker)
+
+        result = handler._build_command_text('bandeira', {'detail': True})
+
+        assert result == ',bandeira detail'
+
+    def test_command_with_flag_none_skipped(self, mocker):
+        config = CommandConfig(name='bandeira', flags=['detail'])
+        strategy = self._make_strategy(config)
+        handler = self._make_handler(strategy, mocker)
+
+        result = handler._build_command_text('bandeira', {'detail': None})
+
+        assert result == ',bandeira'
+
+    def test_command_with_all(self, mocker):
+        config = CommandConfig(
+            name='filme',
+            options=[OptionDef(name='mode', values=['top', 'popular'])],
+            flags=['detail'],
+            args=ArgType.OPTIONAL,
+        )
+        strategy = self._make_strategy(config)
+        handler = self._make_handler(strategy, mocker)
+
+        result = handler._build_command_text(
+            'filme', {'mode': 'top', 'detail': True, 'args': 'Batman'}
         )
 
-        await handler.handle(port, interaction)
-
-        port.send_response.assert_called_once()
-        assert 'reconhecido' in port.send_response.call_args[0][0]
-
-    @pytest.mark.anyio
-    async def test_command_exception_sends_error_response(self, handler, port, mocker):
-        interaction = make_interaction()
-        strategy = MagicMock()
-        strategy.run = AsyncMock(side_effect=RuntimeError('boom'))
-        mocker.patch(
-            'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
-        )
-
-        await handler.handle(port, interaction)
-
-        port.send_response.assert_called_once()
-        assert 'erro' in port.send_response.call_args[0][0]
-
-    @pytest.mark.anyio
-    async def test_no_command_name_returns_early(self, handler, port, mocker):
-        interaction = make_interaction()
-        interaction.command = None
-        mocker.patch('bot.adapters.discord.handler.CommandRegistry.instance')
-
-        await handler.handle(port, interaction)
-
-        port.send_response.assert_not_called()
+        assert result == ',filme top detail Batman'
