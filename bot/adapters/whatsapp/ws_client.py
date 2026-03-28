@@ -1,15 +1,15 @@
 """WhatsApp operations via WebSocket — sends wa_call, awaits wa_result."""
 
 import base64
-from typing import Any
+from typing import Any, ClassVar
 
 from bot.adapters.http.ws_handler import WebSocketHandler
-
-MEDIA_TIMEOUT = 60.0
 
 
 class WhatsAppWsClient:
     """Implements WhatsAppPort by delegating to the TS side over WebSocket."""
+
+    MEDIA_TIMEOUT: ClassVar[float] = 60.0
 
     def __init__(self, handler: WebSocketHandler) -> None:
         self._handler = handler
@@ -59,6 +59,6 @@ class WhatsAppWsClient:
         result = await self._call(
             'download_media',
             {'message_id': message_id, 'source': source},
-            deadline=MEDIA_TIMEOUT,
+            deadline=self.MEDIA_TIMEOUT,
         )
         return base64.b64decode(result['buffer'])
