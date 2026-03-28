@@ -12,7 +12,7 @@ logger = structlog.get_logger()
 
 
 class StickerCommand(Command):
-    MEDIA_TYPES = frozenset(('image', 'video'))
+    MEDIA_TYPES = frozenset(('image', 'video', 'sticker'))
     STICKER_TYPES: ClassVar[list[str]] = ['crop', 'full', 'circle', 'rounded']
 
     @property
@@ -34,7 +34,7 @@ class StickerCommand(Command):
         if not data.has_media or data.media_type not in self.MEDIA_TYPES:
             return [
                 Reply.to(data).text(
-                    'Burro burro! Você precisa enviar uma imagem ou gif'
+                    'Burro burro! Você precisa enviar uma imagem, gif ou sticker'
                     ' para fazer um sticker! 🤦\u200d♂️'
                 )
             ]

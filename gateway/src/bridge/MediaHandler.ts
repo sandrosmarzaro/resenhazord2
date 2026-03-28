@@ -13,7 +13,7 @@ export interface MediaInfo {
 
 type AnyMsg = Record<string, Record<string, unknown> | undefined>;
 
-const MEDIA_TYPES = ['imageMessage', 'videoMessage', 'audioMessage'] as const;
+const MEDIA_TYPES = ['imageMessage', 'videoMessage', 'audioMessage', 'stickerMessage'] as const;
 
 const VIEW_ONCE_WRAPPERS = [
   'viewOnceMessageV2',

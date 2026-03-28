@@ -50,19 +50,6 @@ class TestNoMedia:
         assert 'gif' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_wrong_media_type_returns_error(self, command):
-        data = GroupCommandDataFactory.build(
-            text=',stic',
-            media_type='sticker',
-            media_source='quoted',
-        )
-
-        messages = await command.run(data)
-
-        assert len(messages) == 1
-        assert 'imagem' in messages[0].content.text
-
-    @pytest.mark.anyio
     async def test_audio_media_returns_error(self, command):
         data = GroupCommandDataFactory.build(
             text=',stic',
@@ -97,6 +84,27 @@ class TestStickerCreation:
         assert messages[0].content.data == b'sticker-data'
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'direct')
         mock_create.assert_called_once_with(b'image-data', 'full')
+
+    @pytest.mark.anyio
+    async def test_creates_sticker_from_quoted_sticker(self, command, mock_whatsapp, mocker):
+        mock_whatsapp.download_media.return_value = b'sticker-data'
+        data = GroupCommandDataFactory.build(
+            text=',stic',
+            media_type='sticker',
+            media_source='quoted',
+            message_id=MESSAGE_ID,
+        )
+        mock_create = mocker.patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            return_value=b'new-sticker',
+        )
+
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert messages[0].content.data == b'new-sticker'
+        mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'quoted')
+        mock_create.assert_called_once_with(b'sticker-data', 'full')
 
     @pytest.mark.anyio
     async def test_creates_sticker_from_quoted_video(self, command, mock_whatsapp, mocker):
