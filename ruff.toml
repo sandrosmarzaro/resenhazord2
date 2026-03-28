@@ -21,6 +21,7 @@ ignore = [
     "SLF001", # private member access (needed for cross-object access in adapters)
     "ARG002", # unused method argument (common in abstract methods and fixtures)
     "PT003",  # pytest fixture scope (style preference)
+    "INP001", # implicit namespace packages — intentional, Python 3.3+ namespace packages used
 ]
 
 [lint.isort]
