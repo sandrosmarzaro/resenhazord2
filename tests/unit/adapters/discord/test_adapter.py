@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
+import discord
 import pytest
 
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
@@ -25,12 +26,59 @@ def adapter(interaction):
     return DiscordInteractionAdapter(interaction)
 
 
-class TestSendResponse:
-    @pytest.mark.anyio
-    async def test_delegates_to_interaction_response(self, adapter, interaction):
-        await adapter.send_response('hello')
+class TestIsDeferred:
+    def test_starts_false(self, adapter):
+        assert adapter.is_deferred is False
 
-        interaction.response.send_message.assert_called_once_with('hello')
+    @pytest.mark.anyio
+    async def test_true_after_defer(self, adapter):
+        await adapter.defer()
+
+        assert adapter.is_deferred is True
+
+
+class TestSendMessage:
+    @pytest.mark.anyio
+    async def test_text_only(self, adapter, interaction):
+        await adapter.send_message('hello')
+
+        interaction.response.send_message.assert_called_once_with(content='hello')
+
+    @pytest.mark.anyio
+    async def test_embed_only(self, adapter, interaction):
+        embed = discord.Embed(description='test')
+
+        await adapter.send_message(embed=embed)
+
+        interaction.response.send_message.assert_called_once_with(embed=embed)
+
+    @pytest.mark.anyio
+    async def test_file_only(self, adapter, interaction):
+        file = MagicMock(spec=discord.File)
+
+        await adapter.send_message(file=file)
+
+        interaction.response.send_message.assert_called_once_with(file=file)
+
+    @pytest.mark.anyio
+    async def test_all_three(self, adapter, interaction):
+        embed = discord.Embed()
+        file = MagicMock(spec=discord.File)
+
+        await adapter.send_message('text', embed=embed, file=file)
+
+        interaction.response.send_message.assert_called_once_with(
+            content='text', embed=embed, file=file
+        )
+
+    @pytest.mark.anyio
+    async def test_deferred_routes_to_followup(self, adapter, interaction):
+        await adapter.defer()
+
+        await adapter.send_message('follow up')
+
+        interaction.response.send_message.assert_not_called()
+        interaction.followup.send.assert_called_once_with(content='follow up')
 
 
 class TestDefer:
@@ -43,7 +91,32 @@ class TestDefer:
 
 class TestSendFollowup:
     @pytest.mark.anyio
-    async def test_delegates_to_followup(self, adapter, interaction):
+    async def test_text_only(self, adapter, interaction):
         await adapter.send_followup('follow up text')
 
-        interaction.followup.send.assert_called_once_with('follow up text')
+        interaction.followup.send.assert_called_once_with(content='follow up text')
+
+    @pytest.mark.anyio
+    async def test_embed_only(self, adapter, interaction):
+        embed = discord.Embed(description='test')
+
+        await adapter.send_followup(embed=embed)
+
+        interaction.followup.send.assert_called_once_with(embed=embed)
+
+    @pytest.mark.anyio
+    async def test_file_only(self, adapter, interaction):
+        file = MagicMock(spec=discord.File)
+
+        await adapter.send_followup(file=file)
+
+        interaction.followup.send.assert_called_once_with(file=file)
+
+    @pytest.mark.anyio
+    async def test_all_three(self, adapter, interaction):
+        embed = discord.Embed()
+        file = MagicMock(spec=discord.File)
+
+        await adapter.send_followup('text', embed=embed, file=file)
+
+        interaction.followup.send.assert_called_once_with(content='text', embed=embed, file=file)
