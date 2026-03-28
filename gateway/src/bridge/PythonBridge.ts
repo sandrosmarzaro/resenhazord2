@@ -23,6 +23,7 @@ export default class PythonBridge {
   private ws: WebSocket | null = null;
   private pending = new Map<string, PendingRequest>();
   private pendingBinary = new Map<string, Buffer[]>();
+  private ackCallbacks = new Map<string, () => void | Promise<void>>();
   private messageStore = new Map<string, WAMessage>();
   private reconnectDelay = 1000;
   private readonly maxReconnectDelay = 30000;
@@ -86,7 +87,10 @@ export default class PythonBridge {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
-  async sendCommand(data: CommandData): Promise<Message[] | null> {
+  async sendCommand(
+    data: CommandData,
+    onAck?: () => void | Promise<void>,
+  ): Promise<Message[] | null> {
     if (!this.isConnected) return null;
 
     const id = crypto.randomUUID();
@@ -133,6 +137,10 @@ export default class PythonBridge {
       },
     };
 
+    if (onAck) {
+      this.ackCallbacks.set(id, onAck);
+    }
+
     try {
       if (mediaBuffer) {
         this.ws!.send(mediaBuffer);
@@ -153,6 +161,7 @@ export default class PythonBridge {
       return null;
     } finally {
       this.pendingBinary.delete(id);
+      this.ackCallbacks.delete(id);
       if (messageId) {
         this.messageStore.delete(messageId);
       }
@@ -182,6 +191,19 @@ export default class PythonBridge {
     }
 
     const msg = JSON.parse(event.data) as WSMessage;
+
+    if (msg.type === 'command_ack') {
+      const callback = this.ackCallbacks.get(msg.id);
+      if (callback) {
+        this.ackCallbacks.delete(msg.id);
+        try {
+          await callback();
+        } catch (error) {
+          Sentry.captureException(error);
+        }
+      }
+      return;
+    }
 
     if (msg.type === 'wa_call') {
       await this.handleWaCall(msg);
@@ -421,5 +443,6 @@ export default class PythonBridge {
     }
     this.pending.clear();
     this.pendingBinary.clear();
+    this.ackCallbacks.clear();
   }
 }

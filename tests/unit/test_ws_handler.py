@@ -49,7 +49,7 @@ def handler(mock_ws, mock_dev_list):
 
 class TestWebSocketHandlerCommand:
     @pytest.mark.anyio
-    async def test_command_match_returns_response(self, mock_ws, handler):
+    async def test_command_match_sends_ack_then_response(self, mock_ws, handler):
         msg = json.dumps(
             {
                 'id': 'test-1',
@@ -65,12 +65,16 @@ class TestWebSocketHandlerCommand:
 
         await handler.handle_message(msg)
 
-        mock_ws.send_json.assert_called_once()
-        call_args = mock_ws.send_json.call_args[0][0]
-        assert call_args['id'] == 'test-1'
-        assert call_args['type'] == 'command_response'
-        assert len(call_args['data']['messages']) == 1
-        assert call_args['data']['messages'][0]['content']['text'] == 'Echo: hello'
+        assert mock_ws.send_json.call_count == 2
+        ack_args = mock_ws.send_json.call_args_list[0][0][0]
+        assert ack_args['id'] == 'test-1'
+        assert ack_args['type'] == 'command_ack'
+
+        response_args = mock_ws.send_json.call_args_list[1][0][0]
+        assert response_args['id'] == 'test-1'
+        assert response_args['type'] == 'command_response'
+        assert len(response_args['data']['messages']) == 1
+        assert response_args['data']['messages'][0]['content']['text'] == 'Echo: hello'
 
     @pytest.mark.anyio
     async def test_no_match_returns_no_match(self, mock_ws, handler):

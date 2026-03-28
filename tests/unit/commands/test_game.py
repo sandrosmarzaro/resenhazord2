@@ -252,6 +252,7 @@ class TestRawgOption:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
+        assert messages[0].content.caption is not None
         assert 'Portal 2' in messages[0].content.caption
 
     @pytest.mark.anyio

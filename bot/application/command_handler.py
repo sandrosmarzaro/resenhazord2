@@ -1,4 +1,5 @@
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 
 import structlog
@@ -29,15 +30,25 @@ class CommandHandler:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
 
-    async def handle(self, data: CommandData) -> list[BotMessage] | None:
+    async def handle(
+        self,
+        data: CommandData,
+        *,
+        on_match: Callable[[], Awaitable[None]] | None = None,
+    ) -> list[BotMessage] | None:
         """Returns messages if a command matched, None if no match."""
+        logger.info('handle_raw', text=repr(data.text))
         repeat, data = self._parse_batch(data)
+        logger.info('handle_parsed', repeat=repeat, text=repr(data.text))
 
         command = self._registry.get_strategy(data.text)
         if command is None:
             return None
 
         structlog.contextvars.bind_contextvars(command=command.config.name)
+
+        if on_match:
+            await on_match()
 
         scope = command.config.scope
         if scope == CommandScope.DISABLED:

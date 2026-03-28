@@ -85,8 +85,11 @@ class WebSocketHandler:
             msg_id=msg.id,
         )
 
+        async def send_ack() -> None:
+            await self._ws.send_json({'id': msg.id, 'type': 'command_ack'})
+
         try:
-            messages = await self._command_handler.handle(command_data)
+            messages = await self._command_handler.handle(command_data, on_match=send_ack)
         except BotError as e:
             messages = [Reply.to(command_data).text(e.user_message)]
         except Exception as e:

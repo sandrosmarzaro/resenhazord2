@@ -29,9 +29,14 @@ export default class CommandHandler {
         expiration: await GetGroupExpiration.run(data),
       } as CommandData;
 
+      let acked = false;
       let messages: Message[] | null;
       try {
-        messages = await Resenhazord2.bridge.sendCommand(commandData);
+        messages = await Resenhazord2.bridge.sendCommand(commandData, async () => {
+          acked = true;
+          await ReactMessage.run(data);
+          await TypingIndicator.start(commandData.key.remoteJid!);
+        });
       } catch (error) {
         Sentry.withScope((scope) => {
           scope.setTag('command', 'python');
@@ -44,6 +49,7 @@ export default class CommandHandler {
           { text: 'Ocorreu um erro ao processar o comando 😔' },
           { quoted: commandData, ephemeralExpiration: commandData.expiration },
         );
+        if (acked) await TypingIndicator.stop(commandData.key.remoteJid!);
         return;
       }
 
@@ -53,8 +59,6 @@ export default class CommandHandler {
             msg.options.quoted = structuredClone(data) as WAMessage;
           }
         }
-        await ReactMessage.run(data);
-        await TypingIndicator.start(commandData.key.remoteJid!);
         try {
           await this.sendMessages(messages);
         } catch (error) {
@@ -70,7 +74,7 @@ export default class CommandHandler {
             { quoted: commandData, ephemeralExpiration: commandData.expiration },
           );
         } finally {
-          await TypingIndicator.stop(commandData.key.remoteJid!);
+          if (acked) await TypingIndicator.stop(commandData.key.remoteJid!);
         }
       }
     }

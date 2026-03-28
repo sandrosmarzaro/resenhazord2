@@ -269,6 +269,43 @@ describe('PythonBridge', () => {
       expect(await promise).toBeNull();
     });
 
+    it('invokes onAck callback when command_ack is received', async () => {
+      const bridge = createConnectedBridge();
+      const data = GroupCommandData.build({ text: ',test' });
+      const onAck = vi.fn();
+
+      const promise = bridge.sendCommand(data, onAck);
+      const sent = lastSentJson();
+
+      simulateJsonMessage({ id: sent.id, type: 'command_ack' });
+      await flushAsync();
+
+      expect(onAck).toHaveBeenCalledOnce();
+
+      simulateJsonMessage({
+        id: sent.id,
+        type: 'command_response',
+        data: { messages: [{ jid: 'g@g.us', content: { type: 'text', text: 'ok' } }] },
+      });
+
+      const result = await promise;
+      expect(result).toHaveLength(1);
+    });
+
+    it('does not invoke onAck when no command_ack is received', async () => {
+      const bridge = createConnectedBridge();
+      const data = GroupCommandData.build({ text: ',unknown' });
+      const onAck = vi.fn();
+
+      const promise = bridge.sendCommand(data, onAck);
+      const sent = lastSentJson();
+
+      simulateJsonMessage({ id: sent.id, type: 'no_match' });
+
+      await promise;
+      expect(onAck).not.toHaveBeenCalled();
+    });
+
     it('times out after configured duration', async () => {
       vi.useFakeTimers();
       const bridge = createConnectedBridge();

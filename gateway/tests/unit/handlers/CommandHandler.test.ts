@@ -32,6 +32,15 @@ function mockBridge(sendCommand: Mock): void {
   Resenhazord2.bridge = { isConnected: true, sendCommand } as never;
 }
 
+function mockBridgeWithAck(messages: Message[] | null): Mock {
+  const sendCommand = vi.fn(async (_data: unknown, onAck?: () => Promise<void>) => {
+    if (onAck && messages) await onAck();
+    return messages;
+  });
+  mockBridge(sendCommand);
+  return sendCommand;
+}
+
 function mockAdapter(sendMessage: Mock): void {
   Resenhazord2.adapter = { sendMessage, sendPresenceUpdate: vi.fn() } as never;
 }
@@ -46,8 +55,7 @@ describe('CommandHandler', () => {
       const jid = 'group@g.us';
       const messages: Message[] = [{ jid, content: { image: Buffer.alloc(0) } as never }];
 
-      const sendCommand = vi.fn().mockResolvedValue(messages);
-      mockBridge(sendCommand);
+      mockBridgeWithAck(messages);
 
       const sendMessage = vi
         .fn()
@@ -69,8 +77,7 @@ describe('CommandHandler', () => {
       const jid = 'group@g.us';
       const messages: Message[] = [{ jid, content: { text: 'hello' } }];
 
-      const sendCommand = vi.fn().mockResolvedValue(messages);
-      mockBridge(sendCommand);
+      mockBridgeWithAck(messages);
 
       const sendMessage = vi
         .fn()
@@ -88,8 +95,7 @@ describe('CommandHandler', () => {
       const jid = 'group@g.us';
       const messages: Message[] = [{ jid, content: { image: Buffer.alloc(0) } as never }];
 
-      const sendCommand = vi.fn().mockResolvedValue(messages);
-      mockBridge(sendCommand);
+      mockBridgeWithAck(messages);
 
       const sendMessage = vi
         .fn()
