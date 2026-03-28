@@ -1,9 +1,10 @@
 import httpx
 import pytest
 
+from bot.data.game_info import GameInfo
 from bot.domain.commands.game import GameCommand
 from bot.domain.models.message import ImageContent, TextContent
-from bot.domain.services.game_source import GameInfo, IgdbSource
+from bot.domain.services.game_source import IgdbSource
 from tests.factories.command_data import GroupCommandDataFactory
 
 MOCK_IGDB_TOKEN = {'access_token': 'test-token'}

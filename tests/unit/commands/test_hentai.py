@@ -3,9 +3,10 @@ import struct
 import httpx
 import pytest
 
+from bot.data.hentai_gallery import HentaiGallery
 from bot.domain.commands.hentai import HentaiCommand
 from bot.domain.models.message import ImageBufferContent
-from bot.domain.services.hentai_scraper import HentaiGallery, HitomiScraper, NhentaiScraper
+from bot.domain.services.hentai_scraper import HitomiScraper, NhentaiScraper
 from tests.factories.command_data import GroupCommandDataFactory
 
 MOCK_HITOMI_GALLERY_JS = (

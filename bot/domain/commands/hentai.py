@@ -1,11 +1,12 @@
 import httpx
 import structlog
 
+from bot.data.hentai_gallery import HentaiGallery
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.domain.services.hentai_scraper import HentaiGallery, HitomiScraper, NhentaiScraper
+from bot.domain.services.hentai_scraper import HitomiScraper, NhentaiScraper
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()

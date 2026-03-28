@@ -1,20 +1,10 @@
 import random
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from bot.data.game_info import GameInfo
 from bot.domain.exceptions import ExternalServiceError
 from bot.infrastructure.http_client import HttpClient
-
-
-@dataclass(frozen=True)
-class GameInfo:
-    name: str
-    year: str
-    genres: str
-    platforms: str
-    rating: str | None
-    cover_url: str
 
 
 class GameSource(ABC):

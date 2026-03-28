@@ -1,10 +1,11 @@
 import structlog
 
+from bot.data.game_info import GameInfo
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.domain.services.game_source import GameInfo, GameSource, IgdbSource, RawgSource
+from bot.domain.services.game_source import GameSource, IgdbSource, RawgSource
 
 logger = structlog.get_logger()
 
