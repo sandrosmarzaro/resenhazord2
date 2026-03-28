@@ -3,7 +3,7 @@ import structlog
 
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.application.command_registry import CommandRegistry
-from bot.domain.commands.base import Command, CommandConfig
+from bot.domain.commands.base import Command, CommandConfig, CommandScope
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.ports.discord_port import DiscordPort
@@ -29,10 +29,29 @@ class DiscordInteractionHandler:
             await port.send_message('Comando nao reconhecido.')
             return
 
+        if strategy.config.group_only and interaction.guild_id is None:
+            await port.send_message('Esse comando so funciona em servidores.')
+            return
+
         await port.defer()
 
-        data = self._build_command_data(interaction, text)
+        if await self._check_nsfw(port, strategy, interaction):
+            return
 
+        data = self._build_command_data(interaction, text)
+        await self._run_and_reply(port, strategy, data, command_name)
+
+    @staticmethod
+    async def _check_nsfw(port: DiscordPort, strategy, interaction: discord.Interaction) -> bool:
+        if strategy.config.scope != CommandScope.NSFW:
+            return False
+        channel = interaction.channel
+        if channel is not None and hasattr(channel, 'nsfw') and not channel.nsfw:
+            await port.send_followup('Este comando so pode ser usado em canais NSFW.')
+            return True
+        return False
+
+    async def _run_and_reply(self, port: DiscordPort, strategy, data, command_name: str) -> None:
         try:
             messages = await strategy.run(data)
         except BotError as e:

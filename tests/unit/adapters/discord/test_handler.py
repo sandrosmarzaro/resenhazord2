@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from bot.adapters.discord.handler import DiscordInteractionHandler
-from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef
+from bot.domain.commands.base import ArgType, Command, CommandConfig, CommandScope, OptionDef
 from bot.domain.exceptions import BotError
 from bot.domain.models.contents.image_content import ImageContent
 from bot.domain.models.contents.text_content import TextContent
@@ -210,6 +210,8 @@ class TestHandle:
         interaction = make_interaction(guild_id=None)
         captured: list[CommandData] = []
         strategy = MagicMock()
+        strategy.config.group_only = False
+        strategy.config.scope = 'public'
         strategy.run = AsyncMock(
             side_effect=lambda data: (
                 captured.append(data)  # type: ignore[arg-type]
@@ -305,3 +307,65 @@ class TestBuildCommandText:
         )
 
         assert result == ',filme top detail Batman'
+
+
+class TestNsfwAndGroupOnly:
+    def _make_nsfw_strategy(self) -> MagicMock:
+        strategy = make_strategy([BotMessage(jid='111', content=TextContent(text='ok'))])
+        strategy.config = MagicMock()
+        strategy.config.scope = CommandScope.NSFW
+        strategy.config.group_only = False
+        return strategy
+
+    def _make_group_only_strategy(self) -> MagicMock:
+        strategy = make_strategy([BotMessage(jid='111', content=TextContent(text='ok'))])
+        strategy.config = MagicMock()
+        strategy.config.scope = CommandScope.PUBLIC
+        strategy.config.group_only = True
+        return strategy
+
+    @pytest.mark.anyio
+    async def test_nsfw_in_sfw_channel_blocked(self, handler, port, mocker):
+        interaction = make_interaction()
+        interaction.channel = MagicMock()
+        interaction.channel.nsfw = False
+        strategy = self._make_nsfw_strategy()
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.send_followup.assert_called_once()
+        assert 'NSFW' in port.send_followup.call_args[0][0]
+
+    @pytest.mark.anyio
+    async def test_nsfw_in_nsfw_channel_allowed(self, handler, port, mocker):
+        interaction = make_interaction()
+        interaction.channel = MagicMock()
+        interaction.channel.nsfw = True
+        strategy = self._make_nsfw_strategy()
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        strategy.run.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_group_only_in_dm_blocked(self, handler, port, mocker):
+        interaction = make_interaction(guild_id=None)
+        strategy = self._make_group_only_strategy()
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.send_message.assert_called_once()
+        assert 'servidores' in port.send_message.call_args[0][0]
+        strategy.run.assert_not_called()
