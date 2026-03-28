@@ -1,12 +1,8 @@
 import json
 import random
 import struct
-from datetime import UTC, datetime
-from http import HTTPStatus
-from typing import ClassVar
 
 from bot.data.hentai_gallery import HentaiGallery
-from bot.domain.exceptions import ExternalServiceError
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -77,58 +73,3 @@ class HitomiScraper:
         last1 = file_hash[-1]
         last3_mid = file_hash[-3:-1]
         return f'{cls.TN_DOMAIN}/webpsmalltn/{last1}/{last3_mid}/{file_hash}.webp'
-
-
-class NhentaiScraper:
-    MAX_ID = 500_000
-    MAX_RETRIES = 5
-    NOT_FOUND = HTTPStatus.NOT_FOUND
-    EXT_MAP: ClassVar[dict[str, str]] = {'j': 'jpg', 'p': 'png', 'g': 'gif', 'w': 'webp'}
-
-    def __init__(self, mirror_url: str = 'https://nhentai.net') -> None:
-        self._mirror_url = mirror_url
-
-    async def fetch(self) -> HentaiGallery:
-        for _ in range(self.MAX_RETRIES):
-            gallery_id = random.randint(1, self.MAX_ID)  # noqa: S311
-            try:
-                res = await HttpClient.get(f'{self._mirror_url}/api/gallery/{gallery_id}')
-                if res.status_code == self.NOT_FOUND:
-                    continue
-                res.raise_for_status()
-                return self._parse(res.json())
-            except Exception as exc:
-                status = getattr(getattr(exc, 'response', None), 'status_code', None)
-                if status == self.NOT_FOUND:
-                    continue
-                raise
-
-        msg = 'Failed to fetch nhentai gallery after max retries'
-        raise ExternalServiceError(msg)
-
-    def _parse(self, data: dict) -> HentaiGallery:
-        artists = [t['name'] for t in data['tags'] if t['type'] == 'artist']
-        groups = [t['name'] for t in data['tags'] if t['type'] == 'group']
-        tags = [t['name'] for t in data['tags'] if t['type'] == 'tag']
-        lang_tag = next((t for t in data['tags'] if t['type'] == 'language'), None)
-        type_tag = next((t for t in data['tags'] if t['type'] == 'category'), None)
-
-        cover_ext = self.EXT_MAP.get(data['images']['cover']['t'], 'jpg')
-        cover_url = f'https://t.nhentai.net/galleries/{data["media_id"]}/thumb.{cover_ext}'
-
-        upload_ts = data.get('upload_date', 0)
-        date_str = datetime.fromtimestamp(upload_ts, tz=UTC).strftime('%Y-%m') if upload_ts else ''
-
-        return HentaiGallery(
-            title=data['title'].get('english') or data['title'].get('pretty', ''),
-            japanese_title=data['title'].get('japanese'),
-            artists=artists,
-            groups=groups,
-            tags=tags,
-            gallery_type=type_tag['name'] if type_tag else 'manga',
-            language=lang_tag['name'] if lang_tag else 'unknown',
-            pages=data.get('num_pages', 0),
-            date=date_str,
-            cover_url=cover_url,
-            url=f'{self._mirror_url}/g/{data["id"]}/',
-        )

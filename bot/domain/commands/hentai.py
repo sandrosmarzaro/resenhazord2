@@ -6,7 +6,8 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.domain.services.hentai_scraper import HitomiScraper, NhentaiScraper
+from bot.domain.services.hentai.hitomi_scraper import HitomiScraper
+from bot.domain.services.hentai.nhentai_scraper import NhentaiScraper
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()

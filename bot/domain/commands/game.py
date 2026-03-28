@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import structlog
 
 from bot.data.game_info import GameInfo
@@ -5,7 +7,11 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.domain.services.game_source import GameSource, IgdbSource, RawgSource
+from bot.domain.services.game.igdb_source import IgdbSource
+from bot.domain.services.game.rawg_source import RawgSource
+
+if TYPE_CHECKING:
+    from bot.domain.services.game.game_source import GameSource
 
 logger = structlog.get_logger()
 
