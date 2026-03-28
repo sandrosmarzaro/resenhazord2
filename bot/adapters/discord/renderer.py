@@ -1,0 +1,97 @@
+import io
+from dataclasses import dataclass
+from typing import ClassVar
+
+import discord
+import structlog
+
+from bot.data.discord import BUFFER_EXTENSIONS
+from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
+from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
+from bot.domain.models.contents.raw_content import RawContent
+from bot.domain.models.contents.sticker_content import StickerContent
+from bot.domain.models.contents.text_content import TextContent
+from bot.domain.models.contents.video_content import VideoBufferContent, VideoContent
+from bot.domain.models.message import BotMessage, MessageContent
+
+logger = structlog.get_logger()
+
+
+@dataclass
+class DiscordReply:
+    text: str | None = None
+    embed: discord.Embed | None = None
+    file: discord.File | None = None
+
+
+class DiscordResponseRenderer:
+    MAX_TEXT_LENGTH: ClassVar[int] = 2000
+    MAX_EMBED_DESC_LENGTH: ClassVar[int] = 4096
+    UNSUPPORTED_MESSAGE: ClassVar[str] = 'Este tipo de conteudo nao e suportado no Discord.'
+    RENDER_MAP: ClassVar[dict[type, str]] = {
+        TextContent: '_render_text',
+        ImageContent: '_render_image',
+        ImageBufferContent: '_render_image_buffer',
+        VideoContent: '_render_video',
+        VideoBufferContent: '_render_video_buffer',
+        AudioContent: '_render_audio',
+        AudioBufferContent: '_render_audio_buffer',
+        StickerContent: '_render_unsupported',
+        RawContent: '_render_unsupported',
+    }
+
+    def render(self, message: BotMessage) -> DiscordReply:
+        content = message.content
+        method_name = self.RENDER_MAP.get(type(content), '_render_unsupported')
+        return getattr(self, method_name)(content)
+
+    def render_many(self, messages: list[BotMessage]) -> list[DiscordReply]:
+        return [self.render(m) for m in messages]
+
+    def _render_text(self, content: TextContent) -> DiscordReply:
+        if len(content.text) <= self.MAX_TEXT_LENGTH:
+            return DiscordReply(text=content.text)
+        embed = discord.Embed(description=content.text[: self.MAX_EMBED_DESC_LENGTH])
+        return DiscordReply(embed=embed)
+
+    def _render_image(self, content: ImageContent) -> DiscordReply:
+        embed = discord.Embed()
+        if content.caption:
+            embed.description = content.caption
+        embed.set_image(url=content.url)
+        return DiscordReply(embed=embed)
+
+    def _render_image_buffer(self, content: ImageBufferContent) -> DiscordReply:
+        ext = BUFFER_EXTENSIONS.get(content.type, 'png')
+        filename = f'image.{ext}'
+        file = discord.File(io.BytesIO(content.data), filename=filename)
+        embed = discord.Embed()
+        if content.caption:
+            embed.description = content.caption
+        embed.set_image(url=f'attachment://{filename}')
+        return DiscordReply(embed=embed, file=file)
+
+    def _render_video(self, content: VideoContent) -> DiscordReply:
+        text = content.url
+        if content.caption:
+            text = f'{content.caption}\n\n{content.url}'
+        return DiscordReply(text=text)
+
+    def _render_video_buffer(self, content: VideoBufferContent) -> DiscordReply:
+        ext = BUFFER_EXTENSIONS.get(content.type, 'mp4')
+        filename = f'video.{ext}'
+        file = discord.File(io.BytesIO(content.data), filename=filename)
+        return DiscordReply(text=content.caption or None, file=file)
+
+    def _render_audio(self, content: AudioContent) -> DiscordReply:
+        return DiscordReply(text=content.url)
+
+    def _render_audio_buffer(self, content: AudioBufferContent) -> DiscordReply:
+        ext = BUFFER_EXTENSIONS.get(content.type, 'mp4')
+        filename = f'audio.{ext}'
+        file = discord.File(io.BytesIO(content.data), filename=filename)
+        return DiscordReply(file=file)
+
+    def _render_unsupported(self, content: MessageContent) -> DiscordReply:
+        logger.warning('discord_unsupported_content', content_type=type(content).__name__)
+        return DiscordReply(text=self.UNSUPPORTED_MESSAGE)
