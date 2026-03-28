@@ -32,6 +32,7 @@ class LotteryCommand(Command):
             args_label='sorteio',
             options=[OptionDef(name='regiao', values=['rio', 'sp', 'mg', 'ba', 'go', 'ce'])],
             category='other',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

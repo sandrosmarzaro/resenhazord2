@@ -20,6 +20,7 @@ class PuppyCommand(Command):
             flags=['show', 'dm'],
             options=[OptionDef(name='tipo', values=['dog', 'cat'])],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

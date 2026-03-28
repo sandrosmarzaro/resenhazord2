@@ -27,6 +27,7 @@ class MenuCommand(Command):
             options=[OptionDef(name='section', values=['grupo', 'bíblia'])],
             flags=['dm'],
             category='other',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

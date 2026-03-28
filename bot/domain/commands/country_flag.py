@@ -27,6 +27,7 @@ class CountryFlagCommand(Command):
             aliases=['flag'],
             flags=['show', 'dm', 'detail'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

@@ -27,6 +27,7 @@ class HentaiCommand(Command):
             name='hentai',
             flags=['dm', 'show', 'hitomi', 'nhentai'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

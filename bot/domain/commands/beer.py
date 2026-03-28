@@ -27,6 +27,7 @@ class BeerCommand(Command):
             aliases=['beer'],
             flags=['show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

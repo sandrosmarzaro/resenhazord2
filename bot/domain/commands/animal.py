@@ -32,6 +32,7 @@ class AnimalCommand(Command):
             name='animal',
             flags=['show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

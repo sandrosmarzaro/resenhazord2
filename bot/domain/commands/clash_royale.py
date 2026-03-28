@@ -18,7 +18,12 @@ class ClashRoyaleCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='cr', flags=['show', 'dm'], category='random')
+        return CommandConfig(
+            name='cr',
+            flags=['show', 'dm'],
+            category='random',
+            platforms=['whatsapp', 'discord'],
+        )
 
     @property
     def menu_description(self) -> str:

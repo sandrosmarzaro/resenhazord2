@@ -35,6 +35,7 @@ class HearthstoneCommand(CardBoosterCommand):
             aliases=['hearthstone'],
             flags=['booster', 'show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

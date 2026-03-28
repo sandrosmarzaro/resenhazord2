@@ -21,6 +21,7 @@ class YugiohCommand(CardBoosterCommand):
             name='ygo',
             flags=['booster', 'show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

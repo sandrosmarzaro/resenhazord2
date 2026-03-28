@@ -24,6 +24,7 @@ class AudioCommand(Command):
             flags=['show', 'dm'],
             args=ArgType.OPTIONAL,
             category='download',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

@@ -21,6 +21,7 @@ class Rule34Command(Command):
             name='rule 34',
             flags=['show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

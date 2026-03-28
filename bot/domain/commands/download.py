@@ -29,6 +29,7 @@ class DownloadCommand(Command):
             args_pattern=r'https?://\S+[\s\S]*',
             args_label='url',
             category='download',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

@@ -32,6 +32,7 @@ class MusicCommand(Command):
             args=ArgType.OPTIONAL,
             args_label='gênero',
             category='download',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

@@ -24,6 +24,7 @@ class MovieSeriesCommand(Command):
             options=[OptionDef(name='mode', values=['top', 'pop'])],
             flags=['show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

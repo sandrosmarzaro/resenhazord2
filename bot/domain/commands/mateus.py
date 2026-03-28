@@ -13,7 +13,7 @@ class MateusCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='mateus', category='random')
+        return CommandConfig(name='mateus', category='random', platforms=['whatsapp', 'discord'])
 
     @property
     def menu_description(self) -> str:

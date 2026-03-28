@@ -26,6 +26,7 @@ class PornoCommand(Command):
             name='porno',
             flags=['ia', 'show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

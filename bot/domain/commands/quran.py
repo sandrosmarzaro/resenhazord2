@@ -17,6 +17,7 @@ class QuranCommand(Command):
             aliases=['quran'],
             options=[OptionDef(name='lang', values=['ar', 'pt'])],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

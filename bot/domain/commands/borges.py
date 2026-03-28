@@ -11,7 +11,7 @@ class BorgesCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='borges', category='other')
+        return CommandConfig(name='borges', category='other', platforms=['whatsapp', 'discord'])
 
     @property
     def menu_description(self) -> str:

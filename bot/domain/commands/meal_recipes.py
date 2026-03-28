@@ -20,6 +20,7 @@ class MealRecipesCommand(Command):
             aliases=['food'],
             flags=['show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

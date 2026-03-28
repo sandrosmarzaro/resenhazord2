@@ -11,7 +11,7 @@ class D20Command(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='d20', category='random')
+        return CommandConfig(name='d20', category='random', platforms=['whatsapp', 'discord'])
 
     @property
     def menu_description(self) -> str:

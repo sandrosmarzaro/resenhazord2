@@ -19,6 +19,7 @@ class MyAnimeListCommand(Command):
             flags=['show', 'dm'],
             options=[OptionDef(name='range', values=list(RANGE_PAGES.keys()))],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

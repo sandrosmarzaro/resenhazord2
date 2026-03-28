@@ -39,6 +39,7 @@ class CarCommand(Command):
             aliases=['car'],
             flags=['show', 'dm', 'wiki'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

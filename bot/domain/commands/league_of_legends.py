@@ -19,7 +19,12 @@ class LeagueOfLegendsCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='lol', flags=['show', 'dm'], category='random')
+        return CommandConfig(
+            name='lol',
+            flags=['show', 'dm'],
+            category='random',
+            platforms=['whatsapp', 'discord'],
+        )
 
     @property
     def menu_description(self) -> str:

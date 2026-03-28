@@ -21,6 +21,7 @@ class HoroscopeCommand(Command):
             args_label='signo',
             flags=['dm', 'show'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

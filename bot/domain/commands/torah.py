@@ -31,6 +31,7 @@ class TorahCommand(Command):
             args_label='livro capítulo:versículo',
             flags=['dm', 'show'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

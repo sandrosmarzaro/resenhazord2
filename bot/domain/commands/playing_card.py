@@ -13,6 +13,7 @@ class PlayingCardCommand(Command):
             aliases=['card'],
             flags=['show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

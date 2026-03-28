@@ -16,7 +16,12 @@ class MoonCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='lua', aliases=['moon'], category='other')
+        return CommandConfig(
+            name='lua',
+            aliases=['moon'],
+            category='other',
+            platforms=['whatsapp', 'discord'],
+        )
 
     @property
     def menu_description(self) -> str:

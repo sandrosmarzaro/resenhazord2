@@ -25,6 +25,7 @@ class PokemonTCGCommand(CardBoosterCommand):
             aliases=['ptcg'],
             flags=['booster', 'show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

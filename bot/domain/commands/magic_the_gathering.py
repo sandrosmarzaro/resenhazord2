@@ -28,6 +28,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
             aliases=['magic'],
             flags=['booster', 'show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

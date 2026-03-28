@@ -29,6 +29,7 @@ class PokemonCommand(CardBoosterCommand):
             name='pokémon',
             flags=['team', 'show', 'dm'],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

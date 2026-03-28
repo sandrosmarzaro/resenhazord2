@@ -36,6 +36,7 @@ class GameCommand(Command):
             flags=['show', 'dm'],
             options=[OptionDef(name='source', values=['rawg'])],
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

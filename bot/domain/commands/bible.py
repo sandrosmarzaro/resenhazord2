@@ -27,6 +27,7 @@ class BibleCommand(Command):
             args=ArgType.OPTIONAL,
             args_label='livro capítulo:versículo',
             category='random',
+            platforms=['whatsapp', 'discord'],
         )
 
     @property

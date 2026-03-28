@@ -9,7 +9,13 @@ from bot.infrastructure.http_client import HttpClient
 class FactCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='fato', aliases=['fact'], flags=['hoje'], category='random')
+        return CommandConfig(
+            name='fato',
+            aliases=['fact'],
+            flags=['hoje'],
+            category='random',
+            platforms=['whatsapp', 'discord'],
+        )
 
     @property
     def menu_description(self) -> str:
