@@ -22,7 +22,12 @@ def create_discord_bot(guild_id: str) -> discord.Client:
 
     @client.event
     async def on_ready() -> None:
-        await tree.sync(guild=guild)
-        logger.info('discord_connected', tag=str(client.user))
+        synced = await tree.sync(guild=guild)
+        logger.info(
+            'discord_connected',
+            tag=str(client.user),
+            guild_id=guild_id,
+            synced_commands=[c.name for c in synced],
+        )
 
     return client
