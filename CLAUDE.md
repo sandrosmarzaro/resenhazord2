@@ -68,6 +68,7 @@ See [docs/architecture.md](docs/architecture.md) for full details (message flow,
 - **Data files**: Large lookup tables, emoji maps, and static datasets belong in `bot/data/`. Do not define big mappings inline in service or command files.
 - **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
 - **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (single quotes, 100 char width)
+- **No `__init__.py`**: Do not create `__init__.py` files — Python 3.3+ uses namespace packages (PEP 420); they are useless
 
 ### Python Code Quality
 

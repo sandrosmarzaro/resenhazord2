@@ -1,0 +1,9 @@
+from typing import Protocol
+
+
+class DiscordPort(Protocol):
+    async def send_response(self, text: str) -> None: ...
+
+    async def defer(self) -> None: ...
+
+    async def send_followup(self, text: str) -> None: ...

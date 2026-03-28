@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     resenha_jid: str = ''
     discord_token: str = ''
     discord_guild_id: str = ''
+    discord_app_id: str = ''
 
     bnet_id: str = ''
     bnet_secret: str = ''
