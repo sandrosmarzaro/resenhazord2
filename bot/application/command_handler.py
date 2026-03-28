@@ -1,6 +1,7 @@
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
+from typing import ClassVar
 
 import structlog
 import structlog.contextvars
@@ -15,13 +16,13 @@ from bot.domain.services.dev_list import DevListService
 
 logger = structlog.get_logger()
 
-DISABLED_MSG = 'Esse comando está desativado. 🚫'
-DEV_ONLY_MSG = 'Esse comando é apenas para desenvolvedores. 🛠️'
-BATCH_PATTERN = re.compile(r'\s+(\d+)x\s*$')
-MAX_BATCH = 5
-
 
 class CommandHandler:
+    _DISABLED_MSG: ClassVar[str] = 'Esse comando está desativado. 🚫'
+    _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
+    _BATCH_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'\s+(\d+)x\s*$')
+    _MAX_BATCH: ClassVar[int] = 5
+
     def __init__(
         self,
         registry: CommandRegistry | None = None,
@@ -52,11 +53,11 @@ class CommandHandler:
 
         scope = command.config.scope
         if scope == CommandScope.DISABLED:
-            return [Reply.to(data).text(DISABLED_MSG)]
+            return [Reply.to(data).text(self._DISABLED_MSG)]
 
         is_dev = await self._dev_list.is_dev(data.sender_jid)
         if scope == CommandScope.DEV and not is_dev:
-            return [Reply.to(data).text(DEV_ONLY_MSG)]
+            return [Reply.to(data).text(self._DEV_ONLY_MSG)]
         if repeat > 1 and not is_dev:
             repeat = 1
 
@@ -74,11 +75,11 @@ class CommandHandler:
         else:
             return messages
 
-    @staticmethod
-    def _parse_batch(data: CommandData) -> tuple[int, CommandData]:
-        match = BATCH_PATTERN.search(data.text)
+    @classmethod
+    def _parse_batch(cls, data: CommandData) -> tuple[int, CommandData]:
+        match = cls._BATCH_PATTERN.search(data.text)
         if not match:
             return 1, data
-        count = min(int(match.group(1)), MAX_BATCH)
+        count = min(int(match.group(1)), cls._MAX_BATCH)
         stripped_text = data.text[: match.start()]
         return max(count, 1), replace(data, text=stripped_text)
