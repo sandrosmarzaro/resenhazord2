@@ -2,6 +2,8 @@ import json
 import random
 import struct
 
+import httpx
+
 from bot.data.hentai_gallery import HentaiGallery
 from bot.domain.exceptions import ExternalServiceError
 from bot.infrastructure.http_client import HttpClient
@@ -21,14 +23,25 @@ class HitomiScraper:
     @classmethod
     async def fetch(cls) -> HentaiGallery:
         headers = {'Referer': cls.REFERER}
-        byte_end = cls.PAGE_SIZE * cls.INT_SIZE - 1
-        range_header = f'bytes=0-{byte_end}'
+        page_bytes = cls.PAGE_SIZE * cls.INT_SIZE - 1
 
         res = await HttpClient.get(
             cls.NOZOMI_URL,
-            headers={**headers, 'Range': range_header},
+            headers={**headers, 'Range': f'bytes=0-{page_bytes}'},
         )
+
+        total_ids = cls._parse_total_ids(res)
         data = res.content
+
+        if total_ids > cls.PAGE_SIZE:
+            page_start = random.randint(0, total_ids - cls.PAGE_SIZE)  # noqa: S311
+            byte_start = page_start * cls.INT_SIZE
+            res = await HttpClient.get(
+                cls.NOZOMI_URL,
+                headers={**headers, 'Range': f'bytes={byte_start}-{byte_start + page_bytes}'},
+            )
+            data = res.content
+
         id_count = len(data) // cls.INT_SIZE
         ids = [
             struct.unpack('>i', data[i * cls.INT_SIZE : (i + 1) * cls.INT_SIZE])[0]
@@ -41,6 +54,15 @@ class HitomiScraper:
 
         gallery_id = random.choice(ids)  # noqa: S311
         return await cls._retrieve_gallery(gallery_id, headers)
+
+    @classmethod
+    def _parse_total_ids(cls, res: httpx.Response) -> int:
+        content_range = res.headers.get('content-range', '')
+        if '/' in content_range:
+            total_str = content_range.split('/')[-1]
+            if total_str.isdigit():
+                return int(total_str) // cls.INT_SIZE
+        return cls.PAGE_SIZE
 
     @classmethod
     async def _retrieve_gallery(cls, gallery_id: int, headers: dict[str, str]) -> HentaiGallery:
