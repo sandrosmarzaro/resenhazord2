@@ -22,6 +22,7 @@ class CommandData:
     media_buffer: bytes | None = None
     message_id: str | None = None
     push_name: str | None = None
+    platform: str | None = None
 
     @property
     def has_media(self) -> bool:

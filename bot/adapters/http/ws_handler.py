@@ -76,6 +76,7 @@ class WebSocketHandler:
             media_buffer=media_buffer,
             message_id=cmd_data.message_id,
             push_name=cmd_data.push_name,
+            platform='whatsapp',
         )
 
         structlog.contextvars.clear_contextvars()

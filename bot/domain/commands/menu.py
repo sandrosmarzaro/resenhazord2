@@ -38,15 +38,17 @@ class MenuCommand(Command):
         section = parsed.options.get('section')
         if section and section in self.SECTION_MENUS:
             return [Reply.to(data).text(self.SECTION_MENUS[section])]
-        return [Reply.to(data).text(self._build_menu())]
+        return [Reply.to(data).text(self._build_menu(data.platform))]
 
-    def _build_menu(self) -> str:
+    def _build_menu(self, platform: str | None = None) -> str:
         commands = CommandRegistry.instance().get_all()
         grouped: dict[str, list[Command]] = {}
 
         for cmd in commands:
             category = cmd.config.category
             if not category:
+                continue
+            if platform and platform not in cmd.config.platforms:
                 continue
             grouped.setdefault(category, []).append(cmd)
 
