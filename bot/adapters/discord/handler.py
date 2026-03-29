@@ -124,7 +124,10 @@ class DiscordInteractionHandler:
         for opt in config.options:
             value = kwargs.get(opt.name)
             if value is not None:
-                parts.append(str(value))
+                val_str = str(value)
+                if opt.pattern and not val_str.lower().startswith(opt.name.lower()):
+                    val_str = f'{opt.name}{val_str}'
+                parts.append(val_str)
 
         for flag in config.flags:
             value = kwargs.get(flag)
