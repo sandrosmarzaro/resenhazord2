@@ -46,9 +46,9 @@ class AudioCommand(Command):
         ]
 
         if len(text) <= self.MAX_CHUNK_LENGTH:
-            return [Reply.to(data).audio(urls[0])]
+            return [Reply.to(data).audio(urls[0], mimetype='audio/mpeg')]
 
-        return [Reply.to(data).audio(url) for url in urls]
+        return [Reply.to(data).audio(url, mimetype='audio/mpeg') for url in urls]
 
     def _build_tts_url(self, text: str, lang: str, idx: int, total: int) -> str:
         params = urlencode(

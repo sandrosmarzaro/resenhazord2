@@ -48,8 +48,8 @@ class Reply:
         )
         return self._build(content)
 
-    def audio(self, url: str) -> BotMessage:
-        return self._build(AudioContent(url=url, view_once=True))
+    def audio(self, url: str, mimetype: str = 'audio/mp4') -> BotMessage:
+        return self._build(AudioContent(url=url, view_once=True, mimetype=mimetype))
 
     def audio_buffer(self, data: bytes, mimetype: str = 'audio/mp4') -> BotMessage:
         return self._build(AudioBufferContent(data=data, mimetype=mimetype))
