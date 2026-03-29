@@ -3,6 +3,7 @@ import random
 import struct
 
 from bot.data.hentai_gallery import HentaiGallery
+from bot.domain.exceptions import ExternalServiceError
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -33,6 +34,10 @@ class HitomiScraper:
             struct.unpack('>i', data[i * cls.INT_SIZE : (i + 1) * cls.INT_SIZE])[0]
             for i in range(id_count)
         ]
+
+        if not ids:
+            msg = 'Hitomi returned empty gallery index'
+            raise ExternalServiceError(msg)
 
         gallery_id = random.choice(ids)  # noqa: S311
         return await cls._retrieve_gallery(gallery_id, headers)

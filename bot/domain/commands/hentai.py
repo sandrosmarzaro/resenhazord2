@@ -4,6 +4,7 @@ import structlog
 from bot.data.hentai_gallery import HentaiGallery
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.hentai.hitomi_scraper import HitomiScraper
@@ -47,6 +48,8 @@ class HentaiCommand(Command):
                 )
                 caption = self._build_caption(gallery)
                 return [Reply.to(data).image_buffer(cover, caption)]
+            except BotError:
+                raise
             except Exception as exc:
                 last_error = exc
                 logger.exception('hentai_fetch_error')
@@ -66,7 +69,7 @@ class HentaiCommand(Command):
     async def _fetch_default(self) -> HentaiGallery:
         try:
             return await HitomiScraper.fetch()
-        except (httpx.HTTPError, ValueError, KeyError, IndexError):
+        except (httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError):
             return await self._nhentai.fetch()
 
     @classmethod
