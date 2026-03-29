@@ -1,5 +1,6 @@
 import random
 from datetime import UTC, datetime
+from http import HTTPStatus
 from typing import ClassVar
 
 from bot.data.hentai_gallery import HentaiGallery
@@ -9,6 +10,7 @@ from bot.infrastructure.http_client import HttpClient
 
 class NhentaiScraper:
     MAX_PAGE = 100
+    SEARCH_URL = '/api/galleries/search'
     EXT_MAP: ClassVar[dict[str, str]] = {'j': 'jpg', 'p': 'png', 'g': 'gif', 'w': 'webp'}
 
     def __init__(self, mirror_url: str = 'https://nhentai.to') -> None:
@@ -16,18 +18,25 @@ class NhentaiScraper:
 
     async def fetch(self) -> HentaiGallery:
         page = random.randint(1, self.MAX_PAGE)  # noqa: S311
-        res = await HttpClient.get(
-            f'{self._mirror_url}/api/galleries/all',
-            params={'page': page},
-        )
-        res.raise_for_status()
-        results = res.json().get('result', [])
+        results = await self._fetch_page(page)
+        if not results and page > 1:
+            results = await self._fetch_page(1)
 
         if not results:
-            msg = f'nhentai listing page {page} returned no galleries'
+            msg = 'nhentai returned no galleries'
             raise ExternalServiceError(msg)
 
         return self._parse(random.choice(results))  # noqa: S311
+
+    async def _fetch_page(self, page: int) -> list[dict]:
+        res = await HttpClient.get(
+            f'{self._mirror_url}{self.SEARCH_URL}',
+            params={'query': '', 'page': page},
+        )
+        if res.status_code == HTTPStatus.NOT_FOUND:
+            return []
+        res.raise_for_status()
+        return res.json().get('result', [])
 
     def _parse(self, data: dict) -> HentaiGallery:
         artists = [t['name'] for t in data['tags'] if t['type'] == 'artist']

@@ -81,7 +81,7 @@ def hitomi_cover_route(respx_mock):
 
 @pytest.fixture
 def nhentai_route(respx_mock):
-    return respx_mock.get(url__startswith='https://nhentai.to/api/galleries/all')
+    return respx_mock.get(url__startswith='https://nhentai.to/api/galleries/search')
 
 
 @pytest.fixture
