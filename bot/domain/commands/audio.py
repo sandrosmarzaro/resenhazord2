@@ -21,7 +21,7 @@ class AudioCommand(Command):
         return CommandConfig(
             name='áudio',
             options=[OptionDef(name='lang', pattern=r'[A-Za-z]{2}-[A-Za-z]{2}')],
-            flags=['show', 'dm'],
+            flags=['dm'],
             args=ArgType.OPTIONAL,
             category='download',
             platforms=['whatsapp', 'discord'],
