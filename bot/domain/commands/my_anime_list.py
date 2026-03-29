@@ -9,7 +9,6 @@ from bot.infrastructure.http_client import HttpClient
 
 class MyAnimeListCommand(Command):
     DEFAULT_MAX_PAGE = 20
-    MAX_TOP = 500
     ITEMS_PER_PAGE = 25
 
     @property
@@ -25,10 +24,7 @@ class MyAnimeListCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return (
-            f'Receba um anime ou mangá aleatório. '
-            f'Use top1-top{self.MAX_TOP} para limitar o ranking.'
-        )
+        return 'Receba um anime ou mangá aleatório. Use top<N> para limitar o ranking.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         base_url = 'https://api.jikan.moe/v4'
@@ -37,8 +33,6 @@ class MyAnimeListCommand(Command):
         top_str = parsed.options.get('top', '')
         if top_str:
             n = int(top_str[3:])
-            if not 1 <= n <= self.MAX_TOP:
-                return [Reply.to(data).text(f'Use top1 até top{self.MAX_TOP}. 📊')]
             max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
         else:
             max_page = self.DEFAULT_MAX_PAGE

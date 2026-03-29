@@ -10,7 +10,6 @@ from bot.infrastructure.http_client import HttpClient
 class MovieSeriesCommand(Command):
     MAX_PAGE = 25
     ITEMS_PER_PAGE = 20
-    MAX_TOP = MAX_PAGE * ITEMS_PER_PAGE
     POSTER_SIZE = 'w500'
     MOVIE_NAMES: frozenset[str] = frozenset({'filme', 'movie'})
 
@@ -34,20 +33,16 @@ class MovieSeriesCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return (
-            f'Receba aleatoriamente um filme ou série. '
-            f'Use top1-top{self.MAX_TOP} para limitar o ranking por nota.'
-        )
+        return 'Receba aleatoriamente um filme ou série. Use top<N> para limitar o ranking.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         media_type = 'movie' if parsed.command_name in self.MOVIE_NAMES else 'tv'
+        is_pop = parsed.options.get('mode') == 'pop'
 
         top_str = parsed.options.get('top', '')
         if top_str:
             n = int(top_str[3:])
-            if not 1 <= n <= self.MAX_TOP:
-                return [Reply.to(data).text(f'Use top1 até top{self.MAX_TOP}. 📊')]
-            mode = 'top_rated'
+            mode = 'popular' if is_pop else 'top_rated'
             max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
         else:
             mode = 'popular'
