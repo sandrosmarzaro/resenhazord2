@@ -104,13 +104,15 @@ class TestSingleCard:
         assert 'Spellcaster' in caption
 
     @pytest.mark.anyio
-    async def test_caption_strips_newlines_from_desc(self, command, respx_mock):
+    async def test_caption_preserves_newlines_as_quote_lines(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', ygo')
         respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
         messages = await command.run(data)
 
         caption = messages[0].content.caption
-        assert 'The ultimate wizard in terms of attack and defense.' in caption
+        assert '> The ultimate wizard' in caption
+        assert '> in terms of attack' in caption
+        assert '> and defense.' in caption
 
     @pytest.mark.anyio
     async def test_spell_card_omits_monster_stats(self, command, respx_mock):
