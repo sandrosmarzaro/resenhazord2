@@ -26,6 +26,7 @@ SUBREGION_PT: dict[str, str] = {
     'Northern Europe': 'Europa do Norte',
     'Eastern Europe': 'Europa do Leste',
     'Southern Europe': 'Europa do Sul',
+    'Southeast Europe': 'Europa do Sudeste',
     'Central Asia': 'Ásia Central',
     'Western Asia': 'Ásia Ocidental',
     'Eastern Asia': 'Ásia Oriental',
