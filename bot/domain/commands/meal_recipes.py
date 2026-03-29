@@ -48,9 +48,10 @@ class MealRecipesCommand(Command):
         if tags:
             meta += f'   🏷️ {tags}'
 
+        title_pt = await Translator.to_pt(meal['strMeal'])
         instructions_pt = await Translator.to_pt(meal['strInstructions'])
 
-        caption = f'*{meal["strMeal"]}*\n\n'
+        caption = f'*{title_pt}*\n\n'
         caption += f'{meta}\n'
         caption += '\n🍲 Ingredientes:\n'
         for i in range(1, self.MAX_INGREDIENTS + 1):

@@ -53,10 +53,16 @@ class TestMatches:
         assert command.matches(text) is expected
 
 
-def _mock_translate(respx_mock, translated='Instruções traduzidas.'):
-    respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-        return_value=httpx.Response(200, json=[[[translated, 'original']]])
-    )
+def _mock_translate(
+    respx_mock, instructions_translated='Instruções traduzidas.', title_translated=None
+):
+    def _side_effect(request):
+        q = request.url.params.get('q', '')
+        is_title = title_translated and q == 'Spaghetti Bolognese'
+        translated = title_translated if is_title else instructions_translated
+        return httpx.Response(200, json=[[[translated, 'original']]])
+
+    respx_mock.get(url__startswith=TRANSLATE_URL).mock(side_effect=_side_effect)
 
 
 class TestRun:
@@ -77,7 +83,11 @@ class TestRun:
         respx_mock.get(MEAL_API_URL).mock(
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
-        _mock_translate(respx_mock, 'Cozinhe a massa. Adicione o molho.')
+        _mock_translate(
+            respx_mock,
+            instructions_translated='Cozinhe a massa. Adicione o molho.',
+            title_translated='Espaguete à Bolonhesa',
+        )
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -85,7 +95,7 @@ class TestRun:
         assert messages[0].content.url == 'https://example.com/meal.jpg'
         caption = messages[0].content.caption
         assert caption is not None
-        assert 'Spaghetti Bolognese' in caption
+        assert 'Espaguete à Bolonhesa' in caption
         assert 'Italian' in caption
         assert 'Spaghetti' in caption
         assert '200g' in caption
