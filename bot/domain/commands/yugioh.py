@@ -63,8 +63,10 @@ class YugiohCommand(CardBoosterCommand):
         if meta:
             lines.append('   '.join(meta))
 
-        desc_lines = [line.strip() for line in card['desc'].strip().split('\n') if line.strip()]
-        lines.append('\n> ' + '\n> '.join(desc_lines))
+        desc_text = ' '.join(
+            line.strip() for line in card['desc'].strip().split('\n') if line.strip()
+        )
+        lines.append(f'\n> {desc_text}')
 
         return '\n'.join(lines)
 

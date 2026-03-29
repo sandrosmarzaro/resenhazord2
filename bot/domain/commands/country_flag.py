@@ -7,6 +7,7 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.translator import Translator
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -43,6 +44,10 @@ class CountryFlagCommand(Command):
             detail = 'detail' in parsed.flags
             if detail:
                 country = await self._fetch_detail(country)
+            name = country.get('name', {})
+            common_pt = await Translator.to_pt(name.get('common', ''))
+            official_pt = await Translator.to_pt(name.get('official', ''))
+            country = {**country, 'name': {**name, 'common': common_pt, 'official': official_pt}}
             caption = self._build_caption(country, detail=detail)
             return [Reply.to(data).image(country['flags']['png'], caption)]
         except Exception:
@@ -84,7 +89,7 @@ class CountryFlagCommand(Command):
             lines.append(f'_{name.get("official", "")}_')
         lines.append('')
         lines.append(location_line)
-        lines.append(f'🏙️ Capital: {capital}')
+        lines.append(f'🏙️ {capital}')
         lines.append(f'👥 {population} habitantes')
         lines.append(f'📐 {area} km²')
         lines.append(f'🗣️ {languages}')
