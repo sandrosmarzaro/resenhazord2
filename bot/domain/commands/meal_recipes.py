@@ -1,5 +1,6 @@
 import structlog
 
+from bot.data.meal_categories import AREA_PT, CATEGORY_PT
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -40,8 +41,8 @@ class MealRecipesCommand(Command):
         response.raise_for_status()
         meal = response.json()['meals'][0]
 
-        area = meal.get('strArea') or 'Sem País'
-        category = meal.get('strCategory') or ''
+        area = AREA_PT.get(meal.get('strArea') or '', meal.get('strArea') or 'Sem País')
+        category = CATEGORY_PT.get(meal.get('strCategory') or '', meal.get('strCategory') or '')
         tags = meal.get('strTags') or ''
         meta = f'🗺️ {area}   🍽️ {category}'
         if tags:
