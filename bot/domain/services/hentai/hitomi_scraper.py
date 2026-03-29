@@ -22,12 +22,13 @@ class HitomiScraper:
 
     @classmethod
     async def fetch(cls) -> HentaiGallery:
-        headers = {'Referer': cls.REFERER}
+        gallery_headers = {'Referer': cls.REFERER}
+        nozomi_headers = {**gallery_headers, 'Accept-Encoding': 'identity'}
         page_bytes = cls.PAGE_SIZE * cls.INT_SIZE - 1
 
         res = await HttpClient.get(
             cls.NOZOMI_URL,
-            headers={**headers, 'Range': f'bytes=0-{page_bytes}'},
+            headers={**nozomi_headers, 'Range': f'bytes=0-{page_bytes}'},
         )
 
         total_ids = cls._parse_total_ids(res)
@@ -38,7 +39,10 @@ class HitomiScraper:
             byte_start = page_start * cls.INT_SIZE
             res = await HttpClient.get(
                 cls.NOZOMI_URL,
-                headers={**headers, 'Range': f'bytes={byte_start}-{byte_start + page_bytes}'},
+                headers={
+                    **nozomi_headers,
+                    'Range': f'bytes={byte_start}-{byte_start + page_bytes}',
+                },
             )
             data = res.content
 
@@ -53,7 +57,7 @@ class HitomiScraper:
             raise ExternalServiceError(msg)
 
         gallery_id = random.choice(ids)  # noqa: S311
-        return await cls._retrieve_gallery(gallery_id, headers)
+        return await cls._retrieve_gallery(gallery_id, gallery_headers)
 
     @classmethod
     def _parse_total_ids(cls, res: httpx.Response) -> int:
