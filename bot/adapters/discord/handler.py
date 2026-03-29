@@ -95,7 +95,7 @@ class DiscordInteractionHandler:
                     continue
                 except httpx.HTTPError:
                     logger.warning('discord_audio_download_failed', url=content.url)
-            elif isinstance(content, ImageContent) and content.url.startswith('http://'):
+            elif isinstance(content, ImageContent):
                 try:
                     response = await HttpClient.get(content.url, follow_redirects=True)
                     new_content = ImageBufferContent(data=response.content, caption=content.caption)
@@ -150,4 +150,5 @@ class DiscordInteractionHandler:
             message_id=str(interaction.id),
             is_group=interaction.guild_id is not None,
             push_name=interaction.user.display_name,
+            platform='discord',
         )

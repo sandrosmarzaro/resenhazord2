@@ -99,11 +99,15 @@ class TestHandle:
             'bot.adapters.discord.handler.CommandRegistry.instance',
             return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
         )
+        mock_response = MagicMock()
+        mock_response.content = b'image-bytes'
+        mocker.patch('bot.adapters.discord.handler.HttpClient.get', return_value=mock_response)
 
         await handler.handle(port, interaction)
 
         call_kwargs = port.send_followup.call_args
         assert call_kwargs.kwargs['embed'] is not None
+        assert call_kwargs.kwargs['file'] is not None
         assert call_kwargs.args[0] is None
 
     @pytest.mark.anyio
@@ -451,16 +455,22 @@ class TestPreprocessMessages:
         assert result[0].content.caption == 'cap'
 
     @pytest.mark.anyio
-    async def test_https_image_not_downloaded(self, mocker):
-        mock_get = mocker.patch('bot.adapters.discord.handler.HttpClient.get')
+    async def test_https_image_downloads_and_converts(self, mocker):
+        mock_response = MagicMock()
+        mock_response.content = b'image-bytes'
+        mocker.patch(
+            'bot.adapters.discord.handler.HttpClient.get',
+            return_value=mock_response,
+        )
         messages = [
             BotMessage(jid=self.JID, content=ImageContent(url='https://example.com/img.jpg'))
         ]
 
         result = await DiscordInteractionHandler._preprocess_messages(messages)
 
-        mock_get.assert_not_called()
-        assert isinstance(result[0].content, ImageContent)
+        assert len(result) == 1
+        assert isinstance(result[0].content, ImageBufferContent)
+        assert result[0].content.data == b'image-bytes'
 
     @pytest.mark.anyio
     async def test_text_content_passes_through(self, mocker):
