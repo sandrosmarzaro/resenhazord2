@@ -63,15 +63,15 @@ class YugiohCommand(CardBoosterCommand):
         if meta:
             lines.append('   '.join(meta))
 
-        desc = card['desc'].replace('\n', ' ')
-        lines.append(f'\n> {desc}')
+        desc_lines = [line.strip() for line in card['desc'].strip().split('\n') if line.strip()]
+        lines.append('\n> ' + '\n> '.join(desc_lines))
 
         return '\n'.join(lines)
 
     @staticmethod
     def _build_booster_label(card: dict) -> str:
         card_type = card.get('humanReadableCardType', card.get('type', ''))
-        parts: list[str] = [card['name']]
+        parts: list[str] = [f'*{card["name"]}*']
         if card_type:
             parts.append(card_type)
         meta: list[str] = []
