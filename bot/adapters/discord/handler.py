@@ -1,4 +1,5 @@
 import discord
+import httpx
 import structlog
 
 from bot.adapters.discord.renderer import DiscordResponseRenderer
@@ -92,7 +93,7 @@ class DiscordInteractionHandler:
                     )
                     result.append(BotMessage(jid=message.jid, content=new_content))
                     continue
-                except Exception:  # noqa: BLE001
+                except httpx.HTTPError:
                     logger.warning('discord_audio_download_failed', url=content.url)
             elif isinstance(content, ImageContent) and content.url.startswith('http://'):
                 try:
@@ -100,7 +101,7 @@ class DiscordInteractionHandler:
                     new_content = ImageBufferContent(data=response.content, caption=content.caption)
                     result.append(BotMessage(jid=message.jid, content=new_content))
                     continue
-                except Exception:  # noqa: BLE001
+                except httpx.HTTPError:
                     logger.warning('discord_image_download_failed', url=content.url)
             result.append(message)
         return result

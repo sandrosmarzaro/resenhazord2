@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 
 from bot.adapters.discord.handler import DiscordInteractionHandler
@@ -474,7 +475,7 @@ class TestPreprocessMessages:
     async def test_audio_download_failure_falls_back_to_original(self, mocker):
         mocker.patch(
             'bot.adapters.discord.handler.HttpClient.get',
-            side_effect=Exception('network error'),
+            side_effect=httpx.ConnectError('network error'),
         )
         original = BotMessage(jid=self.JID, content=AudioContent(url='https://broken.com/audio'))
         result = await DiscordInteractionHandler._preprocess_messages([original])
