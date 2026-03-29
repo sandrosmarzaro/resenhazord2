@@ -8,7 +8,8 @@ import pytest
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.domain.commands.base import ArgType, Command, CommandConfig, CommandScope, OptionDef
 from bot.domain.exceptions import BotError
-from bot.domain.models.contents.image_content import ImageContent
+from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
+from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 
@@ -369,3 +370,113 @@ class TestNsfwAndGroupOnly:
         port.send_message.assert_called_once()
         assert 'servidores' in port.send_message.call_args[0][0]
         strategy.run.assert_not_called()
+
+
+class TestRegisterName:
+    def test_register_name_maps_discord_to_registry(self):
+        handler = DiscordInteractionHandler()
+        handler.register_name('rule-34', ',rule 34')
+        assert handler._name_map['rule-34'] == ',rule 34'
+
+    def test_build_command_text_uses_name_map(self, mocker):
+        handler = DiscordInteractionHandler()
+        handler.register_name('rule-34', ',rule 34')
+        config = CommandConfig(name='rule 34')
+        strategy = MagicMock(spec=Command)
+        strategy.config = config
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+        )
+
+        result = handler._build_command_text('rule-34', {})
+
+        assert result == ',rule 34'
+
+    def test_build_command_text_falls_back_to_prefix_when_not_in_map(self, mocker):
+        handler = DiscordInteractionHandler()
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=MagicMock(get_strategy=MagicMock(return_value=None)),
+        )
+
+        result = handler._build_command_text('d20', {})
+
+        assert result == ',d20'
+
+
+class TestPreprocessMessages:
+    JID = 'test-jid'
+
+    @pytest.mark.anyio
+    async def test_audio_content_downloads_and_converts(self, mocker):
+        mock_response = MagicMock()
+        mock_response.content = b'audio-bytes'
+        mocker.patch(
+            'bot.adapters.discord.handler.HttpClient.get',
+            return_value=mock_response,
+        )
+        messages = [
+            BotMessage(jid=self.JID, content=AudioContent(url='https://tts.example.com/audio'))
+        ]
+
+        result = await DiscordInteractionHandler._preprocess_messages(messages)
+
+        assert len(result) == 1
+        assert isinstance(result[0].content, AudioBufferContent)
+        assert result[0].content.data == b'audio-bytes'
+        assert result[0].content.type == 'audio_mp3'
+
+    @pytest.mark.anyio
+    async def test_http_image_downloads_and_converts(self, mocker):
+        mock_response = MagicMock()
+        mock_response.content = b'image-bytes'
+        mocker.patch(
+            'bot.adapters.discord.handler.HttpClient.get',
+            return_value=mock_response,
+        )
+        messages = [
+            BotMessage(
+                jid=self.JID,
+                content=ImageContent(url='http://gatherer.wizards.com/img.jpg', caption='cap'),
+            )
+        ]
+
+        result = await DiscordInteractionHandler._preprocess_messages(messages)
+
+        assert len(result) == 1
+        assert isinstance(result[0].content, ImageBufferContent)
+        assert result[0].content.data == b'image-bytes'
+        assert result[0].content.caption == 'cap'
+
+    @pytest.mark.anyio
+    async def test_https_image_not_downloaded(self, mocker):
+        mock_get = mocker.patch('bot.adapters.discord.handler.HttpClient.get')
+        messages = [
+            BotMessage(jid=self.JID, content=ImageContent(url='https://example.com/img.jpg'))
+        ]
+
+        result = await DiscordInteractionHandler._preprocess_messages(messages)
+
+        mock_get.assert_not_called()
+        assert isinstance(result[0].content, ImageContent)
+
+    @pytest.mark.anyio
+    async def test_text_content_passes_through(self, mocker):
+        mocker.patch('bot.adapters.discord.handler.HttpClient.get')
+        messages = [BotMessage(jid=self.JID, content=TextContent(text='hello'))]
+
+        result = await DiscordInteractionHandler._preprocess_messages(messages)
+
+        assert result == messages
+
+    @pytest.mark.anyio
+    async def test_audio_download_failure_falls_back_to_original(self, mocker):
+        mocker.patch(
+            'bot.adapters.discord.handler.HttpClient.get',
+            side_effect=Exception('network error'),
+        )
+        original = BotMessage(jid=self.JID, content=AudioContent(url='https://broken.com/audio'))
+        result = await DiscordInteractionHandler._preprocess_messages([original])
+
+        assert result[0] is original

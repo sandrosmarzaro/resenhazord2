@@ -37,18 +37,30 @@ class DiscordBot:
             if 'discord' not in command.config.platforms:
                 continue
             self._register_slash_command(command)
+            for alias in command.config.aliases:
+                self._register_alias(command, alias)
             logger.info('discord_command_registered', name=command.config.name)
 
     def _register_slash_command(self, command: Command) -> None:
         config = command.config
-        name = self._normalize_name(config.name)
+        discord_name = self._normalize_name(config.name)
+        self._handler.register_name(discord_name, f',{config.name}')
+        self._do_register(discord_name, command)
+
+    def _register_alias(self, command: Command, alias: str) -> None:
+        discord_name = self._normalize_name(alias)
+        self._handler.register_name(discord_name, f',{alias}')
+        self._do_register(discord_name, command)
+
+    def _do_register(self, discord_name: str, command: Command) -> None:
+        config = command.config
         description = command.menu_description[: self.DISCORD_DESC_MAX_LENGTH]
 
         callback = self._make_callback()
         callback.__signature__ = self._build_signature(config)
 
         slash_cmd = app_commands.Command(
-            name=name,
+            name=discord_name,
             description=description,
             callback=callback,  # type: ignore[arg-type]
         )
@@ -91,7 +103,7 @@ class DiscordBot:
                 annotation=str | None,
             )
             for opt in config.options
-            if opt.values
+            if opt.values or opt.pattern
         )
 
         for flag in config.flags:

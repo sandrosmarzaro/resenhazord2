@@ -168,12 +168,50 @@ class TestRenderUnsupported:
         assert reply.embed is None
         assert reply.file is None
 
-    def test_raw_returns_fallback_text(self, renderer):
+    def test_raw_without_media_returns_fallback_text(self, renderer):
         msg = make_message(RawContent(content={'type': 'buttons'}))
 
         reply = renderer.render(msg)
 
         assert reply.text == DiscordResponseRenderer.UNSUPPORTED_MESSAGE
+
+
+class TestRenderRaw:
+    def test_raw_with_video_returns_text_url(self, renderer):
+        msg = make_message(RawContent(content={'video': {'url': 'https://example.com/v.mp4'}}))
+
+        reply = renderer.render(msg)
+
+        assert 'https://example.com/v.mp4' in reply.text
+        assert reply.embed is None
+
+    def test_raw_video_with_caption_prepends_caption(self, renderer):
+        msg = make_message(
+            RawContent(content={'video': {'url': 'https://v.com/x.mp4'}, 'caption': 'Watch!'})
+        )
+
+        reply = renderer.render(msg)
+
+        assert reply.text == 'Watch!\n\nhttps://v.com/x.mp4'
+
+    def test_raw_with_image_returns_embed(self, renderer):
+        msg = make_message(
+            RawContent(content={'image': {'url': 'https://example.com/img.jpg'}, 'caption': 'Hi'})
+        )
+
+        reply = renderer.render(msg)
+
+        assert reply.embed is not None
+        assert reply.embed.image.url == 'https://example.com/img.jpg'
+        assert reply.embed.description == 'Hi'
+
+    def test_raw_image_without_caption(self, renderer):
+        msg = make_message(RawContent(content={'image': {'url': 'https://example.com/img.jpg'}}))
+
+        reply = renderer.render(msg)
+
+        assert reply.embed is not None
+        assert reply.embed.description is None
 
 
 class TestRenderMany:

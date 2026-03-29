@@ -37,7 +37,7 @@ class DiscordResponseRenderer:
         AudioContent: '_render_audio',
         AudioBufferContent: '_render_audio_buffer',
         StickerContent: '_render_unsupported',
-        RawContent: '_render_unsupported',
+        RawContent: '_render_raw',
     }
 
     def render(self, message: BotMessage) -> DiscordReply:
@@ -91,6 +91,22 @@ class DiscordResponseRenderer:
         filename = f'audio.{ext}'
         file = discord.File(io.BytesIO(content.data), filename=filename)
         return DiscordReply(file=file)
+
+    def _render_raw(self, content: RawContent) -> DiscordReply:
+        raw = content.content
+        caption: str | None = raw.get('caption') or None
+        if 'video' in raw:
+            url: str = raw['video'].get('url', '')
+            text = f'{caption}\n\n{url}' if caption else url
+            return DiscordReply(text=text)
+        if 'image' in raw:
+            url = raw['image'].get('url', '')
+            embed = discord.Embed()
+            if caption:
+                embed.description = caption
+            embed.set_image(url=url)
+            return DiscordReply(embed=embed)
+        return DiscordReply(text=self.UNSUPPORTED_MESSAGE)
 
     def _render_unsupported(self, content: MessageContent) -> DiscordReply:
         logger.warning('discord_unsupported_content', content_type=type(content).__name__)

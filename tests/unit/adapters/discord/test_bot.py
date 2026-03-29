@@ -95,6 +95,18 @@ class TestBuildSignature:
 
         assert 'args' not in sig.parameters
 
+    def test_pattern_option_adds_string_param(self):
+        config = CommandConfig(
+            name='test',
+            options=[OptionDef(name='lang', pattern=r'[A-Za-z]{2}-[A-Za-z]{2}')],
+        )
+        sig = DiscordBot._build_signature(config)
+
+        assert 'lang' in sig.parameters
+        param = sig.parameters['lang']
+        assert param.default is None
+        assert param.annotation == (str | None)
+
 
 class TestRegisterCommands:
     def test_only_registers_discord_commands(self):
@@ -117,6 +129,20 @@ class TestRegisterCommands:
         assert 'd20' in added_names
         assert 'jackpot' in added_names
         assert 'sticker' not in added_names
+
+    def test_aliases_registered_as_separate_commands(self):
+        cmd = make_command(
+            CommandConfig(name='anime', aliases=['manga'], platforms=['whatsapp', 'discord'])
+        )
+
+        with patch('bot.adapters.discord.bot.CommandRegistry') as mock_registry:
+            mock_registry.instance.return_value.get_all.return_value = [cmd]
+            bot = DiscordBot('123456789')
+            bot.register_commands()
+
+        added_names = [c.name for c in bot._tree.get_commands(guild=bot._guild)]
+        assert 'anime' in added_names
+        assert 'manga' in added_names
 
     def test_command_with_option_gets_choices(self):
         cmd = make_command(

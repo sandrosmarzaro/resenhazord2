@@ -6,6 +6,10 @@ from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, CommandScope
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
+from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
+from bot.domain.models.message import BotMessage
+from bot.infrastructure.http_client import HttpClient
 from bot.ports.discord_port import DiscordPort
 
 logger = structlog.get_logger()
@@ -16,6 +20,10 @@ class DiscordInteractionHandler:
 
     def __init__(self, renderer: DiscordResponseRenderer | None = None) -> None:
         self._renderer = renderer or DiscordResponseRenderer()
+        self._name_map: dict[str, str] = {}
+
+    def register_name(self, discord_name: str, registry_text: str) -> None:
+        self._name_map[discord_name] = registry_text
 
     async def handle(self, port: DiscordPort, interaction: discord.Interaction, **kwargs) -> None:
         command_name = interaction.command.name if interaction.command else None
@@ -66,13 +74,41 @@ class DiscordInteractionHandler:
             await port.send_followup('Sem resposta do bot.')
             return
 
+        messages = await self._preprocess_messages(messages)
         replies = self._renderer.render_many(messages)
         for reply in replies:
             await port.send_followup(reply.text, embed=reply.embed, file=reply.file)
 
+    @staticmethod
+    async def _preprocess_messages(messages: list[BotMessage]) -> list[BotMessage]:
+        result: list[BotMessage] = []
+        for message in messages:
+            content = message.content
+            if isinstance(content, AudioContent):
+                try:
+                    response = await HttpClient.get(content.url, follow_redirects=True)
+                    new_content = AudioBufferContent(
+                        data=response.content, mimetype='audio/mpeg', type='audio_mp3'
+                    )
+                    result.append(BotMessage(jid=message.jid, content=new_content))
+                    continue
+                except Exception:  # noqa: BLE001
+                    logger.warning('discord_audio_download_failed', url=content.url)
+            elif isinstance(content, ImageContent) and content.url.startswith('http://'):
+                try:
+                    response = await HttpClient.get(content.url, follow_redirects=True)
+                    new_content = ImageBufferContent(data=response.content, caption=content.caption)
+                    result.append(BotMessage(jid=message.jid, content=new_content))
+                    continue
+                except Exception:  # noqa: BLE001
+                    logger.warning('discord_image_download_failed', url=content.url)
+            result.append(message)
+        return result
+
     def _build_command_text(self, command_name: str, kwargs: dict) -> str:
-        parts = [f'{self.COMMAND_PREFIX}{command_name}']
-        strategy = CommandRegistry.instance().get_strategy(f'{self.COMMAND_PREFIX}{command_name}')
+        registry_prefix = self._name_map.get(command_name, f'{self.COMMAND_PREFIX}{command_name}')
+        parts = [registry_prefix]
+        strategy = CommandRegistry.instance().get_strategy(registry_prefix)
         if strategy is not None:
             parts.extend(self._extract_text_parts(strategy, kwargs))
         return ' '.join(parts)
