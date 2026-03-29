@@ -1,10 +1,23 @@
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.13-alpine AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.8.21 /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
+
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    libsodium-dev \
+    jpeg-dev \
+    zlib-dev \
+    freetype-dev \
+    libpng-dev \
+    libwebp-dev \
+    openjpeg-dev \
+    tiff-dev
 
 WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -15,15 +28,21 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-FROM python:3.13-slim-bookworm AS production
+FROM python:3.13-alpine AS production
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     ffmpeg \
-    chromium \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    libjpeg-turbo \
+    libwebp \
+    freetype \
+    libpng \
+    openjpeg \
+    tiff \
+    libffi \
+    libsodium
 
-RUN addgroup --system nonroot && adduser --system --ingroup nonroot nonroot
+RUN addgroup -S nonroot && adduser -S -G nonroot nonroot
 
 COPY --from=builder /app /app
 
