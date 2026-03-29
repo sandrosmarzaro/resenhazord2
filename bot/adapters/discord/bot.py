@@ -1,7 +1,7 @@
 import inspect
 import re
 import unicodedata
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 import discord
 import structlog
@@ -57,7 +57,7 @@ class DiscordBot:
         description = command.menu_description[: self.DISCORD_DESC_MAX_LENGTH]
 
         callback = self._make_callback()
-        setattr(callback, '__signature__', self._build_signature(config))
+        cast('Any', callback).__signature__ = self._build_signature(config)
 
         slash_cmd = app_commands.Command(
             name=discord_name,

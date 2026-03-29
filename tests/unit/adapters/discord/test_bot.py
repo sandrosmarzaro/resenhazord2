@@ -1,8 +1,9 @@
 import inspect
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
-from discord import app_commands
+if TYPE_CHECKING:
+    from discord import app_commands
 
 from bot.adapters.discord.bot import DiscordBot
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef
@@ -163,7 +164,7 @@ class TestRegisterCommands:
 
         registered = bot._tree.get_commands(guild=bot._guild)
         assert len(registered) == 1
-        slash = cast(app_commands.Command, registered[0])
+        slash = cast('app_commands.Command', registered[0])
         type_param = slash._params.get('type')
         assert type_param is not None
         assert len(type_param.choices) == 2
