@@ -8,7 +8,15 @@ from tests.factories.command_data import GroupCommandDataFactory
 MOCK_POKEMON = {
     'name': 'pikachu',
     'id': 25,
+    'height': 4,
+    'weight': 60,
     'types': [{'type': {'name': 'electric'}}],
+    'stats': [
+        {'stat': {'name': 'hp'}, 'base_stat': 35},
+        {'stat': {'name': 'attack'}, 'base_stat': 55},
+        {'stat': {'name': 'defense'}, 'base_stat': 40},
+        {'stat': {'name': 'speed'}, 'base_stat': 90},
+    ],
     'sprites': {
         'front_default': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
         'other': {

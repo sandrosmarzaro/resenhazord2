@@ -62,7 +62,17 @@ class PokemonCommand(CardBoosterCommand):
         types = self._format_types(pokemon['types'])
         image_url = self._resolve_image(pokemon)
 
-        caption = f'*{name}* — {types}\n\n📖 Pokédex #{pokemon["id"]}'
+        stats = {s['stat']['name']: s['base_stat'] for s in pokemon['stats']}
+        height = pokemon['height'] / 10
+        weight = pokemon['weight'] / 10
+        caption = (
+            f'*{name}* — {types}\n\n'
+            f'📖 #{pokemon["id"]}   📏 {height:.1f}m   ⚖️ {weight:.1f}kg\n'
+            f'❤️ {stats.get("hp", "?")}   '
+            f'⚔️ {stats.get("attack", "?")}   '
+            f'🛡️ {stats.get("defense", "?")}   '
+            f'⚡ {stats.get("speed", "?")}'
+        )
         buffer = await HttpClient.get_buffer(image_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
 
