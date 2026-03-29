@@ -11,6 +11,7 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.translator import Translator
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -49,7 +50,7 @@ class AnimalCommand(Command):
             if not animal_data:
                 return []
 
-            fact = self._extract_fact(animal_data['extract'])
+            fact = await Translator.to_pt(self._extract_fact(animal_data['extract']))
             emoji = ANIMAL_EMOJIS[animal_type]
             name = self._format_name(animal_type)
             caption = f'*{emoji} {name}*\n\n> {fact}'
