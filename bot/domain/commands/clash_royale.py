@@ -20,6 +20,7 @@ class ClashRoyaleCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='cr',
+            aliases=['clashroyale'],
             flags=['show', 'dm'],
             category='random',
             platforms=['whatsapp', 'discord'],

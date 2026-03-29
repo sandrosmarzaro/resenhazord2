@@ -1,0 +1,17 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+
+flag_management:
+  default_rules:
+    carryforward: true
+
+flags:
+  typescript:
+    paths:
+      - gateway/
+  python:
+    paths:
+      - bot/

@@ -109,3 +109,35 @@ All Sentry APIs are mocked in `gateway/tests/setup.ts`. When adding new `Sentry.
 fmt: (strings: TemplateStringsArray, ...values: unknown[]) =>
   String.raw({ raw: strings }, ...values);
 ```
+
+## Sentry MCP
+
+Claude Code has a Sentry MCP server configured (`mcp__claude_ai_Sentry__*`) that provides direct access to Sentry data without `curl` or the web UI. These tools are available during Claude Code sessions.
+
+**Common tools:**
+
+| Tool | What it does |
+|------|-------------|
+| `search_issues` | Search unresolved issues by query string (e.g. `is:unresolved`) |
+| `search_events` | Search raw events across projects |
+| `search_issue_events` | Fetch events for a specific issue ID |
+| `get_sentry_resource` | Fetch any Sentry REST resource by path |
+| `analyze_issue_with_seer` | Run Sentry's AI (Seer) to analyze root cause of an issue |
+| `update_issue` | Resolve, ignore, or assign an issue |
+| `find_organizations` / `find_projects` | List orgs and projects |
+| `whoami` | Verify authenticated identity |
+
+**Example prompts in Claude Code:**
+
+```
+# List recent unresolved issues
+search_issues query="is:unresolved" organization_slug="smarzaro"
+
+# Analyze a specific issue with Seer
+analyze_issue_with_seer issue_id="7333954839"
+
+# Resolve an issue
+update_issue issue_id="7333954839" status="resolved"
+```
+
+The MCP tools replace the manual `curl` workflow documented in the **Querying Issues** section above.
