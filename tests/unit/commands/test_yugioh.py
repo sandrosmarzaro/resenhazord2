@@ -110,7 +110,7 @@ class TestSingleCard:
         messages = await command.run(data)
 
         caption = messages[0].content.caption
-        assert '> The ultimate wizard in terms of attack and defense.' in caption
+        assert '> The ultimate wizard\n> in terms of attack\n> and defense.' in caption
 
     @pytest.mark.anyio
     async def test_spell_card_omits_monster_stats(self, command, respx_mock):
