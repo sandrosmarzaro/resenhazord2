@@ -55,7 +55,7 @@ class DiscordInteractionHandler:
         if strategy.config.scope != CommandScope.NSFW:
             return False
         channel = interaction.channel
-        if channel is not None and hasattr(channel, 'nsfw') and not channel.nsfw:
+        if channel is not None and not getattr(channel, 'nsfw', True):
             await port.send_followup('Este comando so pode ser usado em canais NSFW.')
             return True
         return False

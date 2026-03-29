@@ -57,7 +57,7 @@ class DiscordBot:
         description = command.menu_description[: self.DISCORD_DESC_MAX_LENGTH]
 
         callback = self._make_callback()
-        callback.__signature__ = self._build_signature(config)
+        setattr(callback, '__signature__', self._build_signature(config))
 
         slash_cmd = app_commands.Command(
             name=discord_name,
