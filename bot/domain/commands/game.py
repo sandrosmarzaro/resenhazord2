@@ -34,7 +34,7 @@ class GameCommand(Command):
         return CommandConfig(
             name='game',
             flags=['show', 'dm'],
-            options=[OptionDef(name='source', values=['rawg'])],
+            options=[OptionDef(name='source', values=['rawg', 'igdb'])],
             category='random',
             platforms=['whatsapp', 'discord'],
         )
@@ -44,9 +44,13 @@ class GameCommand(Command):
         return 'Receba um jogo aleatório com capa e informações.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        sources = self._sources
-        if parsed.options.get('source') == 'rawg':
+        source_opt = parsed.options.get('source')
+        if source_opt == 'rawg':
             sources = [s for s in self._sources if isinstance(s, RawgSource)]
+        elif source_opt == 'igdb':
+            sources = [s for s in self._sources if isinstance(s, IgdbSource)]
+        else:
+            sources = self._sources
 
         for source in sources:
             try:
