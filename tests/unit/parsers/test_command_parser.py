@@ -164,6 +164,9 @@ class TestCommandWithOptionsAndFlagsAndArgs:
             (',img hd flux-pro a cat', True),
             (',img show dm a cat', True),
             (',img 4k turbo show dm a beautiful sunset', True),
+            # order-independent: flags before options
+            (',img show hd a cat', True),
+            (',img dm show turbo 4k a sunset', True),
         ],
     )
     def test_matches(self, text, expected):
@@ -323,6 +326,8 @@ class TestCommandWithMultipleOptions:
             (',biblia', True),
             (',bíblia pt nvi', True),
             (',biblia en kjv Genesis 1:1', True),
+            # order-independent: version before lang
+            (',bíblia nvi pt Genesis 1:1', True),
         ],
     )
     def test_matches(self, text, expected):

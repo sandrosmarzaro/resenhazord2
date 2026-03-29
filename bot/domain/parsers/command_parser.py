@@ -95,17 +95,20 @@ class CommandParser:
         else:
             parts.append(f'(?:{"|".join(name_patterns)})')
 
+        # All options and flags are accepted in any order
+        token_alternatives: list[str] = []
         for opt in self._config.options:
             if opt.values:
                 sorted_values = sorted(opt.values, key=len, reverse=True)
                 val_patterns = [self._replace_diacritics(v) for v in sorted_values]
-                parts.append(f'\\s*(?:{"|".join(val_patterns)})?')
+                token_alternatives.append(f'(?:{"|".join(val_patterns)})')
             elif opt.pattern:
-                parts.append(f'\\s*(?:{opt.pattern})?')
+                token_alternatives.append(f'(?:{opt.pattern})')
+        token_alternatives.extend(self._replace_diacritics(flag) for flag in self._config.flags)
 
-        if self._config.flags:
-            flag_patterns = [self._replace_diacritics(f) for f in self._config.flags]
-            parts.append(f'(?:\\s+(?:{"|".join(flag_patterns)}))*')
+        if token_alternatives:
+            token_pat = '|'.join(token_alternatives)
+            parts.append(f'(?:\\s+(?:{token_pat}))*')
 
         args = self._config.args
         if args == ArgType.NONE:
