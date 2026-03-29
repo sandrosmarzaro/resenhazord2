@@ -83,7 +83,6 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(FactCommand())
     registry.register(FipeCommand())
     registry.register(GroupMentionsCommand())
-    registry.register(HentaiCommand())
     registry.register(HoroscopeCommand())
     registry.register(JackpotCommand())
     registry.register(FuckCommand())
@@ -128,4 +127,5 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
     registry.register(
         HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
     )
+    registry.register(HentaiCommand(nhentai_mirror_url=settings.nhentai_mirror_url))
     registry.register(MusicCommand(jamendo_client_id=settings.jamendo_client_id))

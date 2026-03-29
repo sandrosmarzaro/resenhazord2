@@ -18,7 +18,7 @@ class HentaiCommand(Command):
     MAX_TAGS_SHOWN = 10
     COVER_RETRIES = 3
 
-    def __init__(self, nhentai_mirror_url: str = 'https://nhentai.net') -> None:
+    def __init__(self, nhentai_mirror_url: str = 'https://nhentai.xxx') -> None:
         super().__init__()
         self._nhentai = NhentaiScraper(mirror_url=nhentai_mirror_url)
 
