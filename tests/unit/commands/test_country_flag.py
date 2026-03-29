@@ -11,6 +11,14 @@ def command():
     return CountryFlagCommand()
 
 
+@pytest.fixture(autouse=True)
+def mock_translator(mocker):
+    mocker.patch(
+        'bot.domain.commands.country_flag.Translator.to_pt',
+        side_effect=lambda text: text,
+    )
+
+
 def _mock_country(**overrides):
     return {
         'name': {'common': 'Brazil', 'official': 'Federative Republic of Brazil'},
