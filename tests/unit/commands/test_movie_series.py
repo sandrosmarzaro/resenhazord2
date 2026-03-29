@@ -46,6 +46,8 @@ class TestMatches:
             (',serie', True),
             (', filme top100', True),
             (', filme pop', True),
+            (', filme pop100', True),
+            (', filme pop1000', True),
             (', filme show', True),
             ('filme', False),
             ('hello', False),
@@ -108,6 +110,24 @@ class TestRun:
         await command.run(data)
 
         assert route.called
+
+    @pytest.mark.anyio
+    async def test_pop_with_n_limits_page_range(self, command, respx_mock, mocker):
+        data = GroupCommandDataFactory.build(text=', filme pop100')
+        route = respx_mock.get(url__regex=r'.*popular.*').mock(
+            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+        )
+        respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
+            return_value=httpx.Response(200, json={'genres': [{'id': 28, 'name': 'Ação'}]})
+        )
+        mock_randint = mocker.patch(
+            'bot.domain.commands.movie_series.random.randint', return_value=1
+        )
+
+        await command.run(data)
+
+        assert route.called
+        mock_randint.assert_called_once_with(1, 5)
 
     @pytest.mark.anyio
     async def test_default_mode_is_popular(self, command, respx_mock):

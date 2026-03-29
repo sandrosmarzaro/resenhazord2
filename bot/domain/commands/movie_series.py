@@ -23,7 +23,7 @@ class MovieSeriesCommand(Command):
             name='filme',
             aliases=['série', 'movie', 'series'],
             options=[
-                OptionDef(name='mode', values=['pop']),
+                OptionDef(name='mode', pattern=r'pop\d*'),
                 OptionDef(name='top', pattern=r'top\d+'),
             ],
             flags=['show', 'dm'],
@@ -33,16 +33,24 @@ class MovieSeriesCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Receba aleatoriamente um filme ou série. Use top<N> para limitar o ranking.'
+        return 'Receba um filme ou série aleatório. Use top<N> ou pop<N> para limitar o ranking.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         media_type = 'movie' if parsed.command_name in self.MOVIE_NAMES else 'tv'
-        is_pop = parsed.options.get('mode') == 'pop'
-
+        pop_str = parsed.options.get('mode', '')
         top_str = parsed.options.get('top', '')
-        if top_str:
+
+        if pop_str:
+            mode = 'popular'
+            pop_n = pop_str[3:]
+            max_page = (
+                max(1, (int(pop_n) + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+                if pop_n
+                else self.MAX_PAGE
+            )
+        elif top_str:
             n = int(top_str[3:])
-            mode = 'popular' if is_pop else 'top_rated'
+            mode = 'top_rated'
             max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
         else:
             mode = 'popular'
