@@ -96,7 +96,7 @@ class HearthstoneCommand(CardBoosterCommand):
             response.raise_for_status()
             card = response.json()['cards'][0]
             image_url = self._safe_text(card.get('image', ''))
-            label = self._safe_text(card.get('name', ''))
+            label = self._build_booster_label(card)
             results[index] = CardItem(image_url=image_url, label=label)
 
         async with anyio.create_task_group() as tg:
@@ -106,6 +106,17 @@ class HearthstoneCommand(CardBoosterCommand):
         items: list[CardItem] = [r for r in results if r is not None]
 
         return items
+
+    def _build_booster_label(self, card: dict) -> str:
+        name = self._safe_text(card.get('name', ''))
+        stats: list[str] = []
+        if card.get('manaCost') is not None:
+            stats.append(f'💎{card["manaCost"]}')
+        if card.get('attack') is not None:
+            stats.append(f'⚔️{card["attack"]}')
+        if card.get('health') is not None:
+            stats.append(f'❤️{card["health"]}')
+        return f'*{name}*' + ('\n' + '  '.join(stats) if stats else '')
 
     @staticmethod
     def _safe_text(value: object) -> str:
