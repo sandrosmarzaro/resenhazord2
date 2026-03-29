@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     discord_guild_id: str = ''
     discord_app_id: str = ''
 
-    nhentai_mirror_url: str = 'https://nhentai.xxx'
+    nhentai_mirror_url: str = 'https://nhentai.to'
 
     bnet_id: str = ''
     bnet_secret: str = ''

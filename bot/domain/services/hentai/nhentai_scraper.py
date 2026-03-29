@@ -1,6 +1,5 @@
 import random
 from datetime import UTC, datetime
-from http import HTTPStatus
 from typing import ClassVar
 
 from bot.data.hentai_gallery import HentaiGallery
@@ -9,31 +8,26 @@ from bot.infrastructure.http_client import HttpClient
 
 
 class NhentaiScraper:
-    MAX_ID = 500_000
-    MAX_RETRIES = 5
-    NOT_FOUND = HTTPStatus.NOT_FOUND
+    MAX_PAGE = 100
     EXT_MAP: ClassVar[dict[str, str]] = {'j': 'jpg', 'p': 'png', 'g': 'gif', 'w': 'webp'}
 
-    def __init__(self, mirror_url: str = 'https://nhentai.net') -> None:
+    def __init__(self, mirror_url: str = 'https://nhentai.to') -> None:
         self._mirror_url = mirror_url
 
     async def fetch(self) -> HentaiGallery:
-        for _ in range(self.MAX_RETRIES):
-            gallery_id = random.randint(1, self.MAX_ID)  # noqa: S311
-            try:
-                res = await HttpClient.get(f'{self._mirror_url}/api/gallery/{gallery_id}')
-                if res.status_code == self.NOT_FOUND:
-                    continue
-                res.raise_for_status()
-                return self._parse(res.json())
-            except Exception as exc:
-                status = getattr(getattr(exc, 'response', None), 'status_code', None)
-                if status == self.NOT_FOUND:
-                    continue
-                raise
+        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
+        res = await HttpClient.get(
+            f'{self._mirror_url}/api/galleries/all',
+            params={'page': page},
+        )
+        res.raise_for_status()
+        results = res.json().get('result', [])
 
-        msg = 'Failed to fetch nhentai gallery after max retries'
-        raise ExternalServiceError(msg)
+        if not results:
+            msg = f'nhentai listing page {page} returned no galleries'
+            raise ExternalServiceError(msg)
+
+        return self._parse(random.choice(results))  # noqa: S311
 
     def _parse(self, data: dict) -> HentaiGallery:
         artists = [t['name'] for t in data['tags'] if t['type'] == 'artist']

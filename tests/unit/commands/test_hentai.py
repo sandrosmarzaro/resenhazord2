@@ -81,7 +81,7 @@ def hitomi_cover_route(respx_mock):
 
 @pytest.fixture
 def nhentai_route(respx_mock):
-    return respx_mock.get(url__startswith='https://nhentai.xxx/api/gallery/')
+    return respx_mock.get(url__startswith='https://nhentai.to/api/galleries/all')
 
 
 @pytest.fixture
@@ -171,7 +171,9 @@ class TestNhentai:
     @pytest.mark.anyio
     async def test_nhentai_flag_uses_nhentai(self, command, nhentai_route, nhentai_cover_route):
         data = GroupCommandDataFactory.build(text=',hentai nhentai')
-        nhentai_route.mock(return_value=httpx.Response(200, json=MOCK_NHENTAI_RESPONSE))
+        nhentai_route.mock(
+            return_value=httpx.Response(200, json={'result': [MOCK_NHENTAI_RESPONSE]})
+        )
 
         messages = await command.run(data)
 
@@ -181,7 +183,9 @@ class TestNhentai:
     @pytest.mark.anyio
     async def test_nhentai_caption_info(self, command, nhentai_route, nhentai_cover_route):
         data = GroupCommandDataFactory.build(text=',hentai nhentai')
-        nhentai_route.mock(return_value=httpx.Response(200, json=MOCK_NHENTAI_RESPONSE))
+        nhentai_route.mock(
+            return_value=httpx.Response(200, json={'result': [MOCK_NHENTAI_RESPONSE]})
+        )
 
         messages = await command.run(data)
         caption = messages[0].content.caption
@@ -193,19 +197,14 @@ class TestNhentai:
         assert 'english' in caption
 
     @pytest.mark.anyio
-    async def test_nhentai_retries_on_404(self, command, nhentai_route, nhentai_cover_route):
+    async def test_nhentai_raises_on_empty_listing(self, command, nhentai_route):
         data = GroupCommandDataFactory.build(text=',hentai nhentai')
-        nhentai_route.mock(
-            side_effect=[
-                httpx.Response(404),
-                httpx.Response(200, json=MOCK_NHENTAI_RESPONSE),
-            ]
-        )
+        nhentai_route.mock(return_value=httpx.Response(200, json={'result': []}))
 
-        messages = await command.run(data)
+        from bot.domain.exceptions import ExternalServiceError
 
-        assert isinstance(messages[0].content, ImageBufferContent)
-        assert nhentai_route.call_count == 2
+        with pytest.raises(ExternalServiceError):
+            await command.run(data)
 
     @pytest.mark.anyio
     async def test_nhentai_cover_url_format(self):
@@ -229,7 +228,9 @@ class TestDefaultFallback:
     ):
         data = GroupCommandDataFactory.build(text=',hentai')
         nozomi_route.mock(return_value=httpx.Response(200, content=b''))
-        nhentai_route.mock(return_value=httpx.Response(200, json=MOCK_NHENTAI_RESPONSE))
+        nhentai_route.mock(
+            return_value=httpx.Response(200, json={'result': [MOCK_NHENTAI_RESPONSE]})
+        )
 
         messages = await command.run(data)
 
