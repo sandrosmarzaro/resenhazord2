@@ -44,7 +44,7 @@ class TestMatches:
             (', FILME', True),
             (', série', True),
             (',serie', True),
-            (', filme top', True),
+            (', filme top100', True),
             (', filme pop', True),
             (', filme show', True),
             ('filme', False),
@@ -98,7 +98,7 @@ class TestRun:
 
     @pytest.mark.anyio
     async def test_top_mode_uses_top_rated(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', filme top')
+        data = GroupCommandDataFactory.build(text=', filme top100')
         route = respx_mock.get(url__regex=r'.*top_rated.*').mock(
             return_value=httpx.Response(200, json={'results': [_movie_item()]})
         )

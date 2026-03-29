@@ -1,6 +1,5 @@
 import random
 
-from bot.data.my_anime_list import RANGE_PAGES
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
 from bot.domain.models.command_data import CommandData
@@ -10,6 +9,8 @@ from bot.infrastructure.http_client import HttpClient
 
 class MyAnimeListCommand(Command):
     DEFAULT_MAX_PAGE = 20
+    MAX_TOP = 500
+    ITEMS_PER_PAGE = 25
 
     @property
     def config(self) -> CommandConfig:
@@ -17,19 +18,31 @@ class MyAnimeListCommand(Command):
             name='anime',
             aliases=['manga'],
             flags=['show', 'dm'],
-            options=[OptionDef(name='range', values=list(RANGE_PAGES.keys()))],
+            options=[OptionDef(name='top', pattern=r'top\d+')],
             category='random',
             platforms=['whatsapp', 'discord'],
         )
 
     @property
     def menu_description(self) -> str:
-        return 'Receba um anime ou mangá aleatório do top 500 do MyAnimeList.'
+        return (
+            f'Receba um anime ou mangá aleatório. '
+            f'Use top1-top{self.MAX_TOP} para limitar o ranking.'
+        )
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         base_url = 'https://api.jikan.moe/v4'
         media_type = 'anime' if parsed.command_name == 'anime' else 'manga'
-        max_page = RANGE_PAGES.get(parsed.options.get('range', ''), self.DEFAULT_MAX_PAGE)
+
+        top_str = parsed.options.get('top', '')
+        if top_str:
+            n = int(top_str[3:])
+            if not 1 <= n <= self.MAX_TOP:
+                return [Reply.to(data).text(f'Use top1 até top{self.MAX_TOP}. 📊')]
+            max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+        else:
+            max_page = self.DEFAULT_MAX_PAGE
+
         page = random.randint(1, max_page)  # noqa: S311
 
         response = await HttpClient.get(f'{base_url}/top/{media_type}', params={'page': page})

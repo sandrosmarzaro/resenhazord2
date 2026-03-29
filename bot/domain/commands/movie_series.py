@@ -9,6 +9,8 @@ from bot.infrastructure.http_client import HttpClient
 
 class MovieSeriesCommand(Command):
     MAX_PAGE = 25
+    ITEMS_PER_PAGE = 20
+    MAX_TOP = MAX_PAGE * ITEMS_PER_PAGE
     POSTER_SIZE = 'w500'
     MOVIE_NAMES: frozenset[str] = frozenset({'filme', 'movie'})
 
@@ -21,7 +23,10 @@ class MovieSeriesCommand(Command):
         return CommandConfig(
             name='filme',
             aliases=['série', 'movie', 'series'],
-            options=[OptionDef(name='mode', values=['top', 'pop'])],
+            options=[
+                OptionDef(name='mode', values=['pop']),
+                OptionDef(name='top', pattern=r'top\d+'),
+            ],
             flags=['show', 'dm'],
             category='random',
             platforms=['whatsapp', 'discord'],
@@ -29,15 +34,28 @@ class MovieSeriesCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Receba aleatoriamente um filme ou série top 500 em popularidade ou por nota.'
+        return (
+            f'Receba aleatoriamente um filme ou série. '
+            f'Use top1-top{self.MAX_TOP} para limitar o ranking por nota.'
+        )
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         media_type = 'movie' if parsed.command_name in self.MOVIE_NAMES else 'tv'
-        mode_value = parsed.options.get('mode')
-        mode = 'top_rated' if mode_value == 'top' else 'popular'
+
+        top_str = parsed.options.get('top', '')
+        if top_str:
+            n = int(top_str[3:])
+            if not 1 <= n <= self.MAX_TOP:
+                return [Reply.to(data).text(f'Use top1 até top{self.MAX_TOP}. 📊')]
+            mode = 'top_rated'
+            max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+        else:
+            mode = 'popular'
+            max_page = self.MAX_PAGE
+
         url = f'https://api.themoviedb.org/3/{media_type}/{mode}'
 
-        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
+        page = random.randint(1, max_page)  # noqa: S311
         response = await HttpClient.get(
             url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR', 'page': page}
         )
