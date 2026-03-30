@@ -22,7 +22,7 @@ class MusicEmbedBuilder:
             color=EMBED_COLOR,
         )
 
-        if track.thumbnail:
+        if track.thumbnail and track.thumbnail.startswith('http'):
             embed.set_thumbnail(url=track.thumbnail)
 
         embed.add_field(name='Duracao', value=duration_str, inline=True)

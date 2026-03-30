@@ -350,7 +350,7 @@ class TrackActionView(discord.ui.View):
         self._parent._update_buttons()
         queue = self._voice_manager.get_queue(self._guild_id)
         embed = MusicEmbedBuilder.queue_list(queue, self._parent._page, TRACKS_PER_PAGE)
-        msg = self._parent.message
+        msg = getattr(self._parent, 'message', None)
         if msg:
             await msg.edit(embed=embed, view=self._parent)
 

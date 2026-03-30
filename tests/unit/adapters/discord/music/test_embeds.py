@@ -89,6 +89,24 @@ class TestNowPlaying:
 
         assert embed.thumbnail.url == track.thumbnail
 
+    def test_skips_invalid_thumbnail(self):
+        queue = MusicQueue()
+        track = Track(
+            title='Song',
+            author='Artist',
+            url='https://youtube.com/watch?v=1',
+            stream_url='https://stream/1',
+            duration=180,
+            thumbnail='maxresdefault.jpg',
+            requested_by='User',
+            requested_by_id=1,
+        )
+        queue.add(track)
+
+        embed = MusicEmbedBuilder.now_playing(track, queue)
+
+        assert embed.thumbnail.url is None
+
 
 class TestQueueList:
     def test_empty_queue(self):
