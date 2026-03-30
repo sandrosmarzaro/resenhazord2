@@ -20,6 +20,7 @@ logger = structlog.get_logger()
 
 class VoiceManager:
     IDLE_DISCONNECT_SECONDS: ClassVar[int] = 300
+    EMPTY_CHANNEL_DISCONNECT_SECONDS: ClassVar[int] = 120
     FFMPEG_BEFORE_OPTIONS: ClassVar[str] = (
         '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
     )
@@ -165,6 +166,9 @@ class VoiceManager:
         self._now_playing_views[guild_id] = view
 
     async def _on_track_end(self, guild_id: int, error: Exception | None) -> None:
+        if error:
+            await self._notify_error(guild_id, error)
+
         queue = self.get_queue(guild_id)
         next_track = queue.advance()
 
@@ -173,6 +177,24 @@ class VoiceManager:
             return
 
         await self.play_track(guild_id, next_track)
+
+    async def _notify_error(self, guild_id: int, error: Exception) -> None:
+        channel = self._text_channels.get(guild_id)
+        if not channel:
+            return
+        with contextlib.suppress(discord.HTTPException):
+            await channel.send(f'Erro na reproducao: {error}. Pulando para a proxima.')
+
+    def schedule_empty_channel_disconnect(self, guild_id: int) -> None:
+        self._cancel_disconnect_timer(guild_id)
+        self._disconnect_tasks[guild_id] = asyncio.create_task(
+            self._empty_channel_disconnect(guild_id)
+        )
+
+    async def _empty_channel_disconnect(self, guild_id: int) -> None:
+        await asyncio.sleep(self.EMPTY_CHANNEL_DISCONNECT_SECONDS)
+        logger.info('empty_channel_disconnect', guild_id=guild_id)
+        await self.disconnect(guild_id)
 
     def _schedule_disconnect_timer(self, guild_id: int) -> None:
         self._cancel_disconnect_timer(guild_id)

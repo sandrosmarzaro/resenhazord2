@@ -156,6 +156,7 @@ class DiscordBot:
         client = self._client
         tree = self._tree
         guild = self._guild
+        vm = self._voice_manager
 
         @client.event
         async def on_ready() -> None:
@@ -166,3 +167,20 @@ class DiscordBot:
                 guild_id=guild.id,
                 synced_commands=[c.name for c in synced],
             )
+
+        @client.event
+        async def on_voice_state_update(
+            member: discord.Member,
+            before: discord.VoiceState,
+            _after: discord.VoiceState,
+        ) -> None:
+            if not before.channel or member.id == client.user.id:
+                return
+
+            bot_in_channel = client.user in before.channel.members
+            if not bot_in_channel:
+                return
+
+            non_bot_members = [m for m in before.channel.members if not m.bot]
+            if not non_bot_members:
+                vm.schedule_empty_channel_disconnect(member.guild.id)
