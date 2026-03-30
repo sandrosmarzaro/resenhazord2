@@ -29,6 +29,7 @@ class OptionDef:
     name: str
     values: list[str] = field(default_factory=list)
     pattern: str | None = None
+    description: str | None = None
 
 
 @dataclass(frozen=True)

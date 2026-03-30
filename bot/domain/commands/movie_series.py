@@ -23,7 +23,7 @@ class MovieSeriesCommand(Command):
             name='filme',
             aliases=['série', 'movie', 'series'],
             options=[
-                OptionDef(name='mode', pattern=r'pop\d*'),
+                OptionDef(name='mode', pattern=r'pop\d*', description='ex: pop, pop100, pop500'),
                 OptionDef(name='top', pattern=r'top\d+'),
             ],
             flags=['show', 'dm'],

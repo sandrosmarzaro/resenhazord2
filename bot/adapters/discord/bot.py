@@ -66,10 +66,14 @@ class DiscordBot:
         )
 
         for opt in config.options:
-            if opt.values and opt.name in slash_cmd._params:
+            if opt.name not in slash_cmd._params:
+                continue
+            if opt.values:
                 slash_cmd._params[opt.name].choices = [
                     app_commands.Choice(name=v, value=v) for v in opt.values
                 ]
+            if opt.description:
+                slash_cmd._params[opt.name].description = opt.description
 
         if 'args' in slash_cmd._params and config.args_label:
             slash_cmd._params['args'].description = config.args_label
