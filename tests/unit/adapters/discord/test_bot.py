@@ -169,8 +169,10 @@ class TestRegisterCommands:
             bot.register_commands()
 
         registered = bot._tree.get_commands(guild=bot._guild)
-        assert len(registered) == 1
-        slash = cast('app_commands.Command', registered[0])
+        slash = cast(
+            'app_commands.Command',
+            next(c for c in registered if c.name == 'stic'),
+        )
         type_param = slash._params.get('type')
         assert type_param is not None
         assert len(type_param.choices) == 2

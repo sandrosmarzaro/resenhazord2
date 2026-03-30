@@ -9,6 +9,8 @@ from discord import app_commands
 
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
+from bot.adapters.discord.music.commands import MusicCommands
+from bot.adapters.discord.music.voice_manager import VoiceManager
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
 
@@ -23,9 +25,13 @@ class DiscordBot:
 
     def __init__(self, guild_id: str) -> None:
         self._guild = discord.Object(id=int(guild_id))
-        self._client = discord.Client(intents=discord.Intents(guilds=True))
+        self._client = discord.Client(
+            intents=discord.Intents(guilds=True, voice_states=True),
+        )
         self._tree = app_commands.CommandTree(self._client)
         self._handler = DiscordInteractionHandler()
+        self._voice_manager = VoiceManager()
+        self._music_commands = MusicCommands(self._tree, self._guild, self._voice_manager)
         self._setup_events()
 
     @property
@@ -40,6 +46,8 @@ class DiscordBot:
             for alias in command.config.aliases:
                 self._register_alias(command, alias)
             logger.info('discord_command_registered', name=command.config.name)
+        self._music_commands.register()
+        logger.info('discord_music_commands_registered')
 
     def _register_slash_command(self, command: Command) -> None:
         config = command.config
