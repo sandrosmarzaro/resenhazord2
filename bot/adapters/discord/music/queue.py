@@ -56,6 +56,10 @@ class MusicQueue:
             return []
         return list(self._tracks[self._current_index + 1 :])
 
+    def replace_current(self, track: Track) -> None:
+        if self._tracks and self._current_index < len(self._tracks):
+            self._tracks[self._current_index] = track
+
     def add(self, track: Track) -> int:
         self._tracks.append(track)
         return len(self._tracks) - 1

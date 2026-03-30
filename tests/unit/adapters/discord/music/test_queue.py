@@ -33,6 +33,25 @@ class TestAdd:
         assert queue.size == 5
 
 
+class TestReplaceCurrent:
+    def test_replaces_current_track(self):
+        queue = MusicQueue()
+        queue.add(_track(index=0))
+        queue.add(_track(index=1))
+
+        replacement = _track(title='Resolved', index=0)
+        queue.replace_current(replacement)
+
+        assert queue.current == replacement
+
+    def test_noop_on_empty_queue(self):
+        queue = MusicQueue()
+
+        queue.replace_current(_track(index=0))
+
+        assert queue.is_empty
+
+
 class TestCurrent:
     def test_current_returns_first_track(self):
         queue = MusicQueue()

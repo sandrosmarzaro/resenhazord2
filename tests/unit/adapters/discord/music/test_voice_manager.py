@@ -104,7 +104,7 @@ class TestEnsureConnected:
 class TestPlayTrack:
     @pytest.mark.anyio
     async def test_plays_track(self, voice_manager, mock_voice_client, mocker):
-        mocker.patch('bot.adapters.discord.music.voice_manager.discord.FFmpegOpusAudio')
+        mocker.patch('bot.adapters.discord.music.voice_manager.discord.FFmpegPCMAudio')
         mocker.patch('bot.adapters.discord.music.voice_manager.discord.PCMVolumeTransformer')
         voice_manager._voice_clients[1] = mock_voice_client
         track = _track()
@@ -115,7 +115,7 @@ class TestPlayTrack:
 
     @pytest.mark.anyio
     async def test_stops_current_before_playing(self, voice_manager, mock_voice_client, mocker):
-        mocker.patch('bot.adapters.discord.music.voice_manager.discord.FFmpegOpusAudio')
+        mocker.patch('bot.adapters.discord.music.voice_manager.discord.FFmpegPCMAudio')
         mocker.patch('bot.adapters.discord.music.voice_manager.discord.PCMVolumeTransformer')
         mock_voice_client.is_playing.return_value = True
         voice_manager._voice_clients[1] = mock_voice_client
@@ -185,7 +185,7 @@ class TestIsPlaying:
 class TestOnTrackEnd:
     @pytest.mark.anyio
     async def test_advances_and_plays_next(self, voice_manager, mock_voice_client, mocker):
-        mocker.patch('bot.adapters.discord.music.voice_manager.discord.FFmpegOpusAudio')
+        mocker.patch('bot.adapters.discord.music.voice_manager.discord.FFmpegPCMAudio')
         mocker.patch('bot.adapters.discord.music.voice_manager.discord.PCMVolumeTransformer')
         voice_manager._voice_clients[1] = mock_voice_client
         queue = voice_manager.get_queue(1)
@@ -195,6 +195,76 @@ class TestOnTrackEnd:
         await voice_manager._on_track_end(1, None)
 
         mock_voice_client.play.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_resolves_stream_url_before_playing(
+        self, voice_manager, mock_voice_client, mocker
+    ):
+        mocker.patch('bot.adapters.discord.music.voice_manager.discord.FFmpegPCMAudio')
+        mocker.patch('bot.adapters.discord.music.voice_manager.discord.PCMVolumeTransformer')
+        voice_manager._voice_clients[1] = mock_voice_client
+
+        resolved = _track(title='Resolved', index=1)
+        mock_resolve = mocker.patch(
+            'bot.adapters.discord.music.voice_manager.YtDlpAudioService.resolve_stream',
+            new_callable=mocker.AsyncMock,
+            return_value=resolved,
+        )
+
+        unresolved = Track(
+            title='Unresolved 1',
+            author='Artist',
+            url='https://youtube.com/watch?v=1',
+            stream_url='',
+            duration=180,
+            thumbnail='',
+            requested_by='User',
+            requested_by_id=1,
+        )
+        queue = voice_manager.get_queue(1)
+        queue.add(_track(index=0))
+        queue.add(unresolved)
+
+        await voice_manager._on_track_end(1, None)
+
+        mock_resolve.assert_awaited_once_with(
+            unresolved.url,
+            requested_by='User',
+            requested_by_id=1,
+        )
+        mock_voice_client.play.assert_called_once()
+        assert queue.current.title == 'Resolved 1'
+
+    @pytest.mark.anyio
+    async def test_skips_track_on_resolve_failure(self, voice_manager, mocker):
+        from bot.domain.exceptions import ExternalServiceError
+
+        mocker.patch(
+            'bot.adapters.discord.music.voice_manager.YtDlpAudioService.resolve_stream',
+            new_callable=mocker.AsyncMock,
+            side_effect=ExternalServiceError('fail'),
+        )
+        mock_sleep = mocker.patch('asyncio.sleep', new_callable=mocker.AsyncMock)
+
+        unresolved = Track(
+            title='Unresolved',
+            author='Artist',
+            url='https://youtube.com/watch?v=1',
+            stream_url='',
+            duration=180,
+            thumbnail='',
+            requested_by='User',
+            requested_by_id=1,
+        )
+        queue = voice_manager.get_queue(1)
+        queue.add(_track(index=0))
+        queue.add(unresolved)
+
+        await voice_manager._on_track_end(1, None)
+
+        assert 1 in voice_manager._disconnect_tasks
+        await asyncio.sleep(0)
+        mock_sleep.assert_awaited()
 
     @pytest.mark.anyio
     async def test_schedules_disconnect_at_queue_end(self, voice_manager, mocker):

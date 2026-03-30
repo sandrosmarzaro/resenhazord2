@@ -216,7 +216,7 @@ class MusicCommands:
                 requested_by=first.requested_by,
                 requested_by_id=first.requested_by_id,
             )
-            queue._tracks[queue.current_index] = resolved
+            queue.replace_current(resolved)
             await vm.play_track(guild_id, resolved)
 
         await interaction.followup.send(f'{count} musicas adicionadas a fila.')

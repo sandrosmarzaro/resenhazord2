@@ -9,6 +9,8 @@ import structlog
 
 from bot.adapters.discord.music.embeds import MusicEmbedBuilder
 from bot.adapters.discord.music.queue import MusicQueue
+from bot.domain.exceptions import ExternalServiceError
+from bot.domain.services.ytdlp_audio import YtDlpAudioService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -180,7 +182,29 @@ class VoiceManager:
             self._schedule_disconnect_timer(guild_id)
             return
 
-        await self.play_track(guild_id, next_track)
+        resolved = await self._ensure_stream_url(next_track, queue)
+        if not resolved:
+            await self._on_track_end(guild_id, None)
+            return
+
+        await self.play_track(guild_id, resolved)
+
+    async def _ensure_stream_url(self, track: Track, queue: MusicQueue) -> Track | None:
+        if track.stream_url:
+            return track
+
+        try:
+            resolved = await YtDlpAudioService.resolve_stream(
+                track.url,
+                requested_by=track.requested_by,
+                requested_by_id=track.requested_by_id,
+            )
+        except ExternalServiceError:
+            logger.warning('stream_resolve_failed', title=track.title, url=track.url)
+            return None
+
+        queue.replace_current(resolved)
+        return resolved
 
     async def _notify_error(self, guild_id: int, error: Exception) -> None:
         channel = self._text_channels.get(guild_id)
