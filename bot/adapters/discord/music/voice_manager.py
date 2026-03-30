@@ -1,11 +1,19 @@
+from __future__ import annotations
+
 import asyncio
-from typing import ClassVar
+import contextlib
+from typing import TYPE_CHECKING, ClassVar
 
 import discord
 import structlog
 
+from bot.adapters.discord.music.embeds import MusicEmbedBuilder
 from bot.adapters.discord.music.queue import MusicQueue
-from bot.domain.models.track import Track
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from bot.domain.models.track import Track
 
 logger = structlog.get_logger()
 
@@ -17,12 +25,17 @@ class VoiceManager:
     )
     FFMPEG_OPTIONS: ClassVar[str] = '-vn'
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        view_factory: Callable[[VoiceManager, int], discord.ui.View] | None = None,
+    ) -> None:
         self._voice_clients: dict[int, discord.VoiceClient] = {}
         self._queues: dict[int, MusicQueue] = {}
         self._text_channels: dict[int, discord.abc.Messageable] = {}
         self._now_playing_messages: dict[int, discord.Message] = {}
+        self._now_playing_views: dict[int, discord.ui.View] = {}
         self._disconnect_tasks: dict[int, asyncio.Task[None]] = {}
+        self._view_factory = view_factory
 
     def get_queue(self, guild_id: int) -> MusicQueue:
         if guild_id not in self._queues:
@@ -87,6 +100,8 @@ class VoiceManager:
         voice_client.play(volume_source, after=after_callback)
         logger.info('playback_started', guild_id=guild_id, title=track.title)
 
+        await self._send_now_playing(guild_id, track)
+
     async def stop(self, guild_id: int) -> None:
         queue = self.get_queue(guild_id)
         queue.clear()
@@ -111,6 +126,10 @@ class VoiceManager:
             await voice_client.disconnect()
             logger.info('voice_disconnected', guild_id=guild_id)
 
+        old_view = self._now_playing_views.pop(guild_id, None)
+        if old_view:
+            old_view.stop()
+
         self._queues.pop(guild_id, None)
         self._text_channels.pop(guild_id, None)
         self._now_playing_messages.pop(guild_id, None)
@@ -122,6 +141,28 @@ class VoiceManager:
     def is_connected(self, guild_id: int) -> bool:
         vc = self._voice_clients.get(guild_id)
         return vc is not None and vc.is_connected()
+
+    async def _send_now_playing(self, guild_id: int, track: Track) -> None:
+        channel = self._text_channels.get(guild_id)
+        if not channel or not self._view_factory:
+            return
+
+        old_view = self._now_playing_views.pop(guild_id, None)
+        if old_view:
+            old_view.stop()
+
+        old_msg = self._now_playing_messages.pop(guild_id, None)
+        if old_msg:
+            with contextlib.suppress(discord.HTTPException):
+                await old_msg.edit(view=None)
+
+        queue = self.get_queue(guild_id)
+        embed = MusicEmbedBuilder.now_playing(track, queue)
+        view = self._view_factory(self, guild_id)
+
+        msg = await channel.send(embed=embed, view=view)
+        self._now_playing_messages[guild_id] = msg
+        self._now_playing_views[guild_id] = view
 
     async def _on_track_end(self, guild_id: int, error: Exception | None) -> None:
         queue = self.get_queue(guild_id)

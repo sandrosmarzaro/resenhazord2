@@ -10,6 +10,7 @@ from discord import app_commands
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.adapters.discord.music.commands import MusicCommands
+from bot.adapters.discord.music.views import NowPlayingView
 from bot.adapters.discord.music.voice_manager import VoiceManager
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
@@ -30,7 +31,7 @@ class DiscordBot:
         )
         self._tree = app_commands.CommandTree(self._client)
         self._handler = DiscordInteractionHandler()
-        self._voice_manager = VoiceManager()
+        self._voice_manager = VoiceManager(view_factory=NowPlayingView)
         self._music_commands = MusicCommands(self._tree, self._guild, self._voice_manager)
         self._setup_events()
 

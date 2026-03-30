@@ -84,7 +84,8 @@ class MusicCommands:
                 if not vm.is_playing(guild.id):
                     await vm.play_track(guild.id, track)
                     await interaction.followup.send(
-                        f'Tocando agora: **{track.title}** - {track.author}'
+                        f'Tocando agora: **{track.title}**',
+                        silent=True,
                     )
                 else:
                     await interaction.followup.send(
