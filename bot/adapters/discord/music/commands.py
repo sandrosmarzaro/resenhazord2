@@ -150,9 +150,8 @@ class MusicCommands:
                 silent=True,
             )
         else:
-            await interaction.followup.send(
-                f'Adicionado na fila (#{position + 1}): **{track.title}** - {track.author}'
-            )
+            queue.move_to_top(position)
+            await interaction.followup.send(f'Proxima na fila: **{track.title}** - {track.author}')
 
     @staticmethod
     async def _handle_search(

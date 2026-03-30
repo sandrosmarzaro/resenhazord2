@@ -78,10 +78,18 @@ class MusicEmbedBuilder:
         lines: list[str] = []
         for i, track in enumerate(tracks, start=1):
             minutes, seconds = divmod(track.duration, 60)
-            lines.append(f'**{i}.** {track.title} - {track.author} ({minutes}:{seconds:02d})')
+            lines.append(
+                f'**{i}.** [{track.title}]({track.url})\n{track.author} ({minutes}:{seconds:02d})'
+            )
 
-        return discord.Embed(
+        embed = discord.Embed(
             title='Resultados da busca',
-            description='\n'.join(lines),
+            description='\n\n'.join(lines),
             color=EMBED_COLOR,
         )
+
+        first_thumb = next((t.thumbnail for t in tracks if t.thumbnail), None)
+        if first_thumb and first_thumb.startswith('http'):
+            embed.set_thumbnail(url=first_thumb)
+
+        return embed

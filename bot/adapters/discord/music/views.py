@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import ClassVar
 
 import discord
 import structlog
@@ -226,8 +227,9 @@ class SearchResultView(discord.ui.View):
                 ephemeral=True,
             )
         else:
+            queue.move_to_top(position)
             await interaction.followup.send(
-                f'Adicionado na fila (#{position + 1}): **{resolved.title}**',
+                f'Proxima na fila: **{resolved.title}**',
                 ephemeral=True,
             )
 
@@ -235,12 +237,17 @@ class SearchResultView(discord.ui.View):
 
 
 class SearchSelectButton(discord.ui.Button):
+    BUTTON_TITLE_MAX_LENGTH: ClassVar[int] = 25
+
     def __init__(self, index: int, track: Track, view_ref: SearchResultView) -> None:
-        minutes, seconds = divmod(track.duration, 60)
+        title = track.title[: self.BUTTON_TITLE_MAX_LENGTH]
+        if len(track.title) > self.BUTTON_TITLE_MAX_LENGTH:
+            title += '...'
         super().__init__(
             emoji=NUMBER_EMOJIS[index],
-            label=f'{track.title[:40]} ({minutes}:{seconds:02d})',
+            label=title,
             style=discord.ButtonStyle.primary,
+            row=index,
         )
         self._index = index
         self._view_ref = view_ref
@@ -255,6 +262,7 @@ class SearchCancelButton(discord.ui.Button):
             label='Cancelar',
             emoji='❌',
             style=discord.ButtonStyle.secondary,
+            row=3,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
