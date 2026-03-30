@@ -227,9 +227,8 @@ class SearchResultView(discord.ui.View):
                 ephemeral=True,
             )
         else:
-            queue.move_to_top(position)
             await interaction.followup.send(
-                f'Proxima na fila: **{resolved.title}**',
+                f'Adicionado na fila (#{position + 1}): **{resolved.title}**',
                 ephemeral=True,
             )
 

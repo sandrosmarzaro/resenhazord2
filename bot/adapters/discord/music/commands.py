@@ -1,3 +1,4 @@
+import random
 import re
 from typing import ClassVar
 
@@ -150,8 +151,9 @@ class MusicCommands:
                 silent=True,
             )
         else:
-            queue.move_to_top(position)
-            await interaction.followup.send(f'Proxima na fila: **{track.title}** - {track.author}')
+            await interaction.followup.send(
+                f'Adicionado na fila (#{position + 1}): **{track.title}** - {track.author}'
+            )
 
     @staticmethod
     async def _handle_search(
@@ -206,11 +208,11 @@ class MusicCommands:
             await interaction.followup.send(PLAYLIST_EMPTY)
             return
 
+        if shuffle:
+            random.shuffle(tracks)
+
         queue = vm.get_queue(guild_id)
         count = queue.add_many(tracks)
-
-        if shuffle:
-            queue.shuffle()
 
         await vm.ensure_connected(ctx.voice_channel)
         vm.set_text_channel(guild_id, ctx.text_channel)
