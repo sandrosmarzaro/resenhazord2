@@ -89,7 +89,7 @@ class TestPauseResumeButton:
 
 
 class TestStopButton:
-    async def test_stop_disables_buttons(self, voice_manager, mocker):
+    async def test_stop_deletes_message(self, voice_manager, mocker):
         voice_manager.stop = mocker.AsyncMock()
         view = NowPlayingView(voice_manager, guild_id=1)
 
@@ -97,9 +97,7 @@ class TestStopButton:
         await view.stop_button.callback(interaction)
 
         voice_manager.stop.assert_awaited_once_with(1)
-        for item in view.children:
-            if hasattr(item, 'disabled'):
-                assert item.disabled is True
+        interaction.message.delete.assert_awaited_once()
 
 
 class TestShuffleButton:

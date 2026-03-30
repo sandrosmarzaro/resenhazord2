@@ -83,10 +83,7 @@ class NowPlayingView(discord.ui.View):
         button: discord.ui.Button,
     ) -> None:
         await self._voice_manager.stop(self._guild_id)
-        for item in self.children:
-            if isinstance(item, discord.ui.Button):
-                item.disabled = True
-        await interaction.response.edit_message(view=self)
+        await interaction.message.delete()
         self.stop()
 
     @discord.ui.button(emoji='⏭', style=discord.ButtonStyle.secondary, row=0)
