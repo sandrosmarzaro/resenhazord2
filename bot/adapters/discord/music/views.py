@@ -248,3 +248,169 @@ class SearchCancelButton(discord.ui.Button):
             view=None,
         )
         self.view.stop()
+
+
+QUEUE_TIMEOUT_SECONDS = 120
+TRACKS_PER_PAGE = 10
+
+
+class QueueView(discord.ui.View):
+    def __init__(self, voice_manager: VoiceManager, guild_id: int, page: int = 0) -> None:
+        super().__init__(timeout=QUEUE_TIMEOUT_SECONDS)
+        self._voice_manager = voice_manager
+        self._guild_id = guild_id
+        self._page = page
+        self._update_buttons()
+
+    def _update_buttons(self) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        total_pages = max(1, (queue.size + TRACKS_PER_PAGE - 1) // TRACKS_PER_PAGE)
+        self.prev_page_button.disabled = self._page <= 0
+        self.next_page_button.disabled = self._page >= total_pages - 1
+
+    @discord.ui.button(emoji='◀', style=discord.ButtonStyle.secondary)
+    async def prev_page_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        self._page = max(0, self._page - 1)
+        self._update_buttons()
+        queue = self._voice_manager.get_queue(self._guild_id)
+        embed = MusicEmbedBuilder.queue_list(queue, self._page, TRACKS_PER_PAGE)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(emoji='▶', style=discord.ButtonStyle.secondary)
+    async def next_page_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        total_pages = max(1, (queue.size + TRACKS_PER_PAGE - 1) // TRACKS_PER_PAGE)
+        self._page = min(total_pages - 1, self._page + 1)
+        self._update_buttons()
+        embed = MusicEmbedBuilder.queue_list(queue, self._page, TRACKS_PER_PAGE)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.select(placeholder='Selecione uma musica para gerenciar...')
+    async def track_select(
+        self,
+        interaction: discord.Interaction,
+        select: discord.ui.Select,
+    ) -> None:
+        index = int(select.values[0])
+        view = TrackActionView(self._voice_manager, self._guild_id, index, parent=self)
+        queue = self._voice_manager.get_queue(self._guild_id)
+        tracks = queue.tracks
+        if index < len(tracks):
+            track = tracks[index]
+            await interaction.response.send_message(
+                f'Gerenciar: **{track.title}**',
+                view=view,
+                ephemeral=True,
+            )
+
+    def refresh_select_options(self) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        start = self._page * TRACKS_PER_PAGE
+        end = min(start + TRACKS_PER_PAGE, queue.size)
+        options: list[discord.SelectOption] = []
+        for i in range(start, end):
+            track = queue.tracks[i]
+            label = f'{i + 1}. {track.title[:95]}'
+            options.append(discord.SelectOption(label=label, value=str(i)))
+        self.track_select.options = options or [
+            discord.SelectOption(label='Fila vazia', value='-1'),
+        ]
+
+    async def on_timeout(self) -> None:
+        self.stop()
+
+
+TRACK_ACTION_TIMEOUT_SECONDS = 30
+
+
+class TrackActionView(discord.ui.View):
+    def __init__(
+        self,
+        voice_manager: VoiceManager,
+        guild_id: int,
+        track_index: int,
+        parent: QueueView,
+    ) -> None:
+        super().__init__(timeout=TRACK_ACTION_TIMEOUT_SECONDS)
+        self._voice_manager = voice_manager
+        self._guild_id = guild_id
+        self._track_index = track_index
+        self._parent = parent
+
+    async def _refresh_parent(self, interaction: discord.Interaction) -> None:
+        self._parent.refresh_select_options()
+        self._parent._update_buttons()
+        queue = self._voice_manager.get_queue(self._guild_id)
+        embed = MusicEmbedBuilder.queue_list(queue, self._parent._page, TRACKS_PER_PAGE)
+        msg = self._parent.message
+        if msg:
+            await msg.edit(embed=embed, view=self._parent)
+
+    @discord.ui.button(label='Remover', emoji='🗑️', style=discord.ButtonStyle.danger)
+    async def remove_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        removed = queue.remove(self._track_index)
+        if removed:
+            await interaction.response.edit_message(
+                content=f'Removido: **{removed.title}**',
+                view=None,
+            )
+        else:
+            await interaction.response.edit_message(content='Musica nao encontrada.', view=None)
+        await self._refresh_parent(interaction)
+        self.stop()
+
+    @discord.ui.button(label='Mover pro topo', emoji='⬆️', style=discord.ButtonStyle.primary)
+    async def move_top_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        moved = queue.move_to_top(self._track_index)
+        if moved:
+            track = queue.tracks[queue.current_index + 1]
+            await interaction.response.edit_message(
+                content=f'Movido pro topo: **{track.title}**',
+                view=None,
+            )
+        else:
+            await interaction.response.edit_message(
+                content='Nao foi possivel mover.',
+                view=None,
+            )
+        await self._refresh_parent(interaction)
+        self.stop()
+
+    @discord.ui.button(label='Mover pro final', emoji='⬇️', style=discord.ButtonStyle.primary)
+    async def move_bottom_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        moved = queue.move_to_bottom(self._track_index)
+        if moved:
+            await interaction.response.edit_message(
+                content='Movido pro final da fila.',
+                view=None,
+            )
+        else:
+            await interaction.response.edit_message(
+                content='Nao foi possivel mover.',
+                view=None,
+            )
+        await self._refresh_parent(interaction)
+        self.stop()

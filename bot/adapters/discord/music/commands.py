@@ -6,9 +6,16 @@ import structlog
 from discord import app_commands
 
 from bot.adapters.discord.music.embeds import MusicEmbedBuilder
-from bot.adapters.discord.music.views import SearchContext, SearchResultView
+from bot.adapters.discord.music.views import QueueView, SearchContext, SearchResultView
 from bot.adapters.discord.music.voice_manager import VoiceManager
-from bot.data.music_errors import NO_PREVIOUS_TRACK, NO_RESULTS, NO_VOICE_CHANNEL, NOT_PLAYING
+from bot.data.music_errors import (
+    NO_PREVIOUS_TRACK,
+    NO_RESULTS,
+    NO_VOICE_CHANNEL,
+    NOT_PLAYING,
+    PLAYLIST_EMPTY,
+    QUEUE_EMPTY,
+)
 from bot.domain.exceptions import ExternalServiceError, MusicError
 from bot.domain.services.ytdlp_audio import YtDlpAudioService
 
@@ -17,6 +24,9 @@ logger = structlog.get_logger()
 
 class MusicCommands:
     URL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'https?://')
+    PLAYLIST_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r'https?://.*(?:list=|/playlist/|/sets/)',
+    )
 
     def __init__(
         self,
@@ -34,6 +44,7 @@ class MusicCommands:
         self._register_stop()
         self._register_back()
         self._register_np()
+        self._register_queue()
 
     def _register_play(self) -> None:
         vm = self._voice_manager
@@ -59,63 +70,87 @@ class MusicCommands:
 
             is_url = self.URL_PATTERN.match(query) is not None
 
+            ctx = SearchContext(
+                voice_manager=vm,
+                guild_id=guild.id,
+                voice_channel=voice_state.channel,
+                text_channel=interaction.channel,
+                requester_name=interaction.user.display_name,
+                requester_id=interaction.user.id,
+            )
+
             if buscar and not is_url:
-                ctx = SearchContext(
-                    voice_manager=vm,
-                    guild_id=guild.id,
-                    voice_channel=voice_state.channel,
-                    text_channel=interaction.channel,
-                    requester_name=interaction.user.display_name,
-                    requester_id=interaction.user.id,
-                )
                 await self._handle_search(interaction, query, ctx)
                 return
 
             await interaction.response.defer()
 
             try:
-                if is_url:
-                    track = await YtDlpAudioService.resolve_stream(
-                        query,
-                        requested_by=interaction.user.display_name,
-                        requested_by_id=interaction.user.id,
-                    )
-                else:
-                    results = await YtDlpAudioService.search(
-                        query,
-                        limit=1,
-                        requested_by=interaction.user.display_name,
-                        requested_by_id=interaction.user.id,
-                    )
-                    if not results:
-                        await interaction.followup.send(NO_RESULTS)
-                        return
-                    track = await YtDlpAudioService.resolve_stream(
-                        results[0].url,
-                        requested_by=interaction.user.display_name,
-                        requested_by_id=interaction.user.id,
-                    )
+                is_playlist = is_url and self.PLAYLIST_PATTERN.match(query) is not None
+                if is_playlist:
+                    await self._handle_playlist(interaction, query, ctx)
+                    return
 
-                queue = vm.get_queue(guild.id)
-                position = queue.add(track)
-
-                await vm.ensure_connected(voice_state.channel)
-                vm.set_text_channel(guild.id, interaction.channel)
-
-                if not vm.is_playing(guild.id):
-                    await vm.play_track(guild.id, track)
-                    await interaction.followup.send(
-                        f'Tocando agora: **{track.title}**',
-                        silent=True,
-                    )
-                else:
-                    await interaction.followup.send(
-                        f'Adicionado na fila (#{position + 1}): **{track.title}** - {track.author}'
-                    )
+                await self._handle_single_track(
+                    interaction,
+                    query,
+                    is_url=is_url,
+                    ctx=ctx,
+                )
             except ExternalServiceError as e:
                 await interaction.followup.send(e.user_message)
             except MusicError as e:
                 await interaction.followup.send(e.user_message)
+
+    @staticmethod
+    async def _handle_single_track(
+        interaction: discord.Interaction,
+        query: str,
+        *,
+        is_url: bool,
+        ctx: SearchContext,
+    ) -> None:
+        vm = ctx.voice_manager
+        guild_id = ctx.guild_id
+        voice_channel = ctx.voice_channel
+        if is_url:
+            track = await YtDlpAudioService.resolve_stream(
+                query,
+                requested_by=interaction.user.display_name,
+                requested_by_id=interaction.user.id,
+            )
+        else:
+            results = await YtDlpAudioService.search(
+                query,
+                limit=1,
+                requested_by=interaction.user.display_name,
+                requested_by_id=interaction.user.id,
+            )
+            if not results:
+                await interaction.followup.send(NO_RESULTS)
+                return
+            track = await YtDlpAudioService.resolve_stream(
+                results[0].url,
+                requested_by=interaction.user.display_name,
+                requested_by_id=interaction.user.id,
+            )
+
+        queue = vm.get_queue(guild_id)
+        position = queue.add(track)
+
+        await vm.ensure_connected(voice_channel)
+        vm.set_text_channel(guild_id, interaction.channel)
+
+        if not vm.is_playing(guild_id):
+            await vm.play_track(guild_id, track)
+            await interaction.followup.send(
+                f'Tocando agora: **{track.title}**',
+                silent=True,
+            )
+        else:
+            await interaction.followup.send(
+                f'Adicionado na fila (#{position + 1}): **{track.title}** - {track.author}'
+            )
 
     @staticmethod
     async def _handle_search(
@@ -144,6 +179,70 @@ class MusicCommands:
         view = SearchResultView(tracks=results, ctx=ctx)
 
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+
+    @staticmethod
+    async def _handle_playlist(
+        interaction: discord.Interaction,
+        url: str,
+        ctx: SearchContext,
+    ) -> None:
+        vm = ctx.voice_manager
+        guild_id = ctx.guild_id
+
+        try:
+            tracks = await YtDlpAudioService.resolve_playlist(
+                url,
+                requested_by=ctx.requester_name,
+                requested_by_id=ctx.requester_id,
+            )
+        except ExternalServiceError as e:
+            await interaction.followup.send(e.user_message)
+            return
+
+        if not tracks:
+            await interaction.followup.send(PLAYLIST_EMPTY)
+            return
+
+        queue = vm.get_queue(guild_id)
+        count = queue.add_many(tracks)
+
+        await vm.ensure_connected(ctx.voice_channel)
+        vm.set_text_channel(guild_id, ctx.text_channel)
+
+        if not vm.is_playing(guild_id) and queue.current:
+            first = queue.current
+            resolved = await YtDlpAudioService.resolve_stream(
+                first.url,
+                requested_by=first.requested_by,
+                requested_by_id=first.requested_by_id,
+            )
+            queue._tracks[queue.current_index] = resolved
+            await vm.play_track(guild_id, resolved)
+
+        await interaction.followup.send(f'{count} musicas adicionadas a fila.')
+
+    def _register_queue(self) -> None:
+        vm = self._voice_manager
+
+        @self._tree.command(
+            name='queue',
+            description='Mostrar a fila de musicas',
+            guild=self._guild,
+        )
+        async def queue(interaction: discord.Interaction) -> None:
+            guild = interaction.guild
+            if not guild:
+                return
+
+            q = vm.get_queue(guild.id)
+            if q.is_empty:
+                await interaction.response.send_message(QUEUE_EMPTY, ephemeral=True)
+                return
+
+            embed = MusicEmbedBuilder.queue_list(q)
+            view = QueueView(vm, guild.id)
+            view.refresh_select_options()
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     def _register_skip(self) -> None:
         vm = self._voice_manager
