@@ -292,6 +292,7 @@ class QueueView(discord.ui.View):
     ) -> None:
         self._page = max(0, self._page - 1)
         self._update_buttons()
+        self.refresh_select_options()
         queue = self._voice_manager.get_queue(self._guild_id)
         embed = MusicEmbedBuilder.queue_list(queue, self._page, TRACKS_PER_PAGE)
         await interaction.response.edit_message(embed=embed, view=self)
@@ -306,6 +307,7 @@ class QueueView(discord.ui.View):
         total_pages = max(1, (queue.size + TRACKS_PER_PAGE - 1) // TRACKS_PER_PAGE)
         self._page = min(total_pages - 1, self._page + 1)
         self._update_buttons()
+        self.refresh_select_options()
         embed = MusicEmbedBuilder.queue_list(queue, self._page, TRACKS_PER_PAGE)
         await interaction.response.edit_message(embed=embed, view=self)
 
