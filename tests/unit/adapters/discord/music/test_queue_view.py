@@ -41,9 +41,7 @@ class TestQueueViewStructure:
         view = QueueView(mock_vm, guild_id=1)
 
         button_emojis = [
-            str(item.emoji)
-            for item in view.children
-            if hasattr(item, 'emoji') and item.emoji
+            str(item.emoji) for item in view.children if hasattr(item, 'emoji') and item.emoji
         ]
 
         assert '◀' in button_emojis
