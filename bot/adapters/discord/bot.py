@@ -5,7 +5,7 @@ from typing import Any, ClassVar, cast
 
 import discord
 import structlog
-from discord import app_commands
+from discord import app_commands, opus
 
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
@@ -25,6 +25,9 @@ class DiscordBot:
     WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({Flag.DM, Flag.SHOW})
 
     def __init__(self, guild_id: str) -> None:
+        if not opus.is_loaded():
+            opus.load_opus('libopus.so.0')
+
         self._guild = discord.Object(id=int(guild_id))
         self._client = discord.Client(
             intents=discord.Intents(guilds=True, voice_states=True),

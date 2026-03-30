@@ -84,7 +84,7 @@ class VoiceManager:
             voice_client.stop()
 
         queue = self.get_queue(guild_id)
-        source = discord.FFmpegOpusAudio(
+        source = discord.FFmpegPCMAudio(
             track.stream_url,
             before_options=self.FFMPEG_BEFORE_OPTIONS,
             options=self.FFMPEG_OPTIONS,
@@ -161,7 +161,11 @@ class VoiceManager:
         embed = MusicEmbedBuilder.now_playing(track, queue)
         view = self._view_factory(self, guild_id)
 
-        msg = await channel.send(embed=embed, view=view)
+        try:
+            msg = await channel.send(embed=embed, view=view)
+        except discord.HTTPException:
+            logger.warning('now_playing_send_failed', guild_id=guild_id)
+            return
         self._now_playing_messages[guild_id] = msg
         self._now_playing_views[guild_id] = view
 
