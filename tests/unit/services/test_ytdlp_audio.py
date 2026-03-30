@@ -119,7 +119,7 @@ class TestResolvePlaylist:
     @pytest.mark.anyio
     async def test_limits_to_max_tracks(self, mock_subprocess):
         lines = b''.join(
-            f'vid{i}\nSong {i}\nArtist\n100\nhttps://t.jpg\n'.encode() for i in range(60)
+            f'vid{i}\nSong {i}\nArtist\n100\nhttps://t.jpg\n'.encode() for i in range(250)
         )
 
         mock_subprocess(_SUBPROCESS_TARGET, calls=[(lines, b'', 0)])
