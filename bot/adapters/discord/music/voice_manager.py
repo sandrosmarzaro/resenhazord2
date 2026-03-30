@@ -157,7 +157,7 @@ class VoiceManager:
         old_msg = self._now_playing_messages.pop(guild_id, None)
         if old_msg:
             with contextlib.suppress(discord.HTTPException):
-                await old_msg.edit(view=None)
+                await old_msg.delete()
 
         queue = self.get_queue(guild_id)
         embed = MusicEmbedBuilder.now_playing(track, queue)
