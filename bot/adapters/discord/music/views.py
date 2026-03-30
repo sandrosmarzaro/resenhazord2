@@ -145,6 +145,16 @@ class NowPlayingView(discord.ui.View):
 
         await self._refresh_embed(interaction)
 
+    @discord.ui.button(emoji='🔀', label='Shuffle', style=discord.ButtonStyle.secondary, row=1)
+    async def shuffle_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        queue.shuffle()
+        await interaction.response.send_message('Fila embaralhada.', ephemeral=True)
+
     @discord.ui.button(emoji='📋', label='Fila', style=discord.ButtonStyle.secondary, row=1)
     async def queue_button(
         self,
@@ -152,8 +162,14 @@ class NowPlayingView(discord.ui.View):
         button: discord.ui.Button,
     ) -> None:
         queue = self._voice_manager.get_queue(self._guild_id)
+        if queue.is_empty:
+            await interaction.response.send_message('A fila esta vazia.', ephemeral=True)
+            return
+
         embed = MusicEmbedBuilder.queue_list(queue)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        view = QueueView(self._voice_manager, self._guild_id)
+        view.refresh_select_options()
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
 @dataclass(frozen=True)

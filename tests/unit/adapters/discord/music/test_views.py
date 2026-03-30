@@ -44,6 +44,7 @@ class TestNowPlayingViewStructure:
         assert 'Pausar' in labels
         assert 'Parar' in labels
         assert 'Repetir' in labels
+        assert 'Shuffle' in labels
         assert 'Fila' in labels
 
     def test_has_two_rows(self, voice_manager):
@@ -99,6 +100,35 @@ class TestStopButton:
         for item in view.children:
             if hasattr(item, 'disabled'):
                 assert item.disabled is True
+
+
+class TestShuffleButton:
+    async def test_shuffles_queue(self, voice_manager, mocker):
+        view = NowPlayingView(voice_manager, guild_id=1)
+
+        interaction = mocker.AsyncMock()
+        await view.shuffle_button.callback(interaction)
+
+        voice_manager.get_queue.return_value.shuffle.assert_called_once()
+        interaction.response.send_message.assert_awaited_once()
+
+
+class TestQueueButton:
+    async def test_sends_queue_view(self, voice_manager, mocker):
+        queue = voice_manager.get_queue.return_value
+        queue.is_empty = False
+        queue.size = 3
+        queue.tracks = [_track(i) for i in range(3)]
+
+        view = NowPlayingView(voice_manager, guild_id=1)
+
+        interaction = mocker.AsyncMock()
+        await view.queue_button.callback(interaction)
+
+        interaction.response.send_message.assert_awaited_once()
+        call_kwargs = interaction.response.send_message.call_args[1]
+        assert call_kwargs['ephemeral'] is True
+        assert call_kwargs.get('view') is not None
 
 
 class TestLoopButton:
