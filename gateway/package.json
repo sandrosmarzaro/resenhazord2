@@ -26,7 +26,7 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
-    "prepare": "husky"
+    "prepare": "echo 'hooks managed by pre-commit'"
   },
   "dependencies": {
     "@sentry/bun": "^10.42.0",
@@ -48,7 +48,6 @@
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
     "fishery": "^2.4.0",
-    "husky": "^9.1.7",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
