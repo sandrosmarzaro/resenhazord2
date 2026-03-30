@@ -32,6 +32,7 @@ FROM python:3.13-alpine AS production
 
 RUN apk add --no-cache \
     ffmpeg \
+    opus \
     curl \
     libjpeg-turbo \
     libwebp \
