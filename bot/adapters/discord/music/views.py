@@ -311,6 +311,18 @@ class QueueView(discord.ui.View):
         embed = MusicEmbedBuilder.queue_list(queue, self._page, TRACKS_PER_PAGE)
         await interaction.response.edit_message(embed=embed, view=self)
 
+    @discord.ui.button(label='Limpar fila', emoji='🗑️', style=discord.ButtonStyle.danger)
+    async def clear_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        queue = self._voice_manager.get_queue(self._guild_id)
+        queue.clear()
+        embed = MusicEmbedBuilder.queue_list(queue)
+        await interaction.response.edit_message(embed=embed, view=None)
+        self.stop()
+
     @discord.ui.select(placeholder='Selecione uma musica para gerenciar...')
     async def track_select(
         self,
