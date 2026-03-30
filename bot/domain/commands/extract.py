@@ -4,7 +4,7 @@ import structlog
 from PIL import Image
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -15,7 +15,10 @@ class ExtractCommand(Command):
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
-            name='extrair', aliases=['extract'], flags=['show', 'dm'], category='download'
+            name='extrair',
+            aliases=['extract'],
+            flags=[Flag.SHOW, Flag.DM],
+            category=Category.DOWNLOAD,
         )
 
     @property

@@ -3,7 +3,7 @@ import random
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -26,7 +26,7 @@ class BanCommand(Command):
             args_pattern=r'^(?:@\d+(?:\s+@\d+)*)?$',
             args_label='@número',
             group_only=True,
-            category='group',
+            category=Category.GROUP,
         )
 
     @property

@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 
 from bot.data.browser_headers import BROWSER_HEADERS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -19,9 +19,9 @@ class Rule34Command(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='rule 34',
-            flags=['show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=[Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

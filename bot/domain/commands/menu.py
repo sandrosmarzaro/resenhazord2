@@ -9,7 +9,16 @@ from bot.data.menu_messages import (
     MENU_GRUPO,
 )
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import (
+    ArgType,
+    Category,
+    Command,
+    CommandConfig,
+    Flag,
+    OptionDef,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -25,9 +34,9 @@ class MenuCommand(Command):
         return CommandConfig(
             name='menu',
             options=[OptionDef(name='section', values=['grupo', 'bíblia'])],
-            flags=['dm'],
-            category='other',
-            platforms=['whatsapp', 'discord'],
+            flags=[Flag.DM],
+            category=Category.OTHER,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property
@@ -60,7 +69,7 @@ class MenuCommand(Command):
                 continue
 
             header = CATEGORY_HEADERS[category]
-            if category == 'random':
+            if category == Category.RANDOM:
                 header += ALEATORIA_SUBHEADER
 
             entries = [self._format_entry(cmd) for cmd in cmds]
@@ -78,7 +87,7 @@ class MenuCommand(Command):
     @staticmethod
     def _format_options(config: CommandConfig) -> str:
         parts: list[str] = [f'[{" | ".join(opt.values)}]' for opt in config.options if opt.values]
-        parts.extend(f'+{f}' for f in config.flags if f not in {'dm', 'show'})
+        parts.extend(f'+{f}' for f in config.flags if f not in {Flag.DM, Flag.SHOW})
 
         label = config.args_label or 'texto'
         if config.args == ArgType.REQUIRED:

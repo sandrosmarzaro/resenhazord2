@@ -1,7 +1,7 @@
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -14,7 +14,7 @@ class SpitCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='scarra', group_only=True, category='download')
+        return CommandConfig(name='scarra', group_only=True, category=Category.DOWNLOAD)
 
     @property
     def menu_description(self) -> str:

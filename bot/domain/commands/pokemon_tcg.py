@@ -3,7 +3,7 @@ import structlog
 
 from bot.data.pokemon_type_emojis import POKEMON_TYPE_EMOJIS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
@@ -23,9 +23,9 @@ class PokemonTCGCommand(CardBoosterCommand):
         return CommandConfig(
             name='pokémontcg',
             aliases=['ptcg'],
-            flags=['booster', 'show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=['booster', Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

@@ -3,7 +3,16 @@ import re
 
 from bot.data.torah_books import TORAH_BOOKS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import (
+    ArgType,
+    Category,
+    Command,
+    CommandConfig,
+    Flag,
+    OptionDef,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.translator import Translator
@@ -29,9 +38,9 @@ class TorahCommand(Command):
             options=[OptionDef(name='lang', values=['he', 'en', 'pt'])],
             args=ArgType.OPTIONAL,
             args_label='livro capítulo:versículo',
-            flags=['dm', 'show'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=[Flag.DM, Flag.SHOW],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

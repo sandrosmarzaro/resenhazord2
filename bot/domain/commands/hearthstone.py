@@ -5,7 +5,7 @@ import anyio
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
@@ -33,9 +33,9 @@ class HearthstoneCommand(CardBoosterCommand):
         return CommandConfig(
             name='hs',
             aliases=['hearthstone'],
-            flags=['booster', 'show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=['booster', Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

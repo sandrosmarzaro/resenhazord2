@@ -1,5 +1,5 @@
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.mongodb import MongoDBConnection
@@ -11,7 +11,9 @@ class BorgesCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='borges', category='other', platforms=['whatsapp', 'discord'])
+        return CommandConfig(
+            name='borges', category=Category.OTHER, platforms=[Platform.WHATSAPP, Platform.DISCORD]
+        )
 
     @property
     def menu_description(self) -> str:

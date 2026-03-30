@@ -4,7 +4,15 @@ import structlog
 
 from bot.data.game_info import GameInfo
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import (
+    Category,
+    Command,
+    CommandConfig,
+    Flag,
+    OptionDef,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.game.igdb_source import IgdbSource
@@ -33,10 +41,10 @@ class GameCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='game',
-            flags=['show', 'dm'],
+            flags=[Flag.SHOW, Flag.DM],
             options=[OptionDef(name='source', values=['rawg', 'igdb'])],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

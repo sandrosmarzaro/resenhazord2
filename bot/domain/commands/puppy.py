@@ -4,7 +4,15 @@ import re
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import (
+    Category,
+    Command,
+    CommandConfig,
+    Flag,
+    OptionDef,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -17,10 +25,10 @@ class PuppyCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='puppy',
-            flags=['show', 'dm'],
+            flags=[Flag.SHOW, Flag.DM],
             options=[OptionDef(name='tipo', values=['dog', 'cat'])],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

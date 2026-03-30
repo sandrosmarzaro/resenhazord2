@@ -7,7 +7,15 @@ from bs4 import BeautifulSoup
 from bot.data.bicho import ANIMAL_EMOJIS, ARG_TO_DRAW_ID, DRAWS, PRIZE_EMOJIS
 from bot.data.browser_headers import BROWSER_HEADERS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import (
+    ArgType,
+    Category,
+    Command,
+    CommandConfig,
+    OptionDef,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -31,8 +39,8 @@ class LotteryCommand(Command):
             args_pattern=r'^(?:ppt|ptm|pt|ptv|ptn|cor)?$',
             args_label='sorteio',
             options=[OptionDef(name='regiao', values=['rio', 'sp', 'mg', 'ba', 'go', 'ce'])],
-            category='other',
-            platforms=['whatsapp', 'discord'],
+            category=Category.OTHER,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

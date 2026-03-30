@@ -1,5 +1,5 @@
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -11,9 +11,9 @@ class PlayingCardCommand(Command):
         return CommandConfig(
             name='carta',
             aliases=['card'],
-            flags=['show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=[Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

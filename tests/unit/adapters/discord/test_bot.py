@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from discord import app_commands
 
 from bot.adapters.discord.bot import DiscordBot
-from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef
+from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, Platform
 
 
 def make_command(config: CommandConfig, description: str = 'Test description') -> MagicMock:
@@ -114,10 +114,14 @@ class TestBuildSignature:
 
 class TestRegisterCommands:
     def test_only_registers_discord_commands(self):
-        discord_cmd = make_command(CommandConfig(name='d20', platforms=['whatsapp', 'discord']))
-        whatsapp_only_cmd = make_command(CommandConfig(name='sticker', platforms=['whatsapp']))
+        discord_cmd = make_command(
+            CommandConfig(name='d20', platforms=[Platform.WHATSAPP, Platform.DISCORD])
+        )
+        whatsapp_only_cmd = make_command(
+            CommandConfig(name='sticker', platforms=[Platform.WHATSAPP])
+        )
         another_discord_cmd = make_command(
-            CommandConfig(name='jackpot', platforms=['whatsapp', 'discord'])
+            CommandConfig(name='jackpot', platforms=[Platform.WHATSAPP, Platform.DISCORD])
         )
 
         with patch('bot.adapters.discord.bot.CommandRegistry') as mock_registry:
@@ -136,7 +140,9 @@ class TestRegisterCommands:
 
     def test_aliases_registered_as_separate_commands(self):
         cmd = make_command(
-            CommandConfig(name='anime', aliases=['manga'], platforms=['whatsapp', 'discord'])
+            CommandConfig(
+                name='anime', aliases=['manga'], platforms=[Platform.WHATSAPP, Platform.DISCORD]
+            )
         )
 
         with patch('bot.adapters.discord.bot.CommandRegistry') as mock_registry:
@@ -153,7 +159,7 @@ class TestRegisterCommands:
             CommandConfig(
                 name='stic',
                 options=[OptionDef(name='type', values=['crop', 'full'])],
-                platforms=['whatsapp', 'discord'],
+                platforms=[Platform.WHATSAPP, Platform.DISCORD],
             )
         )
 

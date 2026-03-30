@@ -6,7 +6,7 @@ import structlog
 
 from bot.data.mtg_symbols import replace_mana_symbols
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
@@ -26,9 +26,9 @@ class MagicTheGatheringCommand(CardBoosterCommand):
         return CommandConfig(
             name='mtg',
             aliases=['magic'],
-            flags=['booster', 'show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=['booster', Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

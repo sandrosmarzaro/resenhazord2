@@ -2,7 +2,7 @@ import random
 
 from bot.data.mateus import PROBABILITY_TIERS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -13,7 +13,9 @@ class MateusCommand(Command):
 
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='mateus', category='random', platforms=['whatsapp', 'discord'])
+        return CommandConfig(
+            name='mateus', category=Category.RANDOM, platforms=[Platform.WHATSAPP, Platform.DISCORD]
+        )
 
     @property
     def menu_description(self) -> str:

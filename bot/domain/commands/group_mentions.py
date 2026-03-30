@@ -2,7 +2,7 @@ import re
 from collections.abc import Awaitable, Callable
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -38,7 +38,7 @@ class GroupMentionsCommand(Command):
             args=ArgType.OPTIONAL,
             args_label='subcomando',
             group_only=True,
-            category='group',
+            category=Category.GROUP,
         )
 
     @property

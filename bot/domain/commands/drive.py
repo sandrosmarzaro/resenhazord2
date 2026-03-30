@@ -4,7 +4,7 @@ import structlog
 
 from bot.data.drive import EXTENSIONS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.discord import DiscordService
@@ -35,7 +35,7 @@ class DriveCommand(Command):
             args=ArgType.REQUIRED,
             args_label='categoria canal',
             group_only=True,
-            category='group',
+            category=Category.GROUP,
         )
 
     @property

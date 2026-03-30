@@ -4,7 +4,7 @@ import structlog
 
 from bot.data.pokemon_type_emojis import POKEMON_TYPE_EMOJIS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.commands.card_booster import BoosterConfig, CardBoosterCommand, CardItem
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -27,9 +27,9 @@ class PokemonCommand(CardBoosterCommand):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='pokémon',
-            flags=['team', 'show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=['team', Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

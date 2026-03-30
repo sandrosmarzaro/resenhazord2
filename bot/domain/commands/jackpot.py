@@ -3,7 +3,7 @@ from collections import Counter
 
 from bot.data.jackpot import JACKPOT_MESSAGE, LOSS_MESSAGE, PARTIAL_WIN_MESSAGE, SLOT_SYMBOLS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -18,8 +18,8 @@ class JackpotCommand(Command):
         return CommandConfig(
             name='jackpot',
             aliases=['slot', 'caçaníqueis', 'tigrinho'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

@@ -3,7 +3,16 @@ from urllib.parse import urlencode
 
 from bot.data.languages import LANGUAGES
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import (
+    ArgType,
+    Category,
+    Command,
+    CommandConfig,
+    Flag,
+    OptionDef,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.exceptions import ValidationError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -21,10 +30,10 @@ class AudioCommand(Command):
         return CommandConfig(
             name='áudio',
             options=[OptionDef(name='lang', pattern=r'[A-Za-z]{2}-[A-Za-z]{2}')],
-            flags=['dm'],
+            flags=[Flag.DM],
             args=ArgType.OPTIONAL,
-            category='download',
-            platforms=['whatsapp', 'discord'],
+            category=Category.DOWNLOAD,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

@@ -1,5 +1,5 @@
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -8,7 +8,7 @@ from bot.domain.models.message import BotMessage
 class OiCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='oi', aliases=['hi'], category='other')
+        return CommandConfig(name='oi', aliases=['hi'], category=Category.OTHER)
 
     @property
     def menu_description(self) -> str:

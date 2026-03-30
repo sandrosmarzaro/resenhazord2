@@ -3,7 +3,7 @@ import structlog
 
 from bot.data.yugioh import YGO_ATTRIBUTE_EMOJIS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.commands.card_booster import CardBoosterCommand, CardItem
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -19,9 +19,9 @@ class YugiohCommand(CardBoosterCommand):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='ygo',
-            flags=['booster', 'show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=['booster', Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

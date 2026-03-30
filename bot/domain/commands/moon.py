@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from bot.data.moon import MOON_PHASES
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -19,8 +19,8 @@ class MoonCommand(Command):
         return CommandConfig(
             name='lua',
             aliases=['moon'],
-            category='other',
-            platforms=['whatsapp', 'discord'],
+            category=Category.OTHER,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

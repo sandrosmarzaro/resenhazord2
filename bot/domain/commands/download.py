@@ -7,7 +7,15 @@ from bot.data.download_errors import (
     YTDLP_ERROR_MESSAGES,
 )
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import (
+    ArgType,
+    Category,
+    Command,
+    CommandConfig,
+    Flag,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.exceptions import DownloadError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -24,12 +32,12 @@ class DownloadCommand(Command):
         return CommandConfig(
             name='dl',
             aliases=['baixar'],
-            flags=['show', 'dm'],
+            flags=[Flag.SHOW, Flag.DM],
             args=ArgType.REQUIRED,
             args_pattern=r'https?://\S+[\s\S]*',
             args_label='url',
-            category='download',
-            platforms=['whatsapp', 'discord'],
+            category=Category.DOWNLOAD,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

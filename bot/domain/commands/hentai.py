@@ -3,7 +3,7 @@ import structlog
 
 from bot.data.hentai_gallery import HentaiGallery
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -26,9 +26,9 @@ class HentaiCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='hentai',
-            flags=['dm', 'show', 'hitomi', 'nhentai'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=[Flag.DM, Flag.SHOW, 'hitomi', 'nhentai'],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

@@ -1,7 +1,14 @@
 import random
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, OptionDef, ParsedCommand
+from bot.domain.commands.base import (
+    Category,
+    Command,
+    CommandConfig,
+    OptionDef,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -16,8 +23,8 @@ class QuranCommand(Command):
             name='alcorão',
             aliases=['quran'],
             options=[OptionDef(name='lang', values=['ar', 'pt'])],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

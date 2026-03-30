@@ -10,7 +10,7 @@ from discord import app_commands
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.application.command_registry import CommandRegistry
-from bot.domain.commands.base import ArgType, Command, CommandConfig
+from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
 
 logger = structlog.get_logger()
 
@@ -19,7 +19,7 @@ class DiscordBot:
     DISCORD_NAME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9_-]')
     DISCORD_NAME_MAX_LENGTH: ClassVar[int] = 32
     DISCORD_DESC_MAX_LENGTH: ClassVar[int] = 100
-    WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({'dm', 'show'})
+    WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({Flag.DM, Flag.SHOW})
 
     def __init__(self, guild_id: str) -> None:
         self._guild = discord.Object(id=int(guild_id))
@@ -34,7 +34,7 @@ class DiscordBot:
 
     def register_commands(self) -> None:
         for command in CommandRegistry.instance().get_all():
-            if 'discord' not in command.config.platforms:
+            if Platform.DISCORD not in command.config.platforms:
                 continue
             self._register_slash_command(command)
             for alias in command.config.aliases:

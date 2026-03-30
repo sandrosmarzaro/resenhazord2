@@ -4,7 +4,7 @@ import structlog
 
 from bot.data.ddd_list import DDD_LIST, EIGHT_DIGIT_PREFIXES
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 
@@ -31,7 +31,7 @@ class AddCommand(Command):
             args_pattern=r'^(?:\d+)?$',
             args_label='número',
             group_only=True,
-            category='group',
+            category=Category.GROUP,
         )
 
     @property

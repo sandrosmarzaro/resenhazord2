@@ -11,6 +11,7 @@ from starlette.websockets import WebSocket
 from bot.adapters.http.schemas import WSCommandData, WSMessage
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
+from bot.domain.commands.base import Platform
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -76,7 +77,7 @@ class WebSocketHandler:
             media_buffer=media_buffer,
             message_id=cmd_data.message_id,
             push_name=cmd_data.push_name,
-            platform='whatsapp',
+            platform=Platform.WHATSAPP,
         )
 
         structlog.contextvars.clear_contextvars()

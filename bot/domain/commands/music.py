@@ -5,7 +5,15 @@ import structlog
 from bot.data.deezer_genres import DEEZER_GENRES
 from bot.data.music_genres import MUSIC_GENRES
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import (
+    ArgType,
+    Category,
+    Command,
+    CommandConfig,
+    Flag,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -28,11 +36,11 @@ class MusicCommand(Command):
         return CommandConfig(
             name='música',
             aliases=['music'],
-            flags=['free', 'show', 'dm'],
+            flags=['free', Flag.SHOW, Flag.DM],
             args=ArgType.OPTIONAL,
             args_label='gênero',
-            category='download',
-            platforms=['whatsapp', 'discord'],
+            category=Category.DOWNLOAD,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

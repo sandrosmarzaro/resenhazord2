@@ -5,7 +5,7 @@ import httpx
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -25,9 +25,9 @@ class BeerCommand(Command):
         return CommandConfig(
             name='cerveja',
             aliases=['beer'],
-            flags=['show', 'dm'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            flags=[Flag.SHOW, Flag.DM],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

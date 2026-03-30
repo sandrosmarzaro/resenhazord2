@@ -4,7 +4,7 @@ import structlog
 
 from bot.data.swearings import SWEARINGS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -15,7 +15,7 @@ logger = structlog.get_logger()
 class AdmCommand(Command):
     @property
     def config(self) -> CommandConfig:
-        return CommandConfig(name='adm', group_only=True, category='group')
+        return CommandConfig(name='adm', group_only=True, category=Category.GROUP)
 
     @property
     def menu_description(self) -> str:

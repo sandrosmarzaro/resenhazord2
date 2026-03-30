@@ -1,5 +1,5 @@
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import Category, Command, CommandConfig, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.translator import Translator
@@ -13,8 +13,8 @@ class FactCommand(Command):
             name='fato',
             aliases=['fact'],
             flags=['hoje'],
-            category='random',
-            platforms=['whatsapp', 'discord'],
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property

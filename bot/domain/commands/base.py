@@ -15,6 +15,23 @@ class ArgType(StrEnum):
     OPTIONAL = 'optional'
 
 
+class Flag(StrEnum):
+    DM = 'dm'
+    SHOW = 'show'
+
+
+class Platform(StrEnum):
+    WHATSAPP = 'whatsapp'
+    DISCORD = 'discord'
+
+
+class Category(StrEnum):
+    RANDOM = 'random'
+    DOWNLOAD = 'download'
+    GROUP = 'group'
+    OTHER = 'other'
+
+
 class CommandScope(StrEnum):
     PUBLIC = 'public'
     INTERNAL = 'internal'
@@ -43,8 +60,8 @@ class CommandConfig:
     args_label: str | None = None
     scope: CommandScope = CommandScope.PUBLIC
     group_only: bool = False
-    category: str | None = None
-    platforms: list[str] = field(default_factory=lambda: ['whatsapp'])
+    category: Category | None = None
+    platforms: list[Platform] = field(default_factory=lambda: [Platform.WHATSAPP])
 
 
 @dataclass
@@ -107,8 +124,8 @@ class Command(ABC):
         self, data: CommandData, parsed: ParsedCommand, messages: list[BotMessage]
     ) -> list[BotMessage]:
         for msg in messages:
-            if 'dm' in parsed.flags and data.participant:
+            if Flag.DM in parsed.flags and data.participant:
                 msg.jid = data.participant
-            if 'show' in parsed.flags and hasattr(msg.content, 'view_once'):
+            if Flag.SHOW in parsed.flags and hasattr(msg.content, 'view_once'):
                 msg.content.view_once = False  # type: ignore[union-attr]
         return messages
