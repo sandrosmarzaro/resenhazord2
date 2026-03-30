@@ -73,11 +73,15 @@ class MusicCommands:
 
             is_url = self.URL_PATTERN.match(buscar) is not None
 
+            channel = interaction.channel
+            if not channel or not isinstance(channel, discord.abc.Messageable):
+                return
+
             ctx = SearchContext(
                 voice_manager=vm,
                 guild_id=guild.id,
                 voice_channel=voice_state.channel,
-                text_channel=interaction.channel,
+                text_channel=channel,
                 requester_name=interaction.user.display_name,
                 requester_id=interaction.user.id,
             )
@@ -142,7 +146,8 @@ class MusicCommands:
         position = queue.add(track)
 
         await vm.ensure_connected(voice_channel)
-        vm.set_text_channel(guild_id, interaction.channel)
+        if interaction.channel and isinstance(interaction.channel, discord.abc.Messageable):
+            vm.set_text_channel(guild_id, interaction.channel)
 
         if not vm.is_playing(guild_id):
             await vm.play_track(guild_id, track)

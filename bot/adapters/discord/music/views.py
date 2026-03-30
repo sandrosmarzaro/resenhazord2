@@ -83,7 +83,8 @@ class NowPlayingView(discord.ui.View):
         button: discord.ui.Button,
     ) -> None:
         await self._voice_manager.stop(self._guild_id)
-        await interaction.message.delete()
+        if interaction.message:
+            await interaction.message.delete()
         self.stop()
 
     @discord.ui.button(emoji='⏭', style=discord.ButtonStyle.secondary, row=0)
@@ -105,7 +106,7 @@ class NowPlayingView(discord.ui.View):
         new_vol = queue.volume_down()
 
         vc = self._voice_manager.get_voice_client(self._guild_id)
-        if vc and vc.source and hasattr(vc.source, 'volume'):
+        if vc and isinstance(vc.source, discord.PCMVolumeTransformer):
             vc.source.volume = new_vol
 
         await self._refresh_embed(interaction)
@@ -120,7 +121,7 @@ class NowPlayingView(discord.ui.View):
         new_vol = queue.volume_up()
 
         vc = self._voice_manager.get_voice_client(self._guild_id)
-        if vc and vc.source and hasattr(vc.source, 'volume'):
+        if vc and isinstance(vc.source, discord.PCMVolumeTransformer):
             vc.source.volume = new_vol
 
         await self._refresh_embed(interaction)
@@ -267,7 +268,9 @@ class SearchCancelButton(discord.ui.Button):
             embed=None,
             view=None,
         )
-        self.view.stop()
+        view = self.view
+        if view:
+            view.stop()
 
 
 QUEUE_TIMEOUT_SECONDS = 120
@@ -280,6 +283,7 @@ class QueueView(discord.ui.View):
         self._voice_manager = voice_manager
         self._guild_id = guild_id
         self._page = page
+        self.message: discord.Message | None = None
         self._update_buttons()
 
     def _update_buttons(self) -> None:
@@ -384,9 +388,8 @@ class TrackActionView(discord.ui.View):
         self._parent._update_buttons()
         queue = self._voice_manager.get_queue(self._guild_id)
         embed = MusicEmbedBuilder.queue_list(queue, self._parent._page, TRACKS_PER_PAGE)
-        msg = getattr(self._parent, 'message', None)
-        if msg:
-            await msg.edit(embed=embed, view=self._parent)
+        if self._parent.message:
+            await self._parent.message.edit(embed=embed, view=self._parent)
 
     @discord.ui.button(label='Remover', emoji='🗑️', style=discord.ButtonStyle.danger)
     async def remove_button(

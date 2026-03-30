@@ -26,7 +26,9 @@ class TestNowPlaying:
         embed = MusicEmbedBuilder.now_playing(track, queue)
 
         assert embed.title == 'Song 0'
+        assert embed.description is not None
         assert '**Artist**' in embed.description
+        assert embed.color is not None
         assert embed.color.value == EMBED_COLOR
 
     def test_has_duration_field(self):
@@ -57,6 +59,7 @@ class TestNowPlaying:
         embed = MusicEmbedBuilder.now_playing(track, queue)
 
         loop_field = next(f for f in embed.fields if f.name == 'Repetir')
+        assert loop_field.value is not None
         assert 'Desativado' in loop_field.value
 
     def test_loop_track_mode_shown(self):
@@ -68,6 +71,7 @@ class TestNowPlaying:
         embed = MusicEmbedBuilder.now_playing(track, queue)
 
         loop_field = next(f for f in embed.fields if f.name == 'Repetir')
+        assert loop_field.value is not None
         assert 'Musica' in loop_field.value
 
     def test_has_footer_with_requester(self):
@@ -77,6 +81,8 @@ class TestNowPlaying:
 
         embed = MusicEmbedBuilder.now_playing(track, queue)
 
+        assert embed.footer is not None
+        assert embed.footer.text is not None
         assert 'User' in embed.footer.text
         assert '1/1' in embed.footer.text
 
@@ -114,6 +120,7 @@ class TestQueueList:
 
         embed = MusicEmbedBuilder.queue_list(queue)
 
+        assert embed.description is not None
         assert 'vazia' in embed.description
 
     def test_shows_tracks(self):
@@ -123,6 +130,7 @@ class TestQueueList:
 
         embed = MusicEmbedBuilder.queue_list(queue)
 
+        assert embed.description is not None
         assert 'Song 0' in embed.description
         assert 'Song 1' in embed.description
         assert 'Song 2' in embed.description
@@ -134,6 +142,7 @@ class TestQueueList:
 
         embed = MusicEmbedBuilder.queue_list(queue)
 
+        assert embed.description is not None
         assert '▶ Song 0' in embed.description
 
     def test_pagination(self):
@@ -143,8 +152,11 @@ class TestQueueList:
 
         embed = MusicEmbedBuilder.queue_list(queue, page=1, tracks_per_page=10)
 
+        assert embed.description is not None
         assert 'Song 10' in embed.description
         assert 'Song 0' not in embed.description
+        assert embed.footer is not None
+        assert embed.footer.text is not None
         assert '2/2' in embed.footer.text
 
 
@@ -154,6 +166,7 @@ class TestSearchResults:
 
         embed = MusicEmbedBuilder.search_results(tracks)
 
+        assert embed.description is not None
         assert '**1.**' in embed.description
         assert '**2.**' in embed.description
         assert '**3.**' in embed.description

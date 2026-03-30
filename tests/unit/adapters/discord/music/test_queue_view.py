@@ -1,3 +1,4 @@
+import discord
 import pytest
 
 from bot.adapters.discord.music.queue import MusicQueue
@@ -40,9 +41,8 @@ class TestQueueViewStructure:
     def test_has_navigation_buttons(self, mock_vm):
         view = QueueView(mock_vm, guild_id=1)
 
-        button_emojis = [
-            str(item.emoji) for item in view.children if hasattr(item, 'emoji') and item.emoji
-        ]
+        buttons = [item for item in view.children if isinstance(item, discord.ui.Button)]
+        button_emojis = [str(b.emoji) for b in buttons if b.emoji]
 
         assert '◀' in button_emojis
         assert '▶' in button_emojis
@@ -109,7 +109,8 @@ class TestTrackActionView:
         parent = QueueView(mock_vm, guild_id=1)
         view = TrackActionView(mock_vm, guild_id=1, track_index=2, parent=parent)
 
-        labels = [item.label for item in view.children if hasattr(item, 'label')]
+        buttons = [item for item in view.children if isinstance(item, discord.ui.Button)]
+        labels = [b.label for b in buttons]
 
         assert 'Remover' in labels
         assert 'Mover pro topo' in labels

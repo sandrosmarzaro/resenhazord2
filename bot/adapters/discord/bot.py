@@ -177,7 +177,7 @@ class DiscordBot:
             before: discord.VoiceState,
             _after: discord.VoiceState,
         ) -> None:
-            if not before.channel or member.id == client.user.id:
+            if not before.channel or not client.user or member.id == client.user.id:
                 return
 
             bot_in_channel = client.user in before.channel.members

@@ -1,3 +1,4 @@
+import discord
 import pytest
 
 from bot.adapters.discord.music.queue import LoopMode
@@ -39,7 +40,8 @@ class TestNowPlayingViewStructure:
     def test_has_expected_buttons(self, voice_manager):
         view = NowPlayingView(voice_manager, guild_id=1)
 
-        labels = [item.label for item in view.children if hasattr(item, 'label')]
+        buttons = [item for item in view.children if isinstance(item, discord.ui.Button)]
+        labels = [b.label for b in buttons]
 
         assert 'Pausar' in labels
         assert 'Parar' in labels
@@ -140,4 +142,5 @@ class TestLoopButton:
         await view.loop_button.callback(interaction)
 
         queue.cycle_loop.assert_called_once()
+        assert view.loop_button.label is not None
         assert 'Musica' in view.loop_button.label
