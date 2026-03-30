@@ -44,7 +44,7 @@ class TestNowPlayingViewStructure:
         assert 'Pausar' in labels
         assert 'Parar' in labels
         assert 'Repetir' in labels
-        assert 'Shuffle' in labels
+        assert 'Embaralhar' in labels
         assert 'Fila' in labels
 
     def test_has_two_rows(self, voice_manager):

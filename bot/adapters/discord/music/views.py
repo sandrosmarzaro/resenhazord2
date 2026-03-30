@@ -143,7 +143,7 @@ class NowPlayingView(discord.ui.View):
 
         await self._refresh_embed(interaction)
 
-    @discord.ui.button(emoji='🔀', label='Shuffle', style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(emoji='🔀', label='Embaralhar', style=discord.ButtonStyle.secondary, row=1)
     async def shuffle_button(
         self,
         interaction: discord.Interaction,

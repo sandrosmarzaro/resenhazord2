@@ -52,15 +52,15 @@ class MusicCommands:
 
         @self._tree.command(name='play', description='Tocar uma musica', guild=self._guild)
         @app_commands.describe(
-            query='URL ou termo de busca',
-            buscar='Mostrar opcoes de busca para escolher',
-            shuffle='Embaralhar a playlist antes de tocar',
+            buscar='URL ou termo de busca',
+            opcoes='Mostrar opcoes de busca para escolher',
+            embaralhar='Embaralhar a playlist antes de tocar',
         )
         async def play(
             interaction: discord.Interaction,
-            query: str,
-            buscar: bool | None = None,  # noqa: FBT001
-            shuffle: bool | None = None,  # noqa: FBT001
+            buscar: str,
+            opcoes: bool | None = None,  # noqa: FBT001
+            embaralhar: bool | None = None,  # noqa: FBT001
         ) -> None:
             guild = interaction.guild
             if not guild:
@@ -71,7 +71,7 @@ class MusicCommands:
                 await interaction.response.send_message(NO_VOICE_CHANNEL, ephemeral=True)
                 return
 
-            is_url = self.URL_PATTERN.match(query) is not None
+            is_url = self.URL_PATTERN.match(buscar) is not None
 
             ctx = SearchContext(
                 voice_manager=vm,
@@ -82,21 +82,21 @@ class MusicCommands:
                 requester_id=interaction.user.id,
             )
 
-            if buscar and not is_url:
-                await self._handle_search(interaction, query, ctx)
+            if opcoes and not is_url:
+                await self._handle_search(interaction, buscar, ctx)
                 return
 
             await interaction.response.defer()
 
             try:
-                is_playlist = is_url and self.PLAYLIST_PATTERN.match(query) is not None
+                is_playlist = is_url and self.PLAYLIST_PATTERN.match(buscar) is not None
                 if is_playlist:
-                    await self._handle_playlist(interaction, query, ctx, shuffle=bool(shuffle))
+                    await self._handle_playlist(interaction, buscar, ctx, shuffle=bool(embaralhar))
                     return
 
                 await self._handle_single_track(
                     interaction,
-                    query,
+                    buscar,
                     is_url=is_url,
                     ctx=ctx,
                 )
@@ -218,14 +218,17 @@ class MusicCommands:
         vm.set_text_channel(guild_id, ctx.text_channel)
 
         if not vm.is_playing(guild_id) and queue.current:
-            first = queue.current
-            resolved = await YtDlpAudioService.resolve_stream(
-                first.url,
-                requested_by=first.requested_by,
-                requested_by_id=first.requested_by_id,
-            )
-            queue.replace_current(resolved)
-            await vm.play_track(guild_id, resolved)
+            try:
+                first = queue.current
+                resolved = await YtDlpAudioService.resolve_stream(
+                    first.url,
+                    requested_by=first.requested_by,
+                    requested_by_id=first.requested_by_id,
+                )
+                queue.replace_current(resolved)
+                await vm.play_track(guild_id, resolved)
+            except ExternalServiceError:
+                await vm._on_track_end(guild_id, None)
 
         suffix = ' (embaralhada)' if shuffle else ''
         await interaction.followup.send(f'{count} musicas adicionadas a fila.{suffix}')
