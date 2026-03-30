@@ -48,6 +48,7 @@ class TestMatches:
             (', filme pop', True),
             (', filme pop100', True),
             (', filme pop1000', True),
+            (', filme pop top100', True),
             (', filme show', True),
             ('filme', False),
             ('hello', False),

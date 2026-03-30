@@ -23,7 +23,7 @@ class MovieSeriesCommand(Command):
             name='filme',
             aliases=['série', 'movie', 'series'],
             options=[
-                OptionDef(name='mode', pattern=r'pop\d*', description='ex: pop, pop100, pop500'),
+                OptionDef(name='pop', pattern=r'pop\d*'),
                 OptionDef(name='top', pattern=r'top\d+'),
             ],
             flags=['show', 'dm'],
@@ -37,7 +37,7 @@ class MovieSeriesCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         media_type = 'movie' if parsed.command_name in self.MOVIE_NAMES else 'tv'
-        pop_str = parsed.options.get('mode', '')
+        pop_str = parsed.options.get('pop', '')
         top_str = parsed.options.get('top', '')
 
         if pop_str:
