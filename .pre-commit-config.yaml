@@ -1,3 +1,6 @@
+fail_fast: true
+default_stages: [pre-push]
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.0
@@ -23,3 +26,24 @@ repos:
         files: \.py$
       - id: trailing-whitespace
         files: \.py$
+
+  - repo: local
+    hooks:
+      - id: gateway-lint
+        name: gateway eslint
+        entry: bash -c 'cd gateway && bun lint'
+        language: system
+        files: ^gateway/
+        pass_filenames: false
+      - id: gateway-typecheck
+        name: gateway typecheck
+        entry: bash -c 'cd gateway && bun typecheck'
+        language: system
+        files: ^gateway/
+        pass_filenames: false
+      - id: gateway-format
+        name: gateway format check
+        entry: bash -c 'cd gateway && bun format:check'
+        language: system
+        files: ^gateway/
+        pass_filenames: false
