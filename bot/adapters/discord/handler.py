@@ -4,7 +4,8 @@ import structlog
 
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.application.command_registry import CommandRegistry
-from bot.domain.commands.base import Command, CommandConfig, CommandScope
+from bot.data.browser_headers import BROWSER_HEADERS
+from bot.domain.commands.base import Command, CommandConfig, CommandScope, Platform
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
@@ -97,7 +98,9 @@ class DiscordInteractionHandler:
                     logger.warning('discord_audio_download_failed', url=content.url)
             elif isinstance(content, ImageContent):
                 try:
-                    response = await HttpClient.get(content.url, follow_redirects=True)
+                    response = await HttpClient.get(
+                        content.url, follow_redirects=True, headers=BROWSER_HEADERS
+                    )
                     new_content = ImageBufferContent(data=response.content, caption=content.caption)
                     result.append(BotMessage(jid=message.jid, content=new_content))
                     continue
@@ -153,5 +156,5 @@ class DiscordInteractionHandler:
             message_id=str(interaction.id),
             is_group=interaction.guild_id is not None,
             push_name=interaction.user.display_name,
-            platform='discord',
+            platform=Platform.DISCORD,
         )
