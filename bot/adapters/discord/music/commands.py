@@ -59,8 +59,8 @@ class MusicCommands:
         async def play(
             interaction: discord.Interaction,
             buscar: str,
-            opcoes: bool | None = None,  # noqa: FBT001
-            embaralhar: bool | None = None,  # noqa: FBT001
+            opcoes: bool | None = None,
+            embaralhar: bool | None = None,
         ) -> None:
             guild = interaction.guild
             if not guild:
