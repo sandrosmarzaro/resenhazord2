@@ -53,11 +53,13 @@ class MusicCommands:
         @app_commands.describe(
             query='URL ou termo de busca',
             buscar='Mostrar opcoes de busca para escolher',
+            shuffle='Embaralhar a playlist antes de tocar',
         )
         async def play(
             interaction: discord.Interaction,
             query: str,
             buscar: bool | None = None,  # noqa: FBT001
+            shuffle: bool | None = None,  # noqa: FBT001
         ) -> None:
             guild = interaction.guild
             if not guild:
@@ -88,7 +90,7 @@ class MusicCommands:
             try:
                 is_playlist = is_url and self.PLAYLIST_PATTERN.match(query) is not None
                 if is_playlist:
-                    await self._handle_playlist(interaction, query, ctx)
+                    await self._handle_playlist(interaction, query, ctx, shuffle=bool(shuffle))
                     return
 
                 await self._handle_single_track(
@@ -185,6 +187,8 @@ class MusicCommands:
         interaction: discord.Interaction,
         url: str,
         ctx: SearchContext,
+        *,
+        shuffle: bool = False,
     ) -> None:
         vm = ctx.voice_manager
         guild_id = ctx.guild_id
@@ -206,6 +210,9 @@ class MusicCommands:
         queue = vm.get_queue(guild_id)
         count = queue.add_many(tracks)
 
+        if shuffle:
+            queue.shuffle()
+
         await vm.ensure_connected(ctx.voice_channel)
         vm.set_text_channel(guild_id, ctx.text_channel)
 
@@ -219,7 +226,8 @@ class MusicCommands:
             queue.replace_current(resolved)
             await vm.play_track(guild_id, resolved)
 
-        await interaction.followup.send(f'{count} musicas adicionadas a fila.')
+        suffix = ' (embaralhada)' if shuffle else ''
+        await interaction.followup.send(f'{count} musicas adicionadas a fila.{suffix}')
 
     def _register_queue(self) -> None:
         vm = self._voice_manager

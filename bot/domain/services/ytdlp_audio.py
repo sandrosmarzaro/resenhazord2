@@ -11,7 +11,7 @@ logger = structlog.get_logger()
 
 class YtDlpAudioService:
     AUDIO_FORMAT: ClassVar[str] = 'bestaudio/best'
-    MAX_PLAYLIST_TRACKS: ClassVar[int] = 50
+    MAX_PLAYLIST_TRACKS: ClassVar[int] = 200
     YOUTUBE_VIDEO_BASE: ClassVar[str] = 'https://www.youtube.com/watch?v='
 
     @classmethod
