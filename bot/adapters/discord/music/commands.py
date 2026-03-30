@@ -5,8 +5,10 @@ import discord
 import structlog
 from discord import app_commands
 
+from bot.adapters.discord.music.embeds import MusicEmbedBuilder
+from bot.adapters.discord.music.views import SearchContext, SearchResultView
 from bot.adapters.discord.music.voice_manager import VoiceManager
-from bot.data.music_errors import NO_PREVIOUS_TRACK, NO_VOICE_CHANNEL, NOT_PLAYING
+from bot.data.music_errors import NO_PREVIOUS_TRACK, NO_RESULTS, NO_VOICE_CHANNEL, NOT_PLAYING
 from bot.domain.exceptions import ExternalServiceError, MusicError
 from bot.domain.services.ytdlp_audio import YtDlpAudioService
 
@@ -37,8 +39,15 @@ class MusicCommands:
         vm = self._voice_manager
 
         @self._tree.command(name='play', description='Tocar uma musica', guild=self._guild)
-        @app_commands.describe(query='URL ou termo de busca')
-        async def play(interaction: discord.Interaction, query: str) -> None:
+        @app_commands.describe(
+            query='URL ou termo de busca',
+            buscar='Mostrar opcoes de busca para escolher',
+        )
+        async def play(
+            interaction: discord.Interaction,
+            query: str,
+            buscar: bool | None = None,  # noqa: FBT001
+        ) -> None:
             guild = interaction.guild
             if not guild:
                 return
@@ -48,11 +57,23 @@ class MusicCommands:
                 await interaction.response.send_message(NO_VOICE_CHANNEL, ephemeral=True)
                 return
 
+            is_url = self.URL_PATTERN.match(query) is not None
+
+            if buscar and not is_url:
+                ctx = SearchContext(
+                    voice_manager=vm,
+                    guild_id=guild.id,
+                    voice_channel=voice_state.channel,
+                    text_channel=interaction.channel,
+                    requester_name=interaction.user.display_name,
+                    requester_id=interaction.user.id,
+                )
+                await self._handle_search(interaction, query, ctx)
+                return
+
             await interaction.response.defer()
 
             try:
-                is_url = self.URL_PATTERN.match(query) is not None
-
                 if is_url:
                     track = await YtDlpAudioService.resolve_stream(
                         query,
@@ -67,7 +88,7 @@ class MusicCommands:
                         requested_by_id=interaction.user.id,
                     )
                     if not results:
-                        await interaction.followup.send('Nenhum resultado encontrado.')
+                        await interaction.followup.send(NO_RESULTS)
                         return
                     track = await YtDlpAudioService.resolve_stream(
                         results[0].url,
@@ -95,6 +116,34 @@ class MusicCommands:
                 await interaction.followup.send(e.user_message)
             except MusicError as e:
                 await interaction.followup.send(e.user_message)
+
+    @staticmethod
+    async def _handle_search(
+        interaction: discord.Interaction,
+        query: str,
+        ctx: SearchContext,
+    ) -> None:
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            results = await YtDlpAudioService.search(
+                query,
+                limit=3,
+                requested_by=ctx.requester_name,
+                requested_by_id=ctx.requester_id,
+            )
+        except ExternalServiceError as e:
+            await interaction.followup.send(e.user_message, ephemeral=True)
+            return
+
+        if not results:
+            await interaction.followup.send(NO_RESULTS, ephemeral=True)
+            return
+
+        embed = MusicEmbedBuilder.search_results(results)
+        view = SearchResultView(tracks=results, ctx=ctx)
+
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     def _register_skip(self) -> None:
         vm = self._voice_manager
