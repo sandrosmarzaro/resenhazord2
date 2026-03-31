@@ -41,9 +41,6 @@ known-first-party = ["bot"]
 "bot/settings.py" = [
     "S104", # binding to 0.0.0.0 is intentional for container deployment
 ]
-"bot/adapters/discord/music/commands.py" = [
-    "FBT001", # discord slash commands require positional bool params
-]
 "tests/**" = [
     "ANN",     # no annotation enforcement in tests
     "ARG",     # unused arguments in test fixtures/params

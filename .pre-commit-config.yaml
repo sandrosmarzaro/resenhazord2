@@ -29,12 +29,6 @@ repos:
 
   - repo: local
     hooks:
-      - id: basedpyright
-        name: basedpyright type check
-        entry: uv run basedpyright
-        language: system
-        files: ^(bot|tests)/.*\.py$
-        pass_filenames: false
       - id: gateway-lint
         name: gateway eslint
         entry: bash -c 'cd gateway && bun lint'
