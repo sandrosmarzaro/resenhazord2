@@ -51,7 +51,7 @@ class StickerCommand(Command):
         pack = pack or StickerCreator.DEFAULT_PACK
         author = author or StickerCreator.DEFAULT_AUTHOR
 
-        logger.info(
+        logger.debug(
             'sticker_command',
             jid=data.jid,
             media_type=data.media_type,

@@ -5,6 +5,7 @@ Inspired by https://github.com/polarsource/polar/blob/main/server/polar/logging.
 
 import logging
 import logging.config
+import os
 
 import structlog
 
@@ -29,7 +30,14 @@ _shared_processors: list = [
 
 def configure_logging() -> None:
     """Configure structlog and stdlib logging with unified formatting."""
-    renderer = structlog.dev.ConsoleRenderer()
+    log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+    log_format = os.environ.get('LOG_FORMAT', 'console').lower()
+
+    renderer: structlog.types.Processor
+    if log_format == 'json':
+        renderer = structlog.processors.JSONRenderer()
+    else:
+        renderer = structlog.dev.ConsoleRenderer()
 
     logging.config.dictConfig(
         {
@@ -60,7 +68,7 @@ def configure_logging() -> None:
             'loggers': {
                 '': {
                     'handlers': ['default'],
-                    'level': 'INFO',
+                    'level': log_level,
                     'propagate': False,
                 },
                 **{

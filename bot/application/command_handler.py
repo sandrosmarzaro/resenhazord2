@@ -38,9 +38,9 @@ class CommandHandler:
         on_match: Callable[[], Awaitable[None]] | None = None,
     ) -> list[BotMessage] | None:
         """Returns messages if a command matched, None if no match."""
-        logger.info('handle_raw', text=repr(data.text))
+        logger.debug('handle_raw', text=repr(data.text))
         repeat, data = self._parse_batch(data)
-        logger.info('handle_parsed', repeat=repeat, text=repr(data.text))
+        logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
 
         command = self._registry.get_strategy(data.text)
         if command is None:
@@ -61,7 +61,7 @@ class CommandHandler:
         if repeat > 1 and not is_dev:
             repeat = 1
 
-        logger.info('executing_command', batch=repeat if repeat > 1 else None)
+        logger.debug('executing_command', batch=repeat if repeat > 1 else None)
 
         try:
             messages: list[BotMessage] = []

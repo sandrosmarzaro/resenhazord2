@@ -68,7 +68,7 @@ class StealGroupService:
         image_buffer = await HttpClient.get_buffer(self.LOREMFLICKR_URL)
         await self._whatsapp.update_profile_picture(group_jid, image_buffer)
 
-        logger.info('group_stolen', group_jid=group_jid, colony=roman)
+        logger.debug('group_stolen', group_jid=group_jid, colony=roman)
 
     @staticmethod
     async def _next_colony_number() -> int:
