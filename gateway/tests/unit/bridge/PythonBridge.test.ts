@@ -74,12 +74,15 @@ function simulateJsonMessage(msg: Record<string, unknown>): void {
   mockWs.emit('message', { data: JSON.stringify(msg) });
 }
 
-function simulateBinaryMessage(buffer: Buffer): void {
-  mockWs.emit('message', { data: buffer });
+function simulateBinaryMessage(buffer: Buffer, requestId: string): void {
+  const prefix = Buffer.from(requestId + ':');
+  mockWs.emit('message', { data: Buffer.concat([prefix, buffer]) });
 }
 
-function simulateArrayBufferMessage(data: Uint8Array): void {
-  mockWs.emit('message', { data: data.buffer });
+function simulateArrayBufferMessage(data: Uint8Array, requestId: string): void {
+  const prefix = Buffer.from(requestId + ':');
+  const payload = Buffer.concat([prefix, Buffer.from(data)]);
+  mockWs.emit('message', { data: payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength) });
 }
 
 async function flushAsync(): Promise<void> {
@@ -497,7 +500,7 @@ describe('PythonBridge', () => {
       const sent = lastSentJson();
 
       const imgBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-      simulateBinaryMessage(imgBuffer);
+      simulateBinaryMessage(imgBuffer, sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',
@@ -524,7 +527,7 @@ describe('PythonBridge', () => {
       const promise = bridge.sendCommand(data);
       const sent = lastSentJson();
 
-      simulateBinaryMessage(Buffer.from('video-data'));
+      simulateBinaryMessage(Buffer.from('video-data'), sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',
@@ -557,7 +560,7 @@ describe('PythonBridge', () => {
       const promise = bridge.sendCommand(data);
       const sent = lastSentJson();
 
-      simulateBinaryMessage(Buffer.from('audio-data'));
+      simulateBinaryMessage(Buffer.from('audio-data'), sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',
@@ -584,7 +587,7 @@ describe('PythonBridge', () => {
       const promise = bridge.sendCommand(data);
       const sent = lastSentJson();
 
-      simulateBinaryMessage(Buffer.from('sticker-data'));
+      simulateBinaryMessage(Buffer.from('sticker-data'), sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',
@@ -717,8 +720,8 @@ describe('PythonBridge', () => {
       const promise = bridge.sendCommand(data);
       const sent = lastSentJson();
 
-      simulateBinaryMessage(Buffer.from('image-bytes'));
-      simulateBinaryMessage(Buffer.from('sticker-bytes'));
+      simulateBinaryMessage(Buffer.from('image-bytes'), sent.id as string);
+      simulateBinaryMessage(Buffer.from('sticker-bytes'), sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',
@@ -979,7 +982,7 @@ describe('PythonBridge', () => {
       const sent = lastSentJson();
 
       const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
-      simulateArrayBufferMessage(bytes);
+      simulateArrayBufferMessage(bytes, sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',
@@ -1008,7 +1011,7 @@ describe('PythonBridge', () => {
       const sent = lastSentJson();
 
       const original = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
-      simulateArrayBufferMessage(original);
+      simulateArrayBufferMessage(original, sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',
@@ -1042,7 +1045,7 @@ describe('PythonBridge', () => {
       const promise2 = bridge.sendCommand(data2);
       const sent2 = lastSentJson();
 
-      simulateArrayBufferMessage(new Uint8Array([0x52, 0x49, 0x46, 0x46]));
+      simulateArrayBufferMessage(new Uint8Array([0x52, 0x49, 0x46, 0x46]), sent2.id as string);
       simulateJsonMessage({
         id: sent2.id,
         type: 'command_response',
@@ -1056,6 +1059,35 @@ describe('PythonBridge', () => {
       expect([...sticker]).toEqual([0x52, 0x49, 0x46, 0x46]);
     });
 
+    it('routes binary frames to the correct request when two commands are concurrent', async () => {
+      const bridge = createConnectedBridge();
+
+      // Two commands sent concurrently — id_a is inserted first into pendingBinary
+      const dataA = GroupCommandData.build({ text: ',mtg booster show' });
+      const dataB = GroupCommandData.build({ text: ',pokemon team show' });
+
+      const promiseA = bridge.sendCommand(dataA);
+      const sentA = lastSentJson();
+      const promiseB = bridge.sendCommand(dataB);
+      const sentB = lastSentJson();
+
+      // Python sends binary frames for B, then error for A, then response for B
+      simulateBinaryMessage(Buffer.from('pokemon-img'), sentB.id as string);
+      simulateJsonMessage({ id: sentA.id, type: 'error', data: { message: 'MTG API failed' } });
+      simulateJsonMessage({
+        id: sentB.id,
+        type: 'command_response',
+        data: {
+          messages: [{ jid: 'g@g.us', content: { type: 'image_buffer', view_once: true } }],
+        },
+      });
+
+      await expect(promiseA).rejects.toThrow('MTG API failed');
+      const resultB = await promiseB;
+      const img = (resultB![0].content as Record<string, unknown>).image as Buffer;
+      expect(img.toString()).toBe('pokemon-img');
+    });
+
     it('associates multiple ArrayBuffer frames with correct response', async () => {
       const bridge = createConnectedBridge();
       const data = GroupCommandData.build({ text: ',test' });
@@ -1063,8 +1095,8 @@ describe('PythonBridge', () => {
       const promise = bridge.sendCommand(data);
       const sent = lastSentJson();
 
-      simulateArrayBufferMessage(new Uint8Array([1, 2, 3]));
-      simulateArrayBufferMessage(new Uint8Array([4, 5, 6]));
+      simulateArrayBufferMessage(new Uint8Array([1, 2, 3]), sent.id as string);
+      simulateArrayBufferMessage(new Uint8Array([4, 5, 6]), sent.id as string);
       simulateJsonMessage({
         id: sent.id,
         type: 'command_response',

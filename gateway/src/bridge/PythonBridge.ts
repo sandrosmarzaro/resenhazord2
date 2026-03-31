@@ -180,13 +180,16 @@ export default class PythonBridge {
     );
   }
 
+  private static readonly UUID_LEN = 36;
+
   private async handleMessage(event: MessageEvent): Promise<void> {
     if (typeof event.data !== 'string') {
-      // Binary frame — store synchronously to avoid race with the JSON response
-      const buffer = Buffer.from(event.data as ArrayBuffer);
-      for (const [, buffers] of this.pendingBinary) {
-        buffers.push(buffer);
-        break;
+      // Binary frames are prefixed with "<uuid>:" (37 bytes) so they can be routed
+      // to the correct pending request when multiple commands execute concurrently.
+      const raw = Buffer.from(event.data as ArrayBuffer);
+      if (raw.length > PythonBridge.UUID_LEN && raw[PythonBridge.UUID_LEN] === 0x3a) {
+        const requestId = raw.subarray(0, PythonBridge.UUID_LEN).toString('ascii');
+        this.pendingBinary.get(requestId)?.push(raw.subarray(PythonBridge.UUID_LEN + 1));
       }
       return;
     }

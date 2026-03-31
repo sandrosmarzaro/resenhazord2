@@ -114,11 +114,12 @@ class WebSocketHandler:
             logger.exception('group_event_error', id=msg.id)
 
     async def _send_command_response(self, msg_id: str, messages: list[BotMessage]) -> None:
-        # Send binary frames BEFORE JSON so the TS side receives them
-        # while the pending request is still active (WebSocket guarantees ordering)
+        # Prefix each binary frame with "<msg_id>:" so the TS side can route it
+        # to the correct pending request when multiple commands run concurrently.
+        id_prefix = msg_id.encode() + b':'
         for m in messages:
             if m.content.has_buffer:
-                await self._ws.send_bytes(m.content.buffer)  # type: ignore[union-attr]
+                await self._ws.send_bytes(id_prefix + m.content.buffer)  # type: ignore[union-attr]
         await self._ws.send_json(
             {
                 'id': msg_id,
