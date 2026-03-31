@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from typing import ClassVar
 
 import structlog
@@ -11,13 +12,22 @@ logger = structlog.get_logger()
 
 class YtDlpAudioService:
     AUDIO_FORMAT: ClassVar[str] = 'bestaudio/best'
+    COOKIES_PATH: ClassVar[Path] = Path('/app/cookies.txt')
+    JS_RUNTIME: ClassVar[str] = 'bun'
     MAX_PLAYLIST_TRACKS: ClassVar[int] = 200
     YOUTUBE_VIDEO_BASE: ClassVar[str] = 'https://www.youtube.com/watch?v='
 
     @classmethod
+    def _base_args(cls) -> list[str]:
+        args = ['yt-dlp', '--js-runtimes', cls.JS_RUNTIME]
+        if cls.COOKIES_PATH.is_file():
+            args.extend(['--cookies', str(cls.COOKIES_PATH)])
+        return args
+
+    @classmethod
     async def resolve_stream(cls, query: str, *, requested_by: str, requested_by_id: int) -> Track:
         proc = await asyncio.create_subprocess_exec(
-            'yt-dlp',
+            *cls._base_args(),
             '-f',
             cls.AUDIO_FORMAT,
             '--no-playlist',
@@ -78,7 +88,7 @@ class YtDlpAudioService:
         search_query = f'ytsearch{limit}:{query}'
 
         proc = await asyncio.create_subprocess_exec(
-            'yt-dlp',
+            *cls._base_args(),
             '-f',
             cls.AUDIO_FORMAT,
             '--flat-playlist',
@@ -134,7 +144,7 @@ class YtDlpAudioService:
         cls, url: str, *, requested_by: str, requested_by_id: int
     ) -> list[Track]:
         proc = await asyncio.create_subprocess_exec(
-            'yt-dlp',
+            *cls._base_args(),
             '--flat-playlist',
             '--print',
             'id',
