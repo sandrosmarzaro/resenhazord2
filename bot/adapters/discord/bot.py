@@ -5,13 +5,10 @@ from typing import Any, ClassVar, cast
 
 import discord
 import structlog
-from discord import app_commands, opus
+from discord import app_commands
 
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
-from bot.adapters.discord.music.commands import MusicCommands
-from bot.adapters.discord.music.views import NowPlayingView
-from bot.adapters.discord.music.voice_manager import VoiceManager
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
 
@@ -25,17 +22,10 @@ class DiscordBot:
     WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({Flag.DM, Flag.SHOW})
 
     def __init__(self, guild_id: str) -> None:
-        if not opus.is_loaded():
-            opus.load_opus('libopus.so.0')
-
         self._guild = discord.Object(id=int(guild_id))
-        self._client = discord.Client(
-            intents=discord.Intents(guilds=True, voice_states=True),
-        )
+        self._client = discord.Client(intents=discord.Intents(guilds=True))
         self._tree = app_commands.CommandTree(self._client)
         self._handler = DiscordInteractionHandler()
-        self._voice_manager = VoiceManager(view_factory=NowPlayingView)
-        self._music_commands = MusicCommands(self._tree, self._guild, self._voice_manager)
         self._setup_events()
 
     @property
@@ -50,8 +40,6 @@ class DiscordBot:
             for alias in command.config.aliases:
                 self._register_alias(command, alias)
             logger.info('discord_command_registered', name=command.config.name)
-        self._music_commands.register()
-        logger.info('discord_music_commands_registered')
 
     def _register_slash_command(self, command: Command) -> None:
         config = command.config
@@ -159,7 +147,6 @@ class DiscordBot:
         client = self._client
         tree = self._tree
         guild = self._guild
-        vm = self._voice_manager
 
         @client.event
         async def on_ready() -> None:
@@ -170,20 +157,3 @@ class DiscordBot:
                 guild_id=guild.id,
                 synced_commands=[c.name for c in synced],
             )
-
-        @client.event
-        async def on_voice_state_update(
-            member: discord.Member,
-            before: discord.VoiceState,
-            _after: discord.VoiceState,
-        ) -> None:
-            if not before.channel or not client.user or member.id == client.user.id:
-                return
-
-            bot_in_channel = client.user in before.channel.members
-            if not bot_in_channel:
-                return
-
-            non_bot_members = [m for m in before.channel.members if not m.bot]
-            if not non_bot_members:
-                vm.schedule_empty_channel_disconnect(member.guild.id)

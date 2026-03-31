@@ -30,11 +30,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.13-alpine AS production
 
-COPY --from=oven/bun:1.3.9-alpine /usr/local/bin/bun /usr/local/bin/bun
-
 RUN apk add --no-cache \
     ffmpeg \
-    opus \
     curl \
     libjpeg-turbo \
     libwebp \

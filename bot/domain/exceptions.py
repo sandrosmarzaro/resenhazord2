@@ -24,7 +24,3 @@ class ExternalServiceError(CommandError):
 
 class DownloadError(ExternalServiceError):
     """yt-dlp or download failure."""
-
-
-class MusicError(CommandError):
-    """Music playback or queue error."""

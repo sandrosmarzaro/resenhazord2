@@ -2,8 +2,6 @@ import inspect
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 if TYPE_CHECKING:
     from discord import app_commands
 
@@ -115,11 +113,6 @@ class TestBuildSignature:
 
 
 class TestRegisterCommands:
-    @pytest.fixture(autouse=True)
-    def _mock_opus(self):
-        with patch('bot.adapters.discord.bot.opus.is_loaded', return_value=True):
-            yield
-
     def test_only_registers_discord_commands(self):
         discord_cmd = make_command(
             CommandConfig(name='d20', platforms=[Platform.WHATSAPP, Platform.DISCORD])
@@ -176,10 +169,8 @@ class TestRegisterCommands:
             bot.register_commands()
 
         registered = bot._tree.get_commands(guild=bot._guild)
-        slash = cast(
-            'app_commands.Command',
-            next(c for c in registered if c.name == 'stic'),
-        )
+        assert len(registered) == 1
+        slash = cast('app_commands.Command', registered[0])
         type_param = slash._params.get('type')
         assert type_param is not None
         assert len(type_param.choices) == 2
