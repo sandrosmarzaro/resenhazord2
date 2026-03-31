@@ -32,5 +32,11 @@ class CommandRegistry:
                 return cmd
         return None
 
+    def get_by_name(self, name: str) -> Command | None:
+        for cmd in self._commands:
+            if cmd.config.name == name or name in cmd.config.aliases:
+                return cmd
+        return None
+
     def get_all(self) -> list[Command]:
         return list(self._commands)

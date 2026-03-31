@@ -112,7 +112,8 @@ class DiscordInteractionHandler:
     def _build_command_text(self, command_name: str, kwargs: dict) -> str:
         registry_prefix = self._name_map.get(command_name, f'{self.COMMAND_PREFIX}{command_name}')
         parts = [registry_prefix]
-        strategy = CommandRegistry.instance().get_strategy(registry_prefix)
+        name = registry_prefix.lstrip(', ')
+        strategy = CommandRegistry.instance().get_by_name(name)
         if strategy is not None:
             parts.extend(self._extract_text_parts(strategy, kwargs))
         return ' '.join(parts)

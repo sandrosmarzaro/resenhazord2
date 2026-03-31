@@ -243,7 +243,7 @@ class TestBuildCommandText:
     def _make_handler(self, strategy: MagicMock | None, mocker) -> DiscordInteractionHandler:
         handler = DiscordInteractionHandler()
         registry = MagicMock()
-        registry.get_strategy = MagicMock(return_value=strategy)
+        registry.get_by_name = MagicMock(return_value=strategy)
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
             return_value=registry,
@@ -297,6 +297,20 @@ class TestBuildCommandText:
         result = handler._build_command_text('bandeira', {'detail': None})
 
         assert result == ',bandeira'
+
+    def test_command_with_required_args(self, mocker):
+        config = CommandConfig(
+            name='dl',
+            args=ArgType.REQUIRED,
+            args_pattern=r'https?://\S+[\s\S]*',
+            args_label='url',
+        )
+        strategy = self._make_strategy(config)
+        handler = self._make_handler(strategy, mocker)
+
+        result = handler._build_command_text('dl', {'args': 'https://x.com/video/123'})
+
+        assert result == ',dl https://x.com/video/123'
 
     def test_command_with_all(self, mocker):
         config = CommandConfig(
@@ -391,7 +405,7 @@ class TestRegisterName:
         strategy.config = config
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=MagicMock(get_by_name=MagicMock(return_value=strategy)),
         )
 
         result = handler._build_command_text('rule-34', {})
@@ -402,7 +416,7 @@ class TestRegisterName:
         handler = DiscordInteractionHandler()
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=None)),
+            return_value=MagicMock(get_by_name=MagicMock(return_value=None)),
         )
 
         result = handler._build_command_text('d20', {})
