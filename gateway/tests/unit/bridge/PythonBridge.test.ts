@@ -82,7 +82,9 @@ function simulateBinaryMessage(buffer: Buffer, requestId: string): void {
 function simulateArrayBufferMessage(data: Uint8Array, requestId: string): void {
   const prefix = Buffer.from(requestId + ':');
   const payload = Buffer.concat([prefix, Buffer.from(data)]);
-  mockWs.emit('message', { data: payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength) });
+  mockWs.emit('message', {
+    data: payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength),
+  });
 }
 
 async function flushAsync(): Promise<void> {
