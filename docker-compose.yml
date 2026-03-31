@@ -29,7 +29,7 @@ services:
       dockerfile: Dockerfile
     env_file: .env
     volumes:
-      - ./cookies.txt:/app/cookies.txt:ro
+      - ./cookies.txt:/app/cookies.txt
     networks:
       - bot-network
     restart: unless-stopped
