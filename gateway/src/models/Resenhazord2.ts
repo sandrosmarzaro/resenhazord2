@@ -22,7 +22,7 @@ export default class Resenhazord2 {
 
   static async connectToWhatsApp(): Promise<void> {
     if (this.isConnecting) {
-      logger.info({ event: 'connection_already_in_progress' });
+      logger.debug({ event: 'connection_already_in_progress' });
       return;
     }
     this.isConnecting = true;
@@ -84,7 +84,7 @@ export default class Resenhazord2 {
 
   static async cleanup(): Promise<void> {
     if (this.socket) {
-      logger.info({ event: 'cleanup_started' });
+      logger.debug({ event: 'cleanup_started' });
 
       try {
         (this.socket.ev as unknown as { removeAllListeners(): void }).removeAllListeners();

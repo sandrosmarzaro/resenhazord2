@@ -107,7 +107,12 @@ export default class PythonBridge {
       try {
         mediaBuffer = await this.mediaHandler.downloadMedia(data as WAMessage, mediaInfo.source);
       } catch (error) {
-        logger.warn({ event: 'media_download_failed', error: String(error) });
+        logger.warn({
+          event: 'media_download_failed',
+          msg_id: id,
+          jid: data.key.remoteJid,
+          error: String(error),
+        });
       }
     }
 

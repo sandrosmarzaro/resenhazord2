@@ -75,7 +75,7 @@ export default class ConnectionUpdateEvent {
         this.reset();
       }
     } else if (connection === 'connecting') {
-      logger.info({ event: 'connecting' });
+      logger.debug({ event: 'connecting' });
     } else if (connection === 'open') {
       logger.info({ event: 'connection_opened' });
       Sentry.addBreadcrumb({
