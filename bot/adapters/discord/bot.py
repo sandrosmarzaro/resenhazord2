@@ -1,8 +1,10 @@
+import asyncio
 import inspect
 import re
 import unicodedata
 from typing import Any, ClassVar, cast
 
+import aiohttp
 import discord
 import structlog
 from discord import app_commands
@@ -20,6 +22,8 @@ class DiscordBot:
     DISCORD_NAME_MAX_LENGTH: ClassVar[int] = 32
     DISCORD_DESC_MAX_LENGTH: ClassVar[int] = 100
     WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({Flag.DM, Flag.SHOW})
+    MAX_SYNC_RETRIES: ClassVar[int] = 5
+    SYNC_RETRY_DELAY_SECS: ClassVar[float] = 3.0
 
     def __init__(self, guild_id: str) -> None:
         self._guild = discord.Object(id=int(guild_id))
@@ -150,10 +154,30 @@ class DiscordBot:
 
         @client.event
         async def on_ready() -> None:
-            synced = await tree.sync(guild=guild)
-            logger.info(
-                'discord_connected',
-                tag=str(client.user),
-                guild_id=guild.id,
-                synced_commands=[c.name for c in synced],
-            )
+            for attempt in range(1, self.MAX_SYNC_RETRIES + 1):
+                try:
+                    synced = await tree.sync(guild=guild)
+                except aiohttp.ClientConnectorError:
+                    if attempt == self.MAX_SYNC_RETRIES:
+                        logger.exception(
+                            'discord_sync_failed',
+                            guild_id=guild.id,
+                            attempts=attempt,
+                        )
+                        return
+                    delay = self.SYNC_RETRY_DELAY_SECS * attempt
+                    logger.warning(
+                        'discord_sync_retry',
+                        guild_id=guild.id,
+                        attempt=attempt,
+                        retry_in=delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.info(
+                        'discord_connected',
+                        tag=str(client.user),
+                        guild_id=guild.id,
+                        synced_commands=[c.name for c in synced],
+                    )
+                    return
