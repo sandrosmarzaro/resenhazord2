@@ -111,7 +111,7 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
     registry.register(BibleCommand(biblia_token=settings.biblia_token))
     registry.register(
         DriveCommand(
-            discord=DiscordService(settings.discord_token, settings.discord_server_guild_id)
+            discord=DiscordService(settings.discord_token, settings.discord_drive_guild_id)
             if settings.discord_token and settings.discord_drive_guild_id
             else None
         )
