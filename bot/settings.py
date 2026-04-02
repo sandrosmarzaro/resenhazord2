@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     resenhazord2_jid: str = ''
     resenha_jid: str = ''
     discord_token: str = ''
-    discord_guild_id: str = ''
+    discord_server_guild_id: str = ''
+    discord_drive_guild_id: str = ''
     discord_app_id: str = ''
 
     nhentai_mirror_url: str = 'https://nhentai.to'

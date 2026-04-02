@@ -23,8 +23,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     register_all_commands()
     discord_bot = None
     discord_task = None
-    if settings.discord_token and settings.discord_guild_id:
-        discord_bot = DiscordBot(settings.discord_guild_id)
+    if settings.discord_token and settings.discord_server_guild_id:
+        discord_bot = DiscordBot(settings.discord_server_guild_id)
         discord_bot.register_commands()
         discord_task = asyncio.create_task(discord_bot.client.start(settings.discord_token))
     logger.info('app_started')
