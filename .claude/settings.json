@@ -7,5 +7,56 @@
     "typescript-lsp@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "sentry@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-verify.sh",
+            "timeout": 120,
+            "statusMessage": "Verifying edit..."
+          }
+        ]
+      },
+      {
+        "matcher": "Grep|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/truncation-check.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for truncation..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-verify.sh",
+            "timeout": 300,
+            "statusMessage": "Running final verification..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-destructive.sh",
+            "timeout": 5,
+            "statusMessage": "Checking command safety..."
+          }
+        ]
+      }
+    ]
   }
 }

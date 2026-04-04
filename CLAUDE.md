@@ -15,6 +15,16 @@ Commands are prefixed with `,` (comma). The gateway receives WhatsApp messages, 
 
 Use the **context7** MCP (`mcp__context7__resolve-library-id` + `mcp__context7__query-docs`) to fetch up-to-date documentation for any library (e.g., `@whiskeysockets/baileys`, `vitest`, `@upstash/redis`).
 
+## Planning
+
+- When asked to plan: output only the plan. No code until told to proceed.
+- When given a plan: follow it exactly. Flag real problems and wait for confirmation.
+- For non-trivial features (3+ steps or architectural decisions): interview about
+  implementation, UX, and tradeoffs before writing code. Always suggest and list
+  alternative approaches (prefer free/freemium options) with pros and cons for each.
+- Never attempt multi-file refactors in one response. Break into phases of max 5 files.
+  Complete, verify, get approval, then continue.
+
 ## Common Commands
 
 ### Gateway (TypeScript)
@@ -69,11 +79,15 @@ See [docs/architecture.md](docs/architecture.md) for full details (message flow,
 - **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
 - **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (single quotes, 100 char width)
 - **No `__init__.py`**: Do not create `__init__.py` files — Python 3.3+ uses namespace packages (PEP 420); they are useless
+- **Comments**: Default to no comments. Only comment when the *why* is non-obvious. No robotic comment blocks narrating what the code does.
 
 ### Python Code Quality
 
 Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
 
+- **Senior dev standard** — before finishing any change, ask: "What would a senior
+  perfectionist reject in code review?" Fix that. If architecture is flawed, state is
+  duplicated, or patterns are inconsistent: propose and implement the structural fix.
 - **No magic numbers** — use named constants to describe every numeric literal. Place
   constants as class attributes (`MAX_PAGE = 50`) or in `bot/data/` files, never
   as bare numbers in logic. Use `from http import HTTPStatus` for HTTP status
@@ -96,6 +110,43 @@ Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
   inline data structures in command or service files
 - **Polymorphic behavior** — prefer `to_dict()` / `__str__()` methods on data classes
   over isinstance chains. Keep serialization logic close to the data it describes
+
+## Context Management
+
+- Before any structural refactor on a file >300 LOC: first remove all dead props, unused
+  exports, unused imports, and debug logs. Commit the cleanup separately. Dead code burns
+  context that triggers compaction faster.
+- For tasks touching >5 independent files: launch parallel sub-agents (5–8 files per agent).
+  Each gets its own context window. Sequential processing of 20 files guarantees context
+  decay by file 12.
+- After 10+ messages: re-read any file before editing it. Auto-compaction may have
+  destroyed your memory of its contents.
+- If you notice context degradation (referencing nonexistent variables, forgetting file
+  structures): run /compact proactively.
+- Each file read is capped at 2,000 lines. For files over 500 LOC: use `offset` and
+  `limit` to read in chunks. Plan for chunked reads proactively.
+- Tool results over 50K chars get truncated to a 2KB preview. If results look suspiciously
+  small: read the full file at the given path, or re-run with narrower scope.
+
+## Edit Safety
+
+- Before every file edit: re-read the file. After editing: read it again. The Edit tool
+  fails silently on stale `old_string` matches.
+- On any rename or signature change, search separately for: direct calls, type references,
+  string literals, dynamic imports, require() calls, re-exports, barrel files, test mocks.
+  Assume grep missed something.
+- Never delete a file without verifying nothing references it.
+- When adding fields to object literals in config blocks, prefer multi-line formatting if
+  the single-line form would exceed 100 chars.
+
+## Self-Correction
+
+- After any correction: log the pattern to `gotchas.md` at the repo root. Convert
+  mistakes into rules. Review past lessons at session start.
+- If a fix doesn't work after two attempts: stop. Read the entire relevant section
+  top-down. State where your mental model was wrong before trying again.
+- When asked to test your own output: adopt a new-user persona and walk through as if
+  you've never seen the project.
 
 ## Commit Conventions
 
@@ -172,23 +223,21 @@ test: add Python unit and integration test structure
 
 Gateway uses `@sentry/bun` for error tracking and structured logging. See [docs/sentry.md](docs/sentry.md) for setup, structured logs, error capture, breadcrumbs, CLI queries, and test mocks.
 
-## AI Guidelines
+## Verification & Communication
 
-- Always run `cd gateway && bun format` after editing TS code and verify no lines exceed 100
-  characters
-- Always run `cd gateway && bun typecheck` after TS changes and distinguish between pre-existing
-  vs newly introduced errors
-- Always run `cd gateway && bun test:run` after TS changes and verify all previously passing
-  tests still pass
-- Always run `uv run ruff check . && uv run ruff format --check .` after Python changes
-- Always ask/talk about of implementation of code, which design use
-  pattern/library/algorithms/architecture/design system, suggesting and
-  listing alternatives approaches (prefer free/freemium ways) with pros and cons
-  for each. To rest any debut of how make the instructions
-- When adding fields to object literals in config blocks, prefer multi-line
-  formatting if the single-line form would exceed 100 chars
-- Always commit changes using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
-  and atomic commits — each commit should represent one logical change. Commit as you go.
+### After every change
+
+- After editing TS: run `cd gateway && bun format`, then `bun typecheck` (distinguish
+  pre-existing vs newly introduced errors), then `bun test:run` (verify all previously
+  passing tests still pass)
+- After editing Python: run `uv run ruff check . && uv run ruff format --check .`
+
+### Communication
+
+- When told "yes", "do it", or "push": execute. Don't repeat the plan.
+- When pointed to existing code as reference: study it and match its patterns exactly.
+  Working code is a better spec than a verbal description.
+- Work from raw error data. Don't guess. If a bug report has no output, ask for it.
 
 ## Response Formatting
 
