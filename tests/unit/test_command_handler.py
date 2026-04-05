@@ -51,13 +51,6 @@ class DevOnlyCommand(Command):
         return [Reply.to(data).text('dev ok')]
 
 
-@pytest.fixture(autouse=True)
-def _reset_registry():
-    CommandRegistry.reset()
-    yield
-    CommandRegistry.reset()
-
-
 @pytest.fixture
 def registry():
     r = CommandRegistry.instance()
@@ -65,11 +58,6 @@ def registry():
     r.register(DisabledCommand())
     r.register(DevOnlyCommand())
     return r
-
-
-@pytest.fixture
-def mock_dev_list(mocker):
-    return mocker.AsyncMock()
 
 
 @pytest.fixture

@@ -48,6 +48,13 @@ def mock_mongodb_collection(mocker):
 
 
 @pytest.fixture
+def mock_dev_list(mocker):
+    dev_list = mocker.AsyncMock()
+    dev_list.is_dev.return_value = False
+    return dev_list
+
+
+@pytest.fixture
 def mock_subprocess(mocker):
     def _factory(target: str, *, calls: list[tuple[bytes, bytes, int]]):
         procs = []
