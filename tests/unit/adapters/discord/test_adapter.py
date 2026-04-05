@@ -4,7 +4,8 @@ import pytest
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 
 
-def make_interaction(mocker) -> pytest.MonkeyPatch:
+@pytest.fixture
+def interaction(mocker):
     interaction = mocker.MagicMock()
     interaction.response = mocker.MagicMock()
     interaction.response.send_message = mocker.AsyncMock()
@@ -12,11 +13,6 @@ def make_interaction(mocker) -> pytest.MonkeyPatch:
     interaction.followup = mocker.MagicMock()
     interaction.followup.send = mocker.AsyncMock()
     return interaction
-
-
-@pytest.fixture
-def interaction(mocker):
-    return make_interaction(mocker)
 
 
 @pytest.fixture

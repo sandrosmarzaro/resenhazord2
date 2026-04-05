@@ -9,11 +9,8 @@ from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.contents.video_content import VideoBufferContent, VideoContent
 from bot.domain.models.message import BotMessage
 
-JID = 'test-jid'
-
-
 def make_message(content) -> BotMessage:
-    return BotMessage(jid=JID, content=content)
+    return BotMessage(jid='test-jid', content=content)
 
 
 @pytest.fixture

@@ -8,13 +8,6 @@ from bot.adapters.discord.bot import DiscordBot
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, Platform
 
 
-def make_command(mocker, config: CommandConfig, description: str = 'Test description'):
-    cmd = mocker.MagicMock(spec=Command)
-    cmd.config = config
-    cmd.menu_description = description
-    return cmd
-
-
 class TestNormalizeName:
     def test_strips_diacritics(self):
         assert DiscordBot._normalize_name('horóscopo') == 'horoscopo'
@@ -112,14 +105,21 @@ class TestBuildSignature:
 
 
 class TestRegisterCommands:
+    @staticmethod
+    def _make_command(mocker, config: CommandConfig, description: str = 'Test description'):
+        cmd = mocker.MagicMock(spec=Command)
+        cmd.config = config
+        cmd.menu_description = description
+        return cmd
+
     def test_only_registers_discord_commands(self, mocker):
-        discord_cmd = make_command(
+        discord_cmd = self._make_command(
             mocker, CommandConfig(name='d20', platforms=[Platform.WHATSAPP, Platform.DISCORD])
         )
-        whatsapp_only_cmd = make_command(
+        whatsapp_only_cmd = self._make_command(
             mocker, CommandConfig(name='sticker', platforms=[Platform.WHATSAPP])
         )
-        another_discord_cmd = make_command(
+        another_discord_cmd = self._make_command(
             mocker, CommandConfig(name='jackpot', platforms=[Platform.WHATSAPP, Platform.DISCORD])
         )
 
@@ -138,7 +138,7 @@ class TestRegisterCommands:
         assert 'sticker' not in added_names
 
     def test_aliases_registered_as_separate_commands(self, mocker):
-        cmd = make_command(
+        cmd = self._make_command(
             mocker,
             CommandConfig(
                 name='anime', aliases=['manga'], platforms=[Platform.WHATSAPP, Platform.DISCORD]
@@ -155,7 +155,7 @@ class TestRegisterCommands:
         assert 'manga' in added_names
 
     def test_command_with_option_gets_choices(self, mocker):
-        cmd = make_command(
+        cmd = self._make_command(
             mocker,
             CommandConfig(
                 name='stic',
