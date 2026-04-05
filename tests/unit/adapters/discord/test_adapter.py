@@ -1,24 +1,22 @@
-from unittest.mock import AsyncMock, MagicMock
-
 import discord
 import pytest
 
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 
 
-def make_interaction() -> MagicMock:
-    interaction = MagicMock()
-    interaction.response = MagicMock()
-    interaction.response.send_message = AsyncMock()
-    interaction.response.defer = AsyncMock()
-    interaction.followup = MagicMock()
-    interaction.followup.send = AsyncMock()
+def make_interaction(mocker) -> pytest.MonkeyPatch:
+    interaction = mocker.MagicMock()
+    interaction.response = mocker.MagicMock()
+    interaction.response.send_message = mocker.AsyncMock()
+    interaction.response.defer = mocker.AsyncMock()
+    interaction.followup = mocker.MagicMock()
+    interaction.followup.send = mocker.AsyncMock()
     return interaction
 
 
 @pytest.fixture
-def interaction():
-    return make_interaction()
+def interaction(mocker):
+    return make_interaction(mocker)
 
 
 @pytest.fixture
@@ -53,17 +51,17 @@ class TestSendMessage:
         interaction.response.send_message.assert_called_once_with(embed=embed)
 
     @pytest.mark.anyio
-    async def test_file_only(self, adapter, interaction):
-        file = MagicMock(spec=discord.File)
+    async def test_file_only(self, adapter, interaction, mocker):
+        file = mocker.MagicMock(spec=discord.File)
 
         await adapter.send_message(file=file)
 
         interaction.response.send_message.assert_called_once_with(file=file)
 
     @pytest.mark.anyio
-    async def test_all_three(self, adapter, interaction):
+    async def test_all_three(self, adapter, interaction, mocker):
         embed = discord.Embed()
-        file = MagicMock(spec=discord.File)
+        file = mocker.MagicMock(spec=discord.File)
 
         await adapter.send_message('text', embed=embed, file=file)
 
@@ -105,17 +103,17 @@ class TestSendFollowup:
         interaction.followup.send.assert_called_once_with(embed=embed)
 
     @pytest.mark.anyio
-    async def test_file_only(self, adapter, interaction):
-        file = MagicMock(spec=discord.File)
+    async def test_file_only(self, adapter, interaction, mocker):
+        file = mocker.MagicMock(spec=discord.File)
 
         await adapter.send_followup(file=file)
 
         interaction.followup.send.assert_called_once_with(file=file)
 
     @pytest.mark.anyio
-    async def test_all_three(self, adapter, interaction):
+    async def test_all_three(self, adapter, interaction, mocker):
         embed = discord.Embed()
-        file = MagicMock(spec=discord.File)
+        file = mocker.MagicMock(spec=discord.File)
 
         await adapter.send_followup('text', embed=embed, file=file)
 

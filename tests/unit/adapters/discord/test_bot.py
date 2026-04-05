@@ -1,6 +1,5 @@
 import inspect
 from typing import TYPE_CHECKING, cast
-from unittest.mock import MagicMock, patch
 
 if TYPE_CHECKING:
     from discord import app_commands
@@ -9,8 +8,8 @@ from bot.adapters.discord.bot import DiscordBot
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, Platform
 
 
-def make_command(config: CommandConfig, description: str = 'Test description') -> MagicMock:
-    cmd = MagicMock(spec=Command)
+def make_command(mocker, config: CommandConfig, description: str = 'Test description'):
+    cmd = mocker.MagicMock(spec=Command)
     cmd.config = config
     cmd.menu_description = description
     return cmd
@@ -113,60 +112,62 @@ class TestBuildSignature:
 
 
 class TestRegisterCommands:
-    def test_only_registers_discord_commands(self):
+    def test_only_registers_discord_commands(self, mocker):
         discord_cmd = make_command(
-            CommandConfig(name='d20', platforms=[Platform.WHATSAPP, Platform.DISCORD])
+            mocker, CommandConfig(name='d20', platforms=[Platform.WHATSAPP, Platform.DISCORD])
         )
         whatsapp_only_cmd = make_command(
-            CommandConfig(name='sticker', platforms=[Platform.WHATSAPP])
+            mocker, CommandConfig(name='sticker', platforms=[Platform.WHATSAPP])
         )
         another_discord_cmd = make_command(
-            CommandConfig(name='jackpot', platforms=[Platform.WHATSAPP, Platform.DISCORD])
+            mocker, CommandConfig(name='jackpot', platforms=[Platform.WHATSAPP, Platform.DISCORD])
         )
 
-        with patch('bot.adapters.discord.bot.CommandRegistry') as mock_registry:
-            mock_registry.instance.return_value.get_all.return_value = [
-                discord_cmd,
-                whatsapp_only_cmd,
-                another_discord_cmd,
-            ]
-            bot = DiscordBot('123456789')
-            bot.register_commands()
+        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry.instance.return_value.get_all.return_value = [
+            discord_cmd,
+            whatsapp_only_cmd,
+            another_discord_cmd,
+        ]
+        bot = DiscordBot('123456789')
+        bot.register_commands()
 
         added_names = [cmd.name for cmd in bot._tree.get_commands(guild=bot._guild)]
         assert 'd20' in added_names
         assert 'jackpot' in added_names
         assert 'sticker' not in added_names
 
-    def test_aliases_registered_as_separate_commands(self):
+    def test_aliases_registered_as_separate_commands(self, mocker):
         cmd = make_command(
+            mocker,
             CommandConfig(
                 name='anime', aliases=['manga'], platforms=[Platform.WHATSAPP, Platform.DISCORD]
-            )
+            ),
         )
 
-        with patch('bot.adapters.discord.bot.CommandRegistry') as mock_registry:
-            mock_registry.instance.return_value.get_all.return_value = [cmd]
-            bot = DiscordBot('123456789')
-            bot.register_commands()
+        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry.instance.return_value.get_all.return_value = [cmd]
+        bot = DiscordBot('123456789')
+        bot.register_commands()
 
         added_names = [c.name for c in bot._tree.get_commands(guild=bot._guild)]
         assert 'anime' in added_names
         assert 'manga' in added_names
 
-    def test_command_with_option_gets_choices(self):
+    def test_command_with_option_gets_choices(self, mocker):
         cmd = make_command(
+            mocker,
             CommandConfig(
                 name='stic',
                 options=[OptionDef(name='type', values=['crop', 'full'])],
                 platforms=[Platform.WHATSAPP, Platform.DISCORD],
-            )
+            ),
         )
 
-        with patch('bot.adapters.discord.bot.CommandRegistry') as mock_registry:
-            mock_registry.instance.return_value.get_all.return_value = [cmd]
-            bot = DiscordBot('123456789')
-            bot.register_commands()
+        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry.instance.return_value.get_all.return_value = [cmd]
+        bot = DiscordBot('123456789')
+        bot.register_commands()
 
         registered = bot._tree.get_commands(guild=bot._guild)
         assert len(registered) == 1

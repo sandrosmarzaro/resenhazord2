@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -19,17 +18,17 @@ if TYPE_CHECKING:
 
 
 def make_interaction(
+    mocker,
     command_name: str = 'd20',
-    channel_id: int = 111222333,
     user_id: int = 999888777,
     guild_id: int | None = 1234567890,
     display_name: str = 'TestUser',
-) -> MagicMock:
-    interaction = MagicMock()
-    interaction.command = MagicMock()
+):
+    interaction = mocker.MagicMock()
+    interaction.command = mocker.MagicMock()
     interaction.command.name = command_name
-    interaction.channel_id = channel_id
-    interaction.user = MagicMock()
+    interaction.channel_id = 111222333
+    interaction.user = mocker.MagicMock()
     interaction.user.id = user_id
     interaction.user.display_name = display_name
     interaction.id = 555666777
@@ -37,9 +36,9 @@ def make_interaction(
     return interaction
 
 
-def make_strategy(messages: list[BotMessage]) -> MagicMock:
-    strategy = MagicMock()
-    strategy.run = AsyncMock(return_value=messages)
+def make_strategy(mocker, messages: list[BotMessage]):
+    strategy = mocker.MagicMock()
+    strategy.run = mocker.AsyncMock(return_value=messages)
     return strategy
 
 
@@ -49,11 +48,11 @@ def handler():
 
 
 @pytest.fixture
-def port():
-    port = AsyncMock()
-    port.send_message = AsyncMock()
-    port.send_followup = AsyncMock()
-    port.defer = AsyncMock()
+def port(mocker):
+    port = mocker.AsyncMock()
+    port.send_message = mocker.AsyncMock()
+    port.send_followup = mocker.AsyncMock()
+    port.defer = mocker.AsyncMock()
     port.is_deferred = False
     return port
 
@@ -61,11 +60,13 @@ def port():
 class TestHandle:
     @pytest.mark.anyio
     async def test_defers_before_executing(self, handler, port, mocker):
-        interaction = make_interaction()
-        strategy = make_strategy([BotMessage(jid='111', content=TextContent(text='roll: 7'))])
+        interaction = make_interaction(mocker)
+        strategy = make_strategy(
+            mocker, [BotMessage(jid='111', content=TextContent(text='roll: 7'))]
+        )
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -74,13 +75,13 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_text_command_sends_followup(self, handler, port, mocker):
-        interaction = make_interaction()
+        interaction = make_interaction(mocker)
         strategy = make_strategy(
-            [BotMessage(jid='111', content=TextContent(text='Aqui esta sua rolada: 7 🎲'))]
+            mocker, [BotMessage(jid='111', content=TextContent(text='Aqui esta sua rolada: 7 🎲'))]
         )
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -91,15 +92,16 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_image_command_sends_embed(self, handler, port, mocker):
-        interaction = make_interaction()
+        interaction = make_interaction(mocker)
         strategy = make_strategy(
-            [BotMessage(jid='111', content=ImageContent(url='https://example.com/img.jpg'))]
+            mocker,
+            [BotMessage(jid='111', content=ImageContent(url='https://example.com/img.jpg'))],
         )
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
-        mock_response = MagicMock()
+        mock_response = mocker.MagicMock()
         mock_response.content = b'image-bytes'
         mocker.patch('bot.adapters.discord.handler.HttpClient.get', return_value=mock_response)
 
@@ -112,7 +114,7 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_no_command_name_returns_early(self, handler, port, mocker):
-        interaction = make_interaction()
+        interaction = make_interaction(mocker)
         interaction.command = None
         mocker.patch('bot.adapters.discord.handler.CommandRegistry.instance')
 
@@ -123,10 +125,10 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_no_match_sends_error(self, handler, port, mocker):
-        interaction = make_interaction(command_name='unknown')
+        interaction = make_interaction(mocker, command_name='unknown')
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=None)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=None)),
         )
 
         await handler.handle(port, interaction)
@@ -136,12 +138,12 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_bot_error_sends_user_message(self, handler, port, mocker):
-        interaction = make_interaction()
-        strategy = MagicMock()
-        strategy.run = AsyncMock(side_effect=BotError('Erro amigavel'))
+        interaction = make_interaction(mocker)
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(side_effect=BotError('Erro amigavel'))
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -150,12 +152,12 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_generic_error_sends_fallback(self, handler, port, mocker):
-        interaction = make_interaction()
-        strategy = MagicMock()
-        strategy.run = AsyncMock(side_effect=RuntimeError('boom'))
+        interaction = make_interaction(mocker)
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(side_effect=RuntimeError('boom'))
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -165,11 +167,11 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_empty_messages_sends_no_response(self, handler, port, mocker):
-        interaction = make_interaction()
-        strategy = make_strategy([])
+        interaction = make_interaction(mocker)
+        strategy = make_strategy(mocker, [])
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -180,16 +182,17 @@ class TestHandle:
     @pytest.mark.anyio
     async def test_builds_command_data_correctly(self, handler, port, mocker):
         interaction = make_interaction(
+            mocker,
             command_name='d20',
-            channel_id=111,
             user_id=999,
             guild_id=777,
             display_name='Alice',
         )
+        interaction.channel_id = 111
         interaction.id = 555
         captured: list[CommandData] = []
-        strategy = MagicMock()
-        strategy.run = AsyncMock(
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(
             side_effect=lambda data: (
                 captured.append(data)  # type: ignore[arg-type]
                 or [BotMessage(jid='111', content=TextContent(text='ok'))]
@@ -197,7 +200,7 @@ class TestHandle:
         )
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -213,12 +216,12 @@ class TestHandle:
 
     @pytest.mark.anyio
     async def test_is_group_false_when_no_guild(self, handler, port, mocker):
-        interaction = make_interaction(guild_id=None)
+        interaction = make_interaction(mocker, guild_id=None)
         captured: list[CommandData] = []
-        strategy = MagicMock()
+        strategy = mocker.MagicMock()
         strategy.config.group_only = False
         strategy.config.scope = 'public'
-        strategy.run = AsyncMock(
+        strategy.run = mocker.AsyncMock(
             side_effect=lambda data: (
                 captured.append(data)  # type: ignore[arg-type]
                 or [BotMessage(jid='111', content=TextContent(text='ok'))]
@@ -226,7 +229,7 @@ class TestHandle:
         )
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -235,15 +238,15 @@ class TestHandle:
 
 
 class TestBuildCommandText:
-    def _make_strategy(self, config: CommandConfig) -> MagicMock:
-        strategy = MagicMock(spec=Command)
+    def _make_strategy(self, mocker, config: CommandConfig):
+        strategy = mocker.MagicMock(spec=Command)
         strategy.config = config
         return strategy
 
-    def _make_handler(self, strategy: MagicMock | None, mocker) -> DiscordInteractionHandler:
+    def _make_handler(self, mocker, strategy) -> DiscordInteractionHandler:
         handler = DiscordInteractionHandler()
-        registry = MagicMock()
-        registry.get_by_name = MagicMock(return_value=strategy)
+        registry = mocker.MagicMock()
+        registry.get_by_name = mocker.MagicMock(return_value=strategy)
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
             return_value=registry,
@@ -252,8 +255,8 @@ class TestBuildCommandText:
 
     def test_simple_command(self, mocker):
         config = CommandConfig(name='d20')
-        strategy = self._make_strategy(config)
-        handler = self._make_handler(strategy, mocker)
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
 
         result = handler._build_command_text('d20', {})
 
@@ -261,8 +264,8 @@ class TestBuildCommandText:
 
     def test_command_with_args(self, mocker):
         config = CommandConfig(name='horoscopo', args=ArgType.OPTIONAL)
-        strategy = self._make_strategy(config)
-        handler = self._make_handler(strategy, mocker)
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
 
         result = handler._build_command_text('horoscopo', {'args': 'leao'})
 
@@ -273,8 +276,8 @@ class TestBuildCommandText:
             name='stic',
             options=[OptionDef(name='type', values=['crop', 'full', 'circle', 'rounded'])],
         )
-        strategy = self._make_strategy(config)
-        handler = self._make_handler(strategy, mocker)
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
 
         result = handler._build_command_text('stic', {'type': 'crop'})
 
@@ -282,8 +285,8 @@ class TestBuildCommandText:
 
     def test_command_with_flag_true(self, mocker):
         config = CommandConfig(name='bandeira', flags=['detail'])
-        strategy = self._make_strategy(config)
-        handler = self._make_handler(strategy, mocker)
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
 
         result = handler._build_command_text('bandeira', {'detail': True})
 
@@ -291,8 +294,8 @@ class TestBuildCommandText:
 
     def test_command_with_flag_none_skipped(self, mocker):
         config = CommandConfig(name='bandeira', flags=['detail'])
-        strategy = self._make_strategy(config)
-        handler = self._make_handler(strategy, mocker)
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
 
         result = handler._build_command_text('bandeira', {'detail': None})
 
@@ -305,8 +308,8 @@ class TestBuildCommandText:
             args_pattern=r'https?://\S+[\s\S]*',
             args_label='url',
         )
-        strategy = self._make_strategy(config)
-        handler = self._make_handler(strategy, mocker)
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
 
         result = handler._build_command_text('dl', {'args': 'https://x.com/video/123'})
 
@@ -319,8 +322,8 @@ class TestBuildCommandText:
             flags=['detail'],
             args=ArgType.OPTIONAL,
         )
-        strategy = self._make_strategy(config)
-        handler = self._make_handler(strategy, mocker)
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
 
         result = handler._build_command_text(
             'filme', {'mode': 'top', 'detail': True, 'args': 'Batman'}
@@ -330,29 +333,29 @@ class TestBuildCommandText:
 
 
 class TestNsfwAndGroupOnly:
-    def _make_nsfw_strategy(self) -> MagicMock:
-        strategy = make_strategy([BotMessage(jid='111', content=TextContent(text='ok'))])
-        strategy.config = MagicMock()
+    def _make_nsfw_strategy(self, mocker):
+        strategy = make_strategy(mocker, [BotMessage(jid='111', content=TextContent(text='ok'))])
+        strategy.config = mocker.MagicMock()
         strategy.config.scope = CommandScope.NSFW
         strategy.config.group_only = False
         return strategy
 
-    def _make_group_only_strategy(self) -> MagicMock:
-        strategy = make_strategy([BotMessage(jid='111', content=TextContent(text='ok'))])
-        strategy.config = MagicMock()
+    def _make_group_only_strategy(self, mocker):
+        strategy = make_strategy(mocker, [BotMessage(jid='111', content=TextContent(text='ok'))])
+        strategy.config = mocker.MagicMock()
         strategy.config.scope = CommandScope.PUBLIC
         strategy.config.group_only = True
         return strategy
 
     @pytest.mark.anyio
     async def test_nsfw_in_sfw_channel_blocked(self, handler, port, mocker):
-        interaction = make_interaction()
-        interaction.channel = MagicMock()
+        interaction = make_interaction(mocker)
+        interaction.channel = mocker.MagicMock()
         interaction.channel.nsfw = False
-        strategy = self._make_nsfw_strategy()
+        strategy = self._make_nsfw_strategy(mocker)
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -362,13 +365,13 @@ class TestNsfwAndGroupOnly:
 
     @pytest.mark.anyio
     async def test_nsfw_in_nsfw_channel_allowed(self, handler, port, mocker):
-        interaction = make_interaction()
-        interaction.channel = MagicMock()
+        interaction = make_interaction(mocker)
+        interaction.channel = mocker.MagicMock()
         interaction.channel.nsfw = True
-        strategy = self._make_nsfw_strategy()
+        strategy = self._make_nsfw_strategy(mocker)
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -377,11 +380,11 @@ class TestNsfwAndGroupOnly:
 
     @pytest.mark.anyio
     async def test_group_only_in_dm_blocked(self, handler, port, mocker):
-        interaction = make_interaction(guild_id=None)
-        strategy = self._make_group_only_strategy()
+        interaction = make_interaction(mocker, guild_id=None)
+        strategy = self._make_group_only_strategy(mocker)
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_strategy=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
         )
 
         await handler.handle(port, interaction)
@@ -401,11 +404,11 @@ class TestRegisterName:
         handler = DiscordInteractionHandler()
         handler.register_name('rule-34', ',rule 34')
         config = CommandConfig(name='rule 34')
-        strategy = MagicMock(spec=Command)
+        strategy = mocker.MagicMock(spec=Command)
         strategy.config = config
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_by_name=MagicMock(return_value=strategy)),
+            return_value=mocker.MagicMock(get_by_name=mocker.MagicMock(return_value=strategy)),
         )
 
         result = handler._build_command_text('rule-34', {})
@@ -416,7 +419,7 @@ class TestRegisterName:
         handler = DiscordInteractionHandler()
         mocker.patch(
             'bot.adapters.discord.handler.CommandRegistry.instance',
-            return_value=MagicMock(get_by_name=MagicMock(return_value=None)),
+            return_value=mocker.MagicMock(get_by_name=mocker.MagicMock(return_value=None)),
         )
 
         result = handler._build_command_text('d20', {})
@@ -429,7 +432,7 @@ class TestPreprocessMessages:
 
     @pytest.mark.anyio
     async def test_audio_content_downloads_and_converts(self, mocker):
-        mock_response = MagicMock()
+        mock_response = mocker.MagicMock()
         mock_response.content = b'audio-bytes'
         mocker.patch(
             'bot.adapters.discord.handler.HttpClient.get',
@@ -448,7 +451,7 @@ class TestPreprocessMessages:
 
     @pytest.mark.anyio
     async def test_http_image_downloads_and_converts(self, mocker):
-        mock_response = MagicMock()
+        mock_response = mocker.MagicMock()
         mock_response.content = b'image-bytes'
         mocker.patch(
             'bot.adapters.discord.handler.HttpClient.get',
@@ -470,7 +473,7 @@ class TestPreprocessMessages:
 
     @pytest.mark.anyio
     async def test_https_image_downloads_and_converts(self, mocker):
-        mock_response = MagicMock()
+        mock_response = mocker.MagicMock()
         mock_response.content = b'image-bytes'
         mocker.patch(
             'bot.adapters.discord.handler.HttpClient.get',
