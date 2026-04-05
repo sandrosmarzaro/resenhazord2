@@ -162,7 +162,7 @@ class HearthstoneCommand(CardBoosterCommand):
         try:
             response = await HttpClient.post(
                 self.TOKEN_URL,
-                data='grant_type=client_credentials',
+                content=b'grant_type=client_credentials',
                 headers={'Content-Type': 'application/x-www-form-urlencoded'},
                 auth=(self._bnet_id, self._bnet_secret),
             )
