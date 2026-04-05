@@ -34,13 +34,6 @@ def mock_ws(mocker):
 
 
 @pytest.fixture
-def mock_dev_list(mocker):
-    dev_list = mocker.AsyncMock()
-    dev_list.is_dev.return_value = False
-    return dev_list
-
-
-@pytest.fixture
 def handler(mock_ws, mock_dev_list):
     registry = CommandRegistry.instance()
     registry.register(EchoCommand())
@@ -98,17 +91,15 @@ class TestWebSocketHandlerCommand:
 
 
 class TestWebSocketHandlerWaResult:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
     @pytest.mark.anyio
     async def test_wa_result_resolves_future(self, mock_ws, handler):
         import asyncio
 
-        # Only run on asyncio backend since wa_call uses asyncio.Future
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            pytest.skip('asyncio-only test')
-            return
-
+        loop = asyncio.get_running_loop()
         future: asyncio.Future = loop.create_future()
         handler._pending['call-1'] = future
         msg = json.dumps(
