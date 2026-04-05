@@ -32,7 +32,7 @@ class JackpotCommand(Command):
         text = (
             f'🎰 *JACKPOT* 🎰\n'
             f'╔══════════╗\n'
-            f'║ {reels[0]} │ {reels[1]} │ {reels[2]} ║\n'
+            f'    {reels[0]} │ {reels[1]} │ {reels[2]}\n'
             f'╚══════════╝\n'
             f'{result}'
         )
