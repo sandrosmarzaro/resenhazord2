@@ -12,6 +12,7 @@ addopts = [
 strict = true
 log_cli = true
 log_cli_level = 'INFO'
+pythonpath = ['.']
 testpaths = [
     'tests/',
 ]
