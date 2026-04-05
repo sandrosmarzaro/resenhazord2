@@ -29,6 +29,7 @@ class TmPlayer:
     market_value: str
     photo_url: str
     badge_url: str
+    nationality_flag_url: str = ''
 
 
 class TransfermarktService:
@@ -127,8 +128,8 @@ class TransfermarktService:
 
             photo_tag = inline.find('img', class_='bilderrahmen-fixed')
             if photo_tag and isinstance(photo_tag, Tag):
-                src = photo_tag.get('src', '')
-                photo_url = str(src).replace('/small/', '/medium/')
+                src = photo_tag.get('data-src') or photo_tag.get('src', '')
+                photo_url = str(src).replace('/small/', '/big/')
             else:
                 photo_url = ''
 
@@ -158,6 +159,11 @@ class TransfermarktService:
             nat_tag = row.find('img', class_='flaggenrahmen')
             nationality = (
                 str(nat_tag.get('title', '')) if nat_tag and isinstance(nat_tag, Tag) else ''
+            )
+            nationality_flag_url = (
+                str(nat_tag.get('src') or nat_tag.get('data-src') or '')
+                if nat_tag and isinstance(nat_tag, Tag)
+                else ''
             )
 
             club_link = row.find(
@@ -200,6 +206,7 @@ class TransfermarktService:
                 market_value=market_value,
                 photo_url=photo_url,
                 badge_url=badge_url,
+                nationality_flag_url=nationality_flag_url,
             )
         except Exception:
             logger.exception('transfermarkt_parse_row_error')

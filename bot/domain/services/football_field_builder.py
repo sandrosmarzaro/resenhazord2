@@ -1,6 +1,7 @@
 """Render a top-down football pitch with player photos at formation positions."""
 
 import io
+import unicodedata
 from dataclasses import dataclass
 from typing import cast
 
@@ -20,6 +21,10 @@ _FONT_LABEL_SIZE = 22
 _FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 _FONT_BOLD_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 _NAME_MAX_LEN = 14
+_FLAG_W = 18
+_FLAG_H = 12
+_FLAG_GAP = 3
+_STROKE_WIDTH = 2
 
 # Field margin inside canvas (pixels)
 _MX = 36
@@ -34,7 +39,7 @@ _GOAL_H_RATIO = 0.05
 _CIRCLE_R_RATIO = 0.10
 _SPOT_R = 4
 _PENALTY_SPOT_Y_RATIO = 0.12
-_CORNER_ARC_R = 12
+_CORNER_ARC_R = 20
 
 
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
@@ -50,7 +55,14 @@ class _Renderer:
     draw: ImageDraw.ImageDraw
     font: ImageFont.FreeTypeFont
 
-    def draw_player(self, photo_bytes: bytes | None, name: str, cx: int, cy: int) -> None:
+    def draw_player(
+        self,
+        photo_bytes: bytes | None,
+        name: str,
+        cx: int,
+        cy: int,
+        flag_bytes: bytes | None = None,
+    ) -> None:
         r = _PHOTO_DIAMETER // 2
         if photo_bytes:
             try:
@@ -59,11 +71,6 @@ class _Renderer:
                 mask = Image.new('L', (_PHOTO_DIAMETER, _PHOTO_DIAMETER), 0)
                 ImageDraw.Draw(mask).ellipse([0, 0, _PHOTO_DIAMETER, _PHOTO_DIAMETER], fill=255)
                 self.canvas.paste(photo.convert('RGB'), (cx - r, cy - r), mask)
-                self.draw.ellipse(
-                    [cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2],
-                    outline=_LINE_COLOR,
-                    width=2,
-                )
             except (OSError, ValueError):
                 self._draw_placeholder(cx, cy, r)
         else:
@@ -73,14 +80,31 @@ class _Renderer:
         bbox = self.draw.textbbox((0, 0), short_name, font=self.font)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
-        label_y = cy + r + 4
-        pad = 4
-        self.draw.rounded_rectangle(
-            [cx - tw // 2 - pad, label_y - 1, cx + tw // 2 + pad, label_y + th + 2],
-            radius=4,
-            fill='#00000088',
+        label_y = cy + r + 6
+
+        # Layout: [flag] [name], centered around cx
+        flag_w = _FLAG_W + _FLAG_GAP if flag_bytes else 0
+        content_w = tw + flag_w
+        text_x = cx - content_w // 2 + flag_w
+
+        self.draw.text(
+            (text_x, label_y),
+            short_name,
+            fill=_LINE_COLOR,
+            font=self.font,
+            stroke_width=_STROKE_WIDTH,
+            stroke_fill='#000000',
         )
-        self.draw.text((cx - tw // 2, label_y), short_name, fill=_LINE_COLOR, font=self.font)
+
+        if flag_bytes:
+            try:
+                flag_img = Image.open(io.BytesIO(flag_bytes)).convert('RGBA')
+                flag_img = flag_img.resize((_FLAG_W, _FLAG_H), Resampling.LANCZOS)
+                flag_x = int(cx - content_w // 2)
+                flag_y = int(label_y + (th - _FLAG_H) // 2)
+                self.canvas.paste(flag_img.convert('RGB'), (flag_x, flag_y), flag_img)
+            except (OSError, ValueError):
+                pass
 
     def _draw_placeholder(self, cx: int, cy: int, r: int) -> None:
         self.draw.ellipse(
@@ -95,6 +119,7 @@ def build_football_field(
     photos: list[bytes | None],
     names: list[str],
     formation: Formation,
+    flags: list[bytes | None] | None = None,
 ) -> bytes:
     canvas = Image.new('RGB', (_CANVAS_W, _CANVAS_H), _FIELD_COLOR)
     draw = ImageDraw.Draw(canvas)
@@ -106,9 +131,10 @@ def build_football_field(
     for i, slot in enumerate(formation.slots):
         photo_bytes = photos[i] if i < len(photos) else None
         name = names[i] if i < len(names) else ''
+        flag_bytes = flags[i] if flags and i < len(flags) else None
         cx = int(_MX + slot.x * _FW)
         cy = int(_MY + slot.y * _FH)
-        renderer.draw_player(photo_bytes, name, cx, cy)
+        renderer.draw_player(photo_bytes, name, cx, cy, flag_bytes)
 
     output = io.BytesIO()
     canvas.save(output, format='JPEG', quality=88)
@@ -154,13 +180,14 @@ def _draw_field(draw: ImageDraw.ImageDraw) -> None:
         width=_LINE_WIDTH,
     )
 
+    # GK-side penalty spot only (bottom)
     spot_offset = int(_FH * _PENALTY_SPOT_Y_RATIO)
     fcx = _MX + _FW // 2
-    for spot_y in (_MY + spot_offset, _MY + _FH - spot_offset):
-        draw.ellipse(
-            [fcx - _SPOT_R, spot_y - _SPOT_R, fcx + _SPOT_R, spot_y + _SPOT_R],
-            fill=_LINE_COLOR,
-        )
+    spot_y = _MY + _FH - spot_offset
+    draw.ellipse(
+        [fcx - _SPOT_R, spot_y - _SPOT_R, fcx + _SPOT_R, spot_y + _SPOT_R],
+        fill=_LINE_COLOR,
+    )
 
     ar = _CORNER_ARC_R
     corners = [
@@ -181,13 +208,20 @@ def _draw_field(draw: ImageDraw.ImageDraw) -> None:
 
 def _draw_formation_label(draw: ImageDraw.ImageDraw, formation_name: str) -> None:
     font = _load_font(_FONT_BOLD_PATH, _FONT_LABEL_SIZE)
-    text = f'\u26bd  {formation_name}'
-    bbox = draw.textbbox((0, 0), text, font=font)
+    bbox = draw.textbbox((0, 0), formation_name, font=font)
     tw = bbox[2] - bbox[0]
-    draw.text(((_CANVAS_W - tw) // 2, 14), text, fill=_LINE_COLOR, font=font)
+    draw.text(
+        ((_CANVAS_W - tw) // 2, 14),
+        formation_name,
+        fill=_LINE_COLOR,
+        font=font,
+        stroke_width=_STROKE_WIDTH,
+        stroke_fill='#000000',
+    )
 
 
 def _shorten_name(name: str) -> str:
+    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
     parts = name.split()
     if len(parts) <= 1:
         return name[:_NAME_MAX_LEN]

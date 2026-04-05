@@ -1,6 +1,7 @@
 """Random football team with league standings and optional full lineup image."""
 
 import asyncio
+import contextlib
 import random
 
 import anyio
@@ -28,12 +29,28 @@ from bot.infrastructure.http_client import HttpClient
 logger = structlog.get_logger()
 
 _POSITION_ROLES: dict[str, list[str]] = {
-    'GK': ['Goleiro'],
-    'DEF': ['Zagueiro', 'Lateral Dir.', 'Lateral Esq.'],
-    'MID': ['Volante', 'Meia Central', 'Meia Ofensivo'],
-    'ATT': ['Centroavante', 'Ponta Direita', 'Ponta Esquerda'],
+    'GK': ['Goleiro', 'Guarda-Redes', 'Goalkeeper', 'Porteiro'],
+    'DEF': [
+        'Zagueiro', 'Lateral Dir.', 'Lateral Esq.',
+        'Defensor Central', 'Lateral Direito', 'Lateral Esquerdo',
+        'Centre-Back', 'Left-Back', 'Right-Back',
+        'Defensor', 'Libero',
+    ],
+    'MID': [
+        'Volante', 'Meia Central', 'Meia Ofensivo',
+        'Meia-Esquerda', 'Meia-Direita', 'Meio-Campo',
+        'Medio Defensivo', 'Medio Central', 'Medio Ofensivo',
+        'Defensive Midfield', 'Central Midfield', 'Attacking Midfield',
+        'Left Midfield', 'Right Midfield',
+        'Segundo Atacante',
+    ],
+    'ATT': [
+        'Centroavante', 'Ponta Direita', 'Ponta Esquerda',
+        'Atacante', 'Segunda Ponta', 'Extremo Direito', 'Extremo Esquerdo',
+        'Centre-Forward', 'Left Winger', 'Right Winger',
+        'Second Striker',
+    ],
 }
-_ROLE_SLOTS: dict[str, int] = {'GK': 1, 'DEF': 4, 'MID': 3, 'ATT': 3}
 
 
 class FootballTeamCommand(Command):
@@ -70,6 +87,9 @@ class FootballTeamCommand(Command):
             TransfermarktService.fetch_squad_values(league),
         )
 
+        if not squad_values:
+            logger.warning('squad_values_empty', league=league.tm_id)
+
         if not teams:
             return [Reply.to(data).text('Nenhum time encontrado. Tente novamente! ⚽')]
 
@@ -91,8 +111,16 @@ class FootballTeamCommand(Command):
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
         league = LEAGUES.get(liga_code) if liga_code else None
-        page = random.randint(1, TransfermarktService.GLOBAL_MAX_PAGES)  # noqa: S311
-        players = await TransfermarktService.fetch_page(page, league)
+        max_pages = (
+            TransfermarktService.LEAGUE_MAX_PAGES
+            if league
+            else TransfermarktService.GLOBAL_MAX_PAGES
+        )
+        pages = random.sample(range(1, max_pages + 1), min(2, max_pages))
+        results = await asyncio.gather(
+            *[TransfermarktService.fetch_page(p, league) for p in pages]
+        )
+        players = list({p.name: p for result in results for p in result}.values())
 
         if not players:
             return [Reply.to(data).text('Não foi possível montar a escalação. Tente novamente! ⚽')]
@@ -101,67 +129,69 @@ class FootballTeamCommand(Command):
         formation = random_formation()
         lineup = self._pick_lineup(players, formation)
 
-        ordered = [
+        ordered: list[TmPlayer | None] = [
             lineup[slot.role].pop(0) if lineup[slot.role] else None for slot in formation.slots
         ]
-        photos = await self._download_photos([p for p in ordered if p])
 
-        photo_map: dict[int, bytes | None] = {}
-        photo_idx = 0
-        for i, player in enumerate(ordered):
-            if player is not None:
-                photo_map[i] = photos[photo_idx]
-                photo_idx += 1
-            else:
-                photo_map[i] = None
+        photos_ordered: list[bytes | None] = [None] * len(ordered)
+        flags_ordered: list[bytes | None] = [None] * len(ordered)
 
-        photos_ordered = [photo_map.get(i) for i in range(len(ordered))]
+        async def _fetch_photo(i: int, player: TmPlayer) -> None:
+            with contextlib.suppress(Exception):
+                photos_ordered[i] = await HttpClient.get_buffer(
+                    player.photo_url, headers=TransfermarktService.HEADERS
+                )
+
+        async def _fetch_flag(i: int, url: str) -> None:
+            with contextlib.suppress(Exception):
+                flags_ordered[i] = await HttpClient.get_buffer(
+                    url, headers=TransfermarktService.HEADERS
+                )
+
+        async with anyio.create_task_group() as tg:
+            for i, player in enumerate(ordered):
+                if player:
+                    tg.start_soon(_fetch_photo, i, player)
+                    if player.nationality_flag_url:
+                        tg.start_soon(_fetch_flag, i, player.nationality_flag_url)
+
         names = [p.name if p else '' for p in ordered]
-
-        field_image = build_football_field(photos_ordered, names, formation)
+        field_image = build_football_field(photos_ordered, names, formation, flags_ordered)
         caption = f'⚽ *Escalação Aleatória* — {formation.name}'
         return [Reply.to(data).image_buffer(field_image, caption)]
 
     @staticmethod
-    async def _download_photos(players: list[TmPlayer]) -> list[bytes | None]:
-        results: list[bytes | None] = [None] * len(players)
-
-        async def _fetch(index: int, player: TmPlayer) -> None:
-            try:
-                results[index] = await HttpClient.get_buffer(
-                    player.photo_url, headers=TransfermarktService.HEADERS
-                )
-            except Exception:  # noqa: BLE001
-                results[index] = None
-
-        async with anyio.create_task_group() as tg:
-            for i, player in enumerate(players):
-                tg.start_soon(_fetch, i, player)
-
-        return results
-
-    @staticmethod
-    def _pick_lineup(players: list[TmPlayer], formation: Formation) -> dict[str, list[TmPlayer]]:
+    def _pick_lineup(
+        players: list[TmPlayer], formation: Formation
+    ) -> dict[str, list[TmPlayer | None]]:
         slots_needed: dict[str, int] = {}
         for slot in formation.slots:
             slots_needed[slot.role] = slots_needed.get(slot.role, 0) + 1
 
         remaining = list(players)
-        lineup: dict[str, list[TmPlayer]] = {role: [] for role in slots_needed}
+        lineup: dict[str, list[TmPlayer | None]] = {role: [] for role in slots_needed}
 
+        # First pass: match players by their actual position
         for role, positions in _POSITION_ROLES.items():
             if role not in slots_needed:
                 continue
-            needed = slots_needed[role]
             matched = [p for p in remaining if p.position in positions]
-            chosen = matched[:needed]
-            for p in chosen:
+            take = matched[:slots_needed[role]]
+            lineup[role].extend(take)
+            for p in take:
                 remaining.remove(p)
-            lineup[role] = chosen
 
+        # Second pass: fill non-GK slots from remaining pool
         for role, needed in slots_needed.items():
+            if role == 'GK':
+                continue
             while len(lineup[role]) < needed and remaining:
                 lineup[role].append(remaining.pop(0))
+
+        # Pad all slots with None (GK stays None rather than using wrong-position player)
+        for role, needed in slots_needed.items():
+            while len(lineup[role]) < needed:
+                lineup[role].append(None)
 
         return lineup
 
@@ -175,9 +205,9 @@ class FootballTeamCommand(Command):
         name_lower = team_name.lower()
         if name_lower in squad_values:
             return squad_values[name_lower]
-        # Partial match fallback
+        name_words = set(name_lower.split())
         for key, val in squad_values.items():
-            if key in name_lower or name_lower in key:
+            if name_words & set(key.split()):
                 return val
         return None
 
@@ -191,7 +221,7 @@ class FootballTeamCommand(Command):
     ) -> str:
         lines = [
             f'*{team.name}* — {league_name}',
-            f'\n{league_flag} {team.country}   📅 Fundado em {team.founded}',
+            f'\n{league_flag} {team.country}   📅 {team.founded}',
         ]
         if rank:
             lines.append(f'📊 {rank}º na tabela')
