@@ -116,7 +116,9 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
             else None
         )
     )
-    registry.register(MovieSeriesCommand(tmdb_api_key=settings.tmdb_api_key))
+    registry.register(
+        MovieSeriesCommand(tmdb_api_key=settings.tmdb_api_key, omdb_api_key=settings.omdb_api_key)
+    )
     registry.register(
         GameCommand(
             twitch_client_id=settings.twitch_client_id,
