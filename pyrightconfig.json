@@ -1,6 +1,6 @@
 {
   "include": ["bot", "tests"],
-  "exclude": ["**/__pycache__"],
+  "exclude": ["**/__pycache__", "tests/factories"],
   "pythonVersion": "3.13",
   "typeCheckingMode": "standard",
   "reportMissingImports": true,

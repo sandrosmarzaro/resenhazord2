@@ -1,4 +1,3 @@
-# pyright: reportIncompatibleVariableOverride=false
 from factory.base import Factory
 from factory.declarations import LazyAttribute, LazyFunction, Sequence
 
