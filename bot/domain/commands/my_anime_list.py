@@ -43,6 +43,7 @@ class MyAnimeListCommand(Command):
             n = int(top_str[3:])
             max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
         else:
+            n = 0
             max_page = self.DEFAULT_MAX_PAGE
 
         page = random.randint(1, max_page)  # noqa: S311
@@ -50,6 +51,11 @@ class MyAnimeListCommand(Command):
         response = await HttpClient.get(f'{base_url}/top/{media_type}', params={'page': page})
         response.raise_for_status()
         items = response.json()['data']
+
+        if top_str and page == max_page:
+            items_on_last_page = n - (max_page - 1) * self.ITEMS_PER_PAGE
+            items = items[:items_on_last_page]
+
         item = random.choice(items)  # noqa: S311
 
         image = item['images']['webp']['large_image_url']

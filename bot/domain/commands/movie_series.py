@@ -48,18 +48,19 @@ class MovieSeriesCommand(Command):
         pop_str = parsed.options.get('pop', '')
         top_str = parsed.options.get('top', '')
 
+        rank_limit = 0
         if pop_str:
             mode = 'popular'
             pop_n = pop_str[3:]
-            max_page = (
-                max(1, (int(pop_n) + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
-                if pop_n
-                else self.MAX_PAGE
-            )
+            if pop_n:
+                rank_limit = int(pop_n)
+                max_page = max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+            else:
+                max_page = self.MAX_PAGE
         elif top_str:
-            n = int(top_str[3:])
+            rank_limit = int(top_str[3:])
             mode = 'top_rated'
-            max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+            max_page = max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
         else:
             mode = 'popular'
             max_page = self.MAX_PAGE
@@ -72,6 +73,11 @@ class MovieSeriesCommand(Command):
         )
         response.raise_for_status()
         results = response.json()['results']
+
+        if rank_limit and page == max_page:
+            items_on_last_page = rank_limit - (max_page - 1) * self.ITEMS_PER_PAGE
+            results = results[:items_on_last_page]
+
         item = random.choice(results)  # noqa: S311
         poster_url = f'https://image.tmdb.org/t/p/{self.POSTER_SIZE}{item["poster_path"]}'
 
