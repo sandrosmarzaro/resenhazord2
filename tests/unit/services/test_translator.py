@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import httpx
 import pytest
 
@@ -6,7 +8,7 @@ from bot.domain.services.translator import Translator
 
 class TestToPt:
     URL = 'https://translate.googleapis.com/translate_a/single'
-    MOCK_TRANSLATION = [
+    MOCK_TRANSLATION: ClassVar[list] = [
         [['Hoje é um ótimo dia.', 'Today is a great day.']],
     ]
 
@@ -30,9 +32,7 @@ class TestToPt:
 
     @pytest.mark.anyio
     async def test_returns_original_on_empty_response(self, respx_mock):
-        respx_mock.get(url__startswith=self.URL).mock(
-            return_value=httpx.Response(200, json=[])
-        )
+        respx_mock.get(url__startswith=self.URL).mock(return_value=httpx.Response(200, json=[]))
 
         result = await Translator.to_pt('Hello')
 

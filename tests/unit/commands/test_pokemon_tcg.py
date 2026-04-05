@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import httpx
 import pytest
 
@@ -48,7 +50,7 @@ class TestMatches:
 
 
 class TestSingleCard:
-    MOCK_CARD = {
+    MOCK_CARD: ClassVar[dict] = {
         'id': 'base1-4',
         'localId': '4',
         'name': 'Charizard',
@@ -171,7 +173,7 @@ class TestSingleCard:
 
 
 class TestBooster:
-    MOCK_CARD = {
+    MOCK_CARD: ClassVar[dict] = {
         'id': 'base1-4',
         'localId': '4',
         'name': 'Charizard',

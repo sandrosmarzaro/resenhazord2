@@ -224,9 +224,7 @@ class TestRun:
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
             return_value=httpx.Response(200, json={'genres': []})
         )
-        respx_mock.get(url__regex=r'.*external_ids.*').mock(
-            return_value=httpx.Response(500)
-        )
+        respx_mock.get(url__regex=r'.*external_ids.*').mock(return_value=httpx.Response(500))
 
         messages = await command.run(data)
 

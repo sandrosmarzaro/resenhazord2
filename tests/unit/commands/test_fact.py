@@ -36,9 +36,9 @@ class TestRun:
 
     @staticmethod
     def _mock_translate(respx_mock, translated='Texto traduzido'):
-        respx_mock.get(
-            url__startswith='https://translate.googleapis.com/translate_a/single'
-        ).mock(return_value=httpx.Response(200, json=[[[translated, 'original']]]))
+        respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/single').mock(
+            return_value=httpx.Response(200, json=[[[translated, 'original']]])
+        )
 
     @pytest.mark.anyio
     async def test_calls_random_endpoint_by_default(self, command, respx_mock):

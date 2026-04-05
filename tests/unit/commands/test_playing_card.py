@@ -5,6 +5,7 @@ from bot.domain.commands.playing_card import PlayingCardCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
 
+
 @pytest.fixture
 def command():
     return PlayingCardCommand()

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import httpx
 import pytest
 
@@ -42,7 +44,7 @@ class TestMatches:
 
 
 class TestDeezer:
-    MOCK_RESPONSE = {
+    MOCK_RESPONSE: ClassVar[dict] = {
         'data': [
             {
                 'title': 'Blinding Lights',
@@ -163,7 +165,7 @@ class TestDeezer:
 
 
 class TestJamendo:
-    MOCK_RESPONSE = {
+    MOCK_RESPONSE: ClassVar[dict] = {
         'results': [
             {
                 'name': 'Sunset Vibes',

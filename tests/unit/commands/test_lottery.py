@@ -124,9 +124,7 @@ class TestYesterdayFallback:
     @pytest.mark.anyio
     async def test_falls_back_to_yesterday_when_no_today_draws(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho')
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML)
-        )
+        respx_mock.get(self.URL).mock(return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML))
         respx_mock.get(url__regex=self.YESTERDAY_URL_PATTERN).mock(
             return_value=httpx.Response(200, text=self.YESTERDAY_HTML)
         )
@@ -142,9 +140,7 @@ class TestYesterdayFallback:
     @pytest.mark.anyio
     async def test_shows_no_draws_message_when_yesterday_also_empty(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho')
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML)
-        )
+        respx_mock.get(self.URL).mock(return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML))
         respx_mock.get(url__regex=self.YESTERDAY_URL_PATTERN).mock(
             return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML)
         )
@@ -156,9 +152,7 @@ class TestYesterdayFallback:
     @pytest.mark.anyio
     async def test_shows_no_draws_message_when_yesterday_fetch_fails(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho')
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML)
-        )
+        respx_mock.get(self.URL).mock(return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML))
         respx_mock.get(url__regex=self.YESTERDAY_URL_PATTERN).mock(
             side_effect=httpx.HTTPError('Network error')
         )
@@ -170,9 +164,7 @@ class TestYesterdayFallback:
     @pytest.mark.anyio
     async def test_no_fallback_when_specific_arg_given(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bicho ppt')
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML)
-        )
+        respx_mock.get(self.URL).mock(return_value=httpx.Response(200, text=self.NO_PUBLISHED_HTML))
 
         messages = await command.run(data)
 

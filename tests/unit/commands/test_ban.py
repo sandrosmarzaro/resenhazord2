@@ -107,7 +107,9 @@ class TestBanMentioned:
     async def test_bans_mentioned_participants(self, command, mock_whatsapp):
         target1 = '5511999990001@s.whatsapp.net'
         target2 = '5511999990002@s.whatsapp.net'
-        mock_whatsapp.group_metadata.return_value = _make_participants(self.BOT_JID, target1, target2)
+        mock_whatsapp.group_metadata.return_value = _make_participants(
+            self.BOT_JID, target1, target2
+        )
         data = GroupCommandDataFactory.build(
             text=',ban @5511999990001 @5511999990002',
             jid=self.CHAT_JID,
@@ -200,7 +202,9 @@ class TestBanError:
     async def test_mentioned_ban_error_continues(self, command, mock_whatsapp):
         target1 = '5511999990001@s.whatsapp.net'
         target2 = '5511999990002@s.whatsapp.net'
-        mock_whatsapp.group_metadata.return_value = _make_participants(self.BOT_JID, target1, target2)
+        mock_whatsapp.group_metadata.return_value = _make_participants(
+            self.BOT_JID, target1, target2
+        )
         mock_whatsapp.group_participants_update.side_effect = [
             Exception('API error'),
             [],

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import httpx
 import pytest
 
@@ -49,7 +51,7 @@ class TestMatches:
 
 
 class TestRun:
-    MOCK_WIKIPEDIA_RESPONSE = {
+    MOCK_WIKIPEDIA_RESPONSE: ClassVar[dict] = {
         'extract': 'The giant panda is a bear species endemic to China. '
         'It is characterised by its black-and-white coat.',
         'thumbnail': {'source': 'https://upload.wikimedia.org/wikipedia/commons/thumb/panda.jpg'},
@@ -145,7 +147,7 @@ class TestRun:
 
 
 class TestRateLimit:
-    MOCK_WIKIPEDIA_RESPONSE = {
+    MOCK_WIKIPEDIA_RESPONSE: ClassVar[dict] = {
         'extract': 'The giant panda is a bear species endemic to China. '
         'It is characterised by its black-and-white coat.',
         'thumbnail': {'source': 'https://upload.wikimedia.org/wikipedia/commons/thumb/panda.jpg'},
@@ -195,7 +197,7 @@ class TestRateLimit:
 
 
 class TestFlags:
-    MOCK_WIKIPEDIA_RESPONSE = {
+    MOCK_WIKIPEDIA_RESPONSE: ClassVar[dict] = {
         'extract': 'The giant panda is a bear species endemic to China. '
         'It is characterised by its black-and-white coat.',
         'thumbnail': {'source': 'https://upload.wikimedia.org/wikipedia/commons/thumb/panda.jpg'},
