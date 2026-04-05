@@ -11,20 +11,6 @@ def command():
     return BeerCommand()
 
 
-def _beer_product(**overrides):
-    return {
-        'product_name': 'Heineken',
-        'brands': 'Heineken',
-        'image_front_url': 'https://example.com/heineken.jpg',
-        'nutriments': {'alcohol_100g': 5.0},
-        'quantity': '330ml',
-        'origins': 'en:Netherlands',
-        'countries': 'en:France,en:Brazil',
-        'ingredients_text': 'Water, barley malt, hops',
-        **overrides,
-    }
-
-
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -45,11 +31,25 @@ class TestMatches:
 
 
 class TestRun:
+    @staticmethod
+    def _beer_product(**overrides):
+        return {
+            'product_name': 'Heineken',
+            'brands': 'Heineken',
+            'image_front_url': 'https://example.com/heineken.jpg',
+            'nutriments': {'alcohol_100g': 5.0},
+            'quantity': '330ml',
+            'origins': 'en:Netherlands',
+            'countries': 'en:France,en:Brazil',
+            'ingredients_text': 'Water, barley malt, hops',
+            **overrides,
+        }
+
     @pytest.mark.anyio
     async def test_returns_image_with_beer_info(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', cerveja')
         respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
-            return_value=httpx.Response(200, json={'products': [_beer_product()]})
+            return_value=httpx.Response(200, json={'products': [self._beer_product()]})
         )
         messages = await command.run(data)
 
@@ -65,7 +65,7 @@ class TestRun:
     async def test_strips_language_prefixes(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', cerveja')
         respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
-            return_value=httpx.Response(200, json={'products': [_beer_product()]})
+            return_value=httpx.Response(200, json={'products': [self._beer_product()]})
         )
         messages = await command.run(data)
 
@@ -79,7 +79,7 @@ class TestRun:
         data = GroupCommandDataFactory.build(text=', cerveja')
         products = [
             {'product_name': None, 'image_front_url': 'https://example.com/x.jpg'},
-            _beer_product(),
+            self._beer_product(),
         ]
         respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
             return_value=httpx.Response(200, json={'products': products})
@@ -104,7 +104,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_handles_missing_optional_fields(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', cerveja')
-        product = _beer_product(
+        product = self._beer_product(
             nutriments=None,
             quantity=None,
             origins=None,

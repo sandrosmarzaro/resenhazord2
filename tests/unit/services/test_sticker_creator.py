@@ -14,33 +14,33 @@ def _create_test_image(width: int = 100, height: int = 80, color: str = 'red') -
     return buf.getvalue()
 
 
-def _webp_to_image(webp_bytes: bytes) -> Image.Image:
-    return Image.open(io.BytesIO(webp_bytes))
-
-
 class TestStickerCreatorImage:
+    @staticmethod
+    def _webp_to_image(webp_bytes: bytes) -> Image.Image:
+        return Image.open(io.BytesIO(webp_bytes))
+
     @pytest.mark.anyio
     async def test_full_creates_512x512_webp(self) -> None:
         result = await StickerCreator.create(_create_test_image(), 'full')
-        img = _webp_to_image(result)
+        img = self._webp_to_image(result)
         assert img.size == (512, 512)
 
     @pytest.mark.anyio
     async def test_crop_creates_512x512_webp(self) -> None:
         result = await StickerCreator.create(_create_test_image(), 'crop')
-        img = _webp_to_image(result)
+        img = self._webp_to_image(result)
         assert img.size == (512, 512)
 
     @pytest.mark.anyio
     async def test_circle_creates_512x512_webp(self) -> None:
         result = await StickerCreator.create(_create_test_image(), 'circle')
-        img = _webp_to_image(result)
+        img = self._webp_to_image(result)
         assert img.size == (512, 512)
 
     @pytest.mark.anyio
     async def test_circle_has_transparent_corners(self) -> None:
         result = await StickerCreator.create(_create_test_image(color='blue'), 'circle')
-        img = _webp_to_image(result).convert('RGBA')
+        img = self._webp_to_image(result).convert('RGBA')
         pixel = img.getpixel((0, 0))
         assert isinstance(pixel, tuple)
         assert pixel[3] == 0
@@ -48,13 +48,13 @@ class TestStickerCreatorImage:
     @pytest.mark.anyio
     async def test_rounded_creates_512x512_webp(self) -> None:
         result = await StickerCreator.create(_create_test_image(), 'rounded')
-        img = _webp_to_image(result)
+        img = self._webp_to_image(result)
         assert img.size == (512, 512)
 
     @pytest.mark.anyio
     async def test_rounded_has_transparent_corners(self) -> None:
         result = await StickerCreator.create(_create_test_image(color='green'), 'rounded')
-        img = _webp_to_image(result).convert('RGBA')
+        img = self._webp_to_image(result).convert('RGBA')
         pixel = img.getpixel((0, 0))
         assert isinstance(pixel, tuple)
         assert pixel[3] == 0
@@ -62,7 +62,7 @@ class TestStickerCreatorImage:
     @pytest.mark.anyio
     async def test_full_preserves_aspect_ratio(self) -> None:
         result = await StickerCreator.create(_create_test_image(200, 100), 'full')
-        img = _webp_to_image(result).convert('RGBA')
+        img = self._webp_to_image(result).convert('RGBA')
         assert img.size == (512, 512)
         center_pixel = img.getpixel((256, 256))
         assert isinstance(center_pixel, tuple)
@@ -72,7 +72,7 @@ class TestStickerCreatorImage:
     async def test_default_type_is_full(self) -> None:
         default_result = await StickerCreator.create(_create_test_image())
         full_result = await StickerCreator.create(_create_test_image(), 'full')
-        assert _webp_to_image(default_result).size == _webp_to_image(full_result).size
+        assert self._webp_to_image(default_result).size == self._webp_to_image(full_result).size
 
 
 class TestStickerCreatorVideo:

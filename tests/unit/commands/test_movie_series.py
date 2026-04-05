@@ -11,30 +11,6 @@ def command():
     return MovieSeriesCommand(tmdb_api_key='test-api-key')
 
 
-def _movie_item(**overrides):
-    return {
-        'title': 'The Matrix',
-        'poster_path': '/matrix.jpg',
-        'genre_ids': [28, 878],
-        'vote_average': 8.7,
-        'release_date': '1999-03-31',
-        'overview': 'A computer hacker learns about the true nature of reality.',
-        **overrides,
-    }
-
-
-def _tv_item(**overrides):
-    return {
-        'name': 'Breaking Bad',
-        'poster_path': '/bb.jpg',
-        'genre_ids': [18],
-        'vote_average': 9.5,
-        'first_air_date': '2008-01-20',
-        'overview': 'A chemistry teacher turned drug lord.',
-        **overrides,
-    }
-
-
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -60,11 +36,35 @@ class TestMatches:
 
 
 class TestRun:
+    @staticmethod
+    def _movie_item(**overrides):
+        return {
+            'title': 'The Matrix',
+            'poster_path': '/matrix.jpg',
+            'genre_ids': [28, 878],
+            'vote_average': 8.7,
+            'release_date': '1999-03-31',
+            'overview': 'A computer hacker learns about the true nature of reality.',
+            **overrides,
+        }
+
+    @staticmethod
+    def _tv_item(**overrides):
+        return {
+            'name': 'Breaking Bad',
+            'poster_path': '/bb.jpg',
+            'genre_ids': [18],
+            'vote_average': 9.5,
+            'first_air_date': '2008-01-20',
+            'overview': 'A chemistry teacher turned drug lord.',
+            **overrides,
+        }
+
     @pytest.mark.anyio
     async def test_movie_returns_image(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', filme')
         respx_mock.get(url__regex=r'.*themoviedb\.org/3/movie/popular.*').mock(
-            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+            return_value=httpx.Response(200, json={'results': [self._movie_item()]})
         )
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
             return_value=httpx.Response(
@@ -86,7 +86,7 @@ class TestRun:
     async def test_tv_returns_image(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', série')
         respx_mock.get(url__regex=r'.*themoviedb\.org/3/tv/popular.*').mock(
-            return_value=httpx.Response(200, json={'results': [_tv_item()]})
+            return_value=httpx.Response(200, json={'results': [self._tv_item()]})
         )
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
             return_value=httpx.Response(200, json={'genres': [{'id': 18, 'name': 'Drama'}]})
@@ -103,7 +103,7 @@ class TestRun:
     async def test_top_mode_uses_top_rated(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', filme top100')
         route = respx_mock.get(url__regex=r'.*top_rated.*').mock(
-            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+            return_value=httpx.Response(200, json={'results': [self._movie_item()]})
         )
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
             return_value=httpx.Response(200, json={'genres': [{'id': 28, 'name': 'Ação'}]})
@@ -116,7 +116,7 @@ class TestRun:
     async def test_pop_with_n_limits_page_range(self, command, respx_mock, mocker):
         data = GroupCommandDataFactory.build(text=', filme pop100')
         route = respx_mock.get(url__regex=r'.*popular.*').mock(
-            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+            return_value=httpx.Response(200, json={'results': [self._movie_item()]})
         )
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
             return_value=httpx.Response(200, json={'genres': [{'id': 28, 'name': 'Ação'}]})
@@ -134,7 +134,7 @@ class TestRun:
     async def test_default_mode_is_popular(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', filme')
         route = respx_mock.get(url__regex=r'.*popular.*').mock(
-            return_value=httpx.Response(200, json={'results': [_movie_item()]})
+            return_value=httpx.Response(200, json={'results': [self._movie_item()]})
         )
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
             return_value=httpx.Response(200, json={'genres': [{'id': 28, 'name': 'Ação'}]})
