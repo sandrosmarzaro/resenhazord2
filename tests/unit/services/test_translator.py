@@ -3,18 +3,17 @@ import pytest
 
 from bot.domain.services.translator import Translator
 
-TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
-
-MOCK_TRANSLATION = [
-    [['Hoje é um ótimo dia.', 'Today is a great day.']],
-]
-
 
 class TestToPt:
+    URL = 'https://translate.googleapis.com/translate_a/single'
+    MOCK_TRANSLATION = [
+        [['Hoje é um ótimo dia.', 'Today is a great day.']],
+    ]
+
     @pytest.mark.anyio
     async def test_translates_english_to_portuguese(self, respx_mock):
-        respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-            return_value=httpx.Response(200, json=MOCK_TRANSLATION)
+        respx_mock.get(url__startswith=self.URL).mock(
+            return_value=httpx.Response(200, json=self.MOCK_TRANSLATION)
         )
 
         result = await Translator.to_pt('Today is a great day.')
@@ -23,7 +22,7 @@ class TestToPt:
 
     @pytest.mark.anyio
     async def test_returns_original_on_http_error(self, respx_mock):
-        respx_mock.get(url__startswith=TRANSLATE_URL).mock(return_value=httpx.Response(500))
+        respx_mock.get(url__startswith=self.URL).mock(return_value=httpx.Response(500))
 
         result = await Translator.to_pt('Hello')
 
@@ -31,7 +30,7 @@ class TestToPt:
 
     @pytest.mark.anyio
     async def test_returns_original_on_empty_response(self, respx_mock):
-        respx_mock.get(url__startswith=TRANSLATE_URL).mock(
+        respx_mock.get(url__startswith=self.URL).mock(
             return_value=httpx.Response(200, json=[])
         )
 
@@ -44,7 +43,7 @@ class TestToPt:
         multi_segment = [
             [['Primeira frase. ', 'First sentence. '], ['Segunda frase.', 'Second sentence.']],
         ]
-        respx_mock.get(url__startswith=TRANSLATE_URL).mock(
+        respx_mock.get(url__startswith=self.URL).mock(
             return_value=httpx.Response(200, json=multi_segment)
         )
 
@@ -54,12 +53,14 @@ class TestToPt:
 
 
 class TestTranslate:
+    URL = 'https://translate.googleapis.com/translate_a/single'
+
     @pytest.mark.anyio
     async def test_custom_language_pair(self, respx_mock):
         mock_es = [
             [['Hoy es un gran día.', 'Today is a great day.']],
         ]
-        route = respx_mock.get(url__startswith=TRANSLATE_URL).mock(
+        route = respx_mock.get(url__startswith=self.URL).mock(
             return_value=httpx.Response(200, json=mock_es)
         )
 

@@ -3,16 +3,12 @@ import pytest
 
 from bot.domain.services.steal_group import StealGroupService
 
-BOT_JID = 'bot@s.whatsapp.net'
-RESENHA_JID = 'resenha@g.us'
-GROUP_JID = 'target@g.us'
-
 
 def _group_event(action='promote', participants=None):
     return {
-        'id': GROUP_JID,
+        'id': 'target@g.us',
         'action': action,
-        'participants': participants or [{'id': BOT_JID}],
+        'participants': participants or [{'id': 'bot@s.whatsapp.net'}],
     }
 
 
@@ -20,7 +16,7 @@ def _metadata(*, participants=None, owner='someone_else@s.whatsapp.net'):
     return {
         'participants': participants
         or [
-            {'id': BOT_JID, 'admin': 'superadmin'},
+            {'id': 'bot@s.whatsapp.net', 'admin': 'superadmin'},
             {'id': 'admin1@s.whatsapp.net', 'admin': 'admin'},
             {'id': 'member@s.whatsapp.net'},
         ],
@@ -32,7 +28,7 @@ def _metadata(*, participants=None, owner='someone_else@s.whatsapp.net'):
 
 @pytest.fixture
 def service(mock_whatsapp):
-    return StealGroupService(mock_whatsapp, BOT_JID, RESENHA_JID)
+    return StealGroupService(mock_whatsapp, 'bot@s.whatsapp.net', 'resenha@g.us')
 
 
 @pytest.fixture
@@ -68,7 +64,7 @@ class TestOwnerIsAdmin:
     async def test_skips_if_owner_is_admin(self, service, mock_whatsapp):
         mock_whatsapp.group_metadata.return_value = _metadata(
             participants=[
-                {'id': BOT_JID, 'admin': 'superadmin'},
+                {'id': 'bot@s.whatsapp.net', 'admin': 'superadmin'},
                 {'id': 'owner@s.whatsapp.net', 'admin': 'admin'},
             ],
             owner='owner@s.whatsapp.net',
@@ -80,6 +76,9 @@ class TestOwnerIsAdmin:
 
 
 class TestStealExecution:
+    GROUP_JID = 'target@g.us'
+    RESENHA_JID = 'resenha@g.us'
+
     @pytest.mark.anyio
     async def test_demotes_admins_and_renames(
         self, service, mock_whatsapp, colony_collection, loremflickr_route
@@ -89,25 +88,25 @@ class TestStealExecution:
         await service.run(_group_event())
 
         mock_whatsapp.group_participants_update.assert_called_once_with(
-            GROUP_JID, ['admin1@s.whatsapp.net'], 'demote'
+            self.GROUP_JID, ['admin1@s.whatsapp.net'], 'demote'
         )
         mock_whatsapp.group_update_subject.assert_called_once_with(
-            GROUP_JID, 'Colônia da Resenha I 🐮🎣🍆'
+            self.GROUP_JID, 'Colônia da Resenha I 🐮🎣🍆'
         )
         mock_whatsapp.send_message.assert_called_once()
         call_args = mock_whatsapp.send_message.call_args
-        assert call_args[0][0] == RESENHA_JID
+        assert call_args[0][0] == self.RESENHA_JID
         assert 'Colônia obtida!' in call_args[0][1]['text']
         assert 'Target Group' in call_args[0][1]['text']
         mock_whatsapp.group_update_description.assert_called_once()
-        mock_whatsapp.update_profile_picture.assert_called_once_with(GROUP_JID, b'image-data')
+        mock_whatsapp.update_profile_picture.assert_called_once_with(self.GROUP_JID, b'image-data')
 
     @pytest.mark.anyio
     async def test_roman_numeral_increments(
         self, service, mock_whatsapp, colony_collection, loremflickr_route
     ):
         mock_whatsapp.group_metadata.return_value = _metadata(
-            participants=[{'id': BOT_JID, 'admin': 'superadmin'}],
+            participants=[{'id': 'bot@s.whatsapp.net', 'admin': 'superadmin'}],
             owner='',
         )
         colony_collection.find_one_and_update.return_value = {'number': 42}
