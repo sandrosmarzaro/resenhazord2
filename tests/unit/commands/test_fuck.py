@@ -5,8 +5,6 @@ from bot.domain.commands.fuck import FuckCommand
 from bot.domain.models.message import RawContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
-NSFW_URL = 'https://nsfwhub.onrender.com/nsfw?type=fuck'
-
 
 @pytest.fixture
 def command():
@@ -31,6 +29,8 @@ class TestMatches:
 
 
 class TestRun:
+    URL = 'https://nsfwhub.onrender.com/nsfw?type=fuck'
+
     @pytest.mark.anyio
     async def test_returns_raw_video_with_mentions(self, command, respx_mock):
         sender = '5511999990001@s.whatsapp.net'
@@ -42,7 +42,7 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        respx_mock.get(NSFW_URL).mock(
+        respx_mock.get(self.URL).mock(
             return_value=httpx.Response(
                 200, json={'image': {'url': 'https://example.com/video.mp4'}}
             )
@@ -69,7 +69,7 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        respx_mock.get(NSFW_URL).mock(
+        respx_mock.get(self.URL).mock(
             return_value=httpx.Response(
                 200, json={'image': {'url': 'https://example.com/video.mp4'}}
             )
@@ -100,7 +100,7 @@ class TestRun:
             mentioned_jids=['123@s.whatsapp.net'],
         )
 
-        respx_mock.get(NSFW_URL).mock(
+        respx_mock.get(self.URL).mock(
             return_value=httpx.Response(
                 200, json={'image': {'url': 'https://example.com/video.mp4'}}
             )

@@ -11,26 +11,6 @@ def command():
     return PornoCommand()
 
 
-LISTING_HTML = """
-<div class="thumb-block">
-    <a href="/video.abc123/first-video">video 1</a>
-</div>
-<div class="thumb-block">
-    <a href="/video.def456/second-video">video 2</a>
-</div>
-"""
-
-VIDEO_HTML = """
-<html>
-<head><title>Test Video - XVIDEOS.COM</title></head>
-<body>
-<script>setVideoUrlLow('https://cdn.example.com/low.mp4')</script>
-<script>setVideoUrlHigh('https://cdn.example.com/high.mp4')</script>
-</body>
-</html>
-"""
-
-
 class TestMatches:
     @pytest.mark.parametrize(
         ('text', 'expected'),
@@ -113,13 +93,31 @@ class TestIaPorn:
 
 
 class TestRealPorn:
+    LISTING_HTML = """
+<div class="thumb-block">
+    <a href="/video.abc123/first-video">video 1</a>
+</div>
+<div class="thumb-block">
+    <a href="/video.def456/second-video">video 2</a>
+</div>
+"""
+    VIDEO_HTML = """
+<html>
+<head><title>Test Video - XVIDEOS.COM</title></head>
+<body>
+<script>setVideoUrlLow('https://cdn.example.com/low.mp4')</script>
+<script>setVideoUrlHigh('https://cdn.example.com/high.mp4')</script>
+</body>
+</html>
+"""
+
     @pytest.mark.anyio
     async def test_returns_video_on_success(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', porno')
         respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
             side_effect=[
-                httpx.Response(200, text=LISTING_HTML),
-                httpx.Response(200, text=VIDEO_HTML),
+                httpx.Response(200, text=self.LISTING_HTML),
+                httpx.Response(200, text=self.VIDEO_HTML),
             ]
         )
         messages = await command.run(data)
@@ -157,7 +155,7 @@ class TestRealPorn:
         data = GroupCommandDataFactory.build(text=', porno')
         respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
             side_effect=[
-                httpx.Response(200, text=LISTING_HTML),
+                httpx.Response(200, text=self.LISTING_HTML),
                 httpx.Response(
                     200,
                     text='<html><head><title>No URL</title></head><body></body></html>',

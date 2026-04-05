@@ -5,9 +5,6 @@ from bot.domain.commands.playing_card import PlayingCardCommand
 from bot.domain.models.message import ImageContent
 from tests.factories.command_data import GroupCommandDataFactory
 
-DECK_API_URL = 'https://deckofcardsapi.com/api/deck/new/draw/?count=1'
-
-
 @pytest.fixture
 def command():
     return PlayingCardCommand()
@@ -33,10 +30,12 @@ class TestMatches:
 
 
 class TestRun:
+    URL = 'https://deckofcardsapi.com/api/deck/new/draw/?count=1'
+
     @pytest.mark.anyio
     async def test_calls_api(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', carta')
-        route = respx_mock.get(DECK_API_URL).mock(
+        route = respx_mock.get(self.URL).mock(
             return_value=httpx.Response(
                 200, json={'cards': [{'image': 'https://example.com/card.png'}]}
             )
@@ -48,7 +47,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_image_with_caption(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', carta')
-        respx_mock.get(DECK_API_URL).mock(
+        respx_mock.get(self.URL).mock(
             return_value=httpx.Response(
                 200, json={'cards': [{'image': 'https://example.com/card.png'}]}
             )
@@ -64,7 +63,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_image_is_view_once(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', carta')
-        respx_mock.get(DECK_API_URL).mock(
+        respx_mock.get(self.URL).mock(
             return_value=httpx.Response(
                 200, json={'cards': [{'image': 'https://example.com/card.png'}]}
             )
@@ -76,7 +75,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_includes_quoted_message_id(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', carta', message_id='MSG_42')
-        respx_mock.get(DECK_API_URL).mock(
+        respx_mock.get(self.URL).mock(
             return_value=httpx.Response(
                 200, json={'cards': [{'image': 'https://example.com/card.png'}]}
             )
