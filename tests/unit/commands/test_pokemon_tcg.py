@@ -5,23 +5,6 @@ from bot.domain.commands.pokemon_tcg import PokemonTCGCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
-MOCK_CARD = {
-    'id': 'base1-4',
-    'localId': '4',
-    'name': 'Charizard',
-    'category': 'Pokemon',
-    'image': 'https://assets.tcgdex.net/en/base/base1/4',
-    'illustrator': 'Mitsuhiro Arita',
-    'rarity': 'Rare',
-    'hp': 120,
-    'types': ['Fire'],
-    'stage': 'Stage2',
-    'set': {
-        'name': 'Base Set',
-        'cardCount': {'total': 102, 'official': 102},
-    },
-}
-
 
 @pytest.fixture
 def command():
@@ -65,10 +48,27 @@ class TestMatches:
 
 
 class TestSingleCard:
+    MOCK_CARD = {
+        'id': 'base1-4',
+        'localId': '4',
+        'name': 'Charizard',
+        'category': 'Pokemon',
+        'image': 'https://assets.tcgdex.net/en/base/base1/4',
+        'illustrator': 'Mitsuhiro Arita',
+        'rarity': 'Rare',
+        'hp': 120,
+        'types': ['Fire'],
+        'stage': 'Stage2',
+        'set': {
+            'name': 'Base Set',
+            'cardCount': {'total': 102, 'official': 102},
+        },
+    }
+
     @pytest.mark.anyio
     async def test_returns_image_buffer(self, command, card_route, image_route):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -77,7 +77,7 @@ class TestSingleCard:
     @pytest.mark.anyio
     async def test_downloads_webp_image(self, command, card_route, image_route):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         await command.run(data)
 
         url = str(image_route.calls.last.request.url)
@@ -86,7 +86,7 @@ class TestSingleCard:
     @pytest.mark.anyio
     async def test_caption_contains_card_metadata(self, command, card_route, image_route):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -103,7 +103,7 @@ class TestSingleCard:
     @pytest.mark.anyio
     async def test_view_once_true_by_default(self, command, card_route, image_route):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         messages = await command.run(data)
 
         assert messages[0].content.view_once is True
@@ -111,7 +111,7 @@ class TestSingleCard:
     @pytest.mark.anyio
     async def test_show_flag_disables_view_once(self, command, card_route, image_route):
         data = GroupCommandDataFactory.build(text=', pokemontcg show')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         messages = await command.run(data)
 
         assert messages[0].content.view_once is False
@@ -119,11 +119,11 @@ class TestSingleCard:
     @pytest.mark.anyio
     async def test_retries_when_no_image(self, command, card_route, image_route):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
-        no_image_card = {**MOCK_CARD, 'image': None}
+        no_image_card = {**self.MOCK_CARD, 'image': None}
         card_route.mock(
             side_effect=[
                 httpx.Response(200, json=no_image_card),
-                httpx.Response(200, json=MOCK_CARD),
+                httpx.Response(200, json=self.MOCK_CARD),
             ]
         )
         messages = await command.run(data)
@@ -133,7 +133,7 @@ class TestSingleCard:
     @pytest.mark.anyio
     async def test_returns_error_when_all_retries_fail(self, command, card_route):
         data = GroupCommandDataFactory.build(text=', pokemontcg')
-        no_image_card = {**MOCK_CARD, 'image': None}
+        no_image_card = {**self.MOCK_CARD, 'image': None}
         card_route.mock(return_value=httpx.Response(200, json=no_image_card))
         messages = await command.run(data)
 
@@ -171,10 +171,27 @@ class TestSingleCard:
 
 
 class TestBooster:
+    MOCK_CARD = {
+        'id': 'base1-4',
+        'localId': '4',
+        'name': 'Charizard',
+        'category': 'Pokemon',
+        'image': 'https://assets.tcgdex.net/en/base/base1/4',
+        'illustrator': 'Mitsuhiro Arita',
+        'rarity': 'Rare',
+        'hp': 120,
+        'types': ['Fire'],
+        'stage': 'Stage2',
+        'set': {
+            'name': 'Base Set',
+            'cardCount': {'total': 102, 'official': 102},
+        },
+    }
+
     @pytest.mark.anyio
     async def test_returns_grid_image(self, command, card_route, image_route, mocker):
         data = GroupCommandDataFactory.build(text=', ptcg booster')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
             return_value=b'grid-image',
@@ -187,7 +204,7 @@ class TestBooster:
     @pytest.mark.anyio
     async def test_booster_label_contains_metadata(self, command, card_route, image_route, mocker):
         data = GroupCommandDataFactory.build(text=', ptcg booster')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
             return_value=b'grid-image',
@@ -203,7 +220,7 @@ class TestBooster:
     @pytest.mark.anyio
     async def test_booster_downloads_webp(self, command, card_route, image_route, mocker):
         data = GroupCommandDataFactory.build(text=', ptcg booster')
-        card_route.mock(return_value=httpx.Response(200, json=MOCK_CARD))
+        card_route.mock(return_value=httpx.Response(200, json=self.MOCK_CARD))
         mocker.patch(
             'bot.domain.commands.card_booster.build_card_grid',
             return_value=b'grid-image',

@@ -5,35 +5,6 @@ from bot.domain.commands.music import MusicCommand
 from bot.domain.models.message import AudioContent, ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
-MOCK_DEEZER_RESPONSE = {
-    'data': [
-        {
-            'title': 'Blinding Lights',
-            'artist': {'name': 'The Weeknd'},
-            'album': {
-                'title': 'After Hours',
-                'cover_medium': 'https://api.deezer.com/album/cover.jpg',
-            },
-            'duration': 203,
-            'preview': 'https://cdns-preview.deezer.com/preview.mp3',
-        },
-    ],
-}
-
-MOCK_JAMENDO_RESPONSE = {
-    'results': [
-        {
-            'name': 'Sunset Vibes',
-            'artist_name': 'Indie Artist',
-            'album_name': 'Summer Chill',
-            'duration': 240,
-            'releasedate': '2024-06-15',
-            'image': 'https://usercontent.jamendo.com/image.jpg',
-            'audio': 'https://mp3d.jamendo.com/track.mp3',
-        },
-    ],
-}
-
 
 @pytest.fixture
 def command():
@@ -71,10 +42,25 @@ class TestMatches:
 
 
 class TestDeezer:
+    MOCK_RESPONSE = {
+        'data': [
+            {
+                'title': 'Blinding Lights',
+                'artist': {'name': 'The Weeknd'},
+                'album': {
+                    'title': 'After Hours',
+                    'cover_medium': 'https://api.deezer.com/album/cover.jpg',
+                },
+                'duration': 203,
+                'preview': 'https://cdns-preview.deezer.com/preview.mp3',
+            },
+        ],
+    }
+
     @pytest.mark.anyio
     async def test_returns_image_and_audio(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
 
@@ -85,7 +71,7 @@ class TestDeezer:
     @pytest.mark.anyio
     async def test_caption_contains_track_info(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
         caption = messages[0].content.caption
@@ -98,7 +84,7 @@ class TestDeezer:
     @pytest.mark.anyio
     async def test_image_url_is_album_cover(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
 
@@ -107,7 +93,7 @@ class TestDeezer:
     @pytest.mark.anyio
     async def test_audio_url_is_preview(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
 
@@ -116,7 +102,7 @@ class TestDeezer:
     @pytest.mark.anyio
     async def test_genre_selects_correct_deezer_id(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica rock')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         await command.run(data)
 
@@ -126,7 +112,7 @@ class TestDeezer:
     @pytest.mark.anyio
     async def test_unknown_genre_defaults_to_all(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica xyzgenre')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         await command.run(data)
 
@@ -136,7 +122,7 @@ class TestDeezer:
     @pytest.mark.anyio
     async def test_caption_shows_genre_tag(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica jazz')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
         caption = messages[0].content.caption
@@ -146,7 +132,7 @@ class TestDeezer:
     @pytest.mark.anyio
     async def test_no_genre_shows_all_tag(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica')
-        deezer_route.mock(return_value=httpx.Response(200, json=MOCK_DEEZER_RESPONSE))
+        deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
         caption = messages[0].content.caption
@@ -177,10 +163,24 @@ class TestDeezer:
 
 
 class TestJamendo:
+    MOCK_RESPONSE = {
+        'results': [
+            {
+                'name': 'Sunset Vibes',
+                'artist_name': 'Indie Artist',
+                'album_name': 'Summer Chill',
+                'duration': 240,
+                'releasedate': '2024-06-15',
+                'image': 'https://usercontent.jamendo.com/image.jpg',
+                'audio': 'https://mp3d.jamendo.com/track.mp3',
+            },
+        ],
+    }
+
     @pytest.mark.anyio
     async def test_free_flag_uses_jamendo(self, command, jamendo_route):
         data = GroupCommandDataFactory.build(text=',musica free')
-        jamendo_route.mock(return_value=httpx.Response(200, json=MOCK_JAMENDO_RESPONSE))
+        jamendo_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
 
@@ -191,7 +191,7 @@ class TestJamendo:
     @pytest.mark.anyio
     async def test_caption_contains_jamendo_info(self, command, jamendo_route):
         data = GroupCommandDataFactory.build(text=',musica free')
-        jamendo_route.mock(return_value=httpx.Response(200, json=MOCK_JAMENDO_RESPONSE))
+        jamendo_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         messages = await command.run(data)
         caption = messages[0].content.caption
@@ -205,7 +205,7 @@ class TestJamendo:
     @pytest.mark.anyio
     async def test_free_with_genre(self, command, jamendo_route):
         data = GroupCommandDataFactory.build(text=',musica free rock')
-        jamendo_route.mock(return_value=httpx.Response(200, json=MOCK_JAMENDO_RESPONSE))
+        jamendo_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         await command.run(data)
 
@@ -216,7 +216,7 @@ class TestJamendo:
     async def test_free_unknown_genre_picks_random(self, command, jamendo_route, mocker):
         mocker.patch('bot.domain.commands.music.random.choice', return_value='jazz')
         data = GroupCommandDataFactory.build(text=',musica free unknowngenre')
-        jamendo_route.mock(return_value=httpx.Response(200, json=MOCK_JAMENDO_RESPONSE))
+        jamendo_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         await command.run(data)
 
@@ -226,7 +226,7 @@ class TestJamendo:
     @pytest.mark.anyio
     async def test_passes_client_id(self, command, jamendo_route):
         data = GroupCommandDataFactory.build(text=',musica free')
-        jamendo_route.mock(return_value=httpx.Response(200, json=MOCK_JAMENDO_RESPONSE))
+        jamendo_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         await command.run(data)
 

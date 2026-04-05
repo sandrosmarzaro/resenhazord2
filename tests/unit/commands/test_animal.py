@@ -5,14 +5,6 @@ from bot.domain.commands.animal import AnimalCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
-TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
-
-MOCK_WIKIPEDIA_RESPONSE = {
-    'extract': 'The giant panda is a bear species endemic to China. '
-    'It is characterised by its black-and-white coat.',
-    'thumbnail': {'source': 'https://upload.wikimedia.org/wikipedia/commons/thumb/panda.jpg'},
-}
-
 
 @pytest.fixture
 def command():
@@ -33,9 +25,9 @@ def image_route(respx_mock):
 
 @pytest.fixture
 def translate_route(respx_mock):
-    return respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-        return_value=httpx.Response(200, json=[[['Texto traduzido.', 'original']]])
-    )
+    return respx_mock.get(
+        url__startswith='https://translate.googleapis.com/translate_a/single'
+    ).mock(return_value=httpx.Response(200, json=[[['Texto traduzido.', 'original']]]))
 
 
 class TestMatches:
@@ -57,10 +49,16 @@ class TestMatches:
 
 
 class TestRun:
+    MOCK_WIKIPEDIA_RESPONSE = {
+        'extract': 'The giant panda is a bear species endemic to China. '
+        'It is characterised by its black-and-white coat.',
+        'thumbnail': {'source': 'https://upload.wikimedia.org/wikipedia/commons/thumb/panda.jpg'},
+    }
+
     @pytest.mark.anyio
     async def test_returns_image_buffer(self, command, wiki_route, image_route, translate_route):
         data = GroupCommandDataFactory.build(text=',animal')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         messages = await command.run(data)
 
         assert len(messages) == 1
@@ -75,7 +73,7 @@ class TestRun:
             return_value=httpx.Response(200, json=[[['urso gigante da China.', 'original']]])
         )
         data = GroupCommandDataFactory.build(text=',animal')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -88,7 +86,7 @@ class TestRun:
     ):
         mocker.patch('bot.domain.commands.animal.random.choice', return_value='red_panda')
         data = GroupCommandDataFactory.build(text=',animal')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -97,7 +95,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_sends_user_agent_header(self, command, wiki_route, image_route, translate_route):
         data = GroupCommandDataFactory.build(text=',animal')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         await command.run(data)
 
         request = wiki_route.calls.last.request
@@ -107,7 +105,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_text_only_when_no_thumbnail(self, command, wiki_route, translate_route):
         data = GroupCommandDataFactory.build(text=',animal')
-        no_thumb = {**MOCK_WIKIPEDIA_RESPONSE, 'thumbnail': None}
+        no_thumb = {**self.MOCK_WIKIPEDIA_RESPONSE, 'thumbnail': None}
         wiki_route.mock(return_value=httpx.Response(200, json=no_thumb))
         messages = await command.run(data)
 
@@ -147,6 +145,12 @@ class TestRun:
 
 
 class TestRateLimit:
+    MOCK_WIKIPEDIA_RESPONSE = {
+        'extract': 'The giant panda is a bear species endemic to China. '
+        'It is characterised by its black-and-white coat.',
+        'thumbnail': {'source': 'https://upload.wikimedia.org/wikipedia/commons/thumb/panda.jpg'},
+    }
+
     @pytest.mark.anyio
     async def test_retries_on_429_with_retry_after(
         self, command, wiki_route, image_route, translate_route, mocker
@@ -156,7 +160,7 @@ class TestRateLimit:
         wiki_route.mock(
             side_effect=[
                 httpx.Response(429, headers={'retry-after': '60'}),
-                httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE),
+                httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE),
             ]
         )
         messages = await command.run(data)
@@ -173,7 +177,7 @@ class TestRateLimit:
         wiki_route.mock(
             side_effect=[
                 httpx.Response(429),
-                httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE),
+                httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE),
             ]
         )
         await command.run(data)
@@ -191,12 +195,18 @@ class TestRateLimit:
 
 
 class TestFlags:
+    MOCK_WIKIPEDIA_RESPONSE = {
+        'extract': 'The giant panda is a bear species endemic to China. '
+        'It is characterised by its black-and-white coat.',
+        'thumbnail': {'source': 'https://upload.wikimedia.org/wikipedia/commons/thumb/panda.jpg'},
+    }
+
     @pytest.mark.anyio
     async def test_view_once_true_by_default(
         self, command, wiki_route, image_route, translate_route
     ):
         data = GroupCommandDataFactory.build(text=',animal')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         messages = await command.run(data)
 
         assert messages[0].content.view_once is True
@@ -206,7 +216,7 @@ class TestFlags:
         self, command, wiki_route, image_route, translate_route
     ):
         data = GroupCommandDataFactory.build(text=',animal show')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         messages = await command.run(data)
 
         assert messages[0].content.view_once is False
@@ -214,7 +224,7 @@ class TestFlags:
     @pytest.mark.anyio
     async def test_dm_flag_redirects_jid(self, command, wiki_route, image_route, translate_route):
         data = GroupCommandDataFactory.build(text=',animal dm')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         messages = await command.run(data)
 
         assert messages[0].jid == data.participant
@@ -224,7 +234,7 @@ class TestFlags:
         self, command, wiki_route, image_route, translate_route
     ):
         data = PrivateCommandDataFactory.build(text=',animal dm')
-        wiki_route.mock(return_value=httpx.Response(200, json=MOCK_WIKIPEDIA_RESPONSE))
+        wiki_route.mock(return_value=httpx.Response(200, json=self.MOCK_WIKIPEDIA_RESPONSE))
         messages = await command.run(data)
 
         assert messages[0].jid == data.jid
