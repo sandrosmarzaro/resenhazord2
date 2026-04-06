@@ -11,31 +11,31 @@ from PIL.Image import Resampling
 
 from bot.data.football_formations import Formation
 
-_CANVAS_W = 1280
-_CANVAS_H = 1760
+_CANVAS_W = 1600
+_CANVAS_H = 2200
 _FIELD_COLOR = '#2e7d32'
 _STRIPE_DARK = '#296e2c'
 _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
-_LINE_WIDTH = 8
-_PHOTO_DIAMETER = 176
-_FONT_SIZE = 30
-_FONT_LABEL_SIZE = 44
+_LINE_WIDTH = 10
+_PHOTO_DIAMETER = 220
+_FONT_SIZE = 38
+_FONT_LABEL_SIZE = 55
 _FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 _FONT_BOLD_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 _NAME_MAX_LEN = 14
-_FLAG_W = 36
-_FLAG_H = 24
-_FLAG_GAP = 6
-_STROKE_WIDTH = 4
+_FLAG_W = 45
+_FLAG_H = 30
+_FLAG_GAP = 8
+_STROKE_WIDTH = 5
 
-_MX = 72
-_MY = 80
+_MX = 90
+_MY = 100
 _FW = _CANVAS_W - 2 * _MX
 _FH = _CANVAS_H - 2 * _MY
 
 # Each side of the field narrows by this fraction of FW at the attack end (y=0)
-_TOP_TAPER = 0.15
+_TOP_TAPER = 0.08
 _N_LAWN_STRIPES = 14
 
 _PENALTY_W_RATIO = 0.62
@@ -43,9 +43,9 @@ _PENALTY_H_RATIO = 0.18
 _GOAL_W_RATIO = 0.32
 _GOAL_H_RATIO = 0.08
 _CIRCLE_R_RATIO = 0.10
-_SPOT_R = 8
+_SPOT_R = 10
 _PENALTY_SPOT_Y_RATIO = 0.12
-_CORNER_ARC_R = 56
+_CORNER_ARC_R = 70
 _PENALTY_ARC_R_RATIO = 0.09
 
 
@@ -224,12 +224,17 @@ def _draw_field_lines(draw: ImageDraw.ImageDraw) -> None:
         draw.ellipse([sx - _SPOT_R, sy - _SPOT_R, sx + _SPOT_R, sy + _SPOT_R], fill=_LINE_COLOR)
 
     # Corner arcs
+    # Bottom corners: the arc's upward tip overshoots the tapered field boundary.
+    # Clip to the angle where the arc ray intersects the taper line: tan(a) = +-FH/(taper*FW).
     ar = _CORNER_ARC_R
+    k = _TOP_TAPER * _FW / _FH
+    clip_bl = math.degrees(math.atan2(-1.0, k)) % 360  # bottom-left start (≈273°)
+    clip_br = math.degrees(math.atan2(-1.0, -k)) % 360  # bottom-right end  (≈267°)
     for (cx_c, cy_c), start, end in [
         (_field_xy(0, 0), 0, 90),
         (_field_xy(1, 0), 90, 180),
-        (_field_xy(0, 1), 270, 360),
-        (_field_xy(1, 1), 180, 270),
+        (_field_xy(0, 1), clip_bl, 360),
+        (_field_xy(1, 1), 180, clip_br),
     ]:
         draw.arc(
             [cx_c - ar, cy_c - ar, cx_c + ar, cy_c + ar],
@@ -275,11 +280,12 @@ def _draw_field_lines(draw: ImageDraw.ImageDraw) -> None:
 
 def _draw_formation_label(draw: ImageDraw.ImageDraw, formation_name: str) -> None:
     font = _load_font(_FONT_BOLD_PATH, _FONT_LABEL_SIZE)
-    bbox = draw.textbbox((0, 0), formation_name, font=font)
+    name = unicodedata.normalize('NFKD', formation_name).encode('ascii', 'ignore').decode('ascii')
+    bbox = draw.textbbox((0, 0), name, font=font)
     tw = bbox[2] - bbox[0]
     draw.text(
         ((_CANVAS_W - tw) // 2, _MY // 3),
-        formation_name,
+        name,
         fill=_LINE_COLOR,
         font=font,
         stroke_width=_STROKE_WIDTH,
@@ -288,7 +294,6 @@ def _draw_formation_label(draw: ImageDraw.ImageDraw, formation_name: str) -> Non
 
 
 def _shorten_name(name: str) -> str:
-    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
     parts = name.split()
     if len(parts) <= 1:
         return name[:_NAME_MAX_LEN]
