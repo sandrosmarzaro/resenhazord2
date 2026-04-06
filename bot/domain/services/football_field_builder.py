@@ -125,8 +125,7 @@ class _Renderer:
                 flag_img = flag_img.resize((_FLAG_W, _FLAG_H), Resampling.LANCZOS)
                 flag_x = int(cx - content_w // 2)
                 placed = self.draw.textbbox((text_x, label_y), short_name, font=self.font)
-                flag_center_y = (placed[1] + placed[3]) // 2
-                flag_y = flag_center_y - _FLAG_H // 2
+                flag_y = int((placed[1] + placed[3]) // 2) - _FLAG_H // 2
                 self.canvas.paste(flag_img.convert('RGB'), (flag_x, flag_y), flag_img)
             except (OSError, ValueError):
                 pass
