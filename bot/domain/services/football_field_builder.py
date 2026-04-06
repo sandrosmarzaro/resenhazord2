@@ -11,26 +11,26 @@ from PIL.Image import Resampling
 
 from bot.data.football_formations import Formation
 
-_CANVAS_W = 1600
-_CANVAS_H = 2200
+_CANVAS_W = 2000
+_CANVAS_H = 2750
 _FIELD_COLOR = '#2e7d32'
 _STRIPE_DARK = '#296e2c'
 _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
-_LINE_WIDTH = 10
-_PHOTO_DIAMETER = 220
-_FONT_SIZE = 38
-_FONT_LABEL_SIZE = 55
+_LINE_WIDTH = 12
+_PHOTO_DIAMETER = 275
+_FONT_SIZE = 48
+_FONT_LABEL_SIZE = 69
 _FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 _FONT_BOLD_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 _NAME_MAX_LEN = 14
-_FLAG_W = 45
-_FLAG_H = 30
-_FLAG_GAP = 8
-_STROKE_WIDTH = 5
+_FLAG_W = 56
+_FLAG_H = 38
+_FLAG_GAP = 10
+_STROKE_WIDTH = 6
 
-_MX = 90
-_MY = 100
+_MX = 112
+_MY = 175
 _FW = _CANVAS_W - 2 * _MX
 _FH = _CANVAS_H - 2 * _MY
 
@@ -43,10 +43,10 @@ _PENALTY_H_RATIO = 0.18
 _GOAL_W_RATIO = 0.32
 _GOAL_H_RATIO = 0.08
 _CIRCLE_R_RATIO = 0.10
-_SPOT_R = 10
+_SPOT_R = 12
 _PENALTY_SPOT_Y_RATIO = 0.12
-_CORNER_ARC_R = 70
-_PENALTY_ARC_R_RATIO = 0.09
+_CORNER_ARC_R = 88
+_PENALTY_ARC_R_RATIO = 0.12
 
 
 def _field_xy(x: float, y: float) -> tuple[int, int]:
@@ -117,7 +117,7 @@ class _Renderer:
                 flag_img = Image.open(io.BytesIO(flag_bytes)).convert('RGBA')
                 flag_img = flag_img.resize((_FLAG_W, _FLAG_H), Resampling.LANCZOS)
                 flag_x = int(cx - content_w // 2)
-                flag_y = int(label_y + bbox[1] + (th - _FLAG_H) // 2)
+                flag_y = int(label_y + (th - _FLAG_H) // 2)
                 self.canvas.paste(flag_img.convert('RGB'), (flag_x, flag_y), flag_img)
             except (OSError, ValueError):
                 pass
@@ -294,6 +294,7 @@ def _draw_formation_label(draw: ImageDraw.ImageDraw, formation_name: str) -> Non
 
 
 def _shorten_name(name: str) -> str:
+    name = unicodedata.normalize('NFC', name)
     parts = name.split()
     if len(parts) <= 1:
         return name[:_NAME_MAX_LEN]

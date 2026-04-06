@@ -34,9 +34,9 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.20, 0.44),
             Slot('MID', 0.50, 0.44),
             Slot('MID', 0.80, 0.44),
-            Slot('ATT', 0.15, 0.18),
-            Slot('ATT', 0.50, 0.13),
-            Slot('ATT', 0.85, 0.18),
+            Slot('ATT', 0.15, 0.22),
+            Slot('ATT', 0.50, 0.17),
+            Slot('ATT', 0.85, 0.22),
         ],
     ),
     Formation(
@@ -51,8 +51,8 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.37, 0.44),
             Slot('MID', 0.63, 0.44),
             Slot('MID', 0.88, 0.44),
-            Slot('ATT', 0.35, 0.14),
-            Slot('ATT', 0.65, 0.14),
+            Slot('ATT', 0.35, 0.18),
+            Slot('ATT', 0.65, 0.18),
         ],
     ),
     # -- 4-back, layered mid --------------------------------------------------------
@@ -69,7 +69,7 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.15, 0.34),
             Slot('MID', 0.50, 0.34),
             Slot('MID', 0.85, 0.34),
-            Slot('ATT', 0.50, 0.13),
+            Slot('ATT', 0.50, 0.17),
         ],
     ),
     Formation(
@@ -85,7 +85,7 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.37, 0.40),
             Slot('MID', 0.63, 0.40),
             Slot('MID', 0.88, 0.40),
-            Slot('ATT', 0.50, 0.13),
+            Slot('ATT', 0.50, 0.17),
         ],
     ),
     Formation(
@@ -100,8 +100,8 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.28, 0.43),
             Slot('MID', 0.72, 0.43),
             Slot('MID', 0.50, 0.32),
-            Slot('ATT', 0.35, 0.14),
-            Slot('ATT', 0.65, 0.14),
+            Slot('ATT', 0.35, 0.18),
+            Slot('ATT', 0.65, 0.18),
         ],
     ),
     # -- 4-back, mid triangles ------------------------------------------------------
@@ -116,9 +116,9 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.50, 0.51),  # 1 DM (base of triangle)
             Slot('MID', 0.26, 0.38),  # 2 wide (top of triangle)
             Slot('MID', 0.74, 0.38),
-            Slot('ATT', 0.15, 0.18),
-            Slot('ATT', 0.50, 0.13),
-            Slot('ATT', 0.85, 0.18),
+            Slot('ATT', 0.15, 0.22),
+            Slot('ATT', 0.50, 0.17),
+            Slot('ATT', 0.85, 0.22),
         ],
     ),
     Formation(
@@ -132,9 +132,9 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.30, 0.49),  # 2 DM (base of triangle)
             Slot('MID', 0.70, 0.49),
             Slot('MID', 0.50, 0.36),  # 1 CAM (tip)
-            Slot('ATT', 0.15, 0.18),
-            Slot('ATT', 0.50, 0.13),
-            Slot('ATT', 0.85, 0.18),
+            Slot('ATT', 0.15, 0.22),
+            Slot('ATT', 0.50, 0.17),
+            Slot('ATT', 0.85, 0.22),
         ],
     ),
     # -- 4-back, diamond mid --------------------------------------------------------
@@ -150,8 +150,8 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.25, 0.42),  # left
             Slot('MID', 0.75, 0.42),  # right
             Slot('MID', 0.50, 0.32),  # CAM (top of diamond)
-            Slot('ATT', 0.35, 0.14),
-            Slot('ATT', 0.65, 0.14),
+            Slot('ATT', 0.35, 0.18),
+            Slot('ATT', 0.65, 0.18),
         ],
     ),
     # -- 4-back, christmas tree / layered -------------------------------------------
@@ -168,7 +168,7 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.80, 0.51),
             Slot('MID', 0.35, 0.34),  # 2 AM (narrower)
             Slot('MID', 0.65, 0.34),
-            Slot('ATT', 0.50, 0.13),
+            Slot('ATT', 0.50, 0.17),
         ],
     ),
     # -- 4-back, 5-mid --------------------------------------------------------------
@@ -185,7 +185,7 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.50, 0.44),
             Slot('MID', 0.70, 0.44),
             Slot('MID', 0.90, 0.44),
-            Slot('ATT', 0.50, 0.14),
+            Slot('ATT', 0.50, 0.18),
         ],
     ),
     # -- 3-back formations ----------------------------------------------------------
@@ -201,8 +201,8 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.50, 0.44),
             Slot('MID', 0.70, 0.44),
             Slot('MID', 0.90, 0.44),
-            Slot('ATT', 0.35, 0.14),
-            Slot('ATT', 0.65, 0.14),
+            Slot('ATT', 0.35, 0.18),
+            Slot('ATT', 0.65, 0.18),
         ],
     ),
     Formation(
@@ -216,9 +216,9 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.40, 0.44),
             Slot('MID', 0.60, 0.44),
             Slot('MID', 0.85, 0.44),
-            Slot('ATT', 0.15, 0.18),
-            Slot('ATT', 0.50, 0.13),
-            Slot('ATT', 0.85, 0.18),
+            Slot('ATT', 0.15, 0.22),
+            Slot('ATT', 0.50, 0.17),
+            Slot('ATT', 0.85, 0.22),
         ],
     ),
     Formation(
@@ -234,7 +234,7 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.88, 0.49),
             Slot('MID', 0.35, 0.32),  # 2 CAM
             Slot('MID', 0.65, 0.32),
-            Slot('ATT', 0.50, 0.13),
+            Slot('ATT', 0.50, 0.17),
         ],
     ),
     # -- 5-back formations ----------------------------------------------------------
@@ -250,8 +250,8 @@ FORMATIONS: list[Formation] = [
             Slot('MID', 0.22, 0.44),
             Slot('MID', 0.50, 0.44),
             Slot('MID', 0.78, 0.44),
-            Slot('ATT', 0.35, 0.14),
-            Slot('ATT', 0.65, 0.14),
+            Slot('ATT', 0.35, 0.18),
+            Slot('ATT', 0.65, 0.18),
         ],
     ),
     Formation(
@@ -265,9 +265,9 @@ FORMATIONS: list[Formation] = [
             Slot('DEF', 0.90, 0.70),
             Slot('MID', 0.35, 0.44),
             Slot('MID', 0.65, 0.44),
-            Slot('ATT', 0.15, 0.18),
-            Slot('ATT', 0.50, 0.13),
-            Slot('ATT', 0.85, 0.18),
+            Slot('ATT', 0.15, 0.22),
+            Slot('ATT', 0.50, 0.17),
+            Slot('ATT', 0.85, 0.22),
         ],
     ),
 ]
