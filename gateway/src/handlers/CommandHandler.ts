@@ -22,7 +22,7 @@ export default class CommandHandler {
       return;
     }
 
-    if (Resenhazord2.bridge.isConnected) {
+    if (Resenhazord2.bridge.isConnected && text?.trimStart().startsWith(',')) {
       const commandData = {
         ...data,
         text,
