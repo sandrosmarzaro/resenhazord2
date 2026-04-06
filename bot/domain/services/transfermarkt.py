@@ -1,6 +1,7 @@
 """Transfermarkt scraper for most-valuable player rankings and squad values."""
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -130,7 +131,10 @@ class TransfermarktService:
                 photo_url = ''
 
             name_tag = inline.find('td', class_='hauptlink')
-            name = name_tag.get_text(strip=True) if name_tag and isinstance(name_tag, Tag) else ''
+            raw_name = (
+                name_tag.get_text(strip=True) if name_tag and isinstance(name_tag, Tag) else ''
+            )
+            name = unicodedata.normalize('NFC', raw_name)
 
             trs = inline.find_all('tr')
             if len(trs) > 1 and isinstance(trs[1], Tag):

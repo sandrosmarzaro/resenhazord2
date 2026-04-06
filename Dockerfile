@@ -40,7 +40,8 @@ RUN apk add --no-cache \
     openjpeg \
     tiff \
     libffi \
-    libsodium
+    libsodium \
+    ttf-dejavu
 
 RUN addgroup -S nonroot && adduser -S -G nonroot nonroot
 

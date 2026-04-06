@@ -18,14 +18,20 @@ _STRIPE_DARK = '#296e2c'
 _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
 _LINE_WIDTH = 12
-_PHOTO_DIAMETER = 275
+_PHOTO_DIAMETER = 310
 _FONT_SIZE = 48
 _FONT_LABEL_SIZE = 69
-_FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-_FONT_BOLD_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+_FONT_PATHS = [
+    '/usr/share/fonts/dejavu/DejaVuSans.ttf',  # Alpine
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',  # Ubuntu/Debian
+]
+_FONT_BOLD_PATHS = [
+    '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+]
 _NAME_MAX_LEN = 14
 _FLAG_W = 56
-_FLAG_H = 38
+_FLAG_H = 28
 _FLAG_GAP = 10
 _STROKE_WIDTH = 6
 
@@ -57,11 +63,13 @@ def _field_xy(x: float, y: float) -> tuple[int, int]:
     return int(left + x * width), int(_MY + y * _FH)
 
 
-def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
-    try:
-        return ImageFont.truetype(path, size)
-    except OSError:
-        return cast('ImageFont.FreeTypeFont', ImageFont.load_default(size=size))
+def _load_font(paths: list[str], size: int) -> ImageFont.FreeTypeFont:
+    for path in paths:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return cast('ImageFont.FreeTypeFont', ImageFont.load_default(size=size))
 
 
 @dataclass
@@ -96,7 +104,6 @@ class _Renderer:
         short_name = _shorten_name(name)
         bbox = self.draw.textbbox((0, 0), short_name, font=self.font)
         tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
         label_y = cy + r + 6
 
         flag_w = _FLAG_W + _FLAG_GAP if flag_bytes else 0
@@ -117,7 +124,9 @@ class _Renderer:
                 flag_img = Image.open(io.BytesIO(flag_bytes)).convert('RGBA')
                 flag_img = flag_img.resize((_FLAG_W, _FLAG_H), Resampling.LANCZOS)
                 flag_x = int(cx - content_w // 2)
-                flag_y = int(label_y + (th - _FLAG_H) // 2)
+                placed = self.draw.textbbox((text_x, label_y), short_name, font=self.font)
+                flag_center_y = (placed[1] + placed[3]) // 2
+                flag_y = flag_center_y - _FLAG_H // 2
                 self.canvas.paste(flag_img.convert('RGB'), (flag_x, flag_y), flag_img)
             except (OSError, ValueError):
                 pass
@@ -142,7 +151,7 @@ def build_football_field(
     _draw_field(draw)
     _draw_formation_label(draw, formation.name)
 
-    font = _load_font(_FONT_PATH, _FONT_SIZE)
+    font = _load_font(_FONT_PATHS, _FONT_SIZE)
     renderer = _Renderer(canvas=canvas, draw=draw, font=font)
     for i, slot in enumerate(formation.slots):
         photo_bytes = photos[i] if i < len(photos) else None
@@ -279,7 +288,7 @@ def _draw_field_lines(draw: ImageDraw.ImageDraw) -> None:
 
 
 def _draw_formation_label(draw: ImageDraw.ImageDraw, formation_name: str) -> None:
-    font = _load_font(_FONT_BOLD_PATH, _FONT_LABEL_SIZE)
+    font = _load_font(_FONT_BOLD_PATHS, _FONT_LABEL_SIZE)
     name = unicodedata.normalize('NFKD', formation_name).encode('ascii', 'ignore').decode('ascii')
     bbox = draw.textbbox((0, 0), name, font=font)
     tw = bbox[2] - bbox[0]
