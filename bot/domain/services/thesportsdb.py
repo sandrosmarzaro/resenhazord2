@@ -34,7 +34,10 @@ class TheSportsDBService:
             params={'l': league.sportsdb_name},
         )
         resp.raise_for_status()
-        raw = resp.json().get('teams') or []
+        try:
+            raw = resp.json().get('teams') or []
+        except ValueError:
+            return []
         return [cls._parse_team(t) for t in raw]
 
     @classmethod
@@ -44,11 +47,11 @@ class TheSportsDBService:
             params={'l': league.sportsdb_id, 's': league.sportsdb_season},
         )
         resp.raise_for_status()
-        raw = resp.json().get('table') or []
-        return [
-            StandingRow(rank=int(r['intRank']), team=r['strTeam'])
-            for r in raw
-        ]
+        try:
+            raw = resp.json().get('table') or []
+        except ValueError:
+            return []
+        return [StandingRow(rank=int(r['intRank']), team=r['strTeam']) for r in raw]
 
     @staticmethod
     def _parse_team(t: dict) -> SportsDBTeam:

@@ -34,17 +34,10 @@ class TmPlayer:
 
 class TransfermarktService:
     GLOBAL_URL = (
-        'https://www.transfermarkt.com.br'
-        '/spieler-statistik/wertvollstespieler/marktwertetop'
+        'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/marktwertetop'
     )
-    LEAGUE_URL = (
-        'https://www.transfermarkt.com.br'
-        '/{slug}/marktwerte/wettbewerb/{tm_id}/page/{page}'
-    )
-    SQUAD_VALUES_URL = (
-        'https://www.transfermarkt.com.br'
-        '/{slug}/startseite/wettbewerb/{tm_id}'
-    )
+    LEAGUE_URL = 'https://www.transfermarkt.com.br/{slug}/marktwerte/wettbewerb/{tm_id}/page/{page}'
+    SQUAD_VALUES_URL = 'https://www.transfermarkt.com.br/{slug}/startseite/wettbewerb/{tm_id}'
     HEADERS: ClassVar[dict[str, str]] = {
         'User-Agent': (
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -129,7 +122,10 @@ class TransfermarktService:
             photo_tag = inline.find('img', class_='bilderrahmen-fixed')
             if photo_tag and isinstance(photo_tag, Tag):
                 src = photo_tag.get('data-src') or photo_tag.get('src', '')
-                photo_url = str(src).replace('/small/', '/big/')
+                src_str = str(src)
+                photo_url = (
+                    '' if src_str.startswith('data:') else src_str.replace('/small/', '/big/')
+                )
             else:
                 photo_url = ''
 
@@ -166,13 +162,9 @@ class TransfermarktService:
                 else ''
             )
 
-            club_link = row.find(
-                'a', href=lambda h: bool(h and '/startseite/verein/' in str(h))
-            )
+            club_link = row.find('a', href=lambda h: bool(h and '/startseite/verein/' in str(h)))
             club = (
-                str(club_link.get('title', ''))
-                if club_link and isinstance(club_link, Tag)
-                else ''
+                str(club_link.get('title', '')) if club_link and isinstance(club_link, Tag) else ''
             )
 
             club_img = club_link.find('img') if club_link and isinstance(club_link, Tag) else None
@@ -188,9 +180,7 @@ class TransfermarktService:
                 'td', class_=lambda c: bool(c and 'rechts' in c and 'hauptlink' in c)
             )
             market_value = (
-                value_tag.get_text(strip=True)
-                if value_tag and isinstance(value_tag, Tag)
-                else ''
+                value_tag.get_text(strip=True) if value_tag and isinstance(value_tag, Tag) else ''
             )
 
             if not name or not club:
