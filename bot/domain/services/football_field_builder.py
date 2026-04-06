@@ -1,6 +1,7 @@
 """Render a top-down football pitch with player photos at formation positions."""
 
 import io
+import math
 import unicodedata
 from dataclasses import dataclass
 from typing import cast
@@ -10,36 +11,50 @@ from PIL.Image import Resampling
 
 from bot.data.football_formations import Formation
 
-_CANVAS_W = 640
-_CANVAS_H = 960
+_CANVAS_W = 1280
+_CANVAS_H = 1920
 _FIELD_COLOR = '#2e7d32'
+_STRIPE_DARK = '#296e2c'
+_STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
-_LINE_WIDTH = 3
-_PHOTO_DIAMETER = 72
-_FONT_SIZE = 15
-_FONT_LABEL_SIZE = 22
+_LINE_WIDTH = 8
+_PHOTO_DIAMETER = 176
+_FONT_SIZE = 30
+_FONT_LABEL_SIZE = 44
 _FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 _FONT_BOLD_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 _NAME_MAX_LEN = 14
-_FLAG_W = 18
-_FLAG_H = 12
-_FLAG_GAP = 3
-_STROKE_WIDTH = 2
+_FLAG_W = 36
+_FLAG_H = 24
+_FLAG_GAP = 6
+_STROKE_WIDTH = 4
 
-# Field margin inside canvas (pixels)
-_MX = 36
-_MY = 60
+_MX = 72
+_MY = 120
 _FW = _CANVAS_W - 2 * _MX
 _FH = _CANVAS_H - 2 * _MY
 
+# Each side of the field narrows by this fraction of FW at the attack end (y=0)
+_TOP_TAPER = 0.15
+_N_LAWN_STRIPES = 8
+
 _PENALTY_W_RATIO = 0.62
 _PENALTY_H_RATIO = 0.18
-_GOAL_W_RATIO = 0.24
-_GOAL_H_RATIO = 0.05
+_GOAL_W_RATIO = 0.32
+_GOAL_H_RATIO = 0.08
 _CIRCLE_R_RATIO = 0.10
-_SPOT_R = 4
+_SPOT_R = 8
 _PENALTY_SPOT_Y_RATIO = 0.12
-_CORNER_ARC_R = 20
+_CORNER_ARC_R = 72
+_PENALTY_ARC_R_RATIO = 0.09
+
+
+def _field_xy(x: float, y: float) -> tuple[int, int]:
+    """Map field-relative coords [0..1, 0..1] to canvas pixels with perspective taper."""
+    taper = _TOP_TAPER * (1.0 - y)
+    left = _MX + taper * _FW
+    width = _FW * (1.0 - 2.0 * taper)
+    return int(left + x * width), int(_MY + y * _FH)
 
 
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
@@ -68,9 +83,11 @@ class _Renderer:
             try:
                 photo = Image.open(io.BytesIO(photo_bytes)).convert('RGBA')
                 photo = photo.resize((_PHOTO_DIAMETER, _PHOTO_DIAMETER), Resampling.LANCZOS)
+                bg = Image.new('RGBA', (_PHOTO_DIAMETER, _PHOTO_DIAMETER), (255, 255, 255, 255))
+                bg.paste(photo, mask=photo.split()[3])
                 mask = Image.new('L', (_PHOTO_DIAMETER, _PHOTO_DIAMETER), 0)
                 ImageDraw.Draw(mask).ellipse([0, 0, _PHOTO_DIAMETER, _PHOTO_DIAMETER], fill=255)
-                self.canvas.paste(photo.convert('RGB'), (cx - r, cy - r), mask)
+                self.canvas.paste(bg.convert('RGB'), (cx - r, cy - r), mask)
             except (OSError, ValueError):
                 self._draw_placeholder(cx, cy, r)
         else:
@@ -82,7 +99,6 @@ class _Renderer:
         th = bbox[3] - bbox[1]
         label_y = cy + r + 6
 
-        # Layout: [flag] [name], centered around cx
         flag_w = _FLAG_W + _FLAG_GAP if flag_bytes else 0
         content_w = tw + flag_w
         text_x = cx - content_w // 2 + flag_w
@@ -101,7 +117,7 @@ class _Renderer:
                 flag_img = Image.open(io.BytesIO(flag_bytes)).convert('RGBA')
                 flag_img = flag_img.resize((_FLAG_W, _FLAG_H), Resampling.LANCZOS)
                 flag_x = int(cx - content_w // 2)
-                flag_y = int(label_y + (th - _FLAG_H) // 2)
+                flag_y = int(label_y + bbox[1] + (th - _FLAG_H) // 2)
                 self.canvas.paste(flag_img.convert('RGB'), (flag_x, flag_y), flag_img)
             except (OSError, ValueError):
                 pass
@@ -111,7 +127,7 @@ class _Renderer:
             [cx - r, cy - r, cx + r, cy + r],
             fill='#1b5e20',
             outline=_LINE_COLOR,
-            width=2,
+            width=4,
         )
 
 
@@ -132,75 +148,126 @@ def build_football_field(
         photo_bytes = photos[i] if i < len(photos) else None
         name = names[i] if i < len(names) else ''
         flag_bytes = flags[i] if flags and i < len(flags) else None
-        cx = int(_MX + slot.x * _FW)
-        cy = int(_MY + slot.y * _FH)
+        cx, cy = _field_xy(slot.x, slot.y)
         renderer.draw_player(photo_bytes, name, cx, cy, flag_bytes)
 
     output = io.BytesIO()
-    canvas.save(output, format='JPEG', quality=88)
+    canvas.save(output, format='JPEG', quality=92)
     return output.getvalue()
 
 
 def _draw_field(draw: ImageDraw.ImageDraw) -> None:
-    draw.rectangle([_MX, _MY, _MX + _FW, _MY + _FH], outline=_LINE_COLOR, width=_LINE_WIDTH)
+    _draw_lawn_stripes(draw)
+    _draw_field_lines(draw)
 
-    mid_y = _MY + _FH // 2
-    draw.line([(_MX, mid_y), (_MX + _FW, mid_y)], fill=_LINE_COLOR, width=_LINE_WIDTH)
 
+def _draw_lawn_stripes(draw: ImageDraw.ImageDraw) -> None:
+    for i in range(_N_LAWN_STRIPES):
+        y0 = i / _N_LAWN_STRIPES
+        y1 = (i + 1) / _N_LAWN_STRIPES
+        color = _STRIPE_DARK if i % 2 == 0 else _STRIPE_LIGHT
+        draw.polygon(
+            [_field_xy(0, y0), _field_xy(1, y0), _field_xy(1, y1), _field_xy(0, y1)],
+            fill=color,
+        )
+
+
+def _draw_field_lines(draw: ImageDraw.ImageDraw) -> None:
+    # Outer boundary (trapezoid)
+    draw.polygon(
+        [_field_xy(0, 0), _field_xy(1, 0), _field_xy(1, 1), _field_xy(0, 1)],
+        outline=_LINE_COLOR,
+        width=_LINE_WIDTH,
+    )
+
+    # Midfield line
+    draw.line([_field_xy(0, 0.5), _field_xy(1, 0.5)], fill=_LINE_COLOR, width=_LINE_WIDTH)
+
+    # Center circle — ellipse reflecting perspective compression at midfield
+    ccx, ccy = _field_xy(0.5, 0.5)
     circle_r = int(_FH * _CIRCLE_R_RATIO)
-    ccx, ccy = _MX + _FW // 2, mid_y
+    h_r = int(circle_r * (1.0 - _TOP_TAPER))
     draw.ellipse(
-        [ccx - circle_r, ccy - circle_r, ccx + circle_r, ccy + circle_r],
+        [ccx - h_r, ccy - circle_r, ccx + h_r, ccy + circle_r],
         outline=_LINE_COLOR,
         width=_LINE_WIDTH,
     )
     draw.ellipse([ccx - _SPOT_R, ccy - _SPOT_R, ccx + _SPOT_R, ccy + _SPOT_R], fill=_LINE_COLOR)
 
-    pen_w = int(_FW * _PENALTY_W_RATIO)
-    pen_h = int(_FH * _PENALTY_H_RATIO)
-    pen_x = _MX + (_FW - pen_w) // 2
+    px0 = (1.0 - _PENALTY_W_RATIO) / 2.0
+    px1 = 1.0 - px0
+    ph = _PENALTY_H_RATIO
+    gx0 = (1.0 - _GOAL_W_RATIO) / 2.0
+    gx1 = 1.0 - gx0
+    gh = _GOAL_H_RATIO
 
-    draw.rectangle([pen_x, _MY, pen_x + pen_w, _MY + pen_h], outline=_LINE_COLOR, width=_LINE_WIDTH)
-    draw.rectangle(
-        [pen_x, _MY + _FH - pen_h, pen_x + pen_w, _MY + _FH],
-        outline=_LINE_COLOR,
-        width=_LINE_WIDTH,
-    )
+    # Penalty boxes
+    for y0, y1 in ((0.0, ph), (1.0 - ph, 1.0)):
+        draw.polygon(
+            [_field_xy(px0, y0), _field_xy(px1, y0), _field_xy(px1, y1), _field_xy(px0, y1)],
+            outline=_LINE_COLOR,
+            width=_LINE_WIDTH,
+        )
 
-    goal_w = int(_FW * _GOAL_W_RATIO)
-    goal_h = int(_FH * _GOAL_H_RATIO)
-    goal_x = _MX + (_FW - goal_w) // 2
+    # Goal areas
+    for y0, y1 in ((0.0, gh), (1.0 - gh, 1.0)):
+        draw.polygon(
+            [_field_xy(gx0, y0), _field_xy(gx1, y0), _field_xy(gx1, y1), _field_xy(gx0, y1)],
+            outline=_LINE_COLOR,
+            width=_LINE_WIDTH,
+        )
 
-    draw.rectangle(
-        [goal_x, _MY, goal_x + goal_w, _MY + goal_h], outline=_LINE_COLOR, width=_LINE_WIDTH
-    )
-    draw.rectangle(
-        [goal_x, _MY + _FH - goal_h, goal_x + goal_w, _MY + _FH],
-        outline=_LINE_COLOR,
-        width=_LINE_WIDTH,
-    )
+    # Penalty spots
+    spot_top = _field_xy(0.5, _PENALTY_SPOT_Y_RATIO)
+    spot_bot = _field_xy(0.5, 1.0 - _PENALTY_SPOT_Y_RATIO)
+    for sx, sy in (spot_top, spot_bot):
+        draw.ellipse([sx - _SPOT_R, sy - _SPOT_R, sx + _SPOT_R, sy + _SPOT_R], fill=_LINE_COLOR)
 
-    # GK-side penalty spot only (bottom)
-    spot_offset = int(_FH * _PENALTY_SPOT_Y_RATIO)
-    fcx = _MX + _FW // 2
-    spot_y = _MY + _FH - spot_offset
-    draw.ellipse(
-        [fcx - _SPOT_R, spot_y - _SPOT_R, fcx + _SPOT_R, spot_y + _SPOT_R],
-        fill=_LINE_COLOR,
-    )
-
+    # Corner arcs
     ar = _CORNER_ARC_R
-    corners = [
-        (_MX - ar, _MY - ar, 0, 90),
-        (_MX + _FW - ar, _MY - ar, 90, 180),
-        (_MX - ar, _MY + _FH - ar, 270, 360),
-        (_MX + _FW - ar, _MY + _FH - ar, 180, 270),
-    ]
-    for bx, by, start, end in corners:
+    for (cx_c, cy_c), start, end in [
+        (_field_xy(0, 0), 0, 90),
+        (_field_xy(1, 0), 90, 180),
+        (_field_xy(0, 1), 270, 360),
+        (_field_xy(1, 1), 180, 270),
+    ]:
         draw.arc(
-            [bx, by, bx + ar * 2, by + ar * 2],
+            [cx_c - ar, cy_c - ar, cx_c + ar, cy_c + ar],
             start=start,
             end=end,
+            fill=_LINE_COLOR,
+            width=_LINE_WIDTH,
+        )
+
+    # Penalty arcs (D shapes)
+    pen_arc_r = int(_FH * _PENALTY_ARC_R_RATIO)
+
+    spot_bx, spot_by = spot_bot
+    box_top_y = _field_xy(0.5, 1.0 - ph)[1]
+    d_bot = spot_by - box_top_y
+    if pen_arc_r > d_bot > 0:
+        h_bot = math.sqrt(pen_arc_r**2 - d_bot**2)
+        a1 = math.degrees(math.atan2(-d_bot, -h_bot)) % 360
+        a2 = math.degrees(math.atan2(-d_bot, h_bot)) % 360
+        draw.arc(
+            [spot_bx - pen_arc_r, spot_by - pen_arc_r, spot_bx + pen_arc_r, spot_by + pen_arc_r],
+            start=a1,
+            end=a2,
+            fill=_LINE_COLOR,
+            width=_LINE_WIDTH,
+        )
+
+    spot_tx, spot_ty = spot_top
+    box_bot_y = _field_xy(0.5, ph)[1]
+    d_top = box_bot_y - spot_ty
+    if pen_arc_r > d_top > 0:
+        h_top = math.sqrt(pen_arc_r**2 - d_top**2)
+        a1_top = math.degrees(math.atan2(d_top, h_top)) % 360
+        a2_top = math.degrees(math.atan2(d_top, -h_top)) % 360
+        draw.arc(
+            [spot_tx - pen_arc_r, spot_ty - pen_arc_r, spot_tx + pen_arc_r, spot_ty + pen_arc_r],
+            start=a1_top,
+            end=a2_top,
             fill=_LINE_COLOR,
             width=_LINE_WIDTH,
         )
@@ -211,7 +278,7 @@ def _draw_formation_label(draw: ImageDraw.ImageDraw, formation_name: str) -> Non
     bbox = draw.textbbox((0, 0), formation_name, font=font)
     tw = bbox[2] - bbox[0]
     draw.text(
-        ((_CANVAS_W - tw) // 2, 14),
+        ((_CANVAS_W - tw) // 2, _MY // 3),
         formation_name,
         fill=_LINE_COLOR,
         font=font,
