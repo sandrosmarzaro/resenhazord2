@@ -12,7 +12,7 @@ from PIL.Image import Resampling
 from bot.data.football_formations import Formation
 
 _CANVAS_W = 1280
-_CANVAS_H = 1920
+_CANVAS_H = 1760
 _FIELD_COLOR = '#2e7d32'
 _STRIPE_DARK = '#296e2c'
 _STRIPE_LIGHT = '#327836'
@@ -30,13 +30,13 @@ _FLAG_GAP = 6
 _STROKE_WIDTH = 4
 
 _MX = 72
-_MY = 120
+_MY = 80
 _FW = _CANVAS_W - 2 * _MX
 _FH = _CANVAS_H - 2 * _MY
 
 # Each side of the field narrows by this fraction of FW at the attack end (y=0)
 _TOP_TAPER = 0.15
-_N_LAWN_STRIPES = 8
+_N_LAWN_STRIPES = 14
 
 _PENALTY_W_RATIO = 0.62
 _PENALTY_H_RATIO = 0.18
@@ -45,7 +45,7 @@ _GOAL_H_RATIO = 0.08
 _CIRCLE_R_RATIO = 0.10
 _SPOT_R = 8
 _PENALTY_SPOT_Y_RATIO = 0.12
-_CORNER_ARC_R = 72
+_CORNER_ARC_R = 56
 _PENALTY_ARC_R_RATIO = 0.09
 
 
