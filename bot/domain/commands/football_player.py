@@ -46,11 +46,7 @@ class FootballPlayerCommand(Command):
         league = LEAGUES.get(liga_code) if liga_code else None
         top_str = parsed.options.get('top', '')
 
-        default_max = (
-            TransfermarktService.LEAGUE_MAX_PAGES
-            if league
-            else TransfermarktService.GLOBAL_MAX_PAGES
-        )
+        default_max = TransfermarktService.LEAGUE_MAX_PAGES  # top 100 globally or per-league
 
         if top_str:
             top_n = int(top_str[3:])

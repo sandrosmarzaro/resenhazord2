@@ -3,7 +3,7 @@
 import io
 import math
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 from PIL import Image, ImageDraw, ImageFont
@@ -29,9 +29,11 @@ _FONT_BOLD_PATHS = [
     '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
 ]
+_EMOJI_FONT_PATHS = [
+    '/usr/share/fonts/noto/NotoEmoji-Regular.ttf',
+    '/usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf',
+]
 _NAME_MAX_LEN = 14
-_FLAG_W = 56
-_FLAG_H = 28
 _FLAG_GAP = 10
 _STROKE_WIDTH = 6
 
@@ -72,11 +74,21 @@ def _load_font(paths: list[str], size: int) -> ImageFont.FreeTypeFont:
     return cast('ImageFont.FreeTypeFont', ImageFont.load_default(size=size))
 
 
+def _load_font_optional(paths: list[str], size: int) -> ImageFont.FreeTypeFont | None:
+    for path in paths:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return None
+
+
 @dataclass
 class _Renderer:
     canvas: Image.Image
     draw: ImageDraw.ImageDraw
     font: ImageFont.FreeTypeFont
+    emoji_font: ImageFont.FreeTypeFont | None = field(default=None)
 
     def draw_player(
         self,
@@ -84,7 +96,7 @@ class _Renderer:
         name: str,
         cx: int,
         cy: int,
-        flag_bytes: bytes | None = None,
+        flag_emoji: str | None = None,
     ) -> None:
         r = _PHOTO_DIAMETER // 2
         if photo_bytes:
@@ -106,7 +118,11 @@ class _Renderer:
         tw = bbox[2] - bbox[0]
         label_y = cy + r + 6
 
-        flag_w = _FLAG_W + _FLAG_GAP if flag_bytes else 0
+        flag_w = 0
+        if flag_emoji and self.emoji_font:
+            efb = self.draw.textbbox((0, 0), flag_emoji, font=self.emoji_font)
+            flag_w = int(efb[2] - efb[0]) + _FLAG_GAP
+
         content_w = tw + flag_w
         text_x = cx - content_w // 2 + flag_w
 
@@ -119,16 +135,19 @@ class _Renderer:
             stroke_fill='#000000',
         )
 
-        if flag_bytes:
-            try:
-                flag_img = Image.open(io.BytesIO(flag_bytes)).convert('RGBA')
-                flag_img = flag_img.resize((_FLAG_W, _FLAG_H), Resampling.LANCZOS)
-                flag_x = int(cx - content_w // 2)
-                placed = self.draw.textbbox((text_x, label_y), short_name, font=self.font)
-                flag_y = int((placed[1] + placed[3]) // 2) - _FLAG_H // 2
-                self.canvas.paste(flag_img.convert('RGB'), (flag_x, flag_y), flag_img)
-            except (OSError, ValueError):
-                pass
+        if flag_emoji and self.emoji_font and flag_w > 0:
+            efb = self.draw.textbbox((0, 0), flag_emoji, font=self.emoji_font)
+            efh = int(efb[3] - efb[1])
+            placed = self.draw.textbbox((text_x, label_y), short_name, font=self.font)
+            text_mid = int((placed[1] + placed[3]) // 2)
+            flag_x = cx - content_w // 2
+            flag_y = text_mid - efh // 2
+            self.draw.text(
+                (flag_x, flag_y),
+                flag_emoji,
+                fill=_LINE_COLOR,
+                font=self.emoji_font,
+            )
 
     def _draw_placeholder(self, cx: int, cy: int, r: int) -> None:
         self.draw.ellipse(
@@ -143,7 +162,7 @@ def build_football_field(
     photos: list[bytes | None],
     names: list[str],
     formation: Formation,
-    flags: list[bytes | None] | None = None,
+    flags: list[str | None] | None = None,
 ) -> bytes:
     canvas = Image.new('RGB', (_CANVAS_W, _CANVAS_H), _FIELD_COLOR)
     draw = ImageDraw.Draw(canvas)
@@ -151,13 +170,14 @@ def build_football_field(
     _draw_formation_label(draw, formation.name)
 
     font = _load_font(_FONT_PATHS, _FONT_SIZE)
-    renderer = _Renderer(canvas=canvas, draw=draw, font=font)
+    emoji_font = _load_font_optional(_EMOJI_FONT_PATHS, _FONT_SIZE - 6)
+    renderer = _Renderer(canvas=canvas, draw=draw, font=font, emoji_font=emoji_font)
     for i, slot in enumerate(formation.slots):
         photo_bytes = photos[i] if i < len(photos) else None
         name = names[i] if i < len(names) else ''
-        flag_bytes = flags[i] if flags and i < len(flags) else None
+        flag_emoji = flags[i] if flags and i < len(flags) else None
         cx, cy = _field_xy(slot.x, slot.y)
-        renderer.draw_player(photo_bytes, name, cx, cy, flag_bytes)
+        renderer.draw_player(photo_bytes, name, cx, cy, flag_emoji)
 
     output = io.BytesIO()
     canvas.save(output, format='JPEG', quality=92)

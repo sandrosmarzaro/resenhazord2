@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import random
+import re
 
 import anyio
 import structlog
@@ -52,6 +53,31 @@ _POSITION_ROLES: dict[str, list[str]] = {
     ],
 }
 
+_VALUE_RE = re.compile(r'€\s*([\d.,]+)\s*(mi\.|mil\.)')
+
+
+def _parse_market_value_millions(value_str: str) -> float:
+    m = _VALUE_RE.search(value_str)
+    if not m:
+        return 0.0
+    number_str = m.group(1).replace('.', '').replace(',', '.')
+    try:
+        number = float(number_str)
+    except ValueError:
+        return 0.0
+    return number / 1000 if m.group(2) == 'mil.' else number
+
+
+def _sum_market_values(players: list[TmPlayer | None]) -> str | None:
+    total = sum(
+        _parse_market_value_millions(p.market_value) for p in players if p and p.market_value
+    )
+    if total <= 0:
+        return None
+    us = f'{total:,.2f}'
+    br = us.replace(',', 'X').replace('.', ',').replace('X', '.')
+    return f'€ {br} mi.'
+
 
 class FootballTeamCommand(Command):
     @property
@@ -77,9 +103,15 @@ class FootballTeamCommand(Command):
         return await self._random_team(data, parsed)
 
     async def _random_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        liga_code = parsed.options.get('liga') or random.choice(LEAGUE_CODES)  # noqa: S311
-        league = LEAGUES[liga_code]
+        liga_code = parsed.options.get('liga')
         top_str = parsed.options.get('top', '')
+
+        # Global top N: no league specified → use Transfermarkt global club rankings
+        if top_str and not liga_code:
+            return await self._global_top_team(data, int(top_str[3:]))
+
+        effective_liga = liga_code or random.choice(LEAGUE_CODES)  # noqa: S311
+        league = LEAGUES[effective_liga]
 
         teams, standings, squad_values = await asyncio.gather(
             TheSportsDBService.get_teams(league),
@@ -108,6 +140,35 @@ class FootballTeamCommand(Command):
         buffer = await HttpClient.get_buffer(team.badge_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
 
+    async def _global_top_team(self, data: CommandData, top_n: int) -> list[BotMessage]:
+        clubs = await TransfermarktService.fetch_top_clubs(top_n)
+        if not clubs:
+            return [Reply.to(data).text(
+                'Não foi possível buscar ranking global. Tente novamente! ⚽'
+            )]
+
+        club = random.choice(clubs)  # noqa: S311
+        ts_team = await TheSportsDBService.search_team(club.name)
+
+        badge: bytes = b''
+        if club.badge_url:
+            badge = await HttpClient.get_buffer(club.badge_url)
+        elif ts_team and ts_team.badge_url:
+            badge = await HttpClient.get_buffer(ts_team.badge_url)
+
+        country = ts_team.country if ts_team else club.country
+        founded = ts_team.founded if ts_team else ''
+        name = ts_team.name if ts_team else club.name
+
+        lines = [f'*{name}*', f'\n🌍 {country}']
+        if founded:
+            lines[1] += f'   📅 {founded}'
+        lines.append(f'📊 #{club.rank}º mais valioso')
+        if club.squad_value:
+            lines.append(f'💰 {club.squad_value}')
+
+        return [Reply.to(data).image_buffer(badge, '\n'.join(lines))]
+
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
         league = LEAGUES.get(liga_code) if liga_code else None
@@ -134,7 +195,6 @@ class FootballTeamCommand(Command):
         ]
 
         photos_ordered: list[bytes | None] = [None] * len(ordered)
-        flags_ordered: list[bytes | None] = [None] * len(ordered)
 
         async def _fetch_photo(i: int, player: TmPlayer) -> None:
             with contextlib.suppress(Exception):
@@ -142,22 +202,19 @@ class FootballTeamCommand(Command):
                     player.photo_url, headers=TransfermarktService.HEADERS
                 )
 
-        async def _fetch_flag(i: int, url: str) -> None:
-            with contextlib.suppress(Exception):
-                flags_ordered[i] = await HttpClient.get_buffer(
-                    url, headers=TransfermarktService.HEADERS
-                )
-
         async with anyio.create_task_group() as tg:
             for i, player in enumerate(ordered):
                 if player:
                     tg.start_soon(_fetch_photo, i, player)
-                    if player.nationality_flag_url:
-                        tg.start_soon(_fetch_flag, i, player.nationality_flag_url)
 
         names = [p.name if p else '' for p in ordered]
-        field_image = build_football_field(photos_ordered, names, formation, flags_ordered)
+        flags = [p.nationality_flag_emoji if p else None for p in ordered]
+        field_image = build_football_field(photos_ordered, names, formation, flags)
+
+        total_value = _sum_market_values(ordered)
         caption = f'⚽ *Escalação Aleatória* — {formation.name}'
+        if total_value:
+            caption += f'\n💰 {total_value}'
         return [Reply.to(data).image_buffer(field_image, caption)]
 
     @staticmethod
@@ -181,14 +238,12 @@ class FootballTeamCommand(Command):
             for p in take:
                 remaining.remove(p)
 
-        # Second pass: fill non-GK slots from remaining pool
+        # Second pass: fill any unfilled slots (including GK) from the remaining pool
         for role, needed in slots_needed.items():
-            if role == 'GK':
-                continue
             while len(lineup[role]) < needed and remaining:
                 lineup[role].append(remaining.pop(0))
 
-        # Pad all slots with None (GK stays None rather than using wrong-position player)
+        # Pad with None if still short
         for role, needed in slots_needed.items():
             while len(lineup[role]) < needed:
                 lineup[role].append(None)

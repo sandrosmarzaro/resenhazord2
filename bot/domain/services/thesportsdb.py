@@ -53,6 +53,21 @@ class TheSportsDBService:
             return []
         return [StandingRow(rank=int(r['intRank']), team=r['strTeam']) for r in raw]
 
+    @classmethod
+    async def search_team(cls, name: str) -> SportsDBTeam | None:
+        resp = await HttpClient.get(
+            f'{BASE_URL}/searchteams.php',
+            params={'t': name},
+        )
+        resp.raise_for_status()
+        try:
+            teams = resp.json().get('teams') or []
+        except ValueError:
+            return None
+        if not teams:
+            return None
+        return cls._parse_team(teams[0])
+
     @staticmethod
     def _parse_team(t: dict) -> SportsDBTeam:
         return SportsDBTeam(

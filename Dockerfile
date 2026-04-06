@@ -41,7 +41,8 @@ RUN apk add --no-cache \
     tiff \
     libffi \
     libsodium \
-    ttf-dejavu
+    ttf-dejavu \
+    font-noto-emoji
 
 RUN addgroup -S nonroot && adduser -S -G nonroot nonroot
 

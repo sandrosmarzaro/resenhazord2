@@ -9,6 +9,7 @@ import structlog
 from bs4 import BeautifulSoup, Tag
 
 from bot.data.football import LeagueInfo
+from bot.data.nationality_flags import nationality_flag
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -31,11 +32,67 @@ class TmPlayer:
     photo_url: str
     badge_url: str
     nationality_flag_url: str = ''
+    nationality_flag_emoji: str = ''
+
+
+@dataclass(frozen=True)
+class TmClub:
+    rank: int
+    name: str
+    country: str
+    squad_value: str
+    club_id: str
+    badge_url: str
+
+
+def _extract_verein_name(row: Tag) -> str:
+    """Extract club name from a table row, preferring /startseite/verein/ links."""
+    club_link = row.find('a', href=lambda h: bool(h and '/startseite/verein/' in str(h)))
+    if club_link and isinstance(club_link, Tag):
+        return club_link.get_text(strip=True)
+    name_tag = row.find('td', class_='hauptlink')
+    if name_tag and isinstance(name_tag, Tag):
+        return name_tag.get_text(strip=True)
+    return ''
+
+
+def _extract_money_td(row: Tag) -> str:
+    """Extract the last td with class 'rechts' that contains a money string."""
+    for td in reversed(row.find_all('td')):
+        if not isinstance(td, Tag):
+            continue
+        classes = td.get('class') or []
+        if isinstance(classes, list) and 'rechts' in classes:
+            text = td.get_text(strip=True)
+            if text and ('mi.' in text or 'mil.' in text or '€' in text):
+                return text
+    return ''
+
+
+def _extract_badge_id(row: Tag) -> str:
+    """Extract club_id from the first wappen img found in the row."""
+    for img in row.find_all('img'):
+        if not isinstance(img, Tag):
+            continue
+        src = str(img.get('src', '') or img.get('data-src', ''))
+        m = _CLUB_ID_RE.search(src)
+        if m:
+            return m.group(1)
+    return ''
+
+
+def _extract_country(row: Tag) -> str:
+    """Extract country name from a flaggenrahmen img title."""
+    img = row.find('img', class_='flaggenrahmen')
+    return str(img.get('title', '')) if img and isinstance(img, Tag) else ''
 
 
 class TransfermarktService:
     GLOBAL_URL = (
         'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/marktwertetop'
+    )
+    CLUBS_URL = (
+        'https://www.transfermarkt.com.br/spieler-statistik/wertvollstemannschaften/marktwertetop'
     )
     LEAGUE_URL = 'https://www.transfermarkt.com.br/{slug}/marktwerte/wettbewerb/{tm_id}/page/{page}'
     SQUAD_VALUES_URL = 'https://www.transfermarkt.com.br/{slug}/startseite/wettbewerb/{tm_id}'
@@ -69,24 +126,44 @@ class TransfermarktService:
         for row in table.find_all('tr', class_=['odd', 'even']):
             if not isinstance(row, Tag):
                 continue
-            name_tag = row.find('td', class_='hauptlink')
-            if not name_tag or not isinstance(name_tag, Tag):
-                continue
-            link = name_tag.find('a')
-            name = (
-                link.get_text(strip=True)
-                if link and isinstance(link, Tag)
-                else name_tag.get_text(strip=True)
-            )
-            value_tag = row.find(
-                'td', class_=lambda c: bool(c and 'rechts' in c and 'hauptlink' in c)
-            )
-            value = (
-                value_tag.get_text(strip=True) if value_tag and isinstance(value_tag, Tag) else ''
-            )
+            name = _extract_verein_name(row)
+            value = _extract_money_td(row)
             if name and value:
                 result[name.lower()] = value
         return result
+
+    @classmethod
+    async def fetch_top_clubs(cls, count: int) -> list[TmClub]:
+        """Fetch the globally most-valuable clubs, up to *count* entries."""
+        response = await HttpClient.get(cls.CLUBS_URL, headers=cls.HEADERS)
+        response.raise_for_status()
+        return cls._parse_clubs_page(response.text)[:count]
+
+    @staticmethod
+    def _parse_clubs_page(html: str) -> list[TmClub]:
+        soup = BeautifulSoup(html, 'html.parser')
+        table = soup.find('table', class_='items')
+        if not table or not isinstance(table, Tag):
+            return []
+        clubs: list[TmClub] = []
+        for rank, row in enumerate(table.find_all('tr', class_=['odd', 'even']), start=1):
+            if not isinstance(row, Tag):
+                continue
+            name = _extract_verein_name(row)
+            if not name:
+                continue
+            club_id = _extract_badge_id(row)
+            clubs.append(
+                TmClub(
+                    rank=rank,
+                    name=name,
+                    country=_extract_country(row),
+                    squad_value=_extract_money_td(row),
+                    club_id=club_id,
+                    badge_url=_BADGE_CDN.format(club_id=club_id) if club_id else '',
+                )
+            )
+        return clubs
 
     @classmethod
     async def fetch_page(cls, page: int, league: LeagueInfo | None = None) -> list[TmPlayer]:
@@ -201,6 +278,7 @@ class TransfermarktService:
                 photo_url=photo_url,
                 badge_url=badge_url,
                 nationality_flag_url=nationality_flag_url,
+                nationality_flag_emoji=nationality_flag(nationality),
             )
         except Exception:
             logger.exception('transfermarkt_parse_row_error')
