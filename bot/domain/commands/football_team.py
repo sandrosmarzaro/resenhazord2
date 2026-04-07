@@ -268,11 +268,10 @@ class FootballTeamCommand(Command):
             f'\n{league_flag} {team.country}   📅 {team.founded}',
         ]
         if team.stadium:
-            stadium_line = f'🏟️ {team.stadium}'
+            lines.append(f'🏟️ {team.stadium}')
             if team.capacity:
                 cap = FootballTeamCommand._format_capacity(team.capacity)
-                stadium_line += f'   💺 {cap} lugares'
-            lines.append(stadium_line)
+                lines.append(f'💺 {cap} lugares')
         if rank:
             lines.append(f'📊 {rank}º na tabela')
         if squad_stats:
