@@ -279,13 +279,14 @@ class TransfermarktService:
         info_table = soup.find('div', class_='info-table')
         if not info_table or not isinstance(info_table, Tag):
             return info
-        for label in info_table.find_all('span', class_='info-table__content--bold'):
+        # Labels use --regular, values use --bold
+        for label in info_table.find_all('span', class_='info-table__content--regular'):
             if not isinstance(label, Tag):
                 continue
             key = label.get_text(strip=True).rstrip(':').strip()
-            value_span = label.find_next_sibling('span')
+            value_span = label.find_next_sibling('span', class_='info-table__content--bold')
             if value_span and isinstance(value_span, Tag):
-                info[key] = value_span.get_text(strip=True)
+                info[key] = value_span.get_text(strip=True).replace('\xa0', ' ')
         return info
 
     @staticmethod

@@ -96,7 +96,7 @@ class FootballPlayerCommand(Command):
     ) -> str:
         club_flag = league.flag if league else ''
 
-        foot = next((details[k] for k in _FOOT_KEYS if k in details), '')
+        foot = next((details[k] for k in _FOOT_KEYS if k in details), '').capitalize()
         height = next((details[k] for k in _HEIGHT_KEYS if k in details), '')
         other_pos = next((details[k] for k in _OTHER_POS_KEYS if k in details), '')
 
