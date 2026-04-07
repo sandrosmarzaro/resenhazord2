@@ -22,6 +22,11 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
+# Portuguese and English label keys from Transfermarkt player profile
+_FOOT_KEYS = ('Pé', 'Foot')
+_HEIGHT_KEYS = ('Altura', 'Height')
+_OTHER_POS_KEYS = ('Outras posições', 'Other position', 'Other positions')
+
 
 class FootballPlayerCommand(Command):
     @property
@@ -73,16 +78,40 @@ class FootballPlayerCommand(Command):
             return [Reply.to(data).text('Nenhum jogador encontrado. Tente novamente! ⚽')]
 
         player = random.choice(players)  # noqa: S311
-        caption = self._build_caption(player, league)
+
+        details: dict[str, str] = {}
+        if player.profile_url:
+            try:
+                details = await TransfermarktService.fetch_player_profile(player.profile_url)
+            except Exception:  # noqa: BLE001
+                logger.warning('player_profile_fetch_failed', url=player.profile_url)
+
+        caption = self._build_caption(player, league, details)
         buffer = await HttpClient.get_buffer(player.photo_url, headers=TransfermarktService.HEADERS)
         return [Reply.to(data).image_buffer(buffer, caption)]
 
     @staticmethod
-    def _build_caption(player: TmPlayer, league: LeagueInfo | None) -> str:
+    def _build_caption(
+        player: TmPlayer, league: LeagueInfo | None, details: dict[str, str]
+    ) -> str:
         club_flag = league.flag if league else ''
-        return (
-            f'*{player.name}* — {player.position}\n\n'
-            f'🎂 {player.age} anos   🌍 {player.nationality}\n'
-            f'🏟️ {player.club} {club_flag}\n\n'
-            f'💰 {player.market_value}'
-        )
+
+        foot = next((details[k] for k in _FOOT_KEYS if k in details), '')
+        height = next((details[k] for k in _HEIGHT_KEYS if k in details), '')
+        other_pos = next((details[k] for k in _OTHER_POS_KEYS if k in details), '')
+
+        lines = [
+            f'*{player.name}* — {player.position}',
+            '',
+            f'🎂 {player.age} anos   🌍 {player.nationality}',
+            f'🏟️ {player.club} {club_flag}',
+        ]
+        if height or foot:
+            info = f'📏 {height}' if height else ''
+            if foot:
+                info += f'   👟 {foot}' if info else f'👟 {foot}'
+            lines.append(info)
+        if other_pos:
+            lines.append(f'🔄 {other_pos}')
+        lines.extend(['', f'💰 {player.market_value}'])
+        return '\n'.join(lines)

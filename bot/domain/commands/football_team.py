@@ -8,7 +8,7 @@ import re
 import anyio
 import structlog
 
-from bot.data.football import LEAGUE_CODES, LEAGUES
+from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
 from bot.data.football_formations import Formation, random_formation
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
@@ -23,35 +23,11 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.football_field_builder import build_football_field
-from bot.domain.services.thesportsdb import SportsDBTeam, StandingRow, TheSportsDBService
-from bot.domain.services.transfermarkt import TmPlayer, TransfermarktService
+from bot.domain.services.thesportsdb import SportsDBTeam, TheSportsDBService
+from bot.domain.services.transfermarkt import TmPlayer, TmSquadStats, TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
-
-_POSITION_ROLES: dict[str, list[str]] = {
-    'GK': ['Goleiro', 'Guarda-Redes', 'Goalkeeper', 'Porteiro'],
-    'DEF': [
-        'Zagueiro', 'Lateral Dir.', 'Lateral Esq.',
-        'Defensor Central', 'Lateral Direito', 'Lateral Esquerdo',
-        'Centre-Back', 'Left-Back', 'Right-Back',
-        'Defensor', 'Libero',
-    ],
-    'MID': [
-        'Volante', 'Meia Central', 'Meia Ofensivo',
-        'Meia-Esquerda', 'Meia-Direita', 'Meio-Campo',
-        'Medio Defensivo', 'Medio Central', 'Medio Ofensivo',
-        'Defensive Midfield', 'Central Midfield', 'Attacking Midfield',
-        'Left Midfield', 'Right Midfield',
-        'Segundo Atacante',
-    ],
-    'ATT': [
-        'Centroavante', 'Ponta Direita', 'Ponta Esquerda',
-        'Atacante', 'Segunda Ponta', 'Extremo Direito', 'Extremo Esquerdo',
-        'Centre-Forward', 'Left Winger', 'Right Winger',
-        'Second Striker',
-    ],
-}
 
 _VALUE_RE = re.compile(r'€\s*([\d.,]+)\s*(mi\.|mil\.)')
 
@@ -106,7 +82,6 @@ class FootballTeamCommand(Command):
         liga_code = parsed.options.get('liga')
         top_str = parsed.options.get('top', '')
 
-        # Global top N: no league specified → use Transfermarkt global club rankings
         if top_str and not liga_code:
             return await self._global_top_team(data, int(top_str[3:]))
 
@@ -133,9 +108,8 @@ class FootballTeamCommand(Command):
                 teams = filtered
 
         team = random.choice(teams)  # noqa: S311
-        rank = self._find_rank(team.name, standings)
-        squad_value = self._find_squad_value(team.name, squad_values)
-        caption = self._build_team_caption(team, league.name, league.flag, rank, squad_value)
+        squad_stats = self._find_squad_stats(team.name, squad_values)
+        caption = self._build_team_caption(team, league.name, league.flag, squad_stats)
 
         buffer = await HttpClient.get_buffer(team.badge_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
@@ -172,40 +146,11 @@ class FootballTeamCommand(Command):
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
         league = LEAGUES.get(liga_code) if liga_code else None
-        max_pages = (
-            TransfermarktService.LEAGUE_MAX_PAGES
-            if league
-            else TransfermarktService.GLOBAL_MAX_PAGES
-        )
-        pages = random.sample(range(1, max_pages + 1), min(2, max_pages))
-        results = await asyncio.gather(
-            *[TransfermarktService.fetch_page(p, league) for p in pages]
-        )
-        players = list({p.name: p for result in results for p in result}.values())
-
-        if not players:
-            return [Reply.to(data).text('Não foi possível montar a escalação. Tente novamente! ⚽')]
-
-        random.shuffle(players)
         formation = random_formation()
-        lineup = self._pick_lineup(players, formation)
 
-        ordered: list[TmPlayer | None] = [
-            lineup[slot.role].pop(0) if lineup[slot.role] else None for slot in formation.slots
-        ]
-
-        photos_ordered: list[bytes | None] = [None] * len(ordered)
-
-        async def _fetch_photo(i: int, player: TmPlayer) -> None:
-            with contextlib.suppress(Exception):
-                photos_ordered[i] = await HttpClient.get_buffer(
-                    player.photo_url, headers=TransfermarktService.HEADERS
-                )
-
-        async with anyio.create_task_group() as tg:
-            for i, player in enumerate(ordered):
-                if player:
-                    tg.start_soon(_fetch_photo, i, player)
+        role_pool = await self._fetch_role_pools(formation, league)
+        ordered = self._assign_to_slots(formation, role_pool)
+        photos_ordered = await self._fetch_photos(ordered)
 
         names = [p.name if p else '' for p in ordered]
         flags = [p.nationality_flag_emoji if p else None for p in ordered]
@@ -218,45 +163,76 @@ class FootballTeamCommand(Command):
         return [Reply.to(data).image_buffer(field_image, caption)]
 
     @staticmethod
-    def _pick_lineup(
-        players: list[TmPlayer], formation: Formation
-    ) -> dict[str, list[TmPlayer | None]]:
-        slots_needed: dict[str, int] = {}
+    async def _fetch_role_pools(
+        formation: Formation,
+        league: LeagueInfo | None,
+    ) -> dict[str, list[TmPlayer]]:
+        max_pages = (
+            TransfermarktService.LEAGUE_MAX_PAGES
+            if league
+            else TransfermarktService.POSITION_MAX_PAGES
+        )
+        unique_roles = list({slot.role for slot in formation.slots})
+
+        # For each role, pick 2 random pages to fetch concurrently
+        role_page_pairs = [
+            (role, page)
+            for role in unique_roles
+            for page in random.sample(range(1, max_pages + 1), min(2, max_pages))
+        ]
+
+        results = await asyncio.gather(
+            *[
+                TransfermarktService.fetch_page_by_role(role, page, league)
+                for role, page in role_page_pairs
+            ]
+        )
+
+        role_pool: dict[str, list[TmPlayer]] = {role: [] for role in unique_roles}
+        for (role, _), players in zip(role_page_pairs, results, strict=False):
+            role_pool[role].extend(players)
+
+        for role in unique_roles:
+            seen: set[str] = set()
+            deduped = [p for p in role_pool[role] if not (p.name in seen or seen.add(p.name))]  # type: ignore[func-returns-value]
+            random.shuffle(deduped)
+            role_pool[role] = deduped
+
+        return role_pool
+
+    @staticmethod
+    def _assign_to_slots(
+        formation: Formation,
+        role_pool: dict[str, list[TmPlayer]],
+    ) -> list[TmPlayer | None]:
+        pool = {role: list(players) for role, players in role_pool.items()}
+        ordered: list[TmPlayer | None] = []
         for slot in formation.slots:
-            slots_needed[slot.role] = slots_needed.get(slot.role, 0) + 1
-
-        remaining = list(players)
-        lineup: dict[str, list[TmPlayer | None]] = {role: [] for role in slots_needed}
-
-        # First pass: match players by their actual position
-        for role, positions in _POSITION_ROLES.items():
-            if role not in slots_needed:
-                continue
-            matched = [p for p in remaining if p.position in positions]
-            take = matched[:slots_needed[role]]
-            lineup[role].extend(take)
-            for p in take:
-                remaining.remove(p)
-
-        # Second pass: fill any unfilled slots (including GK) from the remaining pool
-        for role, needed in slots_needed.items():
-            while len(lineup[role]) < needed and remaining:
-                lineup[role].append(remaining.pop(0))
-
-        # Pad with None if still short
-        for role, needed in slots_needed.items():
-            while len(lineup[role]) < needed:
-                lineup[role].append(None)
-
-        return lineup
+            slot_pool = pool.get(slot.role, [])
+            ordered.append(slot_pool.pop(0) if slot_pool else None)
+        return ordered
 
     @staticmethod
-    def _find_rank(team_name: str, standings: list[StandingRow]) -> int | None:
-        name_lower = team_name.lower()
-        return next((r.rank for r in standings if r.team.lower() == name_lower), None)
+    async def _fetch_photos(ordered: list[TmPlayer | None]) -> list[bytes | None]:
+        photos: list[bytes | None] = [None] * len(ordered)
+
+        async def _fetch(i: int, player: TmPlayer) -> None:
+            with contextlib.suppress(Exception):
+                photos[i] = await HttpClient.get_buffer(
+                    player.photo_url, headers=TransfermarktService.HEADERS
+                )
+
+        async with anyio.create_task_group() as tg:
+            for i, player in enumerate(ordered):
+                if player:
+                    tg.start_soon(_fetch, i, player)
+
+        return photos
 
     @staticmethod
-    def _find_squad_value(team_name: str, squad_values: dict[str, str]) -> str | None:
+    def _find_squad_stats(
+        team_name: str, squad_values: dict[str, TmSquadStats]
+    ) -> TmSquadStats | None:
         name_lower = team_name.lower()
         if name_lower in squad_values:
             return squad_values[name_lower]
@@ -271,15 +247,26 @@ class FootballTeamCommand(Command):
         team: SportsDBTeam,
         league_name: str,
         league_flag: str,
-        rank: int | None,
-        squad_value: str | None,
+        squad_stats: TmSquadStats | None,
     ) -> str:
         lines = [
             f'*{team.name}* — {league_name}',
             f'\n{league_flag} {team.country}   📅 {team.founded}',
         ]
-        if rank:
-            lines.append(f'📊 {rank}º na tabela')
-        if squad_value:
-            lines.append(f'💰 {squad_value}')
+        if team.stadium:
+            stadium_line = f'🏟️ {team.stadium}'
+            if team.capacity:
+                stadium_line += f' ({team.capacity} lugares)'
+            lines.append(stadium_line)
+        if squad_stats:
+            if squad_stats.squad_size:
+                squad_line = f'👥 {squad_stats.squad_size} jogadores'
+                if squad_stats.avg_age:
+                    squad_line += f'   ⌀ {squad_stats.avg_age} anos'
+                lines.append(squad_line)
+            if squad_stats.foreigners_count:
+                foreign_line = f'🌍 {squad_stats.foreigners_count} estrangeiros'
+                if squad_stats.foreigners_pct:
+                    foreign_line += f' ({squad_stats.foreigners_pct}%)'
+                lines.append(foreign_line)
         return '\n'.join(lines)

@@ -1,5 +1,6 @@
 """Transfermarkt scraper for most-valuable player rankings and squad values."""
 
+import random
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -15,7 +16,9 @@ from bot.infrastructure.http_client import HttpClient
 logger = structlog.get_logger()
 
 _BADGE_CDN = 'https://tmssl.akamaized.net/images/wappen/verysmall/{club_id}.png'
+_TM_BASE = 'https://www.transfermarkt.com.br'
 _CLUB_ID_RE = re.compile(r'/wappen/verysmall/(\d+)\.png')
+_FOREIGNERS_RE = re.compile(r'(\d+)\s*\((\d+)%\)?')
 _AGE_MIN = 15
 _AGE_MAX = 45
 
@@ -31,6 +34,7 @@ class TmPlayer:
     market_value: str
     photo_url: str
     badge_url: str
+    profile_url: str = ''
     nationality_flag_url: str = ''
     nationality_flag_emoji: str = ''
 
@@ -43,6 +47,15 @@ class TmClub:
     squad_value: str
     club_id: str
     badge_url: str
+
+
+@dataclass(frozen=True)
+class TmSquadStats:
+    market_value: str
+    squad_size: str
+    avg_age: str
+    foreigners_count: str
+    foreigners_pct: str
 
 
 def _extract_verein_name(row: Tag) -> str:
@@ -87,6 +100,45 @@ def _extract_country(row: Tag) -> str:
     return str(img.get('title', '')) if img and isinstance(img, Tag) else ''
 
 
+def _extract_squad_stats(row: Tag) -> tuple[str, str, str, str]:
+    """Return (squad_size, avg_age, foreigners_count, foreigners_pct) from zentriert cells."""
+    cells = [td for td in row.find_all('td', class_='zentriert') if isinstance(td, Tag)]
+    integers: list[str] = []
+    avg_age = ''
+    foreigners_count = ''
+    foreigners_pct = ''
+
+    for td in cells:
+        text = td.get_text(strip=True)
+        if not text:
+            continue
+        m = _FOREIGNERS_RE.search(text)
+        if m:
+            foreigners_count = m.group(1)
+            foreigners_pct = m.group(2)
+            continue
+        clean = text.replace(',', '.')
+        try:
+            val = float(clean)
+            if ('.' in clean or ',' in text) and _AGE_MIN <= val <= _AGE_MAX:
+                if not avg_age:
+                    avg_age = text
+            else:
+                try:
+                    int(text)
+                    integers.append(text)
+                except ValueError:
+                    pass
+        except ValueError:
+            pass
+
+    squad_size = integers[0] if integers else ''
+    if not foreigners_count and len(integers) > 1:
+        foreigners_count = integers[1]
+
+    return squad_size, avg_age, foreigners_count, foreigners_pct
+
+
 class TransfermarktService:
     GLOBAL_URL = (
         'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/marktwertetop'
@@ -107,29 +159,46 @@ class TransfermarktService:
     PLAYERS_PER_PAGE = 25
     GLOBAL_MAX_PAGES = 20
     LEAGUE_MAX_PAGES = 4
+    POSITION_MAX_PAGES = 40  # top 1000 per position (40 x 25)
+
+    # Transfermarkt position codes by formation role
+    POSITION_CODES: ClassVar[dict[str, list[str]]] = {
+        'GK': ['TW'],
+        'DEF': ['IV', 'LV', 'RV'],
+        'MID': ['DM', 'ZM', 'OM'],
+        'ATT': ['LA', 'RA', 'MS'],
+    }
 
     @classmethod
-    async def fetch_squad_values(cls, league: LeagueInfo) -> dict[str, str]:
-        """Return {club_name_lower: market_value} for all clubs in the league."""
+    async def fetch_squad_values(cls, league: LeagueInfo) -> dict[str, TmSquadStats]:
+        """Return {club_name_lower: TmSquadStats} for all clubs in the league."""
         url = cls.SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
         response = await HttpClient.get(url, headers=cls.HEADERS)
         response.raise_for_status()
         return cls._parse_squad_values(response.text)
 
     @staticmethod
-    def _parse_squad_values(html: str) -> dict[str, str]:
+    def _parse_squad_values(html: str) -> dict[str, TmSquadStats]:
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.find('table', class_='items')
         if not table or not isinstance(table, Tag):
             return {}
-        result: dict[str, str] = {}
+        result: dict[str, TmSquadStats] = {}
         for row in table.find_all('tr', class_=['odd', 'even']):
             if not isinstance(row, Tag):
                 continue
             name = _extract_verein_name(row)
+            if not name:
+                continue
             value = _extract_money_td(row)
-            if name and value:
-                result[name.lower()] = value
+            squad_size, avg_age, foreigners_count, foreigners_pct = _extract_squad_stats(row)
+            result[name.lower()] = TmSquadStats(
+                market_value=value,
+                squad_size=squad_size,
+                avg_age=avg_age,
+                foreigners_count=foreigners_count,
+                foreigners_pct=foreigners_pct,
+            )
         return result
 
     @classmethod
@@ -175,6 +244,47 @@ class TransfermarktService:
         response.raise_for_status()
         return cls._parse_page(response.text)
 
+    @classmethod
+    async def fetch_page_by_role(
+        cls, role: str, page: int, league: LeagueInfo | None = None
+    ) -> list[TmPlayer]:
+        """Fetch a page of players filtered by formation role (GK/DEF/MID/ATT)."""
+        codes = cls.POSITION_CODES.get(role, [])
+        pos_code = random.choice(codes) if codes else ''  # noqa: S311
+        if league:
+            url = (
+                cls.LEAGUE_URL.format(slug=league.tm_slug, tm_id=league.tm_id, page=page)
+                + f'&pos={pos_code}'
+            )
+        else:
+            url = f'{cls.GLOBAL_URL}?pos={pos_code}&page={page}'
+        response = await HttpClient.get(url, headers=cls.HEADERS)
+        response.raise_for_status()
+        return cls._parse_page(response.text)
+
+    @classmethod
+    async def fetch_player_profile(cls, profile_url: str) -> dict[str, str]:
+        """Fetch player profile page and return key stats (foot, height, other positions)."""
+        response = await HttpClient.get(profile_url, headers=cls.HEADERS)
+        response.raise_for_status()
+        return cls._parse_player_profile(response.text)
+
+    @staticmethod
+    def _parse_player_profile(html: str) -> dict[str, str]:
+        soup = BeautifulSoup(html, 'html.parser')
+        info: dict[str, str] = {}
+        info_table = soup.find('div', class_='info-table')
+        if not info_table or not isinstance(info_table, Tag):
+            return info
+        for label in info_table.find_all('span', class_='info-table__content--bold'):
+            if not isinstance(label, Tag):
+                continue
+            key = label.get_text(strip=True).rstrip(':').strip()
+            value_span = label.find_next_sibling('span')
+            if value_span and isinstance(value_span, Tag):
+                info[key] = value_span.get_text(strip=True)
+        return info
+
     @staticmethod
     def _parse_page(html: str) -> list[TmPlayer]:
         soup = BeautifulSoup(html, 'html.parser')
@@ -207,11 +317,18 @@ class TransfermarktService:
             else:
                 photo_url = ''
 
-            name_tag = inline.find('td', class_='hauptlink')
+            name_td = inline.find('td', class_='hauptlink')
             raw_name = (
-                name_tag.get_text(strip=True) if name_tag and isinstance(name_tag, Tag) else ''
+                name_td.get_text(strip=True) if name_td and isinstance(name_td, Tag) else ''
             )
             name = unicodedata.normalize('NFC', raw_name)
+
+            profile_url = ''
+            if name_td and isinstance(name_td, Tag):
+                name_link = name_td.find('a')
+                if name_link and isinstance(name_link, Tag):
+                    href = str(name_link.get('href', ''))
+                    profile_url = f'{_TM_BASE}{href}' if href.startswith('/') else href
 
             trs = inline.find_all('tr')
             if len(trs) > 1 and isinstance(trs[1], Tag):
@@ -277,6 +394,7 @@ class TransfermarktService:
                 market_value=market_value,
                 photo_url=photo_url,
                 badge_url=badge_url,
+                profile_url=profile_url,
                 nationality_flag_url=nationality_flag_url,
                 nationality_flag_emoji=nationality_flag(nationality),
             )

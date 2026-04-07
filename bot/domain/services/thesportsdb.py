@@ -18,6 +18,9 @@ class SportsDBTeam:
     country: str
     founded: str
     badge_url: str
+    team_id: str = ''
+    stadium: str = ''
+    capacity: str = ''
 
 
 @dataclass(frozen=True)
@@ -75,4 +78,7 @@ class TheSportsDBService:
             country=t.get('strCountry', ''),
             founded=t.get('intFormedYear', ''),
             badge_url=t.get('strBadge', ''),
+            team_id=t.get('idTeam', ''),
+            stadium=t.get('strStadium', ''),
+            capacity=t.get('intStadiumCapacity', ''),
         )
