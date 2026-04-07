@@ -1,9 +1,10 @@
 """Render a top-down football pitch with player photos at formation positions."""
 
+import contextlib
 import io
 import math
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import cast
 
 from PIL import Image, ImageDraw, ImageFont
@@ -13,13 +14,16 @@ from bot.data.football_formations import Formation
 
 _CANVAS_W = 2000
 _CANVAS_H = 2750
+_CANVAS_BG = '#000000'
 _FIELD_COLOR = '#2e7d32'
 _STRIPE_DARK = '#296e2c'
 _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
 _LINE_WIDTH = 12
-_PHOTO_DIAMETER = 310
-_FONT_SIZE = 48
+_PHOTO_DIAMETER = 250
+_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.32)  # flag / badge size
+_OVERLAY_BORDER = 3
+_FONT_SIZE = 40
 _FONT_LABEL_SIZE = 69
 _FONT_PATHS = [
     '/usr/share/fonts/dejavu/DejaVuSans.ttf',  # Alpine
@@ -29,13 +33,8 @@ _FONT_BOLD_PATHS = [
     '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
 ]
-_EMOJI_FONT_PATHS = [
-    '/usr/share/fonts/noto/NotoEmoji-Regular.ttf',
-    '/usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf',
-]
-_NAME_MAX_LEN = 14
-_FLAG_GAP = 10
-_STROKE_WIDTH = 6
+_NAME_MAX_LEN = 13
+_STROKE_WIDTH = 5
 
 _MX = 112
 _MY = 175
@@ -67,19 +66,15 @@ def _field_xy(x: float, y: float) -> tuple[int, int]:
 
 def _load_font(paths: list[str], size: int) -> ImageFont.FreeTypeFont:
     for path in paths:
-        try:
+        with contextlib.suppress(OSError):
             return ImageFont.truetype(path, size)
-        except OSError:
-            continue
     return cast('ImageFont.FreeTypeFont', ImageFont.load_default(size=size))
 
 
 def _load_font_optional(paths: list[str], size: int) -> ImageFont.FreeTypeFont | None:
     for path in paths:
-        try:
+        with contextlib.suppress(OSError):
             return ImageFont.truetype(path, size)
-        except OSError:
-            continue
     return None
 
 
@@ -88,7 +83,6 @@ class _Renderer:
     canvas: Image.Image
     draw: ImageDraw.ImageDraw
     font: ImageFont.FreeTypeFont
-    emoji_font: ImageFont.FreeTypeFont | None = field(default=None)
 
     def draw_player(
         self,
@@ -96,11 +90,11 @@ class _Renderer:
         name: str,
         cx: int,
         cy: int,
-        flag_emoji: str | None = None,
+        overlays: tuple[bytes | None, bytes | None] | None = None,
     ) -> None:
         r = _PHOTO_DIAMETER // 2
         if photo_bytes:
-            try:
+            with contextlib.suppress(OSError, ValueError):
                 photo = Image.open(io.BytesIO(photo_bytes)).convert('RGBA')
                 photo = photo.resize((_PHOTO_DIAMETER, _PHOTO_DIAMETER), Resampling.LANCZOS)
                 bg = Image.new('RGBA', (_PHOTO_DIAMETER, _PHOTO_DIAMETER), (255, 255, 255, 255))
@@ -108,26 +102,24 @@ class _Renderer:
                 mask = Image.new('L', (_PHOTO_DIAMETER, _PHOTO_DIAMETER), 0)
                 ImageDraw.Draw(mask).ellipse([0, 0, _PHOTO_DIAMETER, _PHOTO_DIAMETER], fill=255)
                 self.canvas.paste(bg.convert('RGB'), (cx - r, cy - r), mask)
-            except (OSError, ValueError):
-                self._draw_placeholder(cx, cy, r)
         else:
             self._draw_placeholder(cx, cy, r)
+
+        # Overlay flag bottom-left, badge bottom-right of photo circle
+        if overlays:
+            ov_offset = int(r * 0.62)
+            flag_image, badge_image = overlays
+            if flag_image:
+                self._draw_overlay(flag_image, cx - ov_offset, cy + ov_offset)
+            if badge_image:
+                self._draw_overlay(badge_image, cx + ov_offset, cy + ov_offset)
 
         short_name = _shorten_name(name)
         bbox = self.draw.textbbox((0, 0), short_name, font=self.font)
         tw = bbox[2] - bbox[0]
         label_y = cy + r + 6
-
-        flag_w = 0
-        if flag_emoji and self.emoji_font:
-            efb = self.draw.textbbox((0, 0), flag_emoji, font=self.emoji_font)
-            flag_w = int(efb[2] - efb[0]) + _FLAG_GAP
-
-        content_w = tw + flag_w
-        text_x = cx - content_w // 2 + flag_w
-
         self.draw.text(
-            (text_x, label_y),
+            (cx - tw // 2, label_y),
             short_name,
             fill=_LINE_COLOR,
             font=self.font,
@@ -135,19 +127,29 @@ class _Renderer:
             stroke_fill='#000000',
         )
 
-        if flag_emoji and self.emoji_font and flag_w > 0:
-            efb = self.draw.textbbox((0, 0), flag_emoji, font=self.emoji_font)
-            efh = int(efb[3] - efb[1])
-            placed = self.draw.textbbox((text_x, label_y), short_name, font=self.font)
-            text_mid = int((placed[1] + placed[3]) // 2)
-            flag_x = cx - content_w // 2
-            flag_y = text_mid - efh // 2
-            self.draw.text(
-                (flag_x, flag_y),
-                flag_emoji,
-                fill=_LINE_COLOR,
-                font=self.emoji_font,
+    def _draw_overlay(self, img_bytes: bytes, cx: int, cy: int) -> None:
+        size = _OVERLAY_SIZE
+        ov_r = size // 2
+        with contextlib.suppress(Exception):
+            img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
+            bg = Image.new('RGBA', (size, size), (255, 255, 255, 255))
+            img.thumbnail((size, size), Resampling.LANCZOS)
+            paste_x = (size - img.width) // 2
+            paste_y = (size - img.height) // 2
+            bg.paste(img, (paste_x, paste_y), img.split()[3])
+            # White border circle
+            self.draw.ellipse(
+                [
+                    cx - ov_r - _OVERLAY_BORDER,
+                    cy - ov_r - _OVERLAY_BORDER,
+                    cx + ov_r + _OVERLAY_BORDER,
+                    cy + ov_r + _OVERLAY_BORDER,
+                ],
+                fill='white',
             )
+            clip_mask = Image.new('L', (size, size), 0)
+            ImageDraw.Draw(clip_mask).ellipse([0, 0, size, size], fill=255)
+            self.canvas.paste(bg.convert('RGB'), (cx - ov_r, cy - ov_r), clip_mask)
 
     def _draw_placeholder(self, cx: int, cy: int, r: int) -> None:
         self.draw.ellipse(
@@ -162,23 +164,22 @@ def build_football_field(
     photos: list[bytes | None],
     names: list[str],
     formation: Formation,
-    flags: list[str | None] | None = None,
+    overlays: list[tuple[bytes | None, bytes | None]] | None = None,
     total_value: str | None = None,
 ) -> bytes:
-    canvas = Image.new('RGB', (_CANVAS_W, _CANVAS_H), _FIELD_COLOR)
+    canvas = Image.new('RGB', (_CANVAS_W, _CANVAS_H), _CANVAS_BG)
     draw = ImageDraw.Draw(canvas)
     _draw_field(draw)
     _draw_formation_label(draw, formation.name)
 
     font = _load_font(_FONT_PATHS, _FONT_SIZE)
-    emoji_font = _load_font_optional(_EMOJI_FONT_PATHS, _FONT_SIZE - 6)
-    renderer = _Renderer(canvas=canvas, draw=draw, font=font, emoji_font=emoji_font)
+    renderer = _Renderer(canvas=canvas, draw=draw, font=font)
     for i, slot in enumerate(formation.slots):
         photo_bytes = photos[i] if i < len(photos) else None
         name = names[i] if i < len(names) else ''
-        flag_emoji = flags[i] if flags and i < len(flags) else None
+        slot_overlays = overlays[i] if overlays and i < len(overlays) else None
         cx, cy = _field_xy(slot.x, slot.y)
-        renderer.draw_player(photo_bytes, name, cx, cy, flag_emoji)
+        renderer.draw_player(photo_bytes, name, cx, cy, slot_overlays)
 
     if total_value:
         _draw_total_value(draw, total_value)
@@ -256,12 +257,10 @@ def _draw_field_lines(draw: ImageDraw.ImageDraw) -> None:
         draw.ellipse([sx - _SPOT_R, sy - _SPOT_R, sx + _SPOT_R, sy + _SPOT_R], fill=_LINE_COLOR)
 
     # Corner arcs
-    # Bottom corners: the arc's upward tip overshoots the tapered field boundary.
-    # Clip to the angle where the arc ray intersects the taper line: tan(a) = +-FH/(taper*FW).
     ar = _CORNER_ARC_R
     k = _TOP_TAPER * _FW / _FH
-    clip_bl = math.degrees(math.atan2(-1.0, k)) % 360  # bottom-left start (≈273°)
-    clip_br = math.degrees(math.atan2(-1.0, -k)) % 360  # bottom-right end  (≈267°)
+    clip_bl = math.degrees(math.atan2(-1.0, k)) % 360
+    clip_br = math.degrees(math.atan2(-1.0, -k)) % 360
     for (cx_c, cy_c), start, end in [
         (_field_xy(0, 0), 0, 90),
         (_field_xy(1, 0), 90, 180),

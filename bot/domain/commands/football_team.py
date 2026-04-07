@@ -151,12 +151,12 @@ class FootballTeamCommand(Command):
 
         all_players = await self._fetch_players(league)
         ordered = self._pick_lineup(all_players, formation)
-        photos_ordered = await self._fetch_photos(ordered)
+        photos_ordered, flag_images, badge_images = await self._fetch_assets(ordered)
 
         names = [p.name if p else '' for p in ordered]
-        flags = [p.nationality_flag_emoji if p else None for p in ordered]
+        overlays = list(zip(flag_images, badge_images, strict=False))
         total_value = _sum_market_values(ordered)
-        field_image = build_football_field(photos_ordered, names, formation, flags, total_value)
+        field_image = build_football_field(photos_ordered, names, formation, overlays, total_value)
 
         caption = f'⚽ *Escalação Aleatória* — {formation.name}'
         if total_value:
@@ -206,21 +206,33 @@ class FootballTeamCommand(Command):
         return ordered
 
     @staticmethod
-    async def _fetch_photos(ordered: list[TmPlayer | None]) -> list[bytes | None]:
-        photos: list[bytes | None] = [None] * len(ordered)
+    async def _fetch_assets(
+        ordered: list[TmPlayer | None],
+    ) -> tuple[list[bytes | None], list[bytes | None], list[bytes | None]]:
+        n = len(ordered)
+        photos: list[bytes | None] = [None] * n
+        flags: list[bytes | None] = [None] * n
+        badges: list[bytes | None] = [None] * n
 
-        async def _fetch(i: int, player: TmPlayer) -> None:
+        async def _get(url: str) -> bytes | None:
             with contextlib.suppress(Exception):
-                photos[i] = await HttpClient.get_buffer(
-                    player.photo_url, headers=TransfermarktService.HEADERS
-                )
+                return await HttpClient.get_buffer(url, headers=TransfermarktService.HEADERS)
+            return None
+
+        async def _fetch_player(i: int, player: TmPlayer) -> None:
+            if player.photo_url:
+                photos[i] = await _get(player.photo_url)
+            if player.nationality_flag_url:
+                flags[i] = await _get(player.nationality_flag_url)
+            if player.badge_url:
+                badges[i] = await _get(player.badge_url)
 
         async with anyio.create_task_group() as tg:
             for i, player in enumerate(ordered):
                 if player:
-                    tg.start_soon(_fetch, i, player)
+                    tg.start_soon(_fetch_player, i, player)
 
-        return photos
+        return photos, flags, badges
 
     @staticmethod
     def _find_rank(team_name: str, standings: list[StandingRow]) -> int | None:

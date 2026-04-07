@@ -26,6 +26,7 @@ logger = structlog.get_logger()
 _FOOT_KEYS = ('Pé', 'Foot')
 _HEIGHT_KEYS = ('Altura', 'Height')
 _OTHER_POS_KEYS = ('Outras posições', 'Other position', 'Other positions')
+_BORN_KEYS = ('País de nascimento', 'Country of birth', 'Local de nascimento', 'Place of birth')
 
 
 class FootballPlayerCommand(Command):
@@ -99,13 +100,16 @@ class FootballPlayerCommand(Command):
         foot = next((details[k] for k in _FOOT_KEYS if k in details), '').capitalize()
         height = next((details[k] for k in _HEIGHT_KEYS if k in details), '')
         other_pos = next((details[k] for k in _OTHER_POS_KEYS if k in details), '')
+        born = next((details[k] for k in _BORN_KEYS if k in details), '')
 
         lines = [
             f'*{player.name}* — {player.position}',
             '',
             f'🎂 {player.age} anos   {player.nationality_flag_emoji} {player.nationality}',
-            f'🏟️ {player.club} {club_flag}',
         ]
+        if born and born.lower() != player.nationality.lower():
+            lines.append(f'📍 {born}')
+        lines.append(f'🏟️ {player.club} {club_flag}')
         if height or foot:
             info = f'📏 {height}' if height else ''
             if foot:
