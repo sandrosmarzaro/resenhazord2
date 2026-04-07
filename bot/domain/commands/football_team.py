@@ -249,6 +249,13 @@ class FootballTeamCommand(Command):
         return None
 
     @staticmethod
+    def _format_capacity(raw: str) -> str:
+        try:
+            return f'{int(raw):,}'.replace(',', '.')
+        except ValueError:
+            return raw
+
+    @staticmethod
     def _build_team_caption(
         team: SportsDBTeam,
         league_name: str,
@@ -263,7 +270,8 @@ class FootballTeamCommand(Command):
         if team.stadium:
             stadium_line = f'🏟️ {team.stadium}'
             if team.capacity:
-                stadium_line += f'   💺 {team.capacity} lugares'
+                cap = FootballTeamCommand._format_capacity(team.capacity)
+                stadium_line += f'   💺 {cap} lugares'
             lines.append(stadium_line)
         if rank:
             lines.append(f'📊 {rank}º na tabela')
