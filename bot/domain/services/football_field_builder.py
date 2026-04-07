@@ -21,7 +21,7 @@ _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
 _LINE_WIDTH = 12
 _PHOTO_DIAMETER = 250
-_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.46)  # flag / badge size
+_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.54)  # flag / badge size
 _FONT_SIZE = 40
 _FONT_LABEL_SIZE = 69
 _FONT_PATHS = [
@@ -104,14 +104,15 @@ class _Renderer:
         else:
             self._draw_placeholder(cx, cy, r)
 
-        # Overlay flag bottom-left, badge bottom-right of photo circle
+        # Overlay flag bottom-left corner, badge bottom-right corner (pinned to photo edge)
         if overlays:
-            ov_offset = int(r * 0.62)
+            ov_r = _OVERLAY_SIZE // 2
+            ov_cy = cy + r - ov_r  # bottom-aligned with photo circle
             flag_image, badge_image = overlays
             if flag_image:
-                self._draw_overlay(flag_image, cx - ov_offset, cy + ov_offset)
+                self._draw_overlay(flag_image, cx - r + ov_r, ov_cy)
             if badge_image:
-                self._draw_overlay(badge_image, cx + ov_offset, cy + ov_offset)
+                self._draw_overlay(badge_image, cx + r - ov_r, ov_cy)
 
         short_name = _shorten_name(name)
         bbox = self.draw.textbbox((0, 0), short_name, font=self.font)

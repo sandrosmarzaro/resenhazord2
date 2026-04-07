@@ -26,7 +26,7 @@ logger = structlog.get_logger()
 # Portuguese and English label keys from Transfermarkt player profile
 _FOOT_KEYS = ('Pé', 'Foot')
 _HEIGHT_KEYS = ('Altura', 'Height')
-_OTHER_POS_KEYS = ('Outras posições', 'Other position', 'Other positions')
+_OTHER_POS_KEYS = ('Outra posição', 'Outras posições', 'Other position', 'Other positions')
 _BORN_COUNTRY_KEYS = ('País de nascimento', 'Country of birth')
 _BORN_CITY_KEYS = ('Local de nascimento', 'Place of birth')
 
@@ -114,8 +114,6 @@ class FootballPlayerCommand(Command):
             born_flag = nationality_flag(born_country)
             born_display = born_city or born_country
             lines.append(f'{born_flag} {born_display}'.strip())
-        elif born_city and born_city.lower() != player.nationality.lower():
-            lines.append(born_city)
         lines.append(f'🏟️ {player.club} {club_flag}')
         if height or foot:
             info = f'📏 {height}' if height else ''
