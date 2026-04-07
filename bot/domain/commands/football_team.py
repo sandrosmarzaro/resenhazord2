@@ -9,7 +9,12 @@ import anyio
 import structlog
 
 from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
-from bot.data.football_formations import Formation, random_formation
+from bot.data.football_formations import (
+    ROLE_GROUPS,
+    Formation,
+    random_formation,
+    specific_roles,
+)
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     Category,
@@ -118,9 +123,9 @@ class FootballTeamCommand(Command):
     async def _global_top_team(self, data: CommandData, top_n: int) -> list[BotMessage]:
         clubs = await TransfermarktService.fetch_top_clubs(top_n)
         if not clubs:
-            return [Reply.to(data).text(
-                'Não foi possível buscar ranking global. Tente novamente! ⚽'
-            )]
+            return [
+                Reply.to(data).text('Não foi possível buscar ranking global. Tente novamente! ⚽')
+            ]
 
         club = random.choice(clubs)  # noqa: S311
         ts_team = await TheSportsDBService.search_team(club.name)
@@ -189,20 +194,41 @@ class FootballTeamCommand(Command):
 
     @staticmethod
     def _pick_lineup(players: list[TmPlayer], formation: Formation) -> list[TmPlayer | None]:
-        pools: dict[str, list[TmPlayer]] = {'GK': [], 'DEF': [], 'MID': [], 'ATT': []}
+        # Group players by specific role (CB/LB/RB/DM/CM/AM/LW/ST/RW/GK)
+        specific_pools: dict[str, list[TmPlayer]] = {}
         for p in players:
             role = TransfermarktService.POSITION_ROLES.get(p.position)
             if role:
-                pools[role].append(p)
+                specific_pools.setdefault(role, []).append(p)
 
+        slot_specific = specific_roles(formation)
         used: set[str] = set()
-        ordered: list[TmPlayer | None] = []
-        for slot in formation.slots:
-            slot_pool = pools.get(slot.role, [])
-            player = next((p for p in slot_pool if p.name not in used), None)
+        ordered: list[TmPlayer | None] = [None] * len(formation.slots)
+
+        # Order slots by specificity scarcity: rarer specific roles first (LB/RB/AM/DM)
+        # to avoid greedy CMs/CBs eating fullbacks/wingers fallback budget.
+        scarcity_order = {'LB': 0, 'RB': 0, 'LW': 0, 'RW': 0, 'AM': 1, 'DM': 1, 'GK': 2}
+        slot_order = sorted(
+            range(len(formation.slots)),
+            key=lambda i: scarcity_order.get(slot_specific[i], 3),
+        )
+
+        for i in slot_order:
+            specific = slot_specific[i]
+            group = ROLE_GROUPS.get(specific, formation.slots[i].role)
+            # Try exact specific match first
+            player = next((p for p in specific_pools.get(specific, []) if p.name not in used), None)
+            if not player:
+                # Fallback to any player whose specific role is in the same group
+                for role, pool in specific_pools.items():
+                    if ROLE_GROUPS.get(role) != group:
+                        continue
+                    player = next((p for p in pool if p.name not in used), None)
+                    if player:
+                        break
             if player:
                 used.add(player.name)
-            ordered.append(player)
+            ordered[i] = player
         return ordered
 
     @staticmethod

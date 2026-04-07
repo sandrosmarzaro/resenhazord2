@@ -142,6 +142,44 @@ def _extract_squad_stats(row: Tag) -> tuple[str, str, str, str]:
     return squad_size, avg_age, foreigners_count, foreigners_pct
 
 
+_BIRTH_PLACE_KEYS = {'Local de nascimento', 'Place of birth'}
+
+
+def _parse_info_table(soup: BeautifulSoup, info: dict[str, str]) -> None:
+    info_table = soup.find('div', class_='info-table')
+    if not info_table or not isinstance(info_table, Tag):
+        return
+    for label in info_table.find_all('span', class_='info-table__content--regular'):
+        if not isinstance(label, Tag):
+            continue
+        key = label.get_text(strip=True).rstrip(':').strip()
+        value_span = label.find_next_sibling('span', class_='info-table__content--bold')
+        if not value_span or not isinstance(value_span, Tag):
+            continue
+        info[key] = value_span.get_text(strip=True).replace('\xa0', ' ')
+        if key in _BIRTH_PLACE_KEYS:
+            flag_img = value_span.find('img', class_='flaggenrahmen')
+            if flag_img and isinstance(flag_img, Tag):
+                country = str(flag_img.get('title', ''))
+                if country:
+                    info['País de nascimento'] = country
+
+
+def _parse_detail_position(soup: BeautifulSoup, info: dict[str, str]) -> None:
+    detail = soup.find('div', class_='detail-position')
+    if not detail or not isinstance(detail, Tag):
+        return
+    dts = detail.find_all('dt')
+    dds = detail.find_all('dd')
+    for dt, dd in zip(dts, dds, strict=False):
+        if not isinstance(dt, Tag) or not isinstance(dd, Tag):
+            continue
+        key = dt.get_text(strip=True).rstrip(':').strip()
+        value = dd.get_text(' ', strip=True)
+        if key and value:
+            info[key] = value
+
+
 class TransfermarktService:
     GLOBAL_URL = (
         'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/marktwertetop'
@@ -164,38 +202,42 @@ class TransfermarktService:
     LEAGUE_MAX_PAGES = 4
     POSITION_MAX_PAGES = 40
 
-    # Maps Portuguese position text (as returned by transfermarkt.com.br) to formation role
+    # Maps Portuguese / English position text from transfermarkt.com.br to specific role
+    # (CB/LB/RB/DM/CM/AM/LW/ST/RW/GK). Use ROLE_GROUPS in football_formations to widen.
     POSITION_ROLES: ClassVar[dict[str, str]] = {
         'Goleiro': 'GK',
         'Goalkeeper': 'GK',
-        'Zagueiro': 'DEF',
-        'Lateral Dir.': 'DEF',
-        'Lateral Esq.': 'DEF',
-        'Defensor Central': 'DEF',
-        'Centre-Back': 'DEF',
-        'Right-Back': 'DEF',
-        'Left-Back': 'DEF',
-        'Volante': 'MID',
-        'Segundo Volante': 'MID',
-        'Meia-Central': 'MID',
-        'Meia Ofensivo': 'MID',
-        'Meia Defensivo': 'MID',
-        'Meia-Esquerda': 'MID',
-        'Meia-Direita': 'MID',
-        'Defensive Midfield': 'MID',
-        'Central Midfield': 'MID',
-        'Attacking Midfield': 'MID',
-        'Right Midfield': 'MID',
-        'Left Midfield': 'MID',
-        'Centroavante': 'ATT',
-        'Ponta Direita': 'ATT',
-        'Ponta Esquerda': 'ATT',
-        'Segundo Atacante': 'ATT',
-        'Atacante de apoio': 'ATT',
-        'Centre-Forward': 'ATT',
-        'Right Winger': 'ATT',
-        'Left Winger': 'ATT',
-        'Second Striker': 'ATT',
+        'Zagueiro': 'CB',
+        'Defensor Central': 'CB',
+        'Centre-Back': 'CB',
+        'Lateral Esq.': 'LB',
+        'Lateral-Esquerdo': 'LB',
+        'Left-Back': 'LB',
+        'Lateral Dir.': 'RB',
+        'Lateral-Direito': 'RB',
+        'Right-Back': 'RB',
+        'Volante': 'DM',
+        'Segundo Volante': 'DM',
+        'Meia Defensivo': 'DM',
+        'Defensive Midfield': 'DM',
+        'Meia-Central': 'CM',
+        'Meia Central': 'CM',
+        'Central Midfield': 'CM',
+        'Meia-Esquerda': 'CM',
+        'Meia-Direita': 'CM',
+        'Right Midfield': 'CM',
+        'Left Midfield': 'CM',
+        'Meia Ofensivo': 'AM',
+        'Attacking Midfield': 'AM',
+        'Centroavante': 'ST',
+        'Segundo Atacante': 'ST',
+        'Atacante de apoio': 'ST',
+        'Centre-Forward': 'ST',
+        'Second Striker': 'ST',
+        'Ponta Esquerda': 'LW',
+        'Left Winger': 'LW',
+        'Ponta Direita': 'RW',
+        'Right Winger': 'RW',
     }
 
     # Transfermarkt position filter codes (kept for reference; pos= param ignored on .com.br)
@@ -310,17 +352,8 @@ class TransfermarktService:
     def _parse_player_profile(html: str) -> dict[str, str]:
         soup = BeautifulSoup(html, 'html.parser')
         info: dict[str, str] = {}
-        info_table = soup.find('div', class_='info-table')
-        if not info_table or not isinstance(info_table, Tag):
-            return info
-        # Labels use --regular, values use --bold
-        for label in info_table.find_all('span', class_='info-table__content--regular'):
-            if not isinstance(label, Tag):
-                continue
-            key = label.get_text(strip=True).rstrip(':').strip()
-            value_span = label.find_next_sibling('span', class_='info-table__content--bold')
-            if value_span and isinstance(value_span, Tag):
-                info[key] = value_span.get_text(strip=True).replace('\xa0', ' ')
+        _parse_info_table(soup, info)
+        _parse_detail_position(soup, info)
         return info
 
     @staticmethod
@@ -356,9 +389,7 @@ class TransfermarktService:
                 photo_url = ''
 
             name_td = inline.find('td', class_='hauptlink')
-            raw_name = (
-                name_td.get_text(strip=True) if name_td and isinstance(name_td, Tag) else ''
-            )
+            raw_name = name_td.get_text(strip=True) if name_td and isinstance(name_td, Tag) else ''
             name = unicodedata.normalize('NFC', raw_name)
 
             profile_url = ''

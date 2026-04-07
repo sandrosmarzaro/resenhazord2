@@ -273,5 +273,81 @@ FORMATIONS: list[Formation] = [
 ]
 
 
+_DM_Y_THRESHOLD = 0.50
+_AM_Y_THRESHOLD = 0.36
+
+ROLE_GROUPS: dict[str, str] = {
+    'GK': 'GK',
+    'CB': 'DEF',
+    'LB': 'DEF',
+    'RB': 'DEF',
+    'DM': 'MID',
+    'CM': 'MID',
+    'AM': 'MID',
+    'LW': 'ATT',
+    'ST': 'ATT',
+    'RW': 'ATT',
+}
+
+
+_MIN_DEF_FOR_FULLBACK = 3
+
+
+def _label_def(slots: list[Slot], indexes: list[int], result: list[str]) -> None:
+    sorted_idx = sorted(indexes, key=lambda i: slots[i].x)
+    last = len(sorted_idx) - 1
+    for rank, i in enumerate(sorted_idx):
+        if len(sorted_idx) >= _MIN_DEF_FOR_FULLBACK and rank == 0:
+            result[i] = 'LB'
+        elif len(sorted_idx) >= _MIN_DEF_FOR_FULLBACK and rank == last:
+            result[i] = 'RB'
+        else:
+            result[i] = 'CB'
+
+
+def _label_att(slots: list[Slot], indexes: list[int], result: list[str]) -> None:
+    sorted_idx = sorted(indexes, key=lambda i: slots[i].x)
+    if len(sorted_idx) <= 2:  # noqa: PLR2004
+        for i in sorted_idx:
+            result[i] = 'ST'
+        return
+    result[sorted_idx[0]] = 'LW'
+    result[sorted_idx[-1]] = 'RW'
+    for i in sorted_idx[1:-1]:
+        result[i] = 'ST'
+
+
+def _label_mid(slots: list[Slot], indexes: list[int], result: list[str]) -> None:
+    for i in indexes:
+        y = slots[i].y
+        if y >= _DM_Y_THRESHOLD:
+            result[i] = 'DM'
+        elif y < _AM_Y_THRESHOLD:
+            result[i] = 'AM'
+        else:
+            result[i] = 'CM'
+
+
+_LABELERS = {'DEF': _label_def, 'MID': _label_mid, 'ATT': _label_att}
+
+
+def specific_roles(formation: Formation) -> list[str]:
+    """Derive a CB/LB/RB/DM/CM/AM/LW/ST/RW label for each slot from its (x, y)."""
+    by_role: dict[str, list[int]] = {}
+    for i, slot in enumerate(formation.slots):
+        by_role.setdefault(slot.role, []).append(i)
+
+    result: list[str] = [''] * len(formation.slots)
+    for role, indexes in by_role.items():
+        if role == 'GK':
+            for i in indexes:
+                result[i] = 'GK'
+            continue
+        labeler = _LABELERS.get(role)
+        if labeler:
+            labeler(formation.slots, indexes, result)
+    return result
+
+
 def random_formation() -> Formation:
     return random.choice(FORMATIONS)  # noqa: S311
