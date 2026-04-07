@@ -23,7 +23,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.football_field_builder import build_football_field
-from bot.domain.services.thesportsdb import SportsDBTeam, TheSportsDBService
+from bot.domain.services.thesportsdb import SportsDBTeam, StandingRow, TheSportsDBService
 from bot.domain.services.transfermarkt import TmPlayer, TmSquadStats, TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 
@@ -108,8 +108,9 @@ class FootballTeamCommand(Command):
                 teams = filtered
 
         team = random.choice(teams)  # noqa: S311
+        rank = self._find_rank(team.name, standings)
         squad_stats = self._find_squad_stats(team.name, squad_values)
-        caption = self._build_team_caption(team, league.name, league.flag, squad_stats)
+        caption = self._build_team_caption(team, league.name, league.flag, rank, squad_stats)
 
         buffer = await HttpClient.get_buffer(team.badge_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
@@ -230,6 +231,11 @@ class FootballTeamCommand(Command):
         return photos
 
     @staticmethod
+    def _find_rank(team_name: str, standings: list[StandingRow]) -> int | None:
+        name_lower = team_name.lower()
+        return next((r.rank for r in standings if r.team.lower() == name_lower), None)
+
+    @staticmethod
     def _find_squad_stats(
         team_name: str, squad_values: dict[str, TmSquadStats]
     ) -> TmSquadStats | None:
@@ -247,6 +253,7 @@ class FootballTeamCommand(Command):
         team: SportsDBTeam,
         league_name: str,
         league_flag: str,
+        rank: int | None,
         squad_stats: TmSquadStats | None,
     ) -> str:
         lines = [
@@ -258,6 +265,8 @@ class FootballTeamCommand(Command):
             if team.capacity:
                 stadium_line += f' ({team.capacity} lugares)'
             lines.append(stadium_line)
+        if rank:
+            lines.append(f'📊 {rank}º na tabela')
         if squad_stats:
             if squad_stats.squad_size:
                 squad_line = f'👥 {squad_stats.squad_size} jogadores'
@@ -269,4 +278,6 @@ class FootballTeamCommand(Command):
                 if squad_stats.foreigners_pct:
                     foreign_line += f' ({squad_stats.foreigners_pct}%)'
                 lines.append(foreign_line)
+            if squad_stats.market_value:
+                lines.append(f'💰 {squad_stats.market_value}')
         return '\n'.join(lines)
