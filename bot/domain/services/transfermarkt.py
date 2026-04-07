@@ -59,10 +59,13 @@ class TmSquadStats:
 
 
 def _extract_verein_name(row: Tag) -> str:
-    """Extract club name from a table row, preferring /startseite/verein/ links."""
-    club_link = row.find('a', href=lambda h: bool(h and '/startseite/verein/' in str(h)))
-    if club_link and isinstance(club_link, Tag):
-        return club_link.get_text(strip=True)
+    """Extract club name from a table row, preferring /startseite/verein/ links with text."""
+    for link in row.find_all('a', href=lambda h: bool(h and '/startseite/verein/' in str(h))):
+        if not isinstance(link, Tag):
+            continue
+        text = link.get_text(strip=True)
+        if text:
+            return text
     name_tag = row.find('td', class_='hauptlink')
     if name_tag and isinstance(name_tag, Tag):
         return name_tag.get_text(strip=True)
