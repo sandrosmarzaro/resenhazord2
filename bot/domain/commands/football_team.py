@@ -156,10 +156,15 @@ class FootballTeamCommand(Command):
 
         all_players = await self._fetch_players(league)
         ordered = self._pick_lineup(all_players, formation)
-        photos_ordered, flag_images, badge_images = await self._fetch_assets(ordered)
+        photos_ordered, badge_images = await self._fetch_assets(ordered)
 
         names = [p.name if p else '' for p in ordered]
-        overlays = list(zip(flag_images, badge_images, strict=False))
+        flag_emojis: list[str | None] = [
+            (p.nationality_flag_emoji if p and p.nationality_flag_emoji else None) for p in ordered
+        ]
+        overlays: list[tuple[str | None, bytes | None]] = list(
+            zip(flag_emojis, badge_images, strict=False)
+        )
         total_value = _sum_market_values(ordered)
         field_image = build_football_field(photos_ordered, names, formation, overlays, total_value)
 
@@ -234,10 +239,9 @@ class FootballTeamCommand(Command):
     @staticmethod
     async def _fetch_assets(
         ordered: list[TmPlayer | None],
-    ) -> tuple[list[bytes | None], list[bytes | None], list[bytes | None]]:
+    ) -> tuple[list[bytes | None], list[bytes | None]]:
         n = len(ordered)
         photos: list[bytes | None] = [None] * n
-        flags: list[bytes | None] = [None] * n
         badges: list[bytes | None] = [None] * n
 
         async def _get(url: str) -> bytes | None:
@@ -248,8 +252,6 @@ class FootballTeamCommand(Command):
         async def _fetch_player(i: int, player: TmPlayer) -> None:
             if player.photo_url:
                 photos[i] = await _get(player.photo_url)
-            if player.nationality_flag_url:
-                flags[i] = await _get(player.nationality_flag_url)
             if player.badge_url:
                 badges[i] = await _get(player.badge_url)
 
@@ -258,7 +260,7 @@ class FootballTeamCommand(Command):
                 if player:
                     tg.start_soon(_fetch_player, i, player)
 
-        return photos, flags, badges
+        return photos, badges
 
     @staticmethod
     def _find_rank(team_name: str, standings: list[StandingRow]) -> int | None:

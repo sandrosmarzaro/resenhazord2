@@ -21,10 +21,13 @@ _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
 _LINE_WIDTH = 12
 _PHOTO_DIAMETER = 250
-_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.78)  # flag / badge longest side
-_OVERLAY_CY_RATIO = 0.55  # vertical center of overlay relative to photo radius (below photo center)
+_BADGE_SIZE = int(_PHOTO_DIAMETER * 0.42)  # badge longest side
+_FLAG_SIZE = int(_PHOTO_DIAMETER * 0.36)  # flag longest side
+_OVERLAY_CY_RATIO = 0.62  # vertical center of overlay relative to photo radius (below photo center)
+_OVERLAY_OFFSET_X_RATIO = 0.78
 _FONT_SIZE = 40
 _FONT_LABEL_SIZE = 69
+_EMOJI_NATIVE_SIZE = 109  # NotoColorEmoji bitmap strike size
 _FONT_PATHS = [
     '/usr/share/fonts/dejavu/DejaVuSans.ttf',  # Alpine
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',  # Ubuntu/Debian
@@ -32,6 +35,10 @@ _FONT_PATHS = [
 _FONT_BOLD_PATHS = [
     '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+]
+_EMOJI_FONT_PATHS = [
+    '/usr/share/fonts/noto/NotoColorEmoji.ttf',  # Alpine
+    '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',  # Ubuntu/Debian
 ]
 _NAME_MAX_LEN = 13
 _STROKE_WIDTH = 5
@@ -84,13 +91,15 @@ class _Renderer:
     draw: ImageDraw.ImageDraw
     font: ImageFont.FreeTypeFont
 
+    emoji_font: ImageFont.FreeTypeFont | None = None
+
     def draw_player(
         self,
         photo_bytes: bytes | None,
         name: str,
         cx: int,
         cy: int,
-        overlays: tuple[bytes | None, bytes | None] | None = None,
+        overlays: tuple[str | None, bytes | None] | None = None,
     ) -> None:
         r = _PHOTO_DIAMETER // 2
         if photo_bytes:
@@ -108,12 +117,12 @@ class _Renderer:
         # Overlay flag at bottom-left, badge at bottom-right; centers below photo midline
         if overlays:
             ov_cy = cy + int(r * _OVERLAY_CY_RATIO)
-            ov_offset_x = int(r * 0.75)
-            flag_image, badge_image = overlays
-            if flag_image:
-                self._draw_overlay(flag_image, cx - ov_offset_x, ov_cy)
+            ov_offset_x = int(r * _OVERLAY_OFFSET_X_RATIO)
+            flag_emoji, badge_image = overlays
+            if flag_emoji:
+                self._draw_flag_emoji(flag_emoji, cx - ov_offset_x, ov_cy)
             if badge_image:
-                self._draw_overlay(badge_image, cx + ov_offset_x, ov_cy)
+                self._draw_badge(badge_image, cx + ov_offset_x, ov_cy)
 
         short_name = _shorten_name(name)
         bbox = self.draw.textbbox((0, 0), short_name, font=self.font)
@@ -128,16 +137,36 @@ class _Renderer:
             stroke_fill='#000000',
         )
 
-    def _draw_overlay(self, img_bytes: bytes, cx: int, cy: int) -> None:
+    def _draw_badge(self, img_bytes: bytes, cx: int, cy: int) -> None:
         with contextlib.suppress(Exception):
             img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
-            ratio = min(_OVERLAY_SIZE / img.width, _OVERLAY_SIZE / img.height)
+            ratio = min(_BADGE_SIZE / img.width, _BADGE_SIZE / img.height)
             new_w = max(1, int(img.width * ratio))
             new_h = max(1, int(img.height * ratio))
             img = img.resize((new_w, new_h), Resampling.LANCZOS)
             paste_x = cx - new_w // 2
             paste_y = cy - new_h // 2
             self.canvas.paste(img.convert('RGB'), (paste_x, paste_y), img.split()[3])
+
+    def _draw_flag_emoji(self, emoji: str, cx: int, cy: int) -> None:
+        if not self.emoji_font:
+            return
+        with contextlib.suppress(Exception):
+            tmp = Image.new('RGBA', (_EMOJI_NATIVE_SIZE * 2, _EMOJI_NATIVE_SIZE * 2), (0, 0, 0, 0))
+            ImageDraw.Draw(tmp).text((0, 0), emoji, font=self.emoji_font, embedded_color=True)
+            bbox = tmp.getbbox()
+            if not bbox:
+                return
+            cropped = tmp.crop(bbox)
+            ratio = min(_FLAG_SIZE / cropped.width, _FLAG_SIZE / cropped.height)
+            new_w = max(1, int(cropped.width * ratio))
+            new_h = max(1, int(cropped.height * ratio))
+            resized = cropped.resize((new_w, new_h), Resampling.LANCZOS)
+            self.canvas.paste(
+                resized.convert('RGB'),
+                (cx - new_w // 2, cy - new_h // 2),
+                resized.split()[3],
+            )
 
     def _draw_placeholder(self, cx: int, cy: int, r: int) -> None:
         self.draw.ellipse(
@@ -152,7 +181,7 @@ def build_football_field(
     photos: list[bytes | None],
     names: list[str],
     formation: Formation,
-    overlays: list[tuple[bytes | None, bytes | None]] | None = None,
+    overlays: list[tuple[str | None, bytes | None]] | None = None,
     total_value: str | None = None,
 ) -> bytes:
     canvas = Image.new('RGB', (_CANVAS_W, _CANVAS_H), _CANVAS_BG)
@@ -161,7 +190,8 @@ def build_football_field(
     _draw_formation_label(draw, formation.name)
 
     font = _load_font(_FONT_PATHS, _FONT_SIZE)
-    renderer = _Renderer(canvas=canvas, draw=draw, font=font)
+    emoji_font = _load_font_optional(_EMOJI_FONT_PATHS, _EMOJI_NATIVE_SIZE)
+    renderer = _Renderer(canvas=canvas, draw=draw, font=font, emoji_font=emoji_font)
     for i, slot in enumerate(formation.slots):
         photo_bytes = photos[i] if i < len(photos) else None
         name = names[i] if i < len(names) else ''

@@ -15,7 +15,7 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-_BADGE_CDN = 'https://tmssl.akamaized.net/images/wappen/verysmall/{club_id}.png'
+_BADGE_CDN = 'https://tmssl.akamaized.net/images/wappen/head/{club_id}.png'
 _TM_BASE = 'https://www.transfermarkt.com.br'
 _CLUB_ID_RE = re.compile(r'/wappen/verysmall/(\d+)\.png')
 _FOREIGNERS_RE = re.compile(r'(\d+)\s*\((\d+)%\)?')

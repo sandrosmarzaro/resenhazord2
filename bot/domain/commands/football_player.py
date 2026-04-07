@@ -114,10 +114,14 @@ class FootballPlayerCommand(Command):
             '',
             f'🎂 {player.age} anos   {player.nationality_flag_emoji} {player.nationality}',
         ]
-        if born_country and born_country.lower() != player.nationality.lower():
-            born_flag = nationality_flag(born_country)
-            born_display = born_city or born_country
-            lines.append(f'{born_flag} {born_display}'.strip())
+        if born_city or born_country:
+            born_flag = nationality_flag(born_country) if born_country else ''
+            parts = [born_city, born_country] if born_country and born_country != born_city else [
+                born_city or born_country
+            ]
+            display = ', '.join(p for p in parts if p)
+            prefix = born_flag or '📍'
+            lines.append(f'{prefix} {display}'.strip())
         lines.append(f'🏟️ {player.club} {club_flag}')
         if height or foot:
             info = f'📏 {height}' if height else ''
