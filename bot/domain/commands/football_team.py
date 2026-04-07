@@ -263,7 +263,7 @@ class FootballTeamCommand(Command):
         if team.stadium:
             stadium_line = f'🏟️ {team.stadium}'
             if team.capacity:
-                stadium_line += f' ({team.capacity} lugares)'
+                stadium_line += f'   💺 {team.capacity} lugares'
             lines.append(stadium_line)
         if rank:
             lines.append(f'📊 {rank}º na tabela')
