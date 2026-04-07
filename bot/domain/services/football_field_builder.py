@@ -21,7 +21,8 @@ _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
 _LINE_WIDTH = 12
 _PHOTO_DIAMETER = 250
-_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.54)  # flag / badge size
+_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.78)  # flag / badge longest side
+_OVERLAY_CY_RATIO = 0.55  # vertical center of overlay relative to photo radius (below photo center)
 _FONT_SIZE = 40
 _FONT_LABEL_SIZE = 69
 _FONT_PATHS = [
@@ -104,15 +105,15 @@ class _Renderer:
         else:
             self._draw_placeholder(cx, cy, r)
 
-        # Overlay flag bottom-left corner, badge bottom-right corner (pinned to photo edge)
+        # Overlay flag at bottom-left, badge at bottom-right; centers below photo midline
         if overlays:
-            ov_r = _OVERLAY_SIZE // 2
-            ov_cy = cy + r - ov_r  # bottom-aligned with photo circle
+            ov_cy = cy + int(r * _OVERLAY_CY_RATIO)
+            ov_offset_x = int(r * 0.75)
             flag_image, badge_image = overlays
             if flag_image:
-                self._draw_overlay(flag_image, cx - r + ov_r, ov_cy)
+                self._draw_overlay(flag_image, cx - ov_offset_x, ov_cy)
             if badge_image:
-                self._draw_overlay(badge_image, cx + r - ov_r, ov_cy)
+                self._draw_overlay(badge_image, cx + ov_offset_x, ov_cy)
 
         short_name = _shorten_name(name)
         bbox = self.draw.textbbox((0, 0), short_name, font=self.font)
@@ -130,9 +131,12 @@ class _Renderer:
     def _draw_overlay(self, img_bytes: bytes, cx: int, cy: int) -> None:
         with contextlib.suppress(Exception):
             img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
-            img.thumbnail((_OVERLAY_SIZE, _OVERLAY_SIZE), Resampling.LANCZOS)
-            paste_x = cx - img.width // 2
-            paste_y = cy - img.height // 2
+            ratio = min(_OVERLAY_SIZE / img.width, _OVERLAY_SIZE / img.height)
+            new_w = max(1, int(img.width * ratio))
+            new_h = max(1, int(img.height * ratio))
+            img = img.resize((new_w, new_h), Resampling.LANCZOS)
+            paste_x = cx - new_w // 2
+            paste_y = cy - new_h // 2
             self.canvas.paste(img.convert('RGB'), (paste_x, paste_y), img.split()[3])
 
     def _draw_placeholder(self, cx: int, cy: int, r: int) -> None:
