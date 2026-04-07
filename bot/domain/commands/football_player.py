@@ -5,6 +5,7 @@ import random
 import structlog
 
 from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
+from bot.data.nationality_flags import nationality_flag
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     Category,
@@ -26,7 +27,8 @@ logger = structlog.get_logger()
 _FOOT_KEYS = ('Pé', 'Foot')
 _HEIGHT_KEYS = ('Altura', 'Height')
 _OTHER_POS_KEYS = ('Outras posições', 'Other position', 'Other positions')
-_BORN_KEYS = ('País de nascimento', 'Country of birth', 'Local de nascimento', 'Place of birth')
+_BORN_COUNTRY_KEYS = ('País de nascimento', 'Country of birth')
+_BORN_CITY_KEYS = ('Local de nascimento', 'Place of birth')
 
 
 class FootballPlayerCommand(Command):
@@ -100,15 +102,20 @@ class FootballPlayerCommand(Command):
         foot = next((details[k] for k in _FOOT_KEYS if k in details), '').capitalize()
         height = next((details[k] for k in _HEIGHT_KEYS if k in details), '')
         other_pos = next((details[k] for k in _OTHER_POS_KEYS if k in details), '')
-        born = next((details[k] for k in _BORN_KEYS if k in details), '')
+        born_country = next((details[k] for k in _BORN_COUNTRY_KEYS if k in details), '')
+        born_city = next((details[k] for k in _BORN_CITY_KEYS if k in details), '')
 
         lines = [
             f'*{player.name}* — {player.position}',
             '',
             f'🎂 {player.age} anos   {player.nationality_flag_emoji} {player.nationality}',
         ]
-        if born and born.lower() != player.nationality.lower():
-            lines.append(f'📍 {born}')
+        if born_country and born_country.lower() != player.nationality.lower():
+            born_flag = nationality_flag(born_country)
+            born_display = born_city or born_country
+            lines.append(f'{born_flag} {born_display}'.strip())
+        elif born_city and born_city.lower() != player.nationality.lower():
+            lines.append(born_city)
         lines.append(f'🏟️ {player.club} {club_flag}')
         if height or foot:
             info = f'📏 {height}' if height else ''

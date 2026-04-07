@@ -21,8 +21,7 @@ _STRIPE_LIGHT = '#327836'
 _LINE_COLOR = '#ffffff'
 _LINE_WIDTH = 12
 _PHOTO_DIAMETER = 250
-_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.32)  # flag / badge size
-_OVERLAY_BORDER = 3
+_OVERLAY_SIZE = int(_PHOTO_DIAMETER * 0.46)  # flag / badge size
 _FONT_SIZE = 40
 _FONT_LABEL_SIZE = 69
 _FONT_PATHS = [
@@ -128,28 +127,12 @@ class _Renderer:
         )
 
     def _draw_overlay(self, img_bytes: bytes, cx: int, cy: int) -> None:
-        size = _OVERLAY_SIZE
-        ov_r = size // 2
         with contextlib.suppress(Exception):
             img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
-            bg = Image.new('RGBA', (size, size), (255, 255, 255, 255))
-            img.thumbnail((size, size), Resampling.LANCZOS)
-            paste_x = (size - img.width) // 2
-            paste_y = (size - img.height) // 2
-            bg.paste(img, (paste_x, paste_y), img.split()[3])
-            # White border circle
-            self.draw.ellipse(
-                [
-                    cx - ov_r - _OVERLAY_BORDER,
-                    cy - ov_r - _OVERLAY_BORDER,
-                    cx + ov_r + _OVERLAY_BORDER,
-                    cy + ov_r + _OVERLAY_BORDER,
-                ],
-                fill='white',
-            )
-            clip_mask = Image.new('L', (size, size), 0)
-            ImageDraw.Draw(clip_mask).ellipse([0, 0, size, size], fill=255)
-            self.canvas.paste(bg.convert('RGB'), (cx - ov_r, cy - ov_r), clip_mask)
+            img.thumbnail((_OVERLAY_SIZE, _OVERLAY_SIZE), Resampling.LANCZOS)
+            paste_x = cx - img.width // 2
+            paste_y = cy - img.height // 2
+            self.canvas.paste(img.convert('RGB'), (paste_x, paste_y), img.split()[3])
 
     def _draw_placeholder(self, cx: int, cy: int, r: int) -> None:
         self.draw.ellipse(
