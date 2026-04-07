@@ -171,7 +171,7 @@ FORMATIONS: list[Formation] = [
             Slot('ATT', 0.50, 0.14),
         ],
     ),
-    # -- 4-back, 5-mid --------------------------------------------------------------
+    # -- 4-back, 5-mid (2-3 layered) ------------------------------------------------
     Formation(
         name='4-5-1',
         slots=[
@@ -180,11 +180,11 @@ FORMATIONS: list[Formation] = [
             Slot('DEF', 0.37, 0.72),
             Slot('DEF', 0.63, 0.72),
             Slot('DEF', 0.88, 0.72),
-            Slot('MID', 0.10, 0.44),
-            Slot('MID', 0.30, 0.44),
-            Slot('MID', 0.50, 0.44),
-            Slot('MID', 0.70, 0.44),
-            Slot('MID', 0.90, 0.44),
+            Slot('MID', 0.30, 0.56),  # 2 DM
+            Slot('MID', 0.70, 0.56),
+            Slot('MID', 0.12, 0.39),  # 3 AM
+            Slot('MID', 0.50, 0.39),
+            Slot('MID', 0.88, 0.39),
             Slot('ATT', 0.50, 0.15),
         ],
     ),
@@ -196,11 +196,11 @@ FORMATIONS: list[Formation] = [
             Slot('DEF', 0.20, 0.70),
             Slot('DEF', 0.50, 0.70),
             Slot('DEF', 0.80, 0.70),
-            Slot('MID', 0.10, 0.44),
-            Slot('MID', 0.30, 0.44),
-            Slot('MID', 0.50, 0.44),
-            Slot('MID', 0.70, 0.44),
-            Slot('MID', 0.90, 0.44),
+            Slot('MID', 0.28, 0.56),  # 2 DM (pentagon base)
+            Slot('MID', 0.72, 0.56),
+            Slot('MID', 0.50, 0.44),  # 1 CM (center)
+            Slot('MID', 0.12, 0.33),  # 2 WM (wings)
+            Slot('MID', 0.88, 0.33),
             Slot('ATT', 0.35, 0.15),
             Slot('ATT', 0.65, 0.15),
         ],
@@ -237,9 +237,9 @@ FORMATIONS: list[Formation] = [
             Slot('ATT', 0.50, 0.14),
         ],
     ),
-    # -- 5-back formations ----------------------------------------------------------
+    # -- 5-back formations (diamond mid) -------------------------------------------
     Formation(
-        name='5-3-2',
+        name='5-4-1 (Losango)',
         slots=[
             Slot('GK', 0.50, 0.90),
             Slot('DEF', 0.10, 0.70),
@@ -247,15 +247,15 @@ FORMATIONS: list[Formation] = [
             Slot('DEF', 0.50, 0.70),
             Slot('DEF', 0.70, 0.70),
             Slot('DEF', 0.90, 0.70),
-            Slot('MID', 0.22, 0.44),
-            Slot('MID', 0.50, 0.44),
-            Slot('MID', 0.78, 0.44),
-            Slot('ATT', 0.35, 0.15),
-            Slot('ATT', 0.65, 0.15),
+            Slot('MID', 0.50, 0.53),  # DM (base)
+            Slot('MID', 0.22, 0.41),  # left
+            Slot('MID', 0.78, 0.41),  # right
+            Slot('MID', 0.50, 0.30),  # CAM (tip)
+            Slot('ATT', 0.50, 0.15),
         ],
     ),
     Formation(
-        name='5-2-3',
+        name='5-3-2 (Triângulo)',
         slots=[
             Slot('GK', 0.50, 0.90),
             Slot('DEF', 0.10, 0.70),
@@ -263,11 +263,11 @@ FORMATIONS: list[Formation] = [
             Slot('DEF', 0.50, 0.70),
             Slot('DEF', 0.70, 0.70),
             Slot('DEF', 0.90, 0.70),
-            Slot('MID', 0.35, 0.44),
-            Slot('MID', 0.65, 0.44),
-            Slot('ATT', 0.15, 0.19),
-            Slot('ATT', 0.50, 0.14),
-            Slot('ATT', 0.85, 0.19),
+            Slot('MID', 0.28, 0.50),  # 2 DM (base of triangle)
+            Slot('MID', 0.72, 0.50),
+            Slot('MID', 0.50, 0.33),  # CAM (tip)
+            Slot('ATT', 0.35, 0.15),
+            Slot('ATT', 0.65, 0.15),
         ],
     ),
 ]

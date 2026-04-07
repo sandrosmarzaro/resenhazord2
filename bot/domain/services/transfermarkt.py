@@ -160,11 +160,45 @@ class TransfermarktService:
         'Referer': 'https://www.transfermarkt.com.br/',
     }
     PLAYERS_PER_PAGE = 25
-    GLOBAL_MAX_PAGES = 20
+    GLOBAL_MAX_PAGES = 40  # top 1000 (40 x 25)
     LEAGUE_MAX_PAGES = 4
-    POSITION_MAX_PAGES = 40  # top 1000 per position (40 x 25)
+    POSITION_MAX_PAGES = 40
 
-    # Transfermarkt position codes by formation role
+    # Maps Portuguese position text (as returned by transfermarkt.com.br) to formation role
+    POSITION_ROLES: ClassVar[dict[str, str]] = {
+        'Goleiro': 'GK',
+        'Goalkeeper': 'GK',
+        'Zagueiro': 'DEF',
+        'Lateral Dir.': 'DEF',
+        'Lateral Esq.': 'DEF',
+        'Defensor Central': 'DEF',
+        'Centre-Back': 'DEF',
+        'Right-Back': 'DEF',
+        'Left-Back': 'DEF',
+        'Volante': 'MID',
+        'Segundo Volante': 'MID',
+        'Meia-Central': 'MID',
+        'Meia Ofensivo': 'MID',
+        'Meia Defensivo': 'MID',
+        'Meia-Esquerda': 'MID',
+        'Meia-Direita': 'MID',
+        'Defensive Midfield': 'MID',
+        'Central Midfield': 'MID',
+        'Attacking Midfield': 'MID',
+        'Right Midfield': 'MID',
+        'Left Midfield': 'MID',
+        'Centroavante': 'ATT',
+        'Ponta Direita': 'ATT',
+        'Ponta Esquerda': 'ATT',
+        'Segundo Atacante': 'ATT',
+        'Atacante de apoio': 'ATT',
+        'Centre-Forward': 'ATT',
+        'Right Winger': 'ATT',
+        'Left Winger': 'ATT',
+        'Second Striker': 'ATT',
+    }
+
+    # Transfermarkt position filter codes (kept for reference; pos= param ignored on .com.br)
     POSITION_CODES: ClassVar[dict[str, list[str]]] = {
         'GK': ['TW'],
         'DEF': ['IV', 'LV', 'RV'],

@@ -149,68 +149,60 @@ class FootballTeamCommand(Command):
         league = LEAGUES.get(liga_code) if liga_code else None
         formation = random_formation()
 
-        role_pool = await self._fetch_role_pools(formation, league)
-        ordered = self._assign_to_slots(formation, role_pool)
+        all_players = await self._fetch_players(league)
+        ordered = self._pick_lineup(all_players, formation)
         photos_ordered = await self._fetch_photos(ordered)
 
         names = [p.name if p else '' for p in ordered]
         flags = [p.nationality_flag_emoji if p else None for p in ordered]
-        field_image = build_football_field(photos_ordered, names, formation, flags)
-
         total_value = _sum_market_values(ordered)
+        field_image = build_football_field(photos_ordered, names, formation, flags, total_value)
+
         caption = f'⚽ *Escalação Aleatória* — {formation.name}'
         if total_value:
             caption += f'\n💰 {total_value}'
         return [Reply.to(data).image_buffer(field_image, caption)]
 
     @staticmethod
-    async def _fetch_role_pools(
-        formation: Formation,
-        league: LeagueInfo | None,
-    ) -> dict[str, list[TmPlayer]]:
-        max_pages = (
-            TransfermarktService.LEAGUE_MAX_PAGES
-            if league
-            else TransfermarktService.POSITION_MAX_PAGES
-        )
-        unique_roles = list({slot.role for slot in formation.slots})
-
-        # For each role, pick 2 random pages to fetch concurrently
-        role_page_pairs = [
-            (role, page)
-            for role in unique_roles
-            for page in random.sample(range(1, max_pages + 1), min(2, max_pages))
-        ]
+    async def _fetch_players(league: LeagueInfo | None) -> list[TmPlayer]:
+        if league:
+            pages = list(range(1, TransfermarktService.LEAGUE_MAX_PAGES + 1))
+        else:
+            pages = random.sample(
+                range(1, TransfermarktService.GLOBAL_MAX_PAGES + 1),
+                min(10, TransfermarktService.GLOBAL_MAX_PAGES),
+            )
 
         results = await asyncio.gather(
-            *[
-                TransfermarktService.fetch_page_by_role(role, page, league)
-                for role, page in role_page_pairs
-            ]
+            *[TransfermarktService.fetch_page(page, league) for page in pages]
         )
 
-        role_pool: dict[str, list[TmPlayer]] = {role: [] for role in unique_roles}
-        for (role, _), players in zip(role_page_pairs, results, strict=False):
-            role_pool[role].extend(players)
-
-        for role in unique_roles:
-            seen: set[str] = set()
-            deduped = [p for p in role_pool[role] if not (p.name in seen or seen.add(p.name))]  # type: ignore[func-returns-value]
-            random.shuffle(deduped)
-            role_pool[role] = deduped
-
-        return role_pool
+        seen: set[str] = set()
+        all_players: list[TmPlayer] = []
+        for players in results:
+            for p in players:
+                if p.name not in seen:
+                    seen.add(p.name)
+                    all_players.append(p)
+        random.shuffle(all_players)
+        return all_players
 
     @staticmethod
-    def _assign_to_slots(
-        formation: Formation,
-        role_pool: dict[str, list[TmPlayer]],
-    ) -> list[TmPlayer | None]:
-        pool = {role: list(players) for role, players in role_pool.items()}
+    def _pick_lineup(players: list[TmPlayer], formation: Formation) -> list[TmPlayer | None]:
+        pools: dict[str, list[TmPlayer]] = {'GK': [], 'DEF': [], 'MID': [], 'ATT': []}
+        for p in players:
+            role = TransfermarktService.POSITION_ROLES.get(p.position)
+            if role:
+                pools[role].append(p)
+
+        used: set[str] = set()
         ordered: list[TmPlayer | None] = []
         for slot in formation.slots:
-            slot_pool = pool.get(slot.role, [])
-            ordered.append(slot_pool.pop(0) if slot_pool else None)
+            slot_pool = pools.get(slot.role, [])
+            player = next((p for p in slot_pool if p.name not in used), None)
+            if player:
+                used.add(player.name)
+            ordered.append(player)
         return ordered
 
     @staticmethod

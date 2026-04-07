@@ -163,6 +163,7 @@ def build_football_field(
     names: list[str],
     formation: Formation,
     flags: list[str | None] | None = None,
+    total_value: str | None = None,
 ) -> bytes:
     canvas = Image.new('RGB', (_CANVAS_W, _CANVAS_H), _FIELD_COLOR)
     draw = ImageDraw.Draw(canvas)
@@ -178,6 +179,9 @@ def build_football_field(
         flag_emoji = flags[i] if flags and i < len(flags) else None
         cx, cy = _field_xy(slot.x, slot.y)
         renderer.draw_player(photo_bytes, name, cx, cy, flag_emoji)
+
+    if total_value:
+        _draw_total_value(draw, total_value)
 
     output = io.BytesIO()
     canvas.save(output, format='JPEG', quality=92)
@@ -314,6 +318,22 @@ def _draw_formation_label(draw: ImageDraw.ImageDraw, formation_name: str) -> Non
     draw.text(
         ((_CANVAS_W - tw) // 2, _MY // 3),
         name,
+        fill=_LINE_COLOR,
+        font=font,
+        stroke_width=_STROKE_WIDTH,
+        stroke_fill='#000000',
+    )
+
+
+def _draw_total_value(draw: ImageDraw.ImageDraw, total_value: str) -> None:
+    font = _load_font(_FONT_BOLD_PATHS, _FONT_LABEL_SIZE)
+    field_bottom = _MY + _FH
+    text_y = (field_bottom + _CANVAS_H - _FONT_LABEL_SIZE) // 2
+    bbox = draw.textbbox((0, 0), total_value, font=font)
+    tw = bbox[2] - bbox[0]
+    draw.text(
+        ((_CANVAS_W - tw) // 2, text_y),
+        total_value,
         fill=_LINE_COLOR,
         font=font,
         stroke_width=_STROKE_WIDTH,
