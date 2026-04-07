@@ -154,8 +154,11 @@ class FootballTeamCommand(Command):
         league = LEAGUES.get(liga_code) if liga_code else None
         formation = random_formation()
 
-        all_players = await self._fetch_players(league)
-        ordered = self._pick_lineup(all_players, formation)
+        if league:
+            all_players = await self._fetch_league_players(league)
+            ordered = self._pick_lineup_league(all_players, formation)
+        else:
+            ordered = await self._build_lineup_by_position(formation)
         photos_ordered, badge_images = await self._fetch_assets(ordered)
 
         names = [p.name if p else '' for p in ordered]
@@ -173,26 +176,54 @@ class FootballTeamCommand(Command):
             caption += f'\n💰 {total_value}'
         return [Reply.to(data).image_buffer(field_image, caption)]
 
-    GLOBAL_FULL_TEAM_PAGES = 25  # 25 x 25 = 625 players sampled from the top 1000
+    @staticmethod
+    async def _build_lineup_by_position(formation: Formation) -> list[TmPlayer | None]:
+        """Fan-out one TM query per distinct specific role and pick N players per slot."""
+        slot_specific = specific_roles(formation)
+        distinct_roles = sorted(set(slot_specific))
+
+        results = await asyncio.gather(
+            *[TransfermarktService.fetch_by_specific_position(role) for role in distinct_roles]
+        )
+        role_pools: dict[str, list[TmPlayer]] = {}
+        for role, players in zip(distinct_roles, results, strict=True):
+            pool = list(players)
+            random.shuffle(pool)
+            role_pools[role] = pool
+
+        ordered: list[TmPlayer | None] = [None] * len(formation.slots)
+        used: set[str] = set()
+
+        # Fill scarce slots first so rare roles don't lose to greedy fallbacks.
+        scarcity_order = {'LB': 0, 'RB': 0, 'LW': 0, 'RW': 0, 'AM': 1, 'DM': 1, 'GK': 2}
+        slot_order = sorted(
+            range(len(formation.slots)),
+            key=lambda i: scarcity_order.get(slot_specific[i], 3),
+        )
+
+        for i in slot_order:
+            specific = slot_specific[i]
+            pool = role_pools.get(specific, [])
+            player = next((p for p in pool if p.name not in used), None)
+            if not player:
+                group = ROLE_GROUPS.get(specific, formation.slots[i].role)
+                for other_role, other_pool in role_pools.items():
+                    if ROLE_GROUPS.get(other_role) != group:
+                        continue
+                    player = next((p for p in other_pool if p.name not in used), None)
+                    if player:
+                        break
+            if player:
+                used.add(player.name)
+            ordered[i] = player
+        return ordered
 
     @staticmethod
-    async def _fetch_players(league: LeagueInfo | None) -> list[TmPlayer]:
-        if league:
-            pages = list(range(1, TransfermarktService.LEAGUE_MAX_PAGES + 1))
-        else:
-            sample_size = min(
-                FootballTeamCommand.GLOBAL_FULL_TEAM_PAGES,
-                TransfermarktService.GLOBAL_MAX_PAGES,
-            )
-            pages = random.sample(
-                range(1, TransfermarktService.GLOBAL_MAX_PAGES + 1),
-                sample_size,
-            )
-
+    async def _fetch_league_players(league: LeagueInfo) -> list[TmPlayer]:
+        pages = list(range(1, TransfermarktService.LEAGUE_MAX_PAGES + 1))
         results = await asyncio.gather(
             *[TransfermarktService.fetch_page(page, league) for page in pages]
         )
-
         seen: set[str] = set()
         all_players: list[TmPlayer] = []
         for players in results:
@@ -204,7 +235,9 @@ class FootballTeamCommand(Command):
         return all_players
 
     @staticmethod
-    def _pick_lineup(players: list[TmPlayer], formation: Formation) -> list[TmPlayer | None]:
+    def _pick_lineup_league(
+        players: list[TmPlayer], formation: Formation
+    ) -> list[TmPlayer | None]:
         # Group players by specific role (CB/LB/RB/DM/CM/AM/LW/ST/RW/GK)
         specific_pools: dict[str, list[TmPlayer]] = {}
         for p in players:

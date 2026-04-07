@@ -1,6 +1,6 @@
 """Transfermarkt scraper for most-valuable player rankings and squad values."""
 
-import random
+import asyncio
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -184,6 +184,10 @@ class TransfermarktService:
     GLOBAL_URL = (
         'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/marktwertetop'
     )
+    POSITION_FILTER_URL = (
+        'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/'
+        'marktwertetop/plus/0/galerie/0'
+    )
     CLUBS_URL = (
         'https://www.transfermarkt.com.br/spieler-statistik/wertvollstemannschaften/marktwertetop'
     )
@@ -240,12 +244,19 @@ class TransfermarktService:
         'Right Winger': 'RW',
     }
 
-    # Transfermarkt position filter codes (kept for reference; pos= param ignored on .com.br)
-    POSITION_CODES: ClassVar[dict[str, list[str]]] = {
-        'GK': ['TW'],
-        'DEF': ['IV', 'LV', 'RV'],
-        'MID': ['DM', 'ZM', 'OM'],
-        'ATT': ['LA', 'RA', 'MS'],
+    # Maps a specific role to (ausrichtung, [spielerposition_id, ...]) for the filtered
+    # marktwertetop endpoint. Multi-id entries fan-out to concurrent requests and merge.
+    POSITION_FILTERS: ClassVar[dict[str, tuple[str, tuple[int, ...]]]] = {
+        'GK': ('Torwart', (1,)),
+        'CB': ('Abwehr', (3,)),
+        'LB': ('Abwehr', (4,)),
+        'RB': ('Abwehr', (5,)),
+        'DM': ('Mittelfeld', (6,)),
+        'CM': ('Mittelfeld', (7, 8, 9)),  # central + left + right mids
+        'AM': ('Mittelfeld', (10,)),
+        'LW': ('Sturm', (11,)),
+        'RW': ('Sturm', (12,)),
+        'ST': ('Sturm', (13, 14)),  # second striker + centre-forward
     }
 
     @classmethod
@@ -324,22 +335,38 @@ class TransfermarktService:
         return cls._parse_page(response.text)
 
     @classmethod
-    async def fetch_page_by_role(
-        cls, role: str, page: int, league: LeagueInfo | None = None
-    ) -> list[TmPlayer]:
-        """Fetch a page of players filtered by formation role (GK/DEF/MID/ATT)."""
-        codes = cls.POSITION_CODES.get(role, [])
-        pos_code = random.choice(codes) if codes else ''  # noqa: S311
-        if league:
-            url = (
-                cls.LEAGUE_URL.format(slug=league.tm_slug, tm_id=league.tm_id, page=page)
-                + f'&pos={pos_code}'
+    async def fetch_by_specific_position(cls, role: str) -> list[TmPlayer]:
+        """Fetch the top most-valuable players for a specific role (CB/LB/DM/...)."""
+        mapping = cls.POSITION_FILTERS.get(role)
+        if not mapping:
+            return []
+        ausrichtung, pos_ids = mapping
+
+        async def _one(pos_id: int) -> list[TmPlayer]:
+            params = {
+                'ausrichtung': ausrichtung,
+                'spielerposition_id': str(pos_id),
+                'altersklasse': 'alle',
+                'jahrgang': '0',
+                'land_id': '0',
+                'kontinent_id': '0',
+                'jahr': '0',
+            }
+            response = await HttpClient.get(
+                cls.POSITION_FILTER_URL, params=params, headers=cls.HEADERS
             )
-        else:
-            url = f'{cls.GLOBAL_URL}?pos={pos_code}&page={page}'
-        response = await HttpClient.get(url, headers=cls.HEADERS)
-        response.raise_for_status()
-        return cls._parse_page(response.text)
+            response.raise_for_status()
+            return cls._parse_page(response.text)
+
+        batches = await asyncio.gather(*[_one(pid) for pid in pos_ids])
+        seen: set[str] = set()
+        merged: list[TmPlayer] = []
+        for batch in batches:
+            for p in batch:
+                if p.name not in seen:
+                    seen.add(p.name)
+                    merged.append(p)
+        return merged
 
     @classmethod
     async def fetch_player_profile(cls, profile_url: str) -> dict[str, str]:
