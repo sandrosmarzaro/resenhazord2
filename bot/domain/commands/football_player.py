@@ -103,7 +103,7 @@ class FootballPlayerCommand(Command):
         lines = [
             f'*{player.name}* — {player.position}',
             '',
-            f'🎂 {player.age} anos   🌍 {player.nationality}',
+            f'🎂 {player.age} anos   {player.nationality_flag_emoji} {player.nationality}',
             f'🏟️ {player.club} {club_flag}',
         ]
         if height or foot:
