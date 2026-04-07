@@ -173,14 +173,20 @@ class FootballTeamCommand(Command):
             caption += f'\n💰 {total_value}'
         return [Reply.to(data).image_buffer(field_image, caption)]
 
+    GLOBAL_FULL_TEAM_PAGES = 25  # 25 x 25 = 625 players sampled from the top 1000
+
     @staticmethod
     async def _fetch_players(league: LeagueInfo | None) -> list[TmPlayer]:
         if league:
             pages = list(range(1, TransfermarktService.LEAGUE_MAX_PAGES + 1))
         else:
+            sample_size = min(
+                FootballTeamCommand.GLOBAL_FULL_TEAM_PAGES,
+                TransfermarktService.GLOBAL_MAX_PAGES,
+            )
             pages = random.sample(
                 range(1, TransfermarktService.GLOBAL_MAX_PAGES + 1),
-                min(10, TransfermarktService.GLOBAL_MAX_PAGES),
+                sample_size,
             )
 
         results = await asyncio.gather(
