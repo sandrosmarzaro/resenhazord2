@@ -130,3 +130,5 @@ LEAGUES: dict[str, LeagueInfo] = {
 }
 
 LEAGUE_CODES: list[str] = list(LEAGUES.keys())
+
+LEAGUES_BY_TM_ID: dict[str, LeagueInfo] = {lg.tm_id: lg for lg in LEAGUES.values()}

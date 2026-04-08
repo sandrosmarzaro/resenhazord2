@@ -2,13 +2,15 @@
 
 import asyncio
 import contextlib
+import difflib
 import random
 import re
+from typing import ClassVar
 
 import anyio
 import structlog
 
-from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
+from bot.data.football import LEAGUE_CODES, LEAGUES, LEAGUES_BY_TM_ID, LeagueInfo
 from bot.data.football_formations import (
     ROLE_GROUPS,
     Formation,
@@ -28,8 +30,13 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.football_field_builder import build_football_field
-from bot.domain.services.thesportsdb import SportsDBTeam, StandingRow, TheSportsDBService
-from bot.domain.services.transfermarkt import TmPlayer, TmSquadStats, TransfermarktService
+from bot.domain.services.thesportsdb import SportsDBTeam, TheSportsDBService
+from bot.domain.services.transfermarkt import (
+    TmClub,
+    TmPlayer,
+    TmSquadStats,
+    TransfermarktService,
+)
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -93,57 +100,92 @@ class FootballTeamCommand(Command):
         effective_liga = liga_code or random.choice(LEAGUE_CODES)  # noqa: S311
         league = LEAGUES[effective_liga]
 
-        teams, standings, squad_values = await asyncio.gather(
-            TheSportsDBService.get_teams(league),
-            TheSportsDBService.get_standings(league),
+        squad_values, standings, sports_teams = await asyncio.gather(
             TransfermarktService.fetch_squad_values(league),
+            TransfermarktService.fetch_standings(league),
+            TheSportsDBService.get_teams(league),
         )
 
-        if not squad_values:
+        clubs = list(squad_values.values())
+        if not clubs:
             logger.warning('squad_values_empty', league=league.tm_id)
-
-        if not teams:
             return [Reply.to(data).text('Nenhum time encontrado. Tente novamente! ⚽')]
 
         if top_str and standings:
             top_n = int(top_str[3:])
-            top_names = {r.team.lower() for r in standings[:top_n]}
-            filtered = [t for t in teams if t.name.lower() in top_names]
+            top_ids = {cid for cid, rank in standings.items() if rank <= top_n}
+            filtered = [c for c in clubs if c.club_id in top_ids]
             if filtered:
-                teams = filtered
+                clubs = filtered
 
-        team = random.choice(teams)  # noqa: S311
-        rank = self._find_rank(team.name, standings)
-        squad_stats = self._find_squad_stats(team.name, squad_values)
-        caption = self._build_team_caption(team, league.name, league.flag, rank, squad_stats)
+        club = random.choice(clubs)  # noqa: S311
+        rank = standings.get(club.club_id)
+        sports_team = self._find_sports_team(club.name, sports_teams)
+        caption = self._build_team_caption(club, sports_team, league, rank, global_rank=None)
 
-        buffer = await HttpClient.get_buffer(team.badge_url)
+        buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
         return [Reply.to(data).image_buffer(buffer, caption)]
 
     async def _global_top_team(self, data: CommandData, top_n: int) -> list[BotMessage]:
-        clubs = await TransfermarktService.fetch_top_clubs(top_n)
-        if not clubs:
+        top_clubs = await TransfermarktService.fetch_top_clubs(top_n)
+        if not top_clubs:
             return [
                 Reply.to(data).text('Não foi possível buscar ranking global. Tente novamente! ⚽')
             ]
 
-        club = random.choice(clubs)  # noqa: S311
+        top_club = random.choice(top_clubs)  # noqa: S311
+        league = LEAGUES_BY_TM_ID.get(top_club.league_tm_id)
+
+        if league is None:
+            return await self._global_top_bare(data, top_club)
+
+        squad_values, standings, sports_teams = await asyncio.gather(
+            TransfermarktService.fetch_squad_values(league),
+            TransfermarktService.fetch_standings(league),
+            TheSportsDBService.get_teams(league),
+        )
+
+        club = squad_values.get(top_club.club_id)
+        if club is None:
+            # Fall back to minimal caption using the global-top row only.
+            return await self._global_top_bare(data, top_club, league=league)
+
+        rank = standings.get(club.club_id)
+        sports_team = self._find_sports_team(club.name, sports_teams)
+        caption = self._build_team_caption(
+            club, sports_team, league, rank, global_rank=top_club.rank
+        )
+        buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
+        return [Reply.to(data).image_buffer(buffer, caption)]
+
+    async def _global_top_bare(
+        self, data: CommandData, club: TmClub, league: LeagueInfo | None = None
+    ) -> list[BotMessage]:
         ts_team = await TheSportsDBService.search_team(club.name)
 
         badge: bytes = b''
         if club.badge_url:
-            badge = await HttpClient.get_buffer(club.badge_url)
+            badge = await HttpClient.get_buffer(
+                club.badge_url, headers=TransfermarktService.HEADERS
+            )
         elif ts_team and ts_team.badge_url:
             badge = await HttpClient.get_buffer(ts_team.badge_url)
 
-        country = ts_team.country if ts_team else club.country
+        country = ts_team.country if ts_team else (league.country if league else club.country)
         founded = ts_team.founded if ts_team else ''
         name = ts_team.name if ts_team else club.name
+        title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
 
-        lines = [f'*{name}*', f'\n🌍 {country}']
+        head = f'\n{league.flag} {country}' if league else f'\n🌍 {country}'
         if founded:
-            lines[1] += f'   📅 {founded}'
-        lines.append(f'📊 #{club.rank}º mais valioso')
+            head += f'   📅 {founded}'
+        lines = [title, head]
+        if ts_team and ts_team.stadium:
+            lines.append(f'🏟️ {ts_team.stadium}')
+            if ts_team.capacity:
+                cap = self._format_capacity(ts_team.capacity)
+                lines.append(f'💺 {cap} lugares')
+        lines.append(f'🏆 #{club.rank}º mais valioso')
         if club.squad_value:
             lines.append(f'💰 {club.squad_value}')
 
@@ -153,12 +195,25 @@ class FootballTeamCommand(Command):
         liga_code = parsed.options.get('liga')
         league = LEAGUES.get(liga_code) if liga_code else None
         formation = random_formation()
+        top_str = parsed.options.get('top', '')
 
         if league:
-            all_players = await self._fetch_league_players(league)
+            # topXXX is a no-op with a league — league pool is already small
+            all_players = await TransfermarktService.fetch_league_full_squad(league)
             ordered = self._pick_lineup_league(all_players, formation)
         else:
-            ordered = await self._build_lineup_by_position(formation)
+            top_n: int | None = int(top_str[3:]) if top_str else None
+            max_pages = TransfermarktService.POSITION_MAX_PAGES
+            if top_n:
+                max_pages = max(
+                    1,
+                    min(
+                        (top_n + TransfermarktService.PLAYERS_PER_PAGE - 1)
+                        // TransfermarktService.PLAYERS_PER_PAGE,
+                        TransfermarktService.GLOBAL_MAX_PAGES,
+                    ),
+                )
+            ordered = await self._build_lineup_by_position(formation, max_pages, top_n)
         photos_ordered, badge_images = await self._fetch_assets(ordered)
 
         names = [p.name if p else '' for p in ordered]
@@ -177,17 +232,23 @@ class FootballTeamCommand(Command):
         return [Reply.to(data).image_buffer(field_image, caption)]
 
     @staticmethod
-    async def _build_lineup_by_position(formation: Formation) -> list[TmPlayer | None]:
+    async def _build_lineup_by_position(
+        formation: Formation, max_pages: int, top_n: int | None = None
+    ) -> list[TmPlayer | None]:
         """Fan-out one TM query per distinct specific role and pick N players per slot."""
         slot_specific = specific_roles(formation)
         distinct_roles = sorted(set(slot_specific))
 
         results = await asyncio.gather(
-            *[TransfermarktService.fetch_by_specific_position(role) for role in distinct_roles]
+            *[
+                TransfermarktService.fetch_by_specific_position(role, max_pages)
+                for role in distinct_roles
+            ]
         )
         role_pools: dict[str, list[TmPlayer]] = {}
         for role, players in zip(distinct_roles, results, strict=True):
-            pool = list(players)
+            # When topXXX is set, restrict each role pool to the top_n entries by ranking.
+            pool = list(players[:top_n]) if top_n else list(players)
             random.shuffle(pool)
             role_pools[role] = pool
 
@@ -235,15 +296,15 @@ class FootballTeamCommand(Command):
         return all_players
 
     @staticmethod
-    def _pick_lineup_league(
-        players: list[TmPlayer], formation: Formation
-    ) -> list[TmPlayer | None]:
+    def _pick_lineup_league(players: list[TmPlayer], formation: Formation) -> list[TmPlayer | None]:
         # Group players by specific role (CB/LB/RB/DM/CM/AM/LW/ST/RW/GK)
         specific_pools: dict[str, list[TmPlayer]] = {}
         for p in players:
             role = TransfermarktService.POSITION_ROLES.get(p.position)
             if role:
                 specific_pools.setdefault(role, []).append(p)
+        for pool in specific_pools.values():
+            random.shuffle(pool)
 
         slot_specific = specific_roles(formation)
         used: set[str] = set()
@@ -301,23 +362,61 @@ class FootballTeamCommand(Command):
 
         return photos, badges
 
-    @staticmethod
-    def _find_rank(team_name: str, standings: list[StandingRow]) -> int | None:
-        name_lower = team_name.lower()
-        return next((r.rank for r in standings if r.team.lower() == name_lower), None)
+    _SPORTSDB_MATCH_MIN_JACCARD = 0.25
+    _SUBSTRING_MIN_LEN = 4
+    _CLUB_PREFIXES: ClassVar[frozenset[str]] = frozenset({
+        'fc', 'ac', 'ca', 'cd', 'cs', 'sc', 'se', 'sg', 'ec', 'cr', 'rb', 'vfb',
+        'afc', 'rcd', 'aj', 'as', 'ogc', 'ssc', 'us', 'club', 'clube', 'cf', 'sd',
+        'sv', 'sk', 'stade', 'hellas', 'sport',
+    })  # fmt: skip
 
     @staticmethod
-    def _find_squad_stats(
-        team_name: str, squad_values: dict[str, TmSquadStats]
-    ) -> TmSquadStats | None:
-        name_lower = team_name.lower()
-        if name_lower in squad_values:
-            return squad_values[name_lower]
-        name_words = set(name_lower.split())
-        for key, val in squad_values.items():
-            if name_words & set(key.split()):
-                return val
-        return None
+    def _name_tokens(name: str) -> set[str]:
+        raw = name.lower().replace('.', ' ').replace('-', ' ')
+        tokens = {t for t in raw.split() if t}
+        filtered = tokens - FootballTeamCommand._CLUB_PREFIXES
+        return filtered or tokens
+
+    @staticmethod
+    def _token_substring_hit(tm_tokens: set[str], t_tokens: set[str]) -> bool:
+        min_len = FootballTeamCommand._SUBSTRING_MIN_LEN
+        for a in tm_tokens:
+            if len(a) < min_len:
+                continue
+            for b in t_tokens:
+                if len(b) < min_len:
+                    continue
+                if a.startswith(b) or b.startswith(a):
+                    return True
+        return False
+
+    @staticmethod
+    def _find_sports_team(tm_name: str, sports_teams: list[SportsDBTeam]) -> SportsDBTeam | None:
+        """Best-effort match of a TM club name against SportsDB teams for enrichment."""
+        if not sports_teams:
+            return None
+        tm_tokens = FootballTeamCommand._name_tokens(tm_name)
+        if not tm_tokens:
+            return None
+        best: SportsDBTeam | None = None
+        best_jaccard = 0.0
+        best_ratio = 0.0
+        for t in sports_teams:
+            t_tokens = FootballTeamCommand._name_tokens(t.name)
+            if not t_tokens:
+                continue
+            union = len(tm_tokens | t_tokens)
+            jaccard = len(tm_tokens & t_tokens) / union if union else 0.0
+            if jaccard == 0 and FootballTeamCommand._token_substring_hit(tm_tokens, t_tokens):
+                jaccard = FootballTeamCommand._SPORTSDB_MATCH_MIN_JACCARD
+            ratio = difflib.SequenceMatcher(None, tm_name.lower(), t.name.lower()).ratio()
+            if jaccard > best_jaccard or (jaccard == best_jaccard and ratio > best_ratio):
+                best = t
+                best_jaccard = jaccard
+                best_ratio = ratio
+        if best_jaccard < FootballTeamCommand._SPORTSDB_MATCH_MIN_JACCARD:
+            return None
+        return best
 
     @staticmethod
     def _format_capacity(raw: str) -> str:
@@ -327,35 +426,50 @@ class FootballTeamCommand(Command):
             return raw
 
     @staticmethod
+    def _squad_lines(club: TmSquadStats) -> list[str]:
+        lines: list[str] = []
+        if club.squad_size:
+            squad_line = f'👥 {club.squad_size} jogadores'
+            if club.avg_age:
+                squad_line += f'   ⌀ {club.avg_age} anos'
+            lines.append(squad_line)
+        if club.foreigners_count:
+            foreign_line = f'🌍 {club.foreigners_count} estrangeiros'
+            if club.foreigners_pct:
+                foreign_line += f' ({club.foreigners_pct}%)'
+            lines.append(foreign_line)
+        if club.market_value:
+            lines.append(f'💰 {club.market_value}')
+        return lines
+
+    @staticmethod
+    def _stadium_lines(sports_team: SportsDBTeam | None) -> list[str]:
+        if not sports_team or not sports_team.stadium:
+            return []
+        lines = [f'🏟️ {sports_team.stadium}']
+        if sports_team.capacity:
+            cap = FootballTeamCommand._format_capacity(sports_team.capacity)
+            lines.append(f'💺 {cap} lugares')
+        return lines
+
+    @staticmethod
     def _build_team_caption(
-        team: SportsDBTeam,
-        league_name: str,
-        league_flag: str,
+        club: TmSquadStats,
+        sports_team: SportsDBTeam | None,
+        league: LeagueInfo,
         rank: int | None,
-        squad_stats: TmSquadStats | None,
+        global_rank: int | None = None,
     ) -> str:
-        lines = [
-            f'*{team.name}* — {league_name}',
-            f'\n{league_flag} {team.country}   📅 {team.founded}',
-        ]
-        if team.stadium:
-            lines.append(f'🏟️ {team.stadium}')
-            if team.capacity:
-                cap = FootballTeamCommand._format_capacity(team.capacity)
-                lines.append(f'💺 {cap} lugares')
+        country = sports_team.country if sports_team else league.country
+        founded = sports_team.founded if sports_team else ''
+        head_line = f'\n{league.flag} {country}' if country else f'\n{league.flag}'
+        if founded:
+            head_line += f'   📅 {founded}'
+        lines = [f'*{club.name}* — {league.name}', head_line]
+        lines.extend(FootballTeamCommand._stadium_lines(sports_team))
         if rank:
             lines.append(f'📊 {rank}º na tabela')
-        if squad_stats:
-            if squad_stats.squad_size:
-                squad_line = f'👥 {squad_stats.squad_size} jogadores'
-                if squad_stats.avg_age:
-                    squad_line += f'   ⌀ {squad_stats.avg_age} anos'
-                lines.append(squad_line)
-            if squad_stats.foreigners_count:
-                foreign_line = f'🌍 {squad_stats.foreigners_count} estrangeiros'
-                if squad_stats.foreigners_pct:
-                    foreign_line += f' ({squad_stats.foreigners_pct}%)'
-                lines.append(foreign_line)
-            if squad_stats.market_value:
-                lines.append(f'💰 {squad_stats.market_value}')
+        if global_rank:
+            lines.append(f'🏆 #{global_rank}º mais valioso do mundo')
+        lines.extend(FootballTeamCommand._squad_lines(club))
         return '\n'.join(lines)

@@ -18,6 +18,9 @@ logger = structlog.get_logger()
 _BADGE_CDN = 'https://tmssl.akamaized.net/images/wappen/head/{club_id}.png'
 _TM_BASE = 'https://www.transfermarkt.com.br'
 _CLUB_ID_RE = re.compile(r'/wappen/verysmall/(\d+)\.png')
+_PORTRAIT_SIZE_RE = re.compile(r'/portrait/(?:small|medium|header)/')
+_VEREIN_ID_RE = re.compile(r'/verein/(\d+)')
+_WETTBEWERB_ID_RE = re.compile(r'/wettbewerb/([A-Z0-9]+)(?:$|[/?])')
 _FOREIGNERS_RE = re.compile(r'(\d+)\s*\((\d+)%\)?')
 _AGE_MIN = 15
 _AGE_MAX = 45
@@ -47,6 +50,7 @@ class TmClub:
     squad_value: str
     club_id: str
     badge_url: str
+    league_tm_id: str = ''
 
 
 @dataclass(frozen=True)
@@ -56,6 +60,20 @@ class TmSquadStats:
     avg_age: str
     foreigners_count: str
     foreigners_pct: str
+    club_id: str = ''
+    name: str = ''
+    badge_url: str = ''
+
+
+def _extract_photo_url(inline: Tag) -> str:
+    photo_tag = inline.find('img', class_='bilderrahmen-fixed')
+    if not photo_tag or not isinstance(photo_tag, Tag):
+        return ''
+    src = photo_tag.get('data-src') or photo_tag.get('src', '')
+    src_str = str(src)
+    if src_str.startswith('data:'):
+        return ''
+    return _PORTRAIT_SIZE_RE.sub('/portrait/big/', src_str)
 
 
 def _extract_verein_name(row: Tag) -> str:
@@ -101,6 +119,17 @@ def _extract_country(row: Tag) -> str:
     """Extract country name from a flaggenrahmen img title."""
     img = row.find('img', class_='flaggenrahmen')
     return str(img.get('title', '')) if img and isinstance(img, Tag) else ''
+
+
+def _first_href_match(row: Tag, fragment: str, pattern: re.Pattern[str]) -> str:
+    """Return the first capture group matched by *pattern* on any href containing *fragment*."""
+    for link in row.find_all('a', href=lambda h: bool(h and fragment in str(h))):
+        if not isinstance(link, Tag):
+            continue
+        m = pattern.search(str(link.get('href', '')))
+        if m:
+            return m.group(1)
+    return ''
 
 
 def _extract_squad_stats(row: Tag) -> tuple[str, str, str, str]:
@@ -193,6 +222,10 @@ class TransfermarktService:
     )
     LEAGUE_URL = 'https://www.transfermarkt.com.br/{slug}/marktwerte/wettbewerb/{tm_id}/page/{page}'
     SQUAD_VALUES_URL = 'https://www.transfermarkt.com.br/{slug}/startseite/wettbewerb/{tm_id}'
+    CLUB_SQUAD_URL = (
+        'https://www.transfermarkt.com.br/club/kader/verein/{club_id}/saison_id/{season}/plus/1'
+    )
+    DEFAULT_SEASON = '2025'
     HEADERS: ClassVar[dict[str, str]] = {
         'User-Agent': (
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -204,7 +237,7 @@ class TransfermarktService:
     PLAYERS_PER_PAGE = 25
     GLOBAL_MAX_PAGES = 40  # top 1000 (40 x 25)
     LEAGUE_MAX_PAGES = 4
-    POSITION_MAX_PAGES = 40
+    POSITION_MAX_PAGES = 4  # top 100 per specific role by default (4 x 25)
 
     # Maps Portuguese / English position text from transfermarkt.com.br to specific role
     # (CB/LB/RB/DM/CM/AM/LW/ST/RW/GK). Use ROLE_GROUPS in football_formations to widen.
@@ -212,12 +245,15 @@ class TransfermarktService:
         'Goleiro': 'GK',
         'Goalkeeper': 'GK',
         'Zagueiro': 'CB',
+        'Zagueiro Central': 'CB',
         'Defensor Central': 'CB',
         'Centre-Back': 'CB',
         'Lateral Esq.': 'LB',
+        'Lateral Esquerdo': 'LB',
         'Lateral-Esquerdo': 'LB',
         'Left-Back': 'LB',
         'Lateral Dir.': 'RB',
+        'Lateral Direito': 'RB',
         'Lateral-Direito': 'RB',
         'Right-Back': 'RB',
         'Volante': 'DM',
@@ -232,8 +268,10 @@ class TransfermarktService:
         'Right Midfield': 'CM',
         'Left Midfield': 'CM',
         'Meia Ofensivo': 'AM',
+        'Meia Atacante': 'AM',
         'Attacking Midfield': 'AM',
         'Centroavante': 'ST',
+        'Seg. Atacante': 'ST',
         'Segundo Atacante': 'ST',
         'Atacante de apoio': 'ST',
         'Centre-Forward': 'ST',
@@ -260,8 +298,89 @@ class TransfermarktService:
     }
 
     @classmethod
+    async def fetch_league_full_squad(cls, league: LeagueInfo) -> list[TmPlayer]:
+        """Fetch every player of every club in the league via per-club kader pages.
+
+        Each player's club/club_id/badge_url is forced to the kader page owner so that
+        loaned-in players show the correct badge and self-page rows (which omit the
+        own-club link) are not dropped.
+        """
+        url = cls.SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
+        response = await HttpClient.get(url, headers=cls.HEADERS)
+        response.raise_for_status()
+        clubs = cls._parse_league_clubs(response.text)
+        if not clubs:
+            return []
+
+        async def _one(club: TmClub) -> list[TmPlayer]:
+            url = cls.CLUB_SQUAD_URL.format(club_id=club.club_id, season=cls.DEFAULT_SEASON)
+            r = await HttpClient.get(url, headers=cls.HEADERS)
+            r.raise_for_status()
+            players = cls._parse_page(r.text, require_club=False)
+            return [
+                TmPlayer(
+                    name=p.name,
+                    position=p.position,
+                    age=p.age,
+                    nationality=p.nationality,
+                    club=club.name,
+                    club_id=club.club_id,
+                    market_value=p.market_value,
+                    photo_url=p.photo_url,
+                    badge_url=club.badge_url,
+                    profile_url=p.profile_url,
+                    nationality_flag_url=p.nationality_flag_url,
+                    nationality_flag_emoji=p.nationality_flag_emoji,
+                )
+                for p in players
+            ]
+
+        batches = await asyncio.gather(*[_one(c) for c in clubs], return_exceptions=True)
+        seen: set[str] = set()
+        merged: list[TmPlayer] = []
+        for batch in batches:
+            if isinstance(batch, BaseException):
+                continue
+            for p in batch:
+                if p.name not in seen:
+                    seen.add(p.name)
+                    merged.append(p)
+        return merged
+
+    @staticmethod
+    def _parse_league_clubs(html: str) -> list[TmClub]:
+        """Parse league summary (startseite/wettbewerb) into TmClub rows."""
+        soup = BeautifulSoup(html, 'html.parser')
+        table = soup.find('table', class_='items')
+        if not table or not isinstance(table, Tag):
+            return []
+        clubs: list[TmClub] = []
+        seen: set[str] = set()
+        for row in table.find_all('tr', class_=['odd', 'even']):
+            if not isinstance(row, Tag):
+                continue
+            name = _extract_verein_name(row)
+            if not name:
+                continue
+            club_id = _first_href_match(row, '/startseite/verein/', _VEREIN_ID_RE)
+            if not club_id or club_id in seen:
+                continue
+            seen.add(club_id)
+            clubs.append(
+                TmClub(
+                    rank=len(clubs) + 1,
+                    name=name,
+                    country='',
+                    squad_value=_extract_money_td(row),
+                    club_id=club_id,
+                    badge_url=_BADGE_CDN.format(club_id=club_id),
+                )
+            )
+        return clubs
+
+    @classmethod
     async def fetch_squad_values(cls, league: LeagueInfo) -> dict[str, TmSquadStats]:
-        """Return {club_name_lower: TmSquadStats} for all clubs in the league."""
+        """Return {club_id: TmSquadStats} for all clubs in the league."""
         url = cls.SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
         response = await HttpClient.get(url, headers=cls.HEADERS)
         response.raise_for_status()
@@ -280,15 +399,54 @@ class TransfermarktService:
             name = _extract_verein_name(row)
             if not name:
                 continue
+            club_id = _first_href_match(row, '/startseite/verein/', _VEREIN_ID_RE)
+            if not club_id:
+                continue
             value = _extract_money_td(row)
             squad_size, avg_age, foreigners_count, foreigners_pct = _extract_squad_stats(row)
-            result[name.lower()] = TmSquadStats(
+            result[club_id] = TmSquadStats(
                 market_value=value,
                 squad_size=squad_size,
                 avg_age=avg_age,
                 foreigners_count=foreigners_count,
                 foreigners_pct=foreigners_pct,
+                club_id=club_id,
+                name=name,
+                badge_url=_BADGE_CDN.format(club_id=club_id),
             )
+        return result
+
+    @classmethod
+    async def fetch_standings(cls, league: LeagueInfo) -> dict[str, int]:
+        """Return {club_id: rank} scraped from the TM tabelle page."""
+        url = f'{_TM_BASE}/{league.tm_slug}/tabelle/wettbewerb/{league.tm_id}'
+        response = await HttpClient.get(url, headers=cls.HEADERS)
+        response.raise_for_status()
+        return cls._parse_tabelle(response.text)
+
+    @staticmethod
+    def _parse_tabelle(html: str) -> dict[str, int]:
+        soup = BeautifulSoup(html, 'html.parser')
+        table = soup.find('table', class_='items')
+        if not table or not isinstance(table, Tag):
+            return {}
+        tbody = table.find('tbody')
+        rows = tbody.find_all('tr') if isinstance(tbody, Tag) else table.find_all('tr')
+        result: dict[str, int] = {}
+        for row in rows:
+            if not isinstance(row, Tag):
+                continue
+            tds = row.find_all('td')
+            if not tds:
+                continue
+            rank_text = tds[0].get_text(strip=True).split()[0] if tds[0] else ''
+            try:
+                rank = int(rank_text)
+            except ValueError:
+                continue
+            club_id = _first_href_match(row, '/verein/', _VEREIN_ID_RE)
+            if club_id and club_id not in result:
+                result[club_id] = rank
         return result
 
     @classmethod
@@ -311,7 +469,8 @@ class TransfermarktService:
             name = _extract_verein_name(row)
             if not name:
                 continue
-            club_id = _extract_badge_id(row)
+            club_id = _first_href_match(row, '/startseite/verein/', _VEREIN_ID_RE)
+            league_tm_id = _first_href_match(row, '/wettbewerb/', _WETTBEWERB_ID_RE)
             clubs.append(
                 TmClub(
                     rank=rank,
@@ -320,6 +479,7 @@ class TransfermarktService:
                     squad_value=_extract_money_td(row),
                     club_id=club_id,
                     badge_url=_BADGE_CDN.format(club_id=club_id) if club_id else '',
+                    league_tm_id=league_tm_id,
                 )
             )
         return clubs
@@ -335,14 +495,17 @@ class TransfermarktService:
         return cls._parse_page(response.text)
 
     @classmethod
-    async def fetch_by_specific_position(cls, role: str) -> list[TmPlayer]:
+    async def fetch_by_specific_position(
+        cls, role: str, max_pages: int | None = None
+    ) -> list[TmPlayer]:
         """Fetch the top most-valuable players for a specific role (CB/LB/DM/...)."""
         mapping = cls.POSITION_FILTERS.get(role)
         if not mapping:
             return []
         ausrichtung, pos_ids = mapping
+        pages = max_pages if max_pages is not None else cls.POSITION_MAX_PAGES
 
-        async def _one(pos_id: int) -> list[TmPlayer]:
+        async def _one(pos_id: int, page: int) -> list[TmPlayer]:
             params = {
                 'ausrichtung': ausrichtung,
                 'spielerposition_id': str(pos_id),
@@ -351,6 +514,7 @@ class TransfermarktService:
                 'land_id': '0',
                 'kontinent_id': '0',
                 'jahr': '0',
+                'page': str(page),
             }
             response = await HttpClient.get(
                 cls.POSITION_FILTER_URL, params=params, headers=cls.HEADERS
@@ -358,7 +522,8 @@ class TransfermarktService:
             response.raise_for_status()
             return cls._parse_page(response.text)
 
-        batches = await asyncio.gather(*[_one(pid) for pid in pos_ids])
+        tasks = [_one(pid, page) for pid in pos_ids for page in range(1, pages + 1)]
+        batches = await asyncio.gather(*tasks)
         seen: set[str] = set()
         merged: list[TmPlayer] = []
         for batch in batches:
@@ -384,7 +549,7 @@ class TransfermarktService:
         return info
 
     @staticmethod
-    def _parse_page(html: str) -> list[TmPlayer]:
+    def _parse_page(html: str, *, require_club: bool = True) -> list[TmPlayer]:
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.find('table', class_='items')
         if not table or not isinstance(table, Tag):
@@ -393,27 +558,19 @@ class TransfermarktService:
         players: list[TmPlayer] = []
         for row in table.find_all('tr', class_=['odd', 'even']):
             if isinstance(row, Tag):
-                player = TransfermarktService._parse_row(row)
+                player = TransfermarktService._parse_row(row, require_club=require_club)
                 if player:
                     players.append(player)
         return players
 
     @staticmethod
-    def _parse_row(row: Tag) -> TmPlayer | None:
+    def _parse_row(row: Tag, *, require_club: bool = True) -> TmPlayer | None:
         try:
             inline = row.find('table', class_='inline-table')
             if not inline or not isinstance(inline, Tag):
                 return None
 
-            photo_tag = inline.find('img', class_='bilderrahmen-fixed')
-            if photo_tag and isinstance(photo_tag, Tag):
-                src = photo_tag.get('data-src') or photo_tag.get('src', '')
-                src_str = str(src)
-                photo_url = (
-                    '' if src_str.startswith('data:') else src_str.replace('/small/', '/big/')
-                )
-            else:
-                photo_url = ''
+            photo_url = _extract_photo_url(inline)
 
             name_td = inline.find('td', class_='hauptlink')
             raw_name = name_td.get_text(strip=True) if name_td and isinstance(name_td, Tag) else ''
@@ -477,7 +634,9 @@ class TransfermarktService:
                 value_tag.get_text(strip=True) if value_tag and isinstance(value_tag, Tag) else ''
             )
 
-            if not name or not club:
+            if not name:
+                return None
+            if require_club and not club:
                 return None
 
             return TmPlayer(
