@@ -60,7 +60,11 @@ class FootballPlayerCommand(Command):
         league = LEAGUES.get(liga_code) if liga_code else None
         top_str = parsed.options.get('top', '')
 
-        default_max = TransfermarktService.LEAGUE_MAX_PAGES  # top 100 globally or per-league
+        default_max = (
+            TransfermarktService.LEAGUE_MAX_PAGES  # top 100 per-league
+            if league
+            else TransfermarktService.GLOBAL_MAX_PAGES  # top 1000 globally
+        )
 
         if top_str:
             top_n = int(top_str[3:])
@@ -116,9 +120,11 @@ class FootballPlayerCommand(Command):
         ]
         if born_city or born_country:
             born_flag = nationality_flag(born_country) if born_country else ''
-            parts = [born_city, born_country] if born_country and born_country != born_city else [
-                born_city or born_country
-            ]
+            parts = (
+                [born_city, born_country]
+                if born_country and born_country != born_city
+                else [born_city or born_country]
+            )
             display = ', '.join(p for p in parts if p)
             prefix = born_flag or '📍'
             lines.append(f'{prefix} {display}'.strip())
