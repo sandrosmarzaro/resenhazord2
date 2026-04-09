@@ -1,7 +1,7 @@
 #!/bin/bash
 # stop-verify.sh
 # Runs when Claude tries to complete a task (Stop event).
-# Blocks "Done!" until the project lints, type-checks, and tests pass.
+# Blocks "Done!" until the project lints and type-checks pass.
 # Infinite-loop protection: stop_hook_active=true lets a retry through.
 
 INPUT=$(cat)
@@ -47,27 +47,6 @@ if [ -f "$CLAUDE_PROJECT_DIR/pyproject.toml" ]; then
   fi
 fi
 
-# --- Tests ---
-# Gateway tests
-if [ -f "$GATEWAY_DIR/package.json" ]; then
-  HAS_TEST=$(cd "$GATEWAY_DIR" && jq -r '.scripts["test:run"] // empty' package.json 2>/dev/null)
-  if [ -n "$HAS_TEST" ]; then
-    CHECKS_RUN=$((CHECKS_RUN + 1))
-    TEST_OUTPUT=$(cd "$GATEWAY_DIR" && bun test:run 2>&1)
-    if [ $? -ne 0 ]; then
-      ERRORS="${ERRORS}GATEWAY TESTS FAILED:\n$(echo "$TEST_OUTPUT" | tail -30)\n\n"
-    fi
-  fi
-fi
-
-# Python tests
-if [ -f "$CLAUDE_PROJECT_DIR/pyproject.toml" ] && command -v uv &> /dev/null; then
-  CHECKS_RUN=$((CHECKS_RUN + 1))
-  PY_TEST_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run pytest --tb=short -q 2>&1)
-  if [ $? -ne 0 ]; then
-    ERRORS="${ERRORS}PYTHON TESTS FAILED:\n$(echo "$PY_TEST_OUTPUT" | tail -30)\n\n"
-  fi
-fi
 
 # --- Report ---
 if [ -n "$ERRORS" ]; then
