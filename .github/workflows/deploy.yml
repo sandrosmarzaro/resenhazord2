@@ -113,7 +113,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: ghcr.io/sandrosmarzaro/resenhazord2-python:latest
+          tags: ghcr.io/sandrosmarzaro/resenhazord2:python
           cache-from: type=gha,scope=py
           cache-to: type=gha,mode=max,scope=py
 
