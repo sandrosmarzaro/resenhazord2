@@ -19,6 +19,7 @@ dependencies = [
     "yt-dlp>=2025.1.0",
     "discord-py>=2.4.0",
     "pynacl>=1.6.2",
+    "mcp>=1.0.0",
 ]
 
 [dependency-groups]
