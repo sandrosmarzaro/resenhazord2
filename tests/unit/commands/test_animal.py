@@ -5,7 +5,6 @@ import pytest
 
 from bot.domain.commands.animal import AnimalCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
-from tests.conftest import wiki_route, translate_route, wiki_image_route as image_route
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 

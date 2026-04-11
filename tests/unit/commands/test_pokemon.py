@@ -5,7 +5,6 @@ import pytest
 
 from bot.domain.commands.pokemon import PokemonCommand
 from bot.domain.models.message import ImageBufferContent
-from tests.conftest import pokemon_api_route as pokemon_route, pokemon_image_route as image_route
 from tests.factories.command_data import GroupCommandDataFactory
 
 

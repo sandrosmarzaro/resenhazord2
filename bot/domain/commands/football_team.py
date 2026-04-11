@@ -224,7 +224,9 @@ class FootballTeamCommand(Command):
             zip(flag_emojis, badge_images, strict=False)
         )
         total_value = _sum_market_values(ordered)
-        field_image = build_football_field(photos_ordered, names, formation, overlays, total_value)
+        field_image = await asyncio.to_thread(
+            build_football_field, photos_ordered, names, formation, overlays, total_value
+        )
 
         caption = f'⚽ *Escalação Aleatória* — {formation.name}'
         if total_value:
