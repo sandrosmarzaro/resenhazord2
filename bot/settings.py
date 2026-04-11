@@ -38,4 +38,7 @@ class Settings(BaseSettings):
     twitch_client_secret: str = ''
     rawg_api_key: str = ''
 
+    # OP.GG MCP
+    opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
+
     model_config = {'env_file': '.env', 'extra': 'ignore'}
