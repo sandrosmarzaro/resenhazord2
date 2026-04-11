@@ -146,11 +146,8 @@ class FootballTeamCommand(Command):
         founded = ts_team.founded if ts_team else ''
         name = ts_team.name if ts_team else club.name
         title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
-
-        head = f'\n{league.flag} {country}' if league else f'\n🌍 {country}'
-        if founded:
-            head += f'   📅 {founded}'
-        lines = [title, head]
+        flag = league.flag if league else '🌍'
+        lines = [title, self._format_head_line(flag, country, founded)]
         if ts_team and ts_team.stadium:
             lines.append(f'🏟️ {ts_team.stadium}')
             if ts_team.capacity:
@@ -289,6 +286,13 @@ class FootballTeamCommand(Command):
         return lines
 
     @staticmethod
+    def _format_head_line(flag: str, country: str, founded: str) -> str:
+        line = f'\n{flag} {country}' if country else f'\n{flag}'
+        if founded:
+            line += f'   📅 {founded}'
+        return line
+
+    @staticmethod
     def _stadium_lines(sports_team: SportsDBTeam | None) -> list[str]:
         if not sports_team or not sports_team.stadium:
             return []
@@ -308,10 +312,10 @@ class FootballTeamCommand(Command):
     ) -> str:
         country = sports_team.country if sports_team else league.country
         founded = sports_team.founded if sports_team else ''
-        head_line = f'\n{league.flag} {country}' if country else f'\n{league.flag}'
-        if founded:
-            head_line += f'   📅 {founded}'
-        lines = [f'*{club.name}* — {league.name}', head_line]
+        lines = [
+            f'*{club.name}* — {league.name}',
+            FootballTeamCommand._format_head_line(league.flag, country, founded),
+        ]
         lines.extend(FootballTeamCommand._stadium_lines(sports_team))
         if rank:
             lines.append(f'📊 {rank}º na tabela')

@@ -411,3 +411,26 @@ class TestBuildTeamCaption:
         caption = FootballTeamCommand._build_team_caption(club, None, _LEAGUE, rank=None)
 
         assert 'tabela' not in caption
+
+
+class TestFormatHeadLine:
+    def test_includes_flag_and_country(self):
+        result = FootballTeamCommand._format_head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '')
+
+        assert '🏴󠁧󠁢󠁥󠁮󠁧󠁿' in result
+        assert 'England' in result
+
+    def test_includes_founded_when_provided(self):
+        result = FootballTeamCommand._format_head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '1992')
+
+        assert '1992' in result
+
+    def test_omits_country_when_empty(self):
+        result = FootballTeamCommand._format_head_line('🌍', '', '')
+
+        assert result == '\n🌍'
+
+    def test_no_founded_when_empty(self):
+        result = FootballTeamCommand._format_head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '')
+
+        assert '📅' not in result
