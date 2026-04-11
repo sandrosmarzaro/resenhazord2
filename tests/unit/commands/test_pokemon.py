@@ -73,7 +73,7 @@ class TestMatches:
 
 class TestSinglePokemon:
     @pytest.mark.anyio
-    async def test_returns_image_buffer(self, command, pokemon_route, image_route):
+    async def test_returns_image_buffer(self, command, pokemon_route, pokemon_image_route):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=TestPokemon.MOCK_POKEMON))
         messages = await command.run(data)
@@ -82,16 +82,18 @@ class TestSinglePokemon:
         assert isinstance(messages[0].content, ImageBufferContent)
 
     @pytest.mark.anyio
-    async def test_downloads_official_artwork(self, command, pokemon_route, image_route):
+    async def test_downloads_official_artwork(self, command, pokemon_route, pokemon_image_route):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=TestPokemon.MOCK_POKEMON))
         await command.run(data)
 
-        request = image_route.calls.last.request
+        request = pokemon_image_route.calls.last.request
         assert 'official-artwork' in str(request.url)
 
     @pytest.mark.anyio
-    async def test_caption_contains_name_type_dex(self, command, pokemon_route, image_route):
+    async def test_caption_contains_name_type_dex(
+        self, command, pokemon_route, pokemon_image_route
+    ):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=TestPokemon.MOCK_POKEMON))
         messages = await command.run(data)
@@ -103,7 +105,7 @@ class TestSinglePokemon:
 
     @pytest.mark.anyio
     async def test_fallback_to_front_default_when_no_artwork(
-        self, command, pokemon_route, image_route
+        self, command, pokemon_route, pokemon_image_route
     ):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(
@@ -111,11 +113,11 @@ class TestSinglePokemon:
         )
         await command.run(data)
 
-        request = image_route.calls.last.request
+        request = pokemon_image_route.calls.last.request
         assert str(request.url) == TestPokemon.MOCK_POKEMON_NO_ARTWORK['sprites']['front_default']
 
     @pytest.mark.anyio
-    async def test_view_once_true_by_default(self, command, pokemon_route, image_route):
+    async def test_view_once_true_by_default(self, command, pokemon_route, pokemon_image_route):
         data = GroupCommandDataFactory.build(text=',pokémon')
         pokemon_route.mock(return_value=httpx.Response(200, json=TestPokemon.MOCK_POKEMON))
         messages = await command.run(data)
@@ -123,7 +125,7 @@ class TestSinglePokemon:
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command, pokemon_route, image_route):
+    async def test_show_flag_disables_view_once(self, command, pokemon_route, pokemon_image_route):
         data = GroupCommandDataFactory.build(text=',pokémon show')
         pokemon_route.mock(return_value=httpx.Response(200, json=TestPokemon.MOCK_POKEMON))
         messages = await command.run(data)
@@ -131,7 +133,7 @@ class TestSinglePokemon:
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_dm_flag_redirects_jid(self, command, pokemon_route, image_route):
+    async def test_dm_flag_redirects_jid(self, command, pokemon_route, pokemon_image_route):
         data = GroupCommandDataFactory.build(text=',pokémon dm')
         pokemon_route.mock(return_value=httpx.Response(200, json=TestPokemon.MOCK_POKEMON))
         messages = await command.run(data)

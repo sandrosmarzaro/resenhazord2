@@ -104,6 +104,13 @@ def wiki_image_route(respx_mock):
 
 
 @pytest.fixture
+def image_route(respx_mock):
+    route = respx_mock.get(url__startswith='https://upload.wikimedia.org/')
+    route.mock(return_value=httpx.Response(200, content=b'fake-image'))
+    return route
+
+
+@pytest.fixture
 def translate_route(respx_mock):
     return respx_mock.get(
         url__startswith='https://translate.googleapis.com/translate_a/single'
@@ -138,6 +145,11 @@ def make_group_participants(
 @pytest.fixture
 def pokemon_api_route(respx_mock):
     return respx_mock.get(url__startswith='https://pokeapi.co/api/v2/pokemon/')
+
+
+@pytest.fixture
+def pokemon_route(pokemon_api_route):
+    return pokemon_api_route
 
 
 @pytest.fixture
