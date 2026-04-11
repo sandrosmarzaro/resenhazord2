@@ -22,6 +22,7 @@ _PORTRAIT_SIZE_RE = re.compile(r'/portrait/(?:small|medium|header)/')
 _VEREIN_ID_RE = re.compile(r'/verein/(\d+)')
 _WETTBEWERB_ID_RE = re.compile(r'/wettbewerb/([A-Z0-9]+)(?:$|[/?])')
 _FOREIGNERS_RE = re.compile(r'(\d+)\s*\((\d+)%\)?')
+_VALUE_RE = re.compile(r'€\s*([\d.,]+)\s*(mi\.|mil\.)')
 _AGE_MIN = 15
 _AGE_MAX = 45
 
@@ -296,6 +297,33 @@ class TransfermarktService:
         'RW': ('Sturm', (12,)),
         'ST': ('Sturm', (13, 14)),  # second striker + centre-forward
     }
+
+    @staticmethod
+    def parse_market_value_millions(value_str: str) -> float:
+        """Parse a TM market-value string like '€ 20,00 mi.' into a float (millions)."""
+        m = _VALUE_RE.search(value_str)
+        if not m:
+            return 0.0
+        number_str = m.group(1).replace('.', '').replace(',', '.')
+        try:
+            number = float(number_str)
+        except ValueError:
+            return 0.0
+        return number / 1000 if m.group(2) == 'mil.' else number
+
+    @staticmethod
+    def sum_market_values(players: list['TmPlayer | None']) -> str | None:
+        """Return a formatted total market value string, or None if the sum is zero."""
+        total = sum(
+            TransfermarktService.parse_market_value_millions(p.market_value)
+            for p in players
+            if p and p.market_value
+        )
+        if total <= 0:
+            return None
+        us = f'{total:,.2f}'
+        br = us.replace(',', 'X').replace('.', ',').replace('X', '.')
+        return f'€ {br} mi.'
 
     @classmethod
     async def fetch_league_full_squad(cls, league: LeagueInfo) -> list[TmPlayer]:

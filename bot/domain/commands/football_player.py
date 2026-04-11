@@ -23,21 +23,20 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-# Portuguese and English label keys from Transfermarkt player profile
-_FOOT_KEYS = ('Pé', 'Foot')
-_HEIGHT_KEYS = ('Altura', 'Height')
-_OTHER_POS_KEYS = (
-    'Posições secundárias',
-    'Posição secundária',
-    'Other positions',
-    'Other position',
-    'Secondary positions',
-)
-_BORN_COUNTRY_KEYS = ('País de nascimento', 'Country of birth')
-_BORN_CITY_KEYS = ('Local de nascimento', 'Place of birth')
-
 
 class FootballPlayerCommand(Command):
+    _FOOT_KEYS = ('Pé', 'Foot')
+    _HEIGHT_KEYS = ('Altura', 'Height')
+    _OTHER_POS_KEYS = (
+        'Posições secundárias',
+        'Posição secundária',
+        'Other positions',
+        'Other position',
+        'Secondary positions',
+    )
+    _BORN_COUNTRY_KEYS = ('País de nascimento', 'Country of birth')
+    _BORN_CITY_KEYS = ('Local de nascimento', 'Place of birth')
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -103,15 +102,17 @@ class FootballPlayerCommand(Command):
         buffer = await HttpClient.get_buffer(player.photo_url, headers=TransfermarktService.HEADERS)
         return [Reply.to(data).image_buffer(buffer, caption)]
 
-    @staticmethod
-    def _build_caption(player: TmPlayer, league: LeagueInfo | None, details: dict[str, str]) -> str:
+    @classmethod
+    def _build_caption(
+        cls, player: TmPlayer, league: LeagueInfo | None, details: dict[str, str]
+    ) -> str:
         club_flag = league.flag if league else ''
 
-        foot = next((details[k] for k in _FOOT_KEYS if k in details), '').capitalize()
-        height = next((details[k] for k in _HEIGHT_KEYS if k in details), '')
-        other_pos = next((details[k] for k in _OTHER_POS_KEYS if k in details), '')
-        born_country = next((details[k] for k in _BORN_COUNTRY_KEYS if k in details), '')
-        born_city = next((details[k] for k in _BORN_CITY_KEYS if k in details), '')
+        foot = next((details[k] for k in cls._FOOT_KEYS if k in details), '').capitalize()
+        height = next((details[k] for k in cls._HEIGHT_KEYS if k in details), '')
+        other_pos = next((details[k] for k in cls._OTHER_POS_KEYS if k in details), '')
+        born_country = next((details[k] for k in cls._BORN_COUNTRY_KEYS if k in details), '')
+        born_city = next((details[k] for k in cls._BORN_CITY_KEYS if k in details), '')
 
         lines = [
             f'*{player.name}* — {player.position}',

@@ -2,10 +2,7 @@
 
 import asyncio
 import contextlib
-import difflib
 import random
-import re
-from typing import ClassVar
 
 import anyio
 import structlog
@@ -40,31 +37,6 @@ from bot.domain.services.transfermarkt import (
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
-
-_VALUE_RE = re.compile(r'€\s*([\d.,]+)\s*(mi\.|mil\.)')
-
-
-def _parse_market_value_millions(value_str: str) -> float:
-    m = _VALUE_RE.search(value_str)
-    if not m:
-        return 0.0
-    number_str = m.group(1).replace('.', '').replace(',', '.')
-    try:
-        number = float(number_str)
-    except ValueError:
-        return 0.0
-    return number / 1000 if m.group(2) == 'mil.' else number
-
-
-def _sum_market_values(players: list[TmPlayer | None]) -> str | None:
-    total = sum(
-        _parse_market_value_millions(p.market_value) for p in players if p and p.market_value
-    )
-    if total <= 0:
-        return None
-    us = f'{total:,.2f}'
-    br = us.replace(',', 'X').replace('.', ',').replace('X', '.')
-    return f'€ {br} mi.'
 
 
 class FootballTeamCommand(Command):
@@ -120,7 +92,7 @@ class FootballTeamCommand(Command):
 
         club = random.choice(clubs)  # noqa: S311
         rank = standings.get(club.club_id)
-        sports_team = self._find_sports_team(club.name, sports_teams)
+        sports_team = TheSportsDBService.find_best_match(club.name, sports_teams)
         caption = self._build_team_caption(club, sports_team, league, rank, global_rank=None)
 
         buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
@@ -147,11 +119,10 @@ class FootballTeamCommand(Command):
 
         club = squad_values.get(top_club.club_id)
         if club is None:
-            # Fall back to minimal caption using the global-top row only.
             return await self._global_top_bare(data, top_club, league=league)
 
         rank = standings.get(club.club_id)
-        sports_team = self._find_sports_team(club.name, sports_teams)
+        sports_team = TheSportsDBService.find_best_match(club.name, sports_teams)
         caption = self._build_team_caption(
             club, sports_team, league, rank, global_rank=top_club.rank
         )
@@ -198,7 +169,6 @@ class FootballTeamCommand(Command):
         top_str = parsed.options.get('top', '')
 
         if league:
-            # topXXX is a no-op with a league — league pool is already small
             all_players = await TransfermarktService.fetch_league_full_squad(league)
             ordered = self._pick_lineup_league(all_players, formation)
         else:
@@ -214,6 +184,7 @@ class FootballTeamCommand(Command):
                     ),
                 )
             ordered = await self._build_lineup_by_position(formation, max_pages, top_n)
+
         photos_ordered, badge_images = await self._fetch_assets(ordered)
 
         names = [p.name if p else '' for p in ordered]
@@ -223,7 +194,7 @@ class FootballTeamCommand(Command):
         overlays: list[tuple[str | None, bytes | None]] = list(
             zip(flag_emojis, badge_images, strict=False)
         )
-        total_value = _sum_market_values(ordered)
+        total_value = TransfermarktService.sum_market_values(ordered)
         field_image = await asyncio.to_thread(
             build_football_field, photos_ordered, names, formation, overlays, total_value
         )
@@ -249,57 +220,14 @@ class FootballTeamCommand(Command):
         )
         role_pools: dict[str, list[TmPlayer]] = {}
         for role, players in zip(distinct_roles, results, strict=True):
-            # When topXXX is set, restrict each role pool to the top_n entries by ranking.
             pool = list(players[:top_n]) if top_n else list(players)
             random.shuffle(pool)
             role_pools[role] = pool
 
-        ordered: list[TmPlayer | None] = [None] * len(formation.slots)
-        used: set[str] = set()
-
-        # Fill scarce slots first so rare roles don't lose to greedy fallbacks.
-        scarcity_order = {'LB': 0, 'RB': 0, 'LW': 0, 'RW': 0, 'AM': 1, 'DM': 1, 'GK': 2}
-        slot_order = sorted(
-            range(len(formation.slots)),
-            key=lambda i: scarcity_order.get(slot_specific[i], 3),
-        )
-
-        for i in slot_order:
-            specific = slot_specific[i]
-            pool = role_pools.get(specific, [])
-            player = next((p for p in pool if p.name not in used), None)
-            if not player:
-                group = ROLE_GROUPS.get(specific, formation.slots[i].role)
-                for other_role, other_pool in role_pools.items():
-                    if ROLE_GROUPS.get(other_role) != group:
-                        continue
-                    player = next((p for p in other_pool if p.name not in used), None)
-                    if player:
-                        break
-            if player:
-                used.add(player.name)
-            ordered[i] = player
-        return ordered
-
-    @staticmethod
-    async def _fetch_league_players(league: LeagueInfo) -> list[TmPlayer]:
-        pages = list(range(1, TransfermarktService.LEAGUE_MAX_PAGES + 1))
-        results = await asyncio.gather(
-            *[TransfermarktService.fetch_page(page, league) for page in pages]
-        )
-        seen: set[str] = set()
-        all_players: list[TmPlayer] = []
-        for players in results:
-            for p in players:
-                if p.name not in seen:
-                    seen.add(p.name)
-                    all_players.append(p)
-        random.shuffle(all_players)
-        return all_players
+        return _assign_slots(slot_specific, role_pools, formation)
 
     @staticmethod
     def _pick_lineup_league(players: list[TmPlayer], formation: Formation) -> list[TmPlayer | None]:
-        # Group players by specific role (CB/LB/RB/DM/CM/AM/LW/ST/RW/GK)
         specific_pools: dict[str, list[TmPlayer]] = {}
         for p in players:
             role = TransfermarktService.POSITION_ROLES.get(p.position)
@@ -308,35 +236,7 @@ class FootballTeamCommand(Command):
         for pool in specific_pools.values():
             random.shuffle(pool)
 
-        slot_specific = specific_roles(formation)
-        used: set[str] = set()
-        ordered: list[TmPlayer | None] = [None] * len(formation.slots)
-
-        # Order slots by specificity scarcity: rarer specific roles first (LB/RB/AM/DM)
-        # to avoid greedy CMs/CBs eating fullbacks/wingers fallback budget.
-        scarcity_order = {'LB': 0, 'RB': 0, 'LW': 0, 'RW': 0, 'AM': 1, 'DM': 1, 'GK': 2}
-        slot_order = sorted(
-            range(len(formation.slots)),
-            key=lambda i: scarcity_order.get(slot_specific[i], 3),
-        )
-
-        for i in slot_order:
-            specific = slot_specific[i]
-            group = ROLE_GROUPS.get(specific, formation.slots[i].role)
-            # Try exact specific match first
-            player = next((p for p in specific_pools.get(specific, []) if p.name not in used), None)
-            if not player:
-                # Fallback to any player whose specific role is in the same group
-                for role, pool in specific_pools.items():
-                    if ROLE_GROUPS.get(role) != group:
-                        continue
-                    player = next((p for p in pool if p.name not in used), None)
-                    if player:
-                        break
-            if player:
-                used.add(player.name)
-            ordered[i] = player
-        return ordered
+        return _assign_slots(specific_roles(formation), specific_pools, formation)
 
     @staticmethod
     async def _fetch_assets(
@@ -363,62 +263,6 @@ class FootballTeamCommand(Command):
                     tg.start_soon(_fetch_player, i, player)
 
         return photos, badges
-
-    _SPORTSDB_MATCH_MIN_JACCARD = 0.25
-    _SUBSTRING_MIN_LEN = 4
-    _CLUB_PREFIXES: ClassVar[frozenset[str]] = frozenset({
-        'fc', 'ac', 'ca', 'cd', 'cs', 'sc', 'se', 'sg', 'ec', 'cr', 'rb', 'vfb',
-        'afc', 'rcd', 'aj', 'as', 'ogc', 'ssc', 'us', 'club', 'clube', 'cf', 'sd',
-        'sv', 'sk', 'stade', 'hellas', 'sport',
-    })  # fmt: skip
-
-    @staticmethod
-    def _name_tokens(name: str) -> set[str]:
-        raw = name.lower().replace('.', ' ').replace('-', ' ')
-        tokens = {t for t in raw.split() if t}
-        filtered = tokens - FootballTeamCommand._CLUB_PREFIXES
-        return filtered or tokens
-
-    @staticmethod
-    def _token_substring_hit(tm_tokens: set[str], t_tokens: set[str]) -> bool:
-        min_len = FootballTeamCommand._SUBSTRING_MIN_LEN
-        for a in tm_tokens:
-            if len(a) < min_len:
-                continue
-            for b in t_tokens:
-                if len(b) < min_len:
-                    continue
-                if a.startswith(b) or b.startswith(a):
-                    return True
-        return False
-
-    @staticmethod
-    def _find_sports_team(tm_name: str, sports_teams: list[SportsDBTeam]) -> SportsDBTeam | None:
-        """Best-effort match of a TM club name against SportsDB teams for enrichment."""
-        if not sports_teams:
-            return None
-        tm_tokens = FootballTeamCommand._name_tokens(tm_name)
-        if not tm_tokens:
-            return None
-        best: SportsDBTeam | None = None
-        best_jaccard = 0.0
-        best_ratio = 0.0
-        for t in sports_teams:
-            t_tokens = FootballTeamCommand._name_tokens(t.name)
-            if not t_tokens:
-                continue
-            union = len(tm_tokens | t_tokens)
-            jaccard = len(tm_tokens & t_tokens) / union if union else 0.0
-            if jaccard == 0 and FootballTeamCommand._token_substring_hit(tm_tokens, t_tokens):
-                jaccard = FootballTeamCommand._SPORTSDB_MATCH_MIN_JACCARD
-            ratio = difflib.SequenceMatcher(None, tm_name.lower(), t.name.lower()).ratio()
-            if jaccard > best_jaccard or (jaccard == best_jaccard and ratio > best_ratio):
-                best = t
-                best_jaccard = jaccard
-                best_ratio = ratio
-        if best_jaccard < FootballTeamCommand._SPORTSDB_MATCH_MIN_JACCARD:
-            return None
-        return best
 
     @staticmethod
     def _format_capacity(raw: str) -> str:
@@ -475,3 +319,43 @@ class FootballTeamCommand(Command):
             lines.append(f'🏆 #{global_rank}º mais valioso do mundo')
         lines.extend(FootballTeamCommand._squad_lines(club))
         return '\n'.join(lines)
+
+
+_SCARCITY_ORDER: dict[str, int] = {
+    'LB': 0, 'RB': 0, 'LW': 0, 'RW': 0,
+    'AM': 1, 'DM': 1,
+    'GK': 2,
+}  # fmt: skip
+
+
+def _assign_slots(
+    slot_specific: list[str],
+    role_pools: dict[str, list[TmPlayer]],
+    formation: Formation,
+) -> list[TmPlayer | None]:
+    """Fill formation slots from role_pools, scarcest roles first, with group fallback."""
+    ordered: list[TmPlayer | None] = [None] * len(formation.slots)
+    used: set[str] = set()
+
+    slot_order = sorted(
+        range(len(formation.slots)),
+        key=lambda i: _SCARCITY_ORDER.get(slot_specific[i], 3),
+    )
+
+    for i in slot_order:
+        specific = slot_specific[i]
+        pool = role_pools.get(specific, [])
+        player = next((p for p in pool if p.name not in used), None)
+        if not player:
+            group = ROLE_GROUPS.get(specific, formation.slots[i].role)
+            for other_role, other_pool in role_pools.items():
+                if ROLE_GROUPS.get(other_role) != group:
+                    continue
+                player = next((p for p in other_pool if p.name not in used), None)
+                if player:
+                    break
+        if player:
+            used.add(player.name)
+        ordered[i] = player
+
+    return ordered
