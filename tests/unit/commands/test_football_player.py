@@ -131,11 +131,8 @@ class TestExecute:
 class TestWithLiga:
     @pytest.mark.anyio
     async def test_passes_league_to_fetch_page(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_page',
-            new=mocker.AsyncMock(return_value=[_make_player()]),
-        )
+        mock_fetch = mocker.AsyncMock(return_value=[_make_player()])
+        mocker.patch.object(TransfermarktService, 'fetch_page', new=mock_fetch)
         mocker.patch.object(
             TransfermarktService,
             'fetch_player_profile',
@@ -146,18 +143,15 @@ class TestWithLiga:
         data = GroupCommandDataFactory.build(text=',jogador pl')
         await command.run(data)
 
-        call_args = TransfermarktService.fetch_page.call_args
+        call_args = mock_fetch.call_args
         assert call_args.args[1] == _LEAGUE
 
 
 class TestWithTop:
     @pytest.mark.anyio
     async def test_limits_pages_based_on_top_n(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_page',
-            new=mocker.AsyncMock(return_value=[_make_player()]),
-        )
+        mock_fetch = mocker.AsyncMock(return_value=[_make_player()])
+        mocker.patch.object(TransfermarktService, 'fetch_page', new=mock_fetch)
         mocker.patch.object(
             TransfermarktService,
             'fetch_player_profile',
@@ -169,7 +163,7 @@ class TestWithTop:
         data = GroupCommandDataFactory.build(text=',jogador top25')
         await command.run(data)
 
-        TransfermarktService.fetch_page.assert_called_once_with(1, None)
+        mock_fetch.assert_called_once_with(1, None)
 
     @pytest.mark.anyio
     async def test_trims_last_page_to_top_n(self, command, mocker):

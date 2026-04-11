@@ -34,7 +34,7 @@ class TestBuildFootballField:
         assert len(result) > 0
 
     def test_accepts_overlays(self):
-        overlays = [(None, None)] * _N
+        overlays: list[tuple[str | None, bytes | None]] = [(None, None)] * _N
 
         result = build_football_field([None] * _N, [''] * _N, _FORMATION, overlays=overlays)
 

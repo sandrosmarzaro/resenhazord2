@@ -221,11 +221,8 @@ class TestRandomTeamWithLiga:
 
     @pytest.mark.anyio
     async def test_passes_league_to_services(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_squad_values',
-            new=mocker.AsyncMock(return_value={'281': _make_squad_stats()}),
-        )
+        mock_fetch_squad = mocker.AsyncMock(return_value={'281': _make_squad_stats()})
+        mocker.patch.object(TransfermarktService, 'fetch_squad_values', new=mock_fetch_squad)
         mocker.patch.object(
             TransfermarktService,
             'fetch_standings',
@@ -244,7 +241,7 @@ class TestRandomTeamWithLiga:
         data = GroupCommandDataFactory.build(text=',time pl')
         await command.run(data)
 
-        TransfermarktService.fetch_squad_values.assert_called_once_with(_LEAGUE)
+        mock_fetch_squad.assert_called_once_with(_LEAGUE)
 
 
 class TestGlobalTopTeam:
