@@ -1,25 +1,12 @@
 import pytest
 
-from bot.domain.commands.ban import BanCommand
+from tests.conftest import make_group_participants
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 
 @pytest.fixture
-def command(mock_whatsapp):
-    return BanCommand(bot_jid='5500000000000@s.whatsapp.net', whatsapp=mock_whatsapp)
-
-
-def _make_participants(*jids, bot_admin=True, owner=None, owner_admin=False):
-    bot_jid = '5500000000000@s.whatsapp.net'
-    participants = []
-    for jid in jids:
-        entry = {'id': jid, 'admin': None}
-        if jid == bot_jid and bot_admin:
-            entry['admin'] = 'admin'
-        if jid == owner and owner_admin:
-            entry['admin'] = 'admin'
-        participants.append(entry)
-    return {'participants': participants, 'owner': owner}
+def command(ban_command_instance):
+    return ban_command_instance
 
 
 class TestMatches:
@@ -52,7 +39,7 @@ class TestBotNotAdmin:
 
     @pytest.mark.anyio
     async def test_bot_not_admin(self, command, mock_whatsapp):
-        mock_whatsapp.group_metadata.return_value = _make_participants(
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
             self.BOT_JID, '5511999990001@s.whatsapp.net', bot_admin=False
         )
         data = GroupCommandDataFactory.build(text=',ban', jid=self.CHAT_JID)
@@ -70,7 +57,9 @@ class TestBanRandom:
     @pytest.mark.anyio
     async def test_bans_random_participant(self, command, mock_whatsapp):
         target_jid = '5511999990001@s.whatsapp.net'
-        mock_whatsapp.group_metadata.return_value = _make_participants(self.BOT_JID, target_jid)
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
+            self.BOT_JID, target_jid
+        )
         data = GroupCommandDataFactory.build(text=',ban', jid=self.CHAT_JID)
 
         messages = await command.run(data)
@@ -85,7 +74,7 @@ class TestBanRandom:
     @pytest.mark.anyio
     async def test_skips_bot_and_owner(self, command, mock_whatsapp):
         target_jid = '5511999990001@s.whatsapp.net'
-        mock_whatsapp.group_metadata.return_value = _make_participants(
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
             self.BOT_JID, self.OWNER_JID, target_jid, owner=self.OWNER_JID
         )
         data = GroupCommandDataFactory.build(text=',ban', jid=self.CHAT_JID)
@@ -107,7 +96,7 @@ class TestBanMentioned:
     async def test_bans_mentioned_participants(self, command, mock_whatsapp):
         target1 = '5511999990001@s.whatsapp.net'
         target2 = '5511999990002@s.whatsapp.net'
-        mock_whatsapp.group_metadata.return_value = _make_participants(
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
             self.BOT_JID, target1, target2
         )
         data = GroupCommandDataFactory.build(
@@ -123,7 +112,7 @@ class TestBanMentioned:
 
     @pytest.mark.anyio
     async def test_skips_bot_in_mentioned(self, command, mock_whatsapp):
-        mock_whatsapp.group_metadata.return_value = _make_participants(self.BOT_JID)
+        mock_whatsapp.group_metadata.return_value = make_group_participants(self.BOT_JID)
         data = GroupCommandDataFactory.build(
             text=',ban @5500000000000',
             jid=self.CHAT_JID,
@@ -137,7 +126,7 @@ class TestBanMentioned:
 
     @pytest.mark.anyio
     async def test_skips_admin_owner_in_mentioned(self, command, mock_whatsapp):
-        mock_whatsapp.group_metadata.return_value = _make_participants(
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
             self.BOT_JID, self.OWNER_JID, owner=self.OWNER_JID, owner_admin=True
         )
         data = GroupCommandDataFactory.build(
@@ -153,7 +142,7 @@ class TestBanMentioned:
 
     @pytest.mark.anyio
     async def test_allows_non_admin_owner_in_mentioned(self, command, mock_whatsapp):
-        mock_whatsapp.group_metadata.return_value = _make_participants(
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
             self.BOT_JID, self.OWNER_JID, owner=self.OWNER_JID, owner_admin=False
         )
         data = GroupCommandDataFactory.build(
@@ -170,7 +159,7 @@ class TestBanMentioned:
     @pytest.mark.anyio
     async def test_strips_jid_suffix(self, command, mock_whatsapp):
         target = '5511999990001@lid'
-        mock_whatsapp.group_metadata.return_value = _make_participants(self.BOT_JID, target)
+        mock_whatsapp.group_metadata.return_value = make_group_participants(self.BOT_JID, target)
         data = GroupCommandDataFactory.build(
             text=',ban @5511999990001',
             jid=self.CHAT_JID,
@@ -189,7 +178,9 @@ class TestBanError:
     @pytest.mark.anyio
     async def test_random_ban_error(self, command, mock_whatsapp):
         target_jid = '5511999990001@s.whatsapp.net'
-        mock_whatsapp.group_metadata.return_value = _make_participants(self.BOT_JID, target_jid)
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
+            self.BOT_JID, target_jid
+        )
         mock_whatsapp.group_participants_update.side_effect = Exception('API error')
         data = GroupCommandDataFactory.build(text=',ban', jid=self.CHAT_JID)
 
@@ -202,7 +193,7 @@ class TestBanError:
     async def test_mentioned_ban_error_continues(self, command, mock_whatsapp):
         target1 = '5511999990001@s.whatsapp.net'
         target2 = '5511999990002@s.whatsapp.net'
-        mock_whatsapp.group_metadata.return_value = _make_participants(
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
             self.BOT_JID, target1, target2
         )
         mock_whatsapp.group_participants_update.side_effect = [

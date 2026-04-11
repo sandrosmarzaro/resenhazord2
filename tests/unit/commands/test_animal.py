@@ -5,31 +5,13 @@ import pytest
 
 from bot.domain.commands.animal import AnimalCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
+from tests.conftest import wiki_route, translate_route, wiki_image_route as image_route
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 
 @pytest.fixture
 def command():
     return AnimalCommand()
-
-
-@pytest.fixture
-def wiki_route(respx_mock):
-    return respx_mock.get(url__startswith='https://en.wikipedia.org/api/rest_v1/page/summary/')
-
-
-@pytest.fixture
-def image_route(respx_mock):
-    return respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
-        return_value=httpx.Response(200, content=b'fake-image')
-    )
-
-
-@pytest.fixture
-def translate_route(respx_mock):
-    return respx_mock.get(
-        url__startswith='https://translate.googleapis.com/translate_a/single'
-    ).mock(return_value=httpx.Response(200, json=[[['Texto traduzido.', 'original']]]))
 
 
 class TestMatches:
