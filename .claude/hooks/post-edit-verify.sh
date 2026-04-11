@@ -27,6 +27,12 @@ if echo "$FILE_PATH" | grep -qE '\.(ts|tsx|js|jsx)$'; then
       ERRORS="${ERRORS}eslint errors in ${FILE_PATH}:\n${ESLINT_OUTPUT}\n\n"
     fi
   fi
+  if [ -f "$GATEWAY_DIR/package.json" ] && grep -q '"prettier"' "$GATEWAY_DIR/package.json"; then
+    PRETTIER_OUTPUT=$(cd "$GATEWAY_DIR" && bun prettier --check "$FILE_PATH" 2>&1)
+    if [ $? -ne 0 ]; then
+      ERRORS="${ERRORS}prettier errors in ${FILE_PATH}:\n${PRETTIER_OUTPUT}\n\n"
+    fi
+  fi
 fi
 
 # --- Python (root) ---
@@ -35,6 +41,10 @@ if echo "$FILE_PATH" | grep -qE '\.py$'; then
   RUFF_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run ruff check "$FILE_PATH" 2>&1)
   if [ $? -ne 0 ]; then
     ERRORS="${ERRORS}ruff errors in ${FILE_PATH}:\n${RUFF_OUTPUT}\n\n"
+  fi
+  RUFF_FORMAT_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run ruff format --check "$FILE_PATH" 2>&1)
+  if [ $? -ne 0 ]; then
+    ERRORS="${ERRORS}ruff format errors in ${FILE_PATH}:\n${RUFF_FORMAT_OUTPUT}\n\n"
   fi
 fi
 
