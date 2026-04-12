@@ -39,7 +39,7 @@ class PlayerRenderer:
         cy: int,
         overlays: tuple[str | None, bytes | None] | None = None,
     ) -> None:
-        r = self.cfg.PHOTO_DIAMETER // 2
+        r = self.cfg.player.photo_diameter // 2
         if photo_bytes:
             self._paste_photo(photo_bytes, cx, cy, r)
         else:
@@ -51,7 +51,7 @@ class PlayerRenderer:
         self._draw_name_label(name, cx, cy, r)
 
     def _paste_photo(self, photo_bytes: bytes, cx: int, cy: int, r: int) -> None:
-        d = self.cfg.PHOTO_DIAMETER
+        d = self.cfg.player.photo_diameter
         with contextlib.suppress(OSError, ValueError):
             photo = Image.open(io.BytesIO(photo_bytes)).convert('RGBA')
             photo = photo.resize((d, d), Resampling.LANCZOS)
@@ -68,8 +68,8 @@ class PlayerRenderer:
         cy: int,
         r: int,
     ) -> None:
-        ov_cy = cy + int(r * self.cfg.OVERLAY_CY_RATIO)
-        ov_offset_x = int(r * self.cfg.OVERLAY_OFFSET_X_RATIO)
+        ov_cy = cy + int(r * self.cfg.player.overlay_cy_ratio)
+        ov_offset_x = int(r * self.cfg.player.overlay_offset_x_ratio)
         flag_emoji, badge_image = overlays
         if flag_emoji:
             self._draw_flag_emoji(flag_emoji, cx - ov_offset_x, ov_cy)
@@ -79,7 +79,7 @@ class PlayerRenderer:
     def _draw_badge(self, img_bytes: bytes, cx: int, cy: int) -> None:
         with contextlib.suppress(Exception):
             img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
-            size = self.cfg.badge_size
+            size = self.cfg.player.badge_size
             ratio = min(size / img.width, size / img.height)
             new_w = max(1, int(img.width * ratio))
             new_h = max(1, int(img.height * ratio))
@@ -92,14 +92,14 @@ class PlayerRenderer:
         if not self.emoji_font:
             return
         with contextlib.suppress(Exception):
-            native = self.cfg.EMOJI_NATIVE_SIZE
+            native = self.cfg.player.emoji_native_size
             tmp = Image.new('RGBA', (native * 2, native * 2), (0, 0, 0, 0))
             ImageDraw.Draw(tmp).text((0, 0), emoji, font=self.emoji_font, embedded_color=True)
             bbox = tmp.getbbox()
             if not bbox:
                 return
             cropped = tmp.crop(bbox)
-            size = self.cfg.flag_size
+            size = self.cfg.player.flag_size
             ratio = min(size / cropped.width, size / cropped.height)
             new_w = max(1, int(cropped.width * ratio))
             new_h = max(1, int(cropped.height * ratio))
@@ -114,21 +114,21 @@ class PlayerRenderer:
         self.draw.ellipse(
             [cx - r, cy - r, cx + r, cy + r],
             fill='#1b5e20',
-            outline=self.cfg.LINE_COLOR,
+            outline=self.cfg.field.line_color,
             width=4,
         )
 
     def _draw_name_label(self, name: str, cx: int, cy: int, r: int) -> None:
-        short_name = shorten_name(name, self.cfg.NAME_MAX_LEN)
+        short_name = shorten_name(name, self.cfg.player.name_max_len)
         bbox = self.draw.textbbox((0, 0), short_name, font=self.font)
         tw = bbox[2] - bbox[0]
         label_y = cy + r + 6
         self.draw.text(
             (cx - tw // 2, label_y),
             short_name,
-            fill=self.cfg.LINE_COLOR,
+            fill=self.cfg.field.line_color,
             font=self.font,
-            stroke_width=self.cfg.STROKE_WIDTH,
+            stroke_width=self.cfg.player.stroke_width,
             stroke_fill='#000000',
         )
 
@@ -155,13 +155,13 @@ def build_football_field(
     total_value: str | None = None,
 ) -> bytes:
     cfg = DEFAULT_CONFIG
-    canvas = Image.new('RGB', (cfg.CANVAS_W, cfg.CANVAS_H), cfg.CANVAS_BG)
+    canvas = Image.new('RGB', (cfg.canvas.width, cfg.canvas.height), cfg.canvas.background)
     draw = ImageDraw.Draw(canvas)
     draw_field(draw, cfg)
     draw_formation_label(draw, formation.name, cfg)
 
-    font = load_font(cfg.FONT_PATHS, cfg.FONT_SIZE)
-    emoji_font = load_font_optional(cfg.EMOJI_FONT_PATHS, cfg.EMOJI_NATIVE_SIZE)
+    font = load_font(cfg.fonts.paths, cfg.player.font_size)
+    emoji_font = load_font_optional(cfg.fonts.emoji_paths, cfg.player.emoji_native_size)
     renderer = PlayerRenderer(canvas=canvas, draw=draw, font=font, cfg=cfg, emoji_font=emoji_font)
     for i, slot in enumerate(formation.slots):
         photo_bytes = photos[i] if i < len(photos) else None
