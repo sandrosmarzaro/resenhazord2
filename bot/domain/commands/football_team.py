@@ -22,7 +22,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer
 from bot.domain.models.message import BotMessage
-from bot.domain.services.football_field.player_renderer import build_football_field
+from bot.domain.services.football_field.build_field import build_football_field
 from bot.domain.services.lineup_builder import LineupBuilder
 from bot.domain.services.team_caption_builder import TeamCaptionBuilder
 from bot.domain.services.thesportsdb import TheSportsDBService

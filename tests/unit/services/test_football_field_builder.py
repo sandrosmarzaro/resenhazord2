@@ -4,11 +4,9 @@ import pytest
 from PIL import Image
 
 from bot.data.football_formations import FORMATIONS
+from bot.domain.services.football_field.build_field import build_football_field
 from bot.domain.services.football_field.field_config import field_xy
-from bot.domain.services.football_field.player_renderer import (
-    build_football_field,
-    shorten_name,
-)
+from bot.domain.services.football_field.player_renderer import shorten_name
 
 _FORMATION = FORMATIONS[0]
 _N = len(_FORMATION.slots)
