@@ -3,9 +3,10 @@ import pytest
 from bot.data.football import LEAGUES
 from bot.data.football_formations import FORMATIONS
 from bot.domain.commands.football_team import FootballTeamCommand
+from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer, TmSquadStats
 from bot.domain.models.message import ImageBufferContent
-from bot.domain.services.thesportsdb import SportsDBTeam, TheSportsDBService
-from bot.domain.services.transfermarkt import TmClub, TmPlayer, TmSquadStats, TransfermarktService
+from bot.domain.services.thesportsdb import TheSportsDBService
+from bot.domain.services.transfermarkt import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 

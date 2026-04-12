@@ -1,12 +1,12 @@
 """TheSportsDB client for team info and league standings."""
 
 import difflib
-from dataclasses import dataclass
 
 import structlog
 
 from bot.data.football import LeagueInfo
 from bot.data.football_team_prefixes import CLUB_PREFIXES
+from bot.domain.models.football import SportsDBTeam, StandingRow
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -15,23 +15,6 @@ BASE_URL = 'https://www.thesportsdb.com/api/v1/json/3'
 
 _MATCH_MIN_JACCARD = 0.25
 _SUBSTRING_MIN_LEN = 4
-
-
-@dataclass(frozen=True)
-class SportsDBTeam:
-    name: str
-    country: str
-    founded: str
-    badge_url: str
-    team_id: str = ''
-    stadium: str = ''
-    capacity: str = ''
-
-
-@dataclass(frozen=True)
-class StandingRow:
-    rank: int
-    team: str
 
 
 class TheSportsDBService:

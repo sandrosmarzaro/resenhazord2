@@ -2,7 +2,8 @@ import httpx
 import pytest
 
 from bot.data.football import LEAGUES
-from bot.domain.services.thesportsdb import SportsDBTeam, TheSportsDBService
+from bot.domain.models.football import SportsDBTeam
+from bot.domain.services.thesportsdb import TheSportsDBService
 
 _BASE_URL = 'https://www.thesportsdb.com/api/v1/json/3'
 _LEAGUE = LEAGUES['pl']

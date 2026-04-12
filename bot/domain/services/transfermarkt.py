@@ -3,7 +3,6 @@
 import asyncio
 import re
 import unicodedata
-from dataclasses import dataclass
 from typing import ClassVar
 
 import structlog
@@ -11,6 +10,7 @@ from bs4 import BeautifulSoup, Tag
 
 from bot.data.football import LeagueInfo
 from bot.data.nationality_flags import nationality_flag
+from bot.domain.models.football import TmClub, TmPlayer, TmSquadStats
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -25,45 +25,6 @@ _FOREIGNERS_RE = re.compile(r'(\d+)\s*\((\d+)%\)?')
 _VALUE_RE = re.compile(r'€\s*([\d.,]+)\s*(mi\.|mil\.)')
 _AGE_MIN = 15
 _AGE_MAX = 45
-
-
-@dataclass(frozen=True)
-class TmPlayer:
-    name: str
-    position: str
-    age: int
-    nationality: str
-    club: str
-    club_id: str
-    market_value: str
-    photo_url: str
-    badge_url: str
-    profile_url: str = ''
-    nationality_flag_url: str = ''
-    nationality_flag_emoji: str = ''
-
-
-@dataclass(frozen=True)
-class TmClub:
-    rank: int
-    name: str
-    country: str
-    squad_value: str
-    club_id: str
-    badge_url: str
-    league_tm_id: str = ''
-
-
-@dataclass(frozen=True)
-class TmSquadStats:
-    market_value: str
-    squad_size: str
-    avg_age: str
-    foreigners_count: str
-    foreigners_pct: str
-    club_id: str = ''
-    name: str = ''
-    badge_url: str = ''
 
 
 def _extract_photo_url(inline: Tag) -> str:

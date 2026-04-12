@@ -17,8 +17,9 @@ from bot.domain.commands.base import (
     Platform,
 )
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.football import TmPlayer
 from bot.domain.models.message import BotMessage
-from bot.domain.services.transfermarkt import TmPlayer, TransfermarktService
+from bot.domain.services.transfermarkt import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
