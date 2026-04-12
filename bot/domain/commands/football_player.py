@@ -19,7 +19,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import TmPlayer
 from bot.domain.models.message import BotMessage
-from bot.domain.services.transfermarkt import TransfermarktService
+from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()

@@ -29,7 +29,7 @@ from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer, TmSquadSt
 from bot.domain.models.message import BotMessage
 from bot.domain.services.football_field_builder import build_football_field
 from bot.domain.services.thesportsdb import TheSportsDBService
-from bot.domain.services.transfermarkt import TransfermarktService
+from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()

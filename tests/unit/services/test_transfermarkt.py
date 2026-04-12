@@ -1,4 +1,4 @@
-from bot.domain.services.transfermarkt import TransfermarktService
+from bot.domain.services.transfermarkt.parser import TransfermarktParser
 
 _PLAYER_PAGE_HTML = """
 <table class="items">
@@ -139,7 +139,7 @@ _DUPLICATE_CLUBS_HTML = """
 
 class TestParsePage:
     def test_returns_player_list(self):
-        players = TransfermarktService._parse_page(_PLAYER_PAGE_HTML)
+        players = TransfermarktParser.parse_page(_PLAYER_PAGE_HTML)
 
         assert len(players) == 1
         p = players[0]
@@ -152,40 +152,40 @@ class TestParsePage:
         assert p.market_value == '€ 20,00 mi.'
 
     def test_photo_url_upgraded_to_big_portrait(self):
-        players = TransfermarktService._parse_page(_PLAYER_PAGE_HTML)
+        players = TransfermarktParser.parse_page(_PLAYER_PAGE_HTML)
 
         assert '/portrait/big/' in players[0].photo_url
 
     def test_badge_url_uses_akamaized_cdn(self):
-        players = TransfermarktService._parse_page(_PLAYER_PAGE_HTML)
+        players = TransfermarktParser.parse_page(_PLAYER_PAGE_HTML)
 
         assert 'tmssl.akamaized.net' in players[0].badge_url
         assert '50251' in players[0].badge_url
 
     def test_profile_url_is_absolute(self):
-        players = TransfermarktService._parse_page(_PLAYER_PAGE_HTML)
+        players = TransfermarktParser.parse_page(_PLAYER_PAGE_HTML)
 
         assert players[0].profile_url.startswith('https://')
         assert '28003' in players[0].profile_url
 
     def test_skips_row_without_club_by_default(self):
-        players = TransfermarktService._parse_page(_NO_CLUB_ROW_HTML)
+        players = TransfermarktParser.parse_page(_NO_CLUB_ROW_HTML)
 
         assert players == []
 
     def test_includes_row_without_club_when_require_club_false(self):
-        players = TransfermarktService._parse_page(_NO_CLUB_ROW_HTML, require_club=False)
+        players = TransfermarktParser.parse_page(_NO_CLUB_ROW_HTML, require_club=False)
 
         assert len(players) == 1
         assert players[0].name == 'Solo Player'
 
     def test_empty_html_returns_empty_list(self):
-        assert TransfermarktService._parse_page('<div>no table</div>') == []
+        assert TransfermarktParser.parse_page('<div>no table</div>') == []
 
 
 class TestParseSquadValues:
     def test_returns_stats_keyed_by_club_id(self):
-        result = TransfermarktService._parse_squad_values(_SQUAD_VALUES_HTML)
+        result = TransfermarktParser.parse_squad_values(_SQUAD_VALUES_HTML)
 
         assert '281' in result
         stats = result['281']
@@ -193,7 +193,7 @@ class TestParseSquadValues:
         assert stats.club_id == '281'
 
     def test_extracts_squad_stats_fields(self):
-        result = TransfermarktService._parse_squad_values(_SQUAD_VALUES_HTML)
+        result = TransfermarktParser.parse_squad_values(_SQUAD_VALUES_HTML)
 
         stats = result['281']
         assert stats.squad_size == '30'
@@ -202,27 +202,27 @@ class TestParseSquadValues:
         assert stats.foreigners_pct == '60'
 
     def test_empty_html_returns_empty_dict(self):
-        assert TransfermarktService._parse_squad_values('<div>no table</div>') == {}
+        assert TransfermarktParser.parse_squad_values('<div>no table</div>') == {}
 
 
 class TestParseTabelle:
     def test_returns_rank_keyed_by_club_id(self):
-        result = TransfermarktService._parse_tabelle(_STANDINGS_HTML)
+        result = TransfermarktParser.parse_tabelle(_STANDINGS_HTML)
 
         assert result == {'281': 1, '11': 2}
 
     def test_skips_rows_with_non_numeric_rank(self):
-        result = TransfermarktService._parse_tabelle(_STANDINGS_HTML)
+        result = TransfermarktParser.parse_tabelle(_STANDINGS_HTML)
 
         assert '999' not in result
 
     def test_empty_html_returns_empty_dict(self):
-        assert TransfermarktService._parse_tabelle('<div>no table</div>') == {}
+        assert TransfermarktParser.parse_tabelle('<div>no table</div>') == {}
 
 
 class TestParseClubsPage:
     def test_returns_clubs_in_rank_order(self):
-        clubs = TransfermarktService._parse_clubs_page(_CLUBS_PAGE_HTML)
+        clubs = TransfermarktParser.parse_clubs_page(_CLUBS_PAGE_HTML)
 
         assert len(clubs) == 1
         club = clubs[0]
@@ -234,28 +234,28 @@ class TestParseClubsPage:
         assert 'tmssl.akamaized.net' in club.badge_url
 
     def test_empty_html_returns_empty_list(self):
-        assert TransfermarktService._parse_clubs_page('<div>no table</div>') == []
+        assert TransfermarktParser.parse_clubs_page('<div>no table</div>') == []
 
 
 class TestParsePlayerProfile:
     def test_extracts_info_table_fields(self):
-        info = TransfermarktService._parse_player_profile(_PLAYER_PROFILE_HTML)
+        info = TransfermarktParser.parse_player_profile(_PLAYER_PROFILE_HTML)
 
         assert info.get('Altura') == '1,70 m'
         assert info.get('Pé') == 'esquerdo'
 
     def test_extracts_detail_position_fields(self):
-        info = TransfermarktService._parse_player_profile(_PLAYER_PROFILE_HTML)
+        info = TransfermarktParser.parse_player_profile(_PLAYER_PROFILE_HTML)
 
         assert info.get('Posições secundárias') == 'Centroavante Meia Atacante'
 
     def test_empty_html_returns_empty_dict(self):
-        assert TransfermarktService._parse_player_profile('<div>nothing</div>') == {}
+        assert TransfermarktParser.parse_player_profile('<div>nothing</div>') == {}
 
 
 class TestParseLeagueClubs:
     def test_returns_all_clubs(self):
-        clubs = TransfermarktService._parse_league_clubs(_LEAGUE_CLUBS_HTML)
+        clubs = TransfermarktParser.parse_league_clubs(_LEAGUE_CLUBS_HTML)
 
         assert len(clubs) == 2
         assert clubs[0].name == 'Manchester City'
@@ -264,22 +264,22 @@ class TestParseLeagueClubs:
         assert clubs[1].club_id == '11'
 
     def test_assigns_sequential_ranks(self):
-        clubs = TransfermarktService._parse_league_clubs(_LEAGUE_CLUBS_HTML)
+        clubs = TransfermarktParser.parse_league_clubs(_LEAGUE_CLUBS_HTML)
 
         assert clubs[0].rank == 1
         assert clubs[1].rank == 2
 
     def test_badge_url_uses_cdn(self):
-        clubs = TransfermarktService._parse_league_clubs(_LEAGUE_CLUBS_HTML)
+        clubs = TransfermarktParser.parse_league_clubs(_LEAGUE_CLUBS_HTML)
 
         assert 'tmssl.akamaized.net' in clubs[0].badge_url
         assert '281' in clubs[0].badge_url
 
     def test_deduplicates_clubs_by_id(self):
-        clubs = TransfermarktService._parse_league_clubs(_DUPLICATE_CLUBS_HTML)
+        clubs = TransfermarktParser.parse_league_clubs(_DUPLICATE_CLUBS_HTML)
 
         assert len(clubs) == 1
         assert clubs[0].name == 'Manchester City'
 
     def test_empty_html_returns_empty_list(self):
-        assert TransfermarktService._parse_league_clubs('<div>no table</div>') == []
+        assert TransfermarktParser.parse_league_clubs('<div>no table</div>') == []

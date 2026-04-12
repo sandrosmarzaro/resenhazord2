@@ -4,7 +4,7 @@ from bot.data.football import LEAGUES
 from bot.domain.commands.football_player import FootballPlayerCommand
 from bot.domain.models.football import TmPlayer
 from bot.domain.models.message import ImageBufferContent
-from bot.domain.services.transfermarkt import TransfermarktService
+from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
