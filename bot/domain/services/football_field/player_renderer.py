@@ -12,6 +12,7 @@ from bot.data.football_formations import Formation
 from bot.domain.services.football_field.field_config import (
     DEFAULT_CONFIG,
     FieldConfig,
+    PlayerDisplayConfig,
     field_xy,
     load_font,
     load_font_optional,
@@ -23,6 +24,67 @@ from bot.domain.services.football_field.field_renderer import (
 )
 
 
+class OverlayRenderer:
+    def __init__(
+        self,
+        canvas: Image.Image,
+        player_cfg: PlayerDisplayConfig,
+        emoji_font: ImageFont.FreeTypeFont | None = None,
+    ) -> None:
+        self._canvas = canvas
+        self._cfg = player_cfg
+        self._emoji_font = emoji_font
+
+    def render(
+        self,
+        overlays: tuple[str | None, bytes | None],
+        cx: int,
+        cy: int,
+        r: int,
+    ) -> None:
+        ov_cy = cy + int(r * self._cfg.overlay_cy_ratio)
+        ov_offset_x = int(r * self._cfg.overlay_offset_x_ratio)
+        flag_emoji, badge_image = overlays
+        if flag_emoji:
+            self._draw_flag_emoji(flag_emoji, cx - ov_offset_x, ov_cy)
+        if badge_image:
+            self._draw_badge(badge_image, cx + ov_offset_x, ov_cy)
+
+    def _draw_badge(self, img_bytes: bytes, cx: int, cy: int) -> None:
+        with contextlib.suppress(Exception):
+            img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
+            size = self._cfg.badge_size
+            ratio = min(size / img.width, size / img.height)
+            new_w = max(1, int(img.width * ratio))
+            new_h = max(1, int(img.height * ratio))
+            img = img.resize((new_w, new_h), Resampling.LANCZOS)
+            paste_x = cx - new_w // 2
+            paste_y = cy - new_h // 2
+            self._canvas.paste(img.convert('RGB'), (paste_x, paste_y), img.split()[3])
+
+    def _draw_flag_emoji(self, emoji: str, cx: int, cy: int) -> None:
+        if not self._emoji_font:
+            return
+        with contextlib.suppress(Exception):
+            native = self._cfg.emoji_native_size
+            tmp = Image.new('RGBA', (native * 2, native * 2), (0, 0, 0, 0))
+            ImageDraw.Draw(tmp).text((0, 0), emoji, font=self._emoji_font, embedded_color=True)
+            bbox = tmp.getbbox()
+            if not bbox:
+                return
+            cropped = tmp.crop(bbox)
+            size = self._cfg.flag_size
+            ratio = min(size / cropped.width, size / cropped.height)
+            new_w = max(1, int(cropped.width * ratio))
+            new_h = max(1, int(cropped.height * ratio))
+            resized = cropped.resize((new_w, new_h), Resampling.LANCZOS)
+            self._canvas.paste(
+                resized.convert('RGB'),
+                (cx - new_w // 2, cy - new_h // 2),
+                resized.split()[3],
+            )
+
+
 @dataclass
 class PlayerRenderer:
     canvas: Image.Image
@@ -30,6 +92,9 @@ class PlayerRenderer:
     font: ImageFont.FreeTypeFont
     cfg: FieldConfig = DEFAULT_CONFIG
     emoji_font: ImageFont.FreeTypeFont | None = None
+
+    def __post_init__(self) -> None:
+        self._overlay = OverlayRenderer(self.canvas, self.cfg.player, self.emoji_font)
 
     def draw_player(
         self,
@@ -46,7 +111,7 @@ class PlayerRenderer:
             self._draw_placeholder(cx, cy, r)
 
         if overlays:
-            self._draw_overlays(overlays, cx, cy, r)
+            self._overlay.render(overlays, cx, cy, r)
 
         self._draw_name_label(name, cx, cy, r)
 
@@ -60,55 +125,6 @@ class PlayerRenderer:
             mask = Image.new('L', (d, d), 0)
             ImageDraw.Draw(mask).ellipse([0, 0, d, d], fill=255)
             self.canvas.paste(bg.convert('RGB'), (cx - r, cy - r), mask)
-
-    def _draw_overlays(
-        self,
-        overlays: tuple[str | None, bytes | None],
-        cx: int,
-        cy: int,
-        r: int,
-    ) -> None:
-        ov_cy = cy + int(r * self.cfg.player.overlay_cy_ratio)
-        ov_offset_x = int(r * self.cfg.player.overlay_offset_x_ratio)
-        flag_emoji, badge_image = overlays
-        if flag_emoji:
-            self._draw_flag_emoji(flag_emoji, cx - ov_offset_x, ov_cy)
-        if badge_image:
-            self._draw_badge(badge_image, cx + ov_offset_x, ov_cy)
-
-    def _draw_badge(self, img_bytes: bytes, cx: int, cy: int) -> None:
-        with contextlib.suppress(Exception):
-            img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
-            size = self.cfg.player.badge_size
-            ratio = min(size / img.width, size / img.height)
-            new_w = max(1, int(img.width * ratio))
-            new_h = max(1, int(img.height * ratio))
-            img = img.resize((new_w, new_h), Resampling.LANCZOS)
-            paste_x = cx - new_w // 2
-            paste_y = cy - new_h // 2
-            self.canvas.paste(img.convert('RGB'), (paste_x, paste_y), img.split()[3])
-
-    def _draw_flag_emoji(self, emoji: str, cx: int, cy: int) -> None:
-        if not self.emoji_font:
-            return
-        with contextlib.suppress(Exception):
-            native = self.cfg.player.emoji_native_size
-            tmp = Image.new('RGBA', (native * 2, native * 2), (0, 0, 0, 0))
-            ImageDraw.Draw(tmp).text((0, 0), emoji, font=self.emoji_font, embedded_color=True)
-            bbox = tmp.getbbox()
-            if not bbox:
-                return
-            cropped = tmp.crop(bbox)
-            size = self.cfg.player.flag_size
-            ratio = min(size / cropped.width, size / cropped.height)
-            new_w = max(1, int(cropped.width * ratio))
-            new_h = max(1, int(cropped.height * ratio))
-            resized = cropped.resize((new_w, new_h), Resampling.LANCZOS)
-            self.canvas.paste(
-                resized.convert('RGB'),
-                (cx - new_w // 2, cy - new_h // 2),
-                resized.split()[3],
-            )
 
     def _draw_placeholder(self, cx: int, cy: int, r: int) -> None:
         self.draw.ellipse(
