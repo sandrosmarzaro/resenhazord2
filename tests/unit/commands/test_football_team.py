@@ -5,6 +5,7 @@ from bot.data.football_formations import FORMATIONS
 from bot.domain.commands.football_team import FootballTeamCommand
 from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer, TmSquadStats
 from bot.domain.models.message import ImageBufferContent
+from bot.domain.services.team_caption_builder import TeamCaptionBuilder
 from bot.domain.services.thesportsdb import TheSportsDBService
 from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
@@ -377,7 +378,7 @@ class TestBuildTeamCaption:
         club = _make_squad_stats()
         sports_team = _make_sports_team()
 
-        caption = FootballTeamCommand._build_team_caption(club, sports_team, _LEAGUE, rank=1)
+        caption = TeamCaptionBuilder.build(club, sports_team, _LEAGUE, rank=1)
 
         assert 'Manchester City' in caption
         assert _LEAGUE.name in caption
@@ -385,16 +386,14 @@ class TestBuildTeamCaption:
     def test_includes_rank_when_provided(self):
         club = _make_squad_stats()
 
-        caption = FootballTeamCommand._build_team_caption(club, None, _LEAGUE, rank=3)
+        caption = TeamCaptionBuilder.build(club, None, _LEAGUE, rank=3)
 
         assert '3º' in caption
 
     def test_includes_global_rank_when_provided(self):
         club = _make_squad_stats()
 
-        caption = FootballTeamCommand._build_team_caption(
-            club, None, _LEAGUE, rank=None, global_rank=5
-        )
+        caption = TeamCaptionBuilder.build(club, None, _LEAGUE, rank=None, global_rank=5)
 
         assert '#5' in caption
 
@@ -402,36 +401,36 @@ class TestBuildTeamCaption:
         club = _make_squad_stats()
         sports_team = _make_sports_team()
 
-        caption = FootballTeamCommand._build_team_caption(club, sports_team, _LEAGUE, rank=None)
+        caption = TeamCaptionBuilder.build(club, sports_team, _LEAGUE, rank=None)
 
         assert 'City of Manchester Stadium' in caption
 
     def test_no_rank_line_when_rank_is_none(self):
         club = _make_squad_stats()
 
-        caption = FootballTeamCommand._build_team_caption(club, None, _LEAGUE, rank=None)
+        caption = TeamCaptionBuilder.build(club, None, _LEAGUE, rank=None)
 
         assert 'tabela' not in caption
 
 
 class TestFormatHeadLine:
     def test_includes_flag_and_country(self):
-        result = FootballTeamCommand._format_head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '')
+        result = TeamCaptionBuilder._head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '')
 
         assert '🏴󠁧󠁢󠁥󠁮󠁧󠁿' in result
         assert 'England' in result
 
     def test_includes_founded_when_provided(self):
-        result = FootballTeamCommand._format_head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '1992')
+        result = TeamCaptionBuilder._head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '1992')
 
         assert '1992' in result
 
     def test_omits_country_when_empty(self):
-        result = FootballTeamCommand._format_head_line('🌍', '', '')
+        result = TeamCaptionBuilder._head_line('🌍', '', '')
 
         assert result == '\n🌍'
 
     def test_no_founded_when_empty(self):
-        result = FootballTeamCommand._format_head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '')
+        result = TeamCaptionBuilder._head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '')
 
         assert '📅' not in result

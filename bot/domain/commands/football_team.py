@@ -8,11 +8,7 @@ import anyio
 import structlog
 
 from bot.data.football import LEAGUE_CODES, LEAGUES, LEAGUES_BY_TM_ID, LeagueInfo
-from bot.data.football_formations import (
-    Formation,
-    random_formation,
-    specific_roles,
-)
+from bot.data.football_formations import random_formation
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     Category,
@@ -24,10 +20,11 @@ from bot.domain.commands.base import (
     Platform,
 )
 from bot.domain.models.command_data import CommandData
-from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer, TmSquadStats
+from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer
 from bot.domain.models.message import BotMessage
 from bot.domain.services.football_field.player_renderer import build_football_field
-from bot.domain.services.lineup_assigner import LineupAssigner
+from bot.domain.services.lineup_builder import LineupBuilder
+from bot.domain.services.team_caption_builder import TeamCaptionBuilder
 from bot.domain.services.thesportsdb import TheSportsDBService
 from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
@@ -89,7 +86,7 @@ class FootballTeamCommand(Command):
         club = random.choice(clubs)  # noqa: S311
         rank = standings.get(club.club_id)
         sports_team = TheSportsDBService.find_best_match(club.name, sports_teams)
-        caption = self._build_team_caption(club, sports_team, league, rank, global_rank=None)
+        caption = TeamCaptionBuilder.build(club, sports_team, league, rank, global_rank=None)
 
         buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
         return [Reply.to(data).image_buffer(buffer, caption)]
@@ -119,7 +116,7 @@ class FootballTeamCommand(Command):
 
         rank = standings.get(club.club_id)
         sports_team = TheSportsDBService.find_best_match(club.name, sports_teams)
-        caption = self._build_team_caption(
+        caption = TeamCaptionBuilder.build(
             club, sports_team, league, rank, global_rank=top_club.rank
         )
         buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
@@ -138,22 +135,8 @@ class FootballTeamCommand(Command):
         elif ts_team and ts_team.badge_url:
             badge = await HttpClient.get_buffer(ts_team.badge_url)
 
-        country = ts_team.country if ts_team else (league.country if league else club.country)
-        founded = ts_team.founded if ts_team else ''
-        name = ts_team.name if ts_team else club.name
-        title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
-        flag = league.flag if league else '🌍'
-        lines = [title, self._format_head_line(flag, country, founded)]
-        if ts_team and ts_team.stadium:
-            lines.append(f'🏟️ {ts_team.stadium}')
-            if ts_team.capacity:
-                cap = self._format_capacity(ts_team.capacity)
-                lines.append(f'💺 {cap} lugares')
-        lines.append(f'🏆 #{club.rank}º mais valioso')
-        if club.squad_value:
-            lines.append(f'💰 {club.squad_value}')
-
-        return [Reply.to(data).image_buffer(badge, '\n'.join(lines))]
+        caption = self._build_bare_caption(club, ts_team, league)
+        return [Reply.to(data).image_buffer(badge, caption)]
 
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
@@ -163,7 +146,7 @@ class FootballTeamCommand(Command):
 
         if league:
             all_players = await TransfermarktService.fetch_league_full_squad(league)
-            ordered = self._pick_lineup_league(all_players, formation)
+            ordered = LineupBuilder.from_league_squad(all_players, formation)
         else:
             top_n: int | None = int(top_str[3:]) if top_str else None
             max_pages = TransfermarktService.POSITION_MAX_PAGES
@@ -176,7 +159,7 @@ class FootballTeamCommand(Command):
                         TransfermarktService.GLOBAL_MAX_PAGES,
                     ),
                 )
-            ordered = await self._build_lineup_by_position(formation, max_pages, top_n)
+            ordered = await LineupBuilder.from_position_queries(formation, max_pages, top_n)
 
         photos_ordered, badge_images = await self._fetch_assets(ordered)
 
@@ -196,40 +179,6 @@ class FootballTeamCommand(Command):
         if total_value:
             caption += f'\n💰 {total_value}'
         return [Reply.to(data).image_buffer(field_image, caption)]
-
-    @staticmethod
-    async def _build_lineup_by_position(
-        formation: Formation, max_pages: int, top_n: int | None = None
-    ) -> list[TmPlayer | None]:
-        """Fan-out one TM query per distinct specific role and pick N players per slot."""
-        slot_specific = specific_roles(formation)
-        distinct_roles = sorted(set(slot_specific))
-
-        results = await asyncio.gather(
-            *[
-                TransfermarktService.fetch_by_specific_position(role, max_pages)
-                for role in distinct_roles
-            ]
-        )
-        role_pools: dict[str, list[TmPlayer]] = {}
-        for role, players in zip(distinct_roles, results, strict=True):
-            pool = list(players[:top_n]) if top_n else list(players)
-            random.shuffle(pool)
-            role_pools[role] = pool
-
-        return LineupAssigner.assign_slots(role_pools, formation)
-
-    @staticmethod
-    def _pick_lineup_league(players: list[TmPlayer], formation: Formation) -> list[TmPlayer | None]:
-        specific_pools: dict[str, list[TmPlayer]] = {}
-        for p in players:
-            role = TransfermarktService.POSITION_ROLES.get(p.position)
-            if role:
-                specific_pools.setdefault(role, []).append(p)
-        for pool in specific_pools.values():
-            random.shuffle(pool)
-
-        return LineupAssigner.assign_slots(specific_pools, formation)
 
     @staticmethod
     async def _fetch_assets(
@@ -258,64 +207,27 @@ class FootballTeamCommand(Command):
         return photos, badges
 
     @staticmethod
-    def _format_capacity(raw: str) -> str:
-        try:
-            return f'{int(raw):,}'.replace(',', '.')
-        except ValueError:
-            return raw
-
-    @staticmethod
-    def _squad_lines(club: TmSquadStats) -> list[str]:
-        lines: list[str] = []
-        if club.squad_size:
-            squad_line = f'👥 {club.squad_size} jogadores'
-            if club.avg_age:
-                squad_line += f'   ⌀ {club.avg_age} anos'
-            lines.append(squad_line)
-        if club.foreigners_count:
-            foreign_line = f'🌍 {club.foreigners_count} estrangeiros'
-            if club.foreigners_pct:
-                foreign_line += f' ({club.foreigners_pct}%)'
-            lines.append(foreign_line)
-        if club.market_value:
-            lines.append(f'💰 {club.market_value}')
-        return lines
-
-    @staticmethod
-    def _format_head_line(flag: str, country: str, founded: str) -> str:
-        line = f'\n{flag} {country}' if country else f'\n{flag}'
-        if founded:
-            line += f'   📅 {founded}'
-        return line
-
-    @staticmethod
-    def _stadium_lines(sports_team: SportsDBTeam | None) -> list[str]:
-        if not sports_team or not sports_team.stadium:
-            return []
-        lines = [f'🏟️ {sports_team.stadium}']
-        if sports_team.capacity:
-            cap = FootballTeamCommand._format_capacity(sports_team.capacity)
-            lines.append(f'💺 {cap} lugares')
-        return lines
-
-    @staticmethod
-    def _build_team_caption(
-        club: TmSquadStats,
-        sports_team: SportsDBTeam | None,
-        league: LeagueInfo,
-        rank: int | None,
-        global_rank: int | None = None,
+    def _build_bare_caption(
+        club: TmClub, ts_team: SportsDBTeam | None, league: LeagueInfo | None
     ) -> str:
-        country = sports_team.country if sports_team else league.country
-        founded = sports_team.founded if sports_team else ''
-        lines = [
-            f'*{club.name}* — {league.name}',
-            FootballTeamCommand._format_head_line(league.flag, country, founded),
-        ]
-        lines.extend(FootballTeamCommand._stadium_lines(sports_team))
-        if rank:
-            lines.append(f'📊 {rank}º na tabela')
-        if global_rank:
-            lines.append(f'🏆 #{global_rank}º mais valioso do mundo')
-        lines.extend(FootballTeamCommand._squad_lines(club))
+        country = ts_team.country if ts_team else (league.country if league else club.country)
+        founded = ts_team.founded if ts_team else ''
+        name = ts_team.name if ts_team else club.name
+        title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
+        flag = league.flag if league else '🌍'
+        head = f'\n{flag} {country}' if country else f'\n{flag}'
+        if founded:
+            head += f'   📅 {founded}'
+        lines = [title, head]
+        if ts_team and ts_team.stadium:
+            lines.append(f'🏟️ {ts_team.stadium}')
+            if ts_team.capacity:
+                try:
+                    cap = f'{int(ts_team.capacity):,}'.replace(',', '.')
+                except ValueError:
+                    cap = ts_team.capacity
+                lines.append(f'💺 {cap} lugares')
+        lines.append(f'🏆 #{club.rank}º mais valioso')
+        if club.squad_value:
+            lines.append(f'💰 {club.squad_value}')
         return '\n'.join(lines)
