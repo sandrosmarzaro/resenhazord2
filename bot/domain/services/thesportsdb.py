@@ -11,17 +11,16 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-BASE_URL = 'https://www.thesportsdb.com/api/v1/json/3'
-
-_MATCH_MIN_JACCARD = 0.25
-_SUBSTRING_MIN_LEN = 4
-
 
 class TheSportsDBService:
+    _BASE_URL = 'https://www.thesportsdb.com/api/v1/json/3'
+    _MATCH_MIN_JACCARD = 0.25
+    _SUBSTRING_MIN_LEN = 4
+
     @classmethod
     async def get_teams(cls, league: LeagueInfo) -> list[SportsDBTeam]:
         resp = await HttpClient.get(
-            f'{BASE_URL}/search_all_teams.php',
+            f'{cls._BASE_URL}/search_all_teams.php',
             params={'l': league.sportsdb_name},
         )
         resp.raise_for_status()
@@ -34,7 +33,7 @@ class TheSportsDBService:
     @classmethod
     async def get_standings(cls, league: LeagueInfo) -> list[StandingRow]:
         resp = await HttpClient.get(
-            f'{BASE_URL}/lookuptable.php',
+            f'{cls._BASE_URL}/lookuptable.php',
             params={'l': league.sportsdb_id, 's': league.sportsdb_season},
         )
         resp.raise_for_status()
@@ -47,7 +46,7 @@ class TheSportsDBService:
     @classmethod
     async def search_team(cls, name: str) -> SportsDBTeam | None:
         resp = await HttpClient.get(
-            f'{BASE_URL}/searchteams.php',
+            f'{cls._BASE_URL}/searchteams.php',
             params={'t': name},
         )
         resp.raise_for_status()
@@ -61,7 +60,6 @@ class TheSportsDBService:
 
     @classmethod
     def find_best_match(cls, tm_name: str, sports_teams: list[SportsDBTeam]) -> SportsDBTeam | None:
-        """Best-effort match of a TM club name against SportsDB teams for enrichment."""
         if not sports_teams:
             return None
         tm_tokens = cls._name_tokens(tm_name)
@@ -77,13 +75,13 @@ class TheSportsDBService:
             union = len(tm_tokens | t_tokens)
             jaccard = len(tm_tokens & t_tokens) / union if union else 0.0
             if jaccard == 0 and cls._token_substring_hit(tm_tokens, t_tokens):
-                jaccard = _MATCH_MIN_JACCARD
+                jaccard = cls._MATCH_MIN_JACCARD
             ratio = difflib.SequenceMatcher(None, tm_name.lower(), t.name.lower()).ratio()
             if jaccard > best_jaccard or (jaccard == best_jaccard and ratio > best_ratio):
                 best = t
                 best_jaccard = jaccard
                 best_ratio = ratio
-        if best_jaccard < _MATCH_MIN_JACCARD:
+        if best_jaccard < cls._MATCH_MIN_JACCARD:
             return None
         return best
 
@@ -96,15 +94,13 @@ class TheSportsDBService:
 
     @staticmethod
     def _token_substring_hit(tm_tokens: set[str], t_tokens: set[str]) -> bool:
-        for a in tm_tokens:
-            if len(a) < _SUBSTRING_MIN_LEN:
-                continue
-            for b in t_tokens:
-                if len(b) < _SUBSTRING_MIN_LEN:
-                    continue
-                if a.startswith(b) or b.startswith(a):
-                    return True
-        return False
+        return any(
+            a.startswith(b) or b.startswith(a)
+            for a in tm_tokens
+            if len(a) >= TheSportsDBService._SUBSTRING_MIN_LEN
+            for b in t_tokens
+            if len(b) >= TheSportsDBService._SUBSTRING_MIN_LEN
+        )
 
     @staticmethod
     def _parse_team(t: dict) -> SportsDBTeam:

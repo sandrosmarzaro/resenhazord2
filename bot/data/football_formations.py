@@ -349,5 +349,16 @@ def specific_roles(formation: Formation) -> list[str]:
     return result
 
 
+SCARCITY_ORDER: dict[str, int] = {
+    'LB': 0,
+    'RB': 0,
+    'LW': 0,
+    'RW': 0,
+    'AM': 1,
+    'DM': 1,
+    'GK': 2,
+}
+
+
 def random_formation() -> Formation:
     return random.choice(FORMATIONS)  # noqa: S311

@@ -9,7 +9,6 @@ import structlog
 
 from bot.data.football import LEAGUE_CODES, LEAGUES, LEAGUES_BY_TM_ID, LeagueInfo
 from bot.data.football_formations import (
-    ROLE_GROUPS,
     Formation,
     random_formation,
     specific_roles,
@@ -28,6 +27,7 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer, TmSquadStats
 from bot.domain.models.message import BotMessage
 from bot.domain.services.football_field.player_renderer import build_football_field
+from bot.domain.services.lineup_assigner import LineupAssigner
 from bot.domain.services.thesportsdb import TheSportsDBService
 from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
@@ -217,7 +217,7 @@ class FootballTeamCommand(Command):
             random.shuffle(pool)
             role_pools[role] = pool
 
-        return _assign_slots(slot_specific, role_pools, formation)
+        return LineupAssigner.assign_slots(role_pools, formation)
 
     @staticmethod
     def _pick_lineup_league(players: list[TmPlayer], formation: Formation) -> list[TmPlayer | None]:
@@ -229,7 +229,7 @@ class FootballTeamCommand(Command):
         for pool in specific_pools.values():
             random.shuffle(pool)
 
-        return _assign_slots(specific_roles(formation), specific_pools, formation)
+        return LineupAssigner.assign_slots(specific_pools, formation)
 
     @staticmethod
     async def _fetch_assets(
@@ -319,43 +319,3 @@ class FootballTeamCommand(Command):
             lines.append(f'🏆 #{global_rank}º mais valioso do mundo')
         lines.extend(FootballTeamCommand._squad_lines(club))
         return '\n'.join(lines)
-
-
-_SCARCITY_ORDER: dict[str, int] = {
-    'LB': 0, 'RB': 0, 'LW': 0, 'RW': 0,
-    'AM': 1, 'DM': 1,
-    'GK': 2,
-}  # fmt: skip
-
-
-def _assign_slots(
-    slot_specific: list[str],
-    role_pools: dict[str, list[TmPlayer]],
-    formation: Formation,
-) -> list[TmPlayer | None]:
-    """Fill formation slots from role_pools, scarcest roles first, with group fallback."""
-    ordered: list[TmPlayer | None] = [None] * len(formation.slots)
-    used: set[str] = set()
-
-    slot_order = sorted(
-        range(len(formation.slots)),
-        key=lambda i: _SCARCITY_ORDER.get(slot_specific[i], 3),
-    )
-
-    for i in slot_order:
-        specific = slot_specific[i]
-        pool = role_pools.get(specific, [])
-        player = next((p for p in pool if p.name not in used), None)
-        if not player:
-            group = ROLE_GROUPS.get(specific, formation.slots[i].role)
-            for other_role, other_pool in role_pools.items():
-                if ROLE_GROUPS.get(other_role) != group:
-                    continue
-                player = next((p for p in other_pool if p.name not in used), None)
-                if player:
-                    break
-        if player:
-            used.add(player.name)
-        ordered[i] = player
-
-    return ordered
