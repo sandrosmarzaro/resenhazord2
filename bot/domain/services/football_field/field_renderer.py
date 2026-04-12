@@ -36,7 +36,7 @@ class LawnRenderer:
         self._cfg = cfg
 
     def render(self) -> None:
-        fd = self._cfg.field
+        fd = self._cfg.draw
         for i in range(fd.n_lawn_stripes):
             y0 = i / fd.n_lawn_stripes
             y1 = (i + 1) / fd.n_lawn_stripes
@@ -64,7 +64,7 @@ class LabelRenderer:
         self._draw.text(
             ((self._cfg.canvas.width - tw) // 2, self._cfg.canvas.margin_y // 3),
             name,
-            fill=self._cfg.field.line_color,
+            fill=self._cfg.draw.line_color,
             font=font,
             stroke_width=self._cfg.player.stroke_width,
             stroke_fill='#000000',
@@ -78,7 +78,7 @@ class LabelRenderer:
         self._draw.text(
             ((self._cfg.canvas.width - tw) // 2, text_y),
             total_value,
-            fill=self._cfg.field.line_color,
+            fill=self._cfg.draw.line_color,
             font=font,
             stroke_width=self._cfg.player.stroke_width,
             stroke_fill='#000000',
@@ -93,8 +93,8 @@ class LineRenderer:
     def __init__(self, draw: ImageDraw.ImageDraw, cfg: FieldConfig) -> None:
         self._draw = draw
         self._cfg = cfg
-        self._lc = cfg.field.line_color
-        self._lw = cfg.field.line_width
+        self._lc = cfg.draw.line_color
+        self._lw = cfg.draw.line_width
 
     def render(self) -> None:
         self._draw_boundary()
@@ -127,21 +127,21 @@ class LineRenderer:
     def _draw_center_circle(self) -> None:
         cfg = self._cfg
         ccx, ccy = field_xy(0.5, 0.5, cfg)
-        circle_r = int(cfg.fh * cfg.field.circle_r_ratio)
-        h_r = int(circle_r * (1.0 - cfg.field.top_taper))
+        circle_r = int(cfg.fh * cfg.draw.circle_r_ratio)
+        h_r = int(circle_r * (1.0 - cfg.draw.top_taper))
         self._draw.ellipse(
             [ccx - h_r, ccy - circle_r, ccx + h_r, ccy + circle_r],
             outline=self._lc,
             width=self._lw,
         )
-        spot_r = cfg.field.spot_r
+        spot_r = cfg.draw.spot_r
         self._draw.ellipse([ccx - spot_r, ccy - spot_r, ccx + spot_r, ccy + spot_r], fill=self._lc)
 
     def _draw_penalty_areas(self) -> None:
         cfg = self._cfg
-        px0 = (1.0 - cfg.field.penalty_w_ratio) / 2.0
+        px0 = (1.0 - cfg.draw.penalty_w_ratio) / 2.0
         px1 = 1.0 - px0
-        ph = cfg.field.penalty_h_ratio
+        ph = cfg.draw.penalty_h_ratio
         for y0, y1 in ((0.0, ph), (1.0 - ph, 1.0)):
             self._draw.polygon(
                 [
@@ -156,9 +156,9 @@ class LineRenderer:
 
     def _draw_goal_areas(self) -> None:
         cfg = self._cfg
-        gx0 = (1.0 - cfg.field.goal_w_ratio) / 2.0
+        gx0 = (1.0 - cfg.draw.goal_w_ratio) / 2.0
         gx1 = 1.0 - gx0
-        gh = cfg.field.goal_h_ratio
+        gh = cfg.draw.goal_h_ratio
         for y0, y1 in ((0.0, gh), (1.0 - gh, 1.0)):
             self._draw.polygon(
                 [
@@ -173,17 +173,17 @@ class LineRenderer:
 
     def _draw_penalty_spots(self) -> None:
         cfg = self._cfg
-        spot_r = cfg.field.spot_r
-        spot_top = field_xy(0.5, cfg.field.penalty_spot_y_ratio, cfg)
-        spot_bot = field_xy(0.5, 1.0 - cfg.field.penalty_spot_y_ratio, cfg)
+        spot_r = cfg.draw.spot_r
+        spot_top = field_xy(0.5, cfg.draw.penalty_spot_y_ratio, cfg)
+        spot_bot = field_xy(0.5, 1.0 - cfg.draw.penalty_spot_y_ratio, cfg)
         for sx, sy in (spot_top, spot_bot):
             self._draw.ellipse([sx - spot_r, sy - spot_r, sx + spot_r, sy + spot_r], fill=self._lc)
-        self._draw_penalty_arcs(spot_top, spot_bot, cfg.field.penalty_h_ratio)
+        self._draw_penalty_arcs(spot_top, spot_bot, cfg.draw.penalty_h_ratio)
 
     def _draw_corner_arcs(self) -> None:
         cfg = self._cfg
-        ar = cfg.field.corner_arc_r
-        k = cfg.field.top_taper * cfg.fw / cfg.fh
+        ar = cfg.draw.corner_arc_r
+        k = cfg.draw.top_taper * cfg.fw / cfg.fh
         clip_bl = math.degrees(math.atan2(-1.0, k)) % 360
         clip_br = math.degrees(math.atan2(-1.0, -k)) % 360
         for (cx_c, cy_c), start, end in [
@@ -207,7 +207,7 @@ class LineRenderer:
         ph: float,
     ) -> None:
         cfg = self._cfg
-        pen_arc_r = int(cfg.fh * cfg.field.penalty_arc_r_ratio)
+        pen_arc_r = int(cfg.fh * cfg.draw.penalty_arc_r_ratio)
 
         spot_bx, spot_by = spot_bot
         box_top_y = field_xy(0.5, 1.0 - ph, cfg)[1]

@@ -1,7 +1,7 @@
 """Field geometry constants and coordinate mapping."""
 
 import contextlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 from PIL import ImageFont
@@ -74,10 +74,10 @@ class FontConfig:
 
 @dataclass(frozen=True)
 class FieldConfig:
-    canvas: CanvasConfig = CanvasConfig()
-    field: FieldDrawConfig = FieldDrawConfig()
-    player: PlayerDisplayConfig = PlayerDisplayConfig()
-    fonts: FontConfig = FontConfig()
+    canvas: CanvasConfig = field(default_factory=CanvasConfig)
+    draw: FieldDrawConfig = field(default_factory=FieldDrawConfig)
+    player: PlayerDisplayConfig = field(default_factory=PlayerDisplayConfig)
+    fonts: FontConfig = field(default_factory=FontConfig)
 
     @property
     def fw(self) -> int:
@@ -92,7 +92,7 @@ DEFAULT_CONFIG = FieldConfig()
 
 
 def field_xy(x: float, y: float, cfg: FieldConfig = DEFAULT_CONFIG) -> tuple[int, int]:
-    taper = cfg.field.top_taper * (1.0 - y)
+    taper = cfg.draw.top_taper * (1.0 - y)
     left = cfg.canvas.margin_x + taper * cfg.fw
     width = cfg.fw * (1.0 - 2.0 * taper)
     return int(left + x * width), int(cfg.canvas.margin_y + y * cfg.fh)

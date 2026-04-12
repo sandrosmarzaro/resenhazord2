@@ -130,7 +130,7 @@ class PlayerRenderer:
         self.draw.ellipse(
             [cx - r, cy - r, cx + r, cy + r],
             fill='#1b5e20',
-            outline=self.cfg.field.line_color,
+            outline=self.cfg.draw.line_color,
             width=4,
         )
 
@@ -142,7 +142,7 @@ class PlayerRenderer:
         self.draw.text(
             (cx - tw // 2, label_y),
             short_name,
-            fill=self.cfg.field.line_color,
+            fill=self.cfg.draw.line_color,
             font=self.font,
             stroke_width=self.cfg.player.stroke_width,
             stroke_fill='#000000',
