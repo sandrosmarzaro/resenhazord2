@@ -27,7 +27,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer, TmSquadStats
 from bot.domain.models.message import BotMessage
-from bot.domain.services.football_field_builder import build_football_field
+from bot.domain.services.football_field.player_renderer import build_football_field
 from bot.domain.services.thesportsdb import TheSportsDBService
 from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient

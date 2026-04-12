@@ -4,10 +4,10 @@ import pytest
 from PIL import Image
 
 from bot.data.football_formations import FORMATIONS
-from bot.domain.services.football_field_builder import (
-    _field_xy,
-    _shorten_name,
+from bot.domain.services.football_field.field_config import field_xy
+from bot.domain.services.football_field.player_renderer import (
     build_football_field,
+    shorten_name,
 )
 
 _FORMATION = FORMATIONS[0]
@@ -67,35 +67,35 @@ class TestShortenName:
             ('A VeryLongLastNameThatExceedsLimit', 'VeryLongLastN'),
         ],
     )
-    def test_shorten_name(self, name, expected):
-        assert _shorten_name(name) == expected
+    def testshorten_name(self, name, expected):
+        assert shorten_name(name) == expected
 
 
 class TestFieldXy:
     def test_center_maps_to_canvas_center(self):
-        cx, cy = _field_xy(0.5, 0.5)
+        cx, cy = field_xy(0.5, 0.5)
 
         assert cx == 1000
         assert cy == 1375
 
     def test_top_left_has_taper_offset(self):
-        cx, cy = _field_xy(0, 0)
+        cx, cy = field_xy(0, 0)
 
         assert cx > 112
         assert cy == 175
 
     def test_bottom_right_reaches_far_edge(self):
-        cx, cy = _field_xy(1, 1)
+        cx, cy = field_xy(1, 1)
 
         assert cx == 1888
         assert cy == 2575
 
     def test_y_zero_is_top_of_field(self):
-        _, cy = _field_xy(0.5, 0)
+        _, cy = field_xy(0.5, 0)
 
         assert cy == 175
 
     def test_y_one_is_bottom_of_field(self):
-        _, cy = _field_xy(0.5, 1)
+        _, cy = field_xy(0.5, 1)
 
         assert cy == 2575
