@@ -1,58 +1,42 @@
 """Transfermarkt HTTP client — all async fetch operations."""
 
 import asyncio
-from typing import ClassVar
-
-import structlog
 
 from bot.data.football import LeagueInfo
 from bot.data.transfermarkt_positions import POSITION_FILTERS
+from bot.data.transfermarkt_urls import (
+    CLUB_SQUAD_URL,
+    CLUBS_URL,
+    DEFAULT_SEASON,
+    GLOBAL_MAX_PAGES,
+    GLOBAL_URL,
+    HEADERS,
+    LEAGUE_MAX_PAGES,
+    LEAGUE_URL,
+    PLAYERS_PER_PAGE,
+    POSITION_FILTER_URL,
+    POSITION_MAX_PAGES,
+    SQUAD_VALUES_URL,
+)
 from bot.domain.models.football import TmClub, TmPlayer, TmSquadStats
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
 
-logger = structlog.get_logger()
-
 
 class TransfermarktClient:
-    GLOBAL_URL = (
-        'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/marktwertetop'
-    )
-    POSITION_FILTER_URL = (
-        'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/'
-        'marktwertetop/plus/0/galerie/0'
-    )
-    CLUBS_URL = (
-        'https://www.transfermarkt.com.br/spieler-statistik/wertvollstemannschaften/marktwertetop'
-    )
-    LEAGUE_URL = 'https://www.transfermarkt.com.br/{slug}/marktwerte/wettbewerb/{tm_id}/page/{page}'
-    SQUAD_VALUES_URL = 'https://www.transfermarkt.com.br/{slug}/startseite/wettbewerb/{tm_id}'
-    CLUB_SQUAD_URL = (
-        'https://www.transfermarkt.com.br/club/kader/verein/{club_id}/saison_id/{season}/plus/1'
-    )
-    DEFAULT_SEASON = '2025'
-    HEADERS: ClassVar[dict[str, str]] = {
-        'User-Agent': (
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) '
-            'Chrome/120.0.0.0 Safari/537.36'
-        ),
-        'Referer': 'https://www.transfermarkt.com.br/',
-    }
-    PLAYERS_PER_PAGE = 25
-    GLOBAL_MAX_PAGES = 40
-    LEAGUE_MAX_PAGES = 4
-    POSITION_MAX_PAGES = 4
-
-    POSITION_FILTERS = POSITION_FILTERS
+    HEADERS = HEADERS
+    PLAYERS_PER_PAGE = PLAYERS_PER_PAGE
+    GLOBAL_MAX_PAGES = GLOBAL_MAX_PAGES
+    LEAGUE_MAX_PAGES = LEAGUE_MAX_PAGES
+    POSITION_MAX_PAGES = POSITION_MAX_PAGES
 
     @classmethod
     async def fetch_page(cls, page: int, league: LeagueInfo | None = None) -> list[TmPlayer]:
         if league:
-            url = cls.LEAGUE_URL.format(slug=league.tm_slug, tm_id=league.tm_id, page=page)
+            url = LEAGUE_URL.format(slug=league.tm_slug, tm_id=league.tm_id, page=page)
         else:
-            url = f'{cls.GLOBAL_URL}?page={page}'
-        response = await HttpClient.get(url, headers=cls.HEADERS)
+            url = f'{GLOBAL_URL}?page={page}'
+        response = await HttpClient.get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_page(response.text)
 
@@ -60,11 +44,11 @@ class TransfermarktClient:
     async def fetch_by_specific_position(
         cls, role: str, max_pages: int | None = None
     ) -> list[TmPlayer]:
-        mapping = cls.POSITION_FILTERS.get(role)
+        mapping = POSITION_FILTERS.get(role)
         if not mapping:
             return []
         ausrichtung, pos_ids = mapping
-        pages = max_pages if max_pages is not None else cls.POSITION_MAX_PAGES
+        pages = max_pages if max_pages is not None else POSITION_MAX_PAGES
 
         async def _one(pos_id: int, page: int) -> list[TmPlayer]:
             params = {
@@ -77,9 +61,7 @@ class TransfermarktClient:
                 'jahr': '0',
                 'page': str(page),
             }
-            response = await HttpClient.get(
-                cls.POSITION_FILTER_URL, params=params, headers=cls.HEADERS
-            )
+            response = await HttpClient.get(POSITION_FILTER_URL, params=params, headers=HEADERS)
             response.raise_for_status()
             return TransfermarktParser.parse_page(response.text)
 
@@ -96,42 +78,42 @@ class TransfermarktClient:
 
     @classmethod
     async def fetch_player_profile(cls, profile_url: str) -> dict[str, str]:
-        response = await HttpClient.get(profile_url, headers=cls.HEADERS)
+        response = await HttpClient.get(profile_url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_player_profile(response.text)
 
     @classmethod
     async def fetch_squad_values(cls, league: LeagueInfo) -> dict[str, TmSquadStats]:
-        url = cls.SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
-        response = await HttpClient.get(url, headers=cls.HEADERS)
+        url = SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
+        response = await HttpClient.get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_squad_values(response.text)
 
     @classmethod
     async def fetch_standings(cls, league: LeagueInfo) -> dict[str, int]:
         url = f'{TransfermarktParser.TM_BASE}/{league.tm_slug}/tabelle/wettbewerb/{league.tm_id}'
-        response = await HttpClient.get(url, headers=cls.HEADERS)
+        response = await HttpClient.get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_tabelle(response.text)
 
     @classmethod
     async def fetch_top_clubs(cls, count: int) -> list[TmClub]:
-        response = await HttpClient.get(cls.CLUBS_URL, headers=cls.HEADERS)
+        response = await HttpClient.get(CLUBS_URL, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_clubs_page(response.text)[:count]
 
     @classmethod
     async def fetch_league_full_squad(cls, league: LeagueInfo) -> list[TmPlayer]:
-        url = cls.SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
-        response = await HttpClient.get(url, headers=cls.HEADERS)
+        url = SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
+        response = await HttpClient.get(url, headers=HEADERS)
         response.raise_for_status()
         clubs = TransfermarktParser.parse_league_clubs(response.text)
         if not clubs:
             return []
 
         async def _one(club: TmClub) -> list[TmPlayer]:
-            squad_url = cls.CLUB_SQUAD_URL.format(club_id=club.club_id, season=cls.DEFAULT_SEASON)
-            r = await HttpClient.get(squad_url, headers=cls.HEADERS)
+            squad_url = CLUB_SQUAD_URL.format(club_id=club.club_id, season=DEFAULT_SEASON)
+            r = await HttpClient.get(squad_url, headers=HEADERS)
             r.raise_for_status()
             players = TransfermarktParser.parse_page(r.text, require_club=False)
             return [
