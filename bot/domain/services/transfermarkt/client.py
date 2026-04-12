@@ -6,6 +6,7 @@ from typing import ClassVar
 import structlog
 
 from bot.data.football import LeagueInfo
+from bot.data.transfermarkt_positions import POSITION_FILTERS
 from bot.domain.models.football import TmClub, TmPlayer, TmSquadStats
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
@@ -43,18 +44,7 @@ class TransfermarktClient:
     LEAGUE_MAX_PAGES = 4
     POSITION_MAX_PAGES = 4
 
-    POSITION_FILTERS: ClassVar[dict[str, tuple[str, tuple[int, ...]]]] = {
-        'GK': ('Torwart', (1,)),
-        'CB': ('Abwehr', (3,)),
-        'LB': ('Abwehr', (4,)),
-        'RB': ('Abwehr', (5,)),
-        'DM': ('Mittelfeld', (6,)),
-        'CM': ('Mittelfeld', (7, 8, 9)),
-        'AM': ('Mittelfeld', (10,)),
-        'LW': ('Sturm', (11,)),
-        'RW': ('Sturm', (12,)),
-        'ST': ('Sturm', (13, 14)),
-    }
+    POSITION_FILTERS = POSITION_FILTERS
 
     @classmethod
     async def fetch_page(cls, page: int, league: LeagueInfo | None = None) -> list[TmPlayer]:
