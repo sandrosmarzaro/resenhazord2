@@ -1,0 +1,169 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Stage 1: Lint, format, type check (parallel)
+  lint-ts:
+    name: TS lint and format check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun typecheck
+      - run: bun lint
+      - run: bun format:check
+
+  lint-py:
+    name: Python lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run basedpyright
+
+  # Stage 2: Tests (after lint passes)
+  test-ts:
+    name: TS tests
+    runs-on: ubuntu-latest
+    needs: lint-ts
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test:coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: typescript
+          files: gateway/coverage/lcov.info
+
+  test-py:
+    name: Python tests
+    runs-on: ubuntu-latest
+    needs: lint-py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run pytest -v --cov=bot --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: python
+          files: coverage.xml
+
+  # Stage 3: Build Docker images (after all tests pass)
+  build:
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    needs: [test-ts, test-py]
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push TS bot
+        uses: docker/build-push-action@v6
+        with:
+          context: ./gateway
+          file: gateway/Dockerfile
+          push: true
+          tags: ghcr.io/sandrosmarzaro/resenhazord2:latest
+          cache-from: type=gha,scope=ts
+          cache-to: type=gha,mode=max,scope=ts
+
+      - name: Build and push Python core
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ghcr.io/sandrosmarzaro/resenhazord2:python
+          cache-from: type=gha,scope=py
+          cache-to: type=gha,mode=max,scope=py
+
+  # Stage 4: Deploy (after build)
+  deploy:
+    name: SSH deploy to Oracle VPS
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+    steps:
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=5 \
+            "$VPS_USER@$VPS_HOST" \
+            "cd $VPS_APP_DIR && git pull && docker compose pull && docker compose up -d --no-build"
+
+  # Stage 5: Release (after deploy)
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    needs: deploy
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Python Semantic Release
+        run: uv pip install python-semantic-release
+
+      - name: Run Semantic Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version
+          semantic-release publish
