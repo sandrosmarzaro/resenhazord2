@@ -32,12 +32,26 @@ if [ -f "$GATEWAY_DIR/eslint.config.mjs" ] || [ -f "$GATEWAY_DIR/eslint.config.j
   fi
 fi
 
+if [ -f "$GATEWAY_DIR/package.json" ] && grep -q '"prettier"' "$GATEWAY_DIR/package.json"; then
+  CHECKS_RUN=$((CHECKS_RUN + 1))
+  FORMAT_OUTPUT=$(cd "$GATEWAY_DIR" && bun run format:check 2>&1)
+  if [ $? -ne 0 ]; then
+    ERRORS="${ERRORS}TS FORMAT (PRETTIER) FAILED:\n$(echo "$FORMAT_OUTPUT" | head -30)\n\n"
+  fi
+fi
+
 # --- Python (root) ---
 if [ -f "$CLAUDE_PROJECT_DIR/pyproject.toml" ]; then
   CHECKS_RUN=$((CHECKS_RUN + 1))
   RUFF_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run ruff check . 2>&1)
   if [ $? -ne 0 ]; then
     ERRORS="${ERRORS}RUFF FAILED:\n$(echo "$RUFF_OUTPUT" | head -30)\n\n"
+  fi
+
+  CHECKS_RUN=$((CHECKS_RUN + 1))
+  RUFF_FORMAT_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run ruff format --check . 2>&1)
+  if [ $? -ne 0 ]; then
+    ERRORS="${ERRORS}RUFF FORMAT FAILED:\n$(echo "$RUFF_FORMAT_OUTPUT" | head -30)\n\n"
   fi
 
   CHECKS_RUN=$((CHECKS_RUN + 1))
