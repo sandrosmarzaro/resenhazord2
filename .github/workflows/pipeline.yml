@@ -155,12 +155,9 @@ jobs:
       - name: Set up Python
         uses: astral-sh/setup-uv@v7
 
-      - name: Install Python Semantic Release
-        run: uv pip install --system python-semantic-release
-
       - name: Run Semantic Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          semantic-release version
-          semantic-release publish
+          uvx python-semantic-release version
+          uvx python-semantic-release publish
