@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Resenhazord2 is a WhatsApp chatbot with Python as the primary language:
 
-- **Root** — Python (FastAPI + uvicorn) — all 46 commands, business logic, services
+- **Root** — Python (FastAPI + uvicorn) — all commands, business logic, services
 - **`gateway/`** — TypeScript (Bun + Baileys) — WhatsApp adapter, media handling, WebSocket bridge
+- **`bot/adapters/discord/`** — Discord bot (discord.py) — slash commands for Drive guild
 
 Commands are prefixed with `,` (comma). The gateway receives WhatsApp messages, proactively downloads any attached media, and forwards everything to the Python engine via WebSocket. All command logic lives in Python.
 
@@ -63,13 +64,44 @@ docker compose up -d   # Start both services
 - **Python**: ruff lint+fix, ruff format, gitleaks secret scanning, large file check, merge conflict check
 - **Gateway**: eslint, tsc --noEmit, prettier check
 
+### Claude Commands
+
+Custom slash commands in `.claude/commands/`:
+
+| Command | Description |
+|---------|-------------|
+| `/test` | Run full test suite (Python + Gateway in parallel) |
+| `/ci` | Run GitHub Actions CI checks locally via `act` |
+
+```bash
+# Run specific CI job
+act pull_request -W .github/workflows/check.yml -j lint-py
+```
+
 ## Architecture
 
 The gateway receives WhatsApp messages via Baileys, downloads media proactively, and sends command data + binary frames over WebSocket to Python. Python matches commands via `CommandRegistry`, executes them, and returns `BotMessage[]` responses. Commands raise `BotError` subclasses for user-facing errors, caught centrally by the WebSocket handler.
 
+Discord bot (`bot/adapters/discord/`) uses discord.py with slash commands, sharing the same command registry as WhatsApp.
+
 See [docs/architecture.md](docs/architecture.md) for full details (message flow, command system, ports & adapters, reply builder, CommandConfig, key types, error handling, caches, singletons).
 
 ## Code Conventions
+
+### Size Limits
+
+| Rule | Limit | Rationale |
+|------|-------|-----------|
+| **Lines per class** | 150 max | Prevents god classes; extract to smaller cohesive units |
+| **Attributes per class** | 7 max | Above 7, extract to sub-classes or data models in `bot/data/` |
+| **Parameters per function/method** | 4 max | Use dataclasses/dicts or split into fewer cohesive params |
+
+When a class exceeds these limits:
+- Split into smaller focused classes in the same module
+- Extract related data to `bot/data/` files
+- Create sub-classes for distinct behaviors
+
+### General
 
 - **Runtime**: Python 3.13+ for the bot, Bun (not Node.js) for gateway
 - **Modules**: ES modules with `.js` extensions in imports (even for `.ts` files)
@@ -150,50 +182,7 @@ Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
 
 ## Commit Conventions
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
-
-### Format
-
-```
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Types
-
-| Type         | When to use                                                      |
-| ------------ | ---------------------------------------------------------------- |
-| `feat:`      | New feature or capability                                        |
-| `fix:`       | Bug fix                                                          |
-| `refactor:`  | Code restructuring without changing behavior                     |
-| `test:`      | Adding or updating tests                                         |
-| `docs:`      | Documentation changes                                            |
-| `style:`     | Formatting, whitespace, semicolons (no logic change)             |
-| `ci:`        | CI/CD pipeline changes (GitHub Actions, Docker, deploy scripts)  |
-| `chore:`     | Tooling, configs, dependencies, maintenance                      |
-| `perf:`      | Performance improvements                                         |
-| `build:`     | Build system or external dependency changes                      |
-
-### Rules
-
-- **Subject line**: imperative mood, lowercase, no period, max ~72 chars
-- **Body** (optional): explain *why*, not *what* — the diff shows what changed
-- **Scope** (optional): area affected, e.g. `feat(command):`, `fix(cache):`
-- **Breaking changes**: add `!` after type or `BREAKING CHANGE:` in footer
-- **Atomic commits**: each commit should represent one logical change
-- **Commit as you go** — create each commit immediately after completing its logical unit of work, not after finishing all changes
-
-### Examples
-
-```
-feat: add hentai command with hitomi default and nhentai fallback
-fix(cache): handle Redis connection timeout gracefully
-refactor: move TypeScript service to gateway/
-test: add Python unit and integration test structure
-```
+See [docs/git-flow.md](docs/git-flow.md) for full details (conventional commits, atomic commits, protected main workflow).
 
 ## Testing
 
@@ -221,7 +210,7 @@ test: add Python unit and integration test structure
 
 ## Sentry
 
-Gateway uses `@sentry/bun` for error tracking and structured logging. See [docs/sentry.md](docs/sentry.md) for setup, structured logs, error capture, breadcrumbs, CLI queries, and test mocks.
+Gateway uses `@sentry/bun` for error tracking. Python uses `sentry-sdk` with FastAPI integration. See [docs/sentry.md](docs/sentry.md) for setup, structured logs, error capture, breadcrumbs, CLI queries, and test mocks.
 
 ## Verification & Communication
 
