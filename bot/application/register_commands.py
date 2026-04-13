@@ -21,6 +21,7 @@ from bot.domain.commands.extract import ExtractCommand
 from bot.domain.commands.fact import FactCommand
 from bot.domain.commands.fipe import FipeCommand
 from bot.domain.commands.football_player import FootballPlayerCommand
+from bot.domain.commands.football_standings import FootballStandingsCommand
 from bot.domain.commands.football_team import FootballTeamCommand
 from bot.domain.commands.fuck import FuckCommand
 from bot.domain.commands.game import GameCommand
@@ -87,6 +88,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(FactCommand())
     registry.register(FipeCommand())
     registry.register(FootballPlayerCommand())
+    registry.register(FootballStandingsCommand())
     registry.register(FootballTeamCommand())
     registry.register(GroupMentionsCommand())
     registry.register(HoroscopeCommand())
