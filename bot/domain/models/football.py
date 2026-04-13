@@ -54,6 +54,20 @@ class SportsDBTeam:
 
 
 @dataclass(frozen=True)
+class TmStandingRow:
+    rank: int
+    team: str
+    matches: int
+    wins: int
+    draws: int
+    losses: int
+    goals_for: int
+    goals_against: int
+    goal_diff: int
+    points: int
+
+
+@dataclass(frozen=True)
 class StandingRow:
     rank: int
     team: str

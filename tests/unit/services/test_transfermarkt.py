@@ -134,6 +134,44 @@ class TestParseTabelle:
         assert TransfermarktParser.parse_tabelle('<div>no table</div>') == {}
 
 
+@pytest.fixture
+def full_standings_html() -> str:
+    return _load_html('full_standings.html')
+
+
+class TestParseFullTabelle:
+    def test_returns_full_standing_rows(self, full_standings_html):
+        result = TransfermarktParser.parse_full_tabelle(full_standings_html)
+
+        assert len(result) == 3
+        first = result[0]
+        assert first.rank == 1
+        assert first.team == 'Palmeiras'
+        assert first.matches == 11
+        assert first.wins == 8
+        assert first.draws == 2
+        assert first.losses == 1
+        assert first.goals_for == 21
+        assert first.goals_against == 10
+        assert first.goal_diff == 11
+        assert first.points == 26
+
+    def test_parses_negative_goal_difference(self, full_standings_html):
+        result = TransfermarktParser.parse_full_tabelle(full_standings_html)
+
+        cuiaba = result[2]
+        assert cuiaba.goal_diff == -7
+
+    def test_skips_rows_with_non_numeric_rank(self, full_standings_html):
+        result = TransfermarktParser.parse_full_tabelle(full_standings_html)
+
+        teams = [r.team for r in result]
+        assert 'Bad Club' not in teams
+
+    def test_empty_html_returns_empty_list(self):
+        assert TransfermarktParser.parse_full_tabelle('<div>no table</div>') == []
+
+
 class TestParseClubsPage:
     def test_returns_clubs_in_rank_order(self, clubs_page_html):
         clubs = TransfermarktParser.parse_clubs_page(clubs_page_html)
