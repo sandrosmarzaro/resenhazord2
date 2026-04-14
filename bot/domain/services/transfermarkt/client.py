@@ -165,14 +165,24 @@ class TransfermarktClient:
         yesterday = today - timedelta(days=1)
         dates = [yesterday.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')]
 
+        async def _fetch_one(date_str: str) -> list[TmLiveMatch]:
+            try:
+                response = await HttpClient.get(
+                    LIVE_URL_TEMPLATE.format(date=date_str), headers=HEADERS
+                )
+                response.raise_for_status()
+                return TransfermarktParser.parse_live_matches(response.text)
+            except OSError:
+                return []
+
+        batches = await asyncio.gather(*[_fetch_one(d) for d in dates], return_exceptions=True)
+
         seen: set[str] = set()
         merged: list[TmLiveMatch] = []
-        for date_str in dates:
-            response = await HttpClient.get(
-                LIVE_URL_TEMPLATE.format(date=date_str), headers=HEADERS
-            )
-            response.raise_for_status()
-            for m in TransfermarktParser.parse_live_matches(response.text):
+        for date_str, batch in zip(dates, batches, strict=True):
+            if isinstance(batch, BaseException):
+                continue
+            for m in batch:
                 key = m.match_id or f'{m.home_team}|{m.away_team}|{m.competition_code}'
                 if key not in seen:
                     seen.add(key)
