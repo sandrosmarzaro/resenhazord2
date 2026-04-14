@@ -41,6 +41,7 @@ from bot.domain.commands.movie_series import MovieSeriesCommand
 from bot.domain.commands.music import MusicCommand
 from bot.domain.commands.my_anime_list import MyAnimeListCommand
 from bot.domain.commands.oi import OiCommand
+from bot.domain.commands.placar import PlacarCommand
 from bot.domain.commands.playing_card import PlayingCardCommand
 from bot.domain.commands.pokemon import PokemonCommand
 from bot.domain.commands.pokemon_tcg import PokemonTCGCommand
@@ -104,6 +105,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(OiCommand())
     registry.register(PokemonCommand())
     registry.register(PokemonTCGCommand())
+    registry.register(PlacarCommand())
     registry.register(PornoCommand())
     registry.register(PuppyCommand())
     registry.register(Rule34Command())
