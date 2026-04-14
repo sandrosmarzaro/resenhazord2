@@ -96,3 +96,4 @@ class TmLiveMatch:
     status: MatchStatus
     match_id: str
     round: str | None = None
+    source_date: str = ''

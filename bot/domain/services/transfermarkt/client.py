@@ -1,6 +1,8 @@
 """Transfermarkt HTTP client — all async fetch operations."""
 
 import asyncio
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 
 from bot.data.football import LeagueInfo
 from bot.data.transfermarkt_positions import POSITION_FILTERS
@@ -13,7 +15,7 @@ from bot.data.transfermarkt_urls import (
     HEADERS,
     LEAGUE_MAX_PAGES,
     LEAGUE_URL,
-    LIVE_URL,
+    LIVE_URL_TEMPLATE,
     PLAYERS_PER_PAGE,
     POSITION_FILTER_URL,
     POSITION_MAX_PAGES,
@@ -22,6 +24,8 @@ from bot.data.transfermarkt_urls import (
 from bot.domain.models.football import TmClub, TmLiveMatch, TmPlayer, TmSquadStats, TmStandingRow
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
+
+BR_TIMEZONE_OFFSET = timedelta(hours=-3)
 
 
 class TransfermarktClient:
@@ -156,6 +160,21 @@ class TransfermarktClient:
 
     @classmethod
     async def fetch_live_matches(cls) -> list[TmLiveMatch]:
-        response = await HttpClient.get(LIVE_URL, headers=HEADERS)
-        response.raise_for_status()
-        return TransfermarktParser.parse_live_matches(response.text)
+        br_time = timezone(BR_TIMEZONE_OFFSET)
+        today = datetime.now(br_time).date()
+        yesterday = today - timedelta(days=1)
+        dates = [yesterday.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')]
+
+        seen: set[str] = set()
+        merged: list[TmLiveMatch] = []
+        for date_str in dates:
+            response = await HttpClient.get(
+                LIVE_URL_TEMPLATE.format(date=date_str), headers=HEADERS
+            )
+            response.raise_for_status()
+            for m in TransfermarktParser.parse_live_matches(response.text):
+                key = m.match_id or f'{m.home_team}|{m.away_team}|{m.competition_code}'
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(replace(m, source_date=date_str))
+        return merged
