@@ -98,6 +98,7 @@ class PlacarCommand(Command):
         return CommandConfig(
             name='placar',
             aliases=['score'],
+            flags=['past', 'now', 'next'],
             category=Category.OTHER,
             platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
@@ -109,13 +110,23 @@ class PlacarCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         matches = await TransfermarktService.fetch_live_matches()
 
-        live_all = [m for m in matches if m.status == MatchStatus.LIVE]
-        upcoming_all = [
-            m
-            for m in matches
-            if m.status == MatchStatus.NOT_STARTED and _is_within_upcoming_window(m.match_time)
-        ]
-        finished_all = [m for m in matches if m.status == MatchStatus.FINISHED]
+        show_past = 'past' in parsed.flags
+        show_now = 'now' in parsed.flags
+        show_next = 'next' in parsed.flags
+        if not (show_past or show_now or show_next):
+            show_past = show_now = show_next = True
+
+        live_all = [m for m in matches if m.status == MatchStatus.LIVE] if show_now else []
+        upcoming_all = (
+            [
+                m
+                for m in matches
+                if m.status == MatchStatus.NOT_STARTED and _is_within_upcoming_window(m.match_time)
+            ]
+            if show_next
+            else []
+        )
+        finished_all = [m for m in matches if m.status == MatchStatus.FINISHED] if show_past else []
         live_matches = _apply_soft_cap(live_all, _SECTION_SOFT_CAP)
         upcoming_matches = _apply_soft_cap(upcoming_all, _SECTION_SOFT_CAP)
         finished_matches = _apply_soft_cap(finished_all, _SECTION_SOFT_CAP)
