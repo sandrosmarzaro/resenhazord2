@@ -34,6 +34,9 @@ known-first-party = ["bot"]
     "C901",    # parser dispatch is inherently branchy
     "PLR0912",
 ]
+"bot/domain/commands/placar.py" = [
+    "TC001",   # TYPE_CHECKING imports needed for dataclass type hints
+]
 "bot/domain/models/message.py" = [
     "C901",    # content type dispatch is inherently branchy
     "PLR0912",
