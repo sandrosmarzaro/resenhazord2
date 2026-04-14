@@ -16,6 +16,8 @@ from bot.domain.commands.base import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from bot.domain.models.command_data import CommandData
     from bot.domain.models.football import MatchStatus, TmLiveMatch
     from bot.domain.models.message import BotMessage
@@ -24,8 +26,12 @@ else:
     from bot.domain.models.football import MatchStatus, TmLiveMatch
     from bot.domain.models.message import BotMessage
 
+from bot.data.football_league_priority import league_priority
 from bot.data.number_emoji import MAX_EMOJI_SCORE, NUMBER_EMOJI
 from bot.domain.services.transfermarkt.service import TransfermarktService
+
+_UPCOMING_WINDOW_HOURS = 6
+_FINISHED_SOFT_CAP = 7
 
 
 def _get_current_datetime() -> datetime:
@@ -34,6 +40,22 @@ def _get_current_datetime() -> datetime:
 
 def _get_current_date() -> date:
     return datetime.now(UTC).date()
+
+
+def _is_within_upcoming_window(match_time: str) -> bool:
+    if not match_time or ':' not in match_time:
+        return False
+    try:
+        hour, minute = match_time.split(':')
+        hour_int, minute_int = int(hour), int(minute)
+    except ValueError:
+        return False
+    now = _get_current_datetime()
+    candidate = now.replace(hour=hour_int, minute=minute_int, second=0, microsecond=0)
+    if candidate < now:
+        candidate += timedelta(days=1)
+    delta = candidate - now
+    return delta <= timedelta(hours=_UPCOMING_WINDOW_HOURS)
 
 
 def _format_match_time(match_time: str, status: MatchStatus) -> str:
@@ -87,43 +109,82 @@ class PlacarCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         matches = await TransfermarktService.fetch_live_matches()
 
-        if not matches:
+        live_matches = [m for m in matches if m.status == MatchStatus.LIVE]
+        upcoming_matches = [
+            m
+            for m in matches
+            if m.status == MatchStatus.NOT_STARTED and _is_within_upcoming_window(m.match_time)
+        ]
+        finished_all = [m for m in matches if m.status == MatchStatus.FINISHED]
+        finished_matches = _apply_finished_cap(finished_all, _FINISHED_SOFT_CAP)
+
+        if not live_matches and not upcoming_matches and not finished_matches:
             return [Reply.to(data).text('Nenhum jogo ao vivo agora. ✨')]
 
-        live_matches = [m for m in matches if m.status == MatchStatus.LIVE]
-        upcoming_matches = [m for m in matches if m.status == MatchStatus.NOT_STARTED]
-
         lines: list[str] = []
-
         if live_matches:
-            lines.append('🔥 *Ao Vivo*\n')
-            by_comp: dict[str, list[TmLiveMatch]] = defaultdict(list)
-            for m in live_matches:
-                by_comp[m.competition_name].append(m)
-            for comp_name, comp_matches in sorted(by_comp.items()):
-                first = comp_matches[0]
-                lines.append(f'{first.country_flag_emoji} *{comp_name}*')
-                for match in comp_matches:
-                    home = _score_emoji(match.home_score)
-                    away = _score_emoji(match.away_score)
-                    time_str = _format_match_time(match.match_time, match.status)
-                    lines.append(f'{match.home_team} {home} x {away} {match.away_team} {time_str}')
-                lines.append('')
-
+            lines.extend(_build_section('🔥 *Ao Vivo*\n', live_matches, _format_live_row))
         if upcoming_matches:
-            lines.append('📅 *Próximos Jogos*\n')
-            by_comp = defaultdict(list)
-            for m in upcoming_matches:
-                by_comp[m.competition_name].append(m)
-            for comp_name, comp_matches in sorted(by_comp.items()):
-                first = comp_matches[0]
-                lines.append(f'{first.country_flag_emoji} *{comp_name}*')
-                for match in comp_matches:
-                    date_label = _format_date_label(match.match_time)
-                    time_str = _format_match_time(match.match_time, match.status)
-                    date_str = f'{date_label} ' if date_label else ''
-                    lines.append(f'{match.home_team} - x - {match.away_team} {date_str}{time_str}')
-                lines.append('')
+            lines.extend(
+                _build_section('📅 *Próximos Jogos*\n', upcoming_matches, _format_upcoming_row)
+            )
+        if finished_matches:
+            lines.extend(
+                _build_section('✅ *Últimos Resultados*\n', finished_matches, _format_finished_row)
+            )
 
         caption = '\n'.join(lines).rstrip()
         return [Reply.to(data).text(caption)]
+
+
+def _group_by_competition(matches: list[TmLiveMatch]) -> list[list[TmLiveMatch]]:
+    by_code: dict[str, list[TmLiveMatch]] = defaultdict(list)
+    for m in matches:
+        by_code[m.competition_code].append(m)
+    return sorted(
+        by_code.values(),
+        key=lambda g: (league_priority(g[0].competition_code), g[0].competition_name),
+    )
+
+
+def _build_section(
+    header: str,
+    matches: list[TmLiveMatch],
+    row_formatter: Callable[[TmLiveMatch], str],
+) -> list[str]:
+    lines: list[str] = [header]
+    for group in _group_by_competition(matches):
+        head = group[0]
+        lines.append(f'{head.country_flag_emoji} *{head.competition_name}*')
+        lines.extend(row_formatter(m) for m in group)
+        lines.append('')
+    return lines
+
+
+def _apply_finished_cap(matches: list[TmLiveMatch], soft_cap: int) -> list[TmLiveMatch]:
+    picked: list[TmLiveMatch] = []
+    for group in _group_by_competition(matches):
+        if len(picked) >= soft_cap:
+            break
+        picked.extend(group)
+    return picked
+
+
+def _format_live_row(match: TmLiveMatch) -> str:
+    home = _score_emoji(match.home_score)
+    away = _score_emoji(match.away_score)
+    time_str = _format_match_time(match.match_time, match.status)
+    return f'_{match.home_team}_ {home} x {away} _{match.away_team}_ {time_str}'
+
+
+def _format_upcoming_row(match: TmLiveMatch) -> str:
+    date_label = _format_date_label(match.match_time)
+    time_str = _format_match_time(match.match_time, match.status)
+    date_str = f'{date_label} ' if date_label else ''
+    return f'_{match.home_team}_ - x - _{match.away_team}_ {date_str}{time_str}'
+
+
+def _format_finished_row(match: TmLiveMatch) -> str:
+    home = _score_emoji(match.home_score)
+    away = _score_emoji(match.away_score)
+    return f'_{match.home_team}_ {home} x {away} _{match.away_team}_'

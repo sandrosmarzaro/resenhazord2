@@ -3,7 +3,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from bot.domain.commands.placar import PlacarCommand, _format_date_label, _score_emoji
+from bot.domain.commands.placar import (
+    PlacarCommand,
+    _apply_finished_cap,
+    _format_date_label,
+    _score_emoji,
+)
 from bot.domain.models.football import MatchStatus, TmLiveMatch
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
@@ -20,6 +25,7 @@ def _make_match(  # noqa: PLR0913
     home_score: int | None,
     away_score: int | None,
     competition_name: str = 'Brasileirão',
+    competition_code: str = 'BRA1',
     country: str = 'Brasil',
     country_flag_emoji: str = '🇧🇷',
     match_time: str = "45'",
@@ -27,7 +33,7 @@ def _make_match(  # noqa: PLR0913
     match_id: str = '12345',
 ) -> TmLiveMatch:
     return TmLiveMatch(
-        competition_code='BR1',
+        competition_code=competition_code,
         competition_name=competition_name,
         country=country,
         country_flag_emoji=country_flag_emoji,
@@ -172,6 +178,7 @@ class TestExecute:
                 1,
                 1,
                 competition_name='Premier League',
+                competition_code='GB1',
                 country='Inglaterra',
                 country_flag_emoji='🏴󠁧󠁢󠁥󠁮󠁧󠁿',
             ),
@@ -211,7 +218,7 @@ class TestExecute:
         assert "67'" in content.text
 
     @pytest.mark.anyio
-    async def test_formats_not_started_match_with_time(self, command):
+    async def test_formats_not_started_match_with_time(self, command, mocker):
         data = GroupCommandDataFactory.build(text='/placar')
         matches = [
             _make_match(
@@ -223,6 +230,15 @@ class TestExecute:
                 status=MatchStatus.NOT_STARTED,
             ),
         ]
+
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_datetime',
+            return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
+        )
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_date',
+            return_value=date(2025, 6, 15),
+        )
 
         with patch(
             'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
@@ -361,3 +377,68 @@ class TestExecute:
         text = content.text
         assert '🔥 *Ao Vivo*' not in text
         assert '📅 *Próximos Jogos*' in text
+
+
+def _finished(
+    competition_code: str,
+    competition_name: str,
+    home_team: str,
+    away_team: str,
+    match_id: str,
+) -> TmLiveMatch:
+    return _make_match(
+        home_team=home_team,
+        away_team=away_team,
+        home_score=1,
+        away_score=0,
+        competition_code=competition_code,
+        competition_name=competition_name,
+        status=MatchStatus.FINISHED,
+        match_id=match_id,
+    )
+
+
+class TestApplyFinishedCap:
+    def test_brasileirao_always_included_even_when_alphabetically_last(self):
+        matches = [
+            _finished('RU1', 'Premier Liga', 'Zenit', 'Spartak', '1'),
+            _finished('SA1', 'Saudi Pro League', 'Al-Hilal', 'Al-Nassr', '2'),
+            _finished('A1', 'Austrian Bundesliga', 'Salzburg', 'Rapid', '3'),
+            _finished('BRA1', 'Brasileirão', 'Flamengo', 'Palmeiras', '4'),
+        ]
+
+        picked = _apply_finished_cap(matches, soft_cap=7)
+
+        codes = [m.competition_code for m in picked]
+        assert codes[0] == 'BRA1'
+        assert 'BRA1' in codes
+
+    def test_whole_league_kept_even_when_overflow(self):
+        top5 = [_finished('GB1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(6)]
+        ar = [_finished('AR1N', 'Liga Profesional', f'AH{i}', f'AA{i}', f'a{i}') for i in range(3)]
+
+        picked = _apply_finished_cap([*top5, *ar], soft_cap=7)
+
+        assert len(picked) == 9
+        assert sum(1 for m in picked if m.competition_code == 'GB1') == 6
+        assert sum(1 for m in picked if m.competition_code == 'AR1N') == 3
+
+    def test_stops_after_soft_cap_reached(self):
+        top5 = [_finished('GB1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(8)]
+        low = [_finished('ZZZ', 'Long Tail', 'X', 'Y', 'z')]
+
+        picked = _apply_finished_cap([*top5, *low], soft_cap=7)
+
+        assert len(picked) == 8
+        assert all(m.competition_code == 'GB1' for m in picked)
+
+    def test_priority_ordering_brasileirao_before_europe_before_rest(self):
+        matches = [
+            _finished('MEX1', 'Liga MX', 'A', 'B', '1'),
+            _finished('GB1', 'Premier League', 'C', 'D', '2'),
+            _finished('BRA1', 'Brasileirão', 'E', 'F', '3'),
+        ]
+
+        picked = _apply_finished_cap(matches, soft_cap=7)
+
+        assert [m.competition_code for m in picked] == ['BRA1', 'GB1', 'MEX1']
