@@ -1,8 +1,9 @@
+from datetime import date, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from bot.domain.commands.placar import PlacarCommand, _score_emoji
+from bot.domain.commands.placar import PlacarCommand, _format_date_label, _score_emoji
 from bot.domain.models.football import MatchStatus, TmLiveMatch
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
@@ -13,7 +14,7 @@ def command():
     return PlacarCommand()
 
 
-def _make_match(
+def _make_match(  # noqa: PLR0913
     home_team: str,
     away_team: str,
     home_score: int | None,
@@ -57,6 +58,65 @@ class TestScoreEmoji:
     def test_above_ten_returns_string(self):
         assert _score_emoji(11) == '11'
         assert _score_emoji(99) == '99'
+
+
+class TestFormatDateLabel:
+    @pytest.mark.parametrize(
+        ('match_time', 'expected'),
+        [
+            ('14:00', 'Hoje'),
+            ('23:59', 'Hoje'),
+        ],
+    )
+    def test_returns_hoje_for_today(self, match_time, expected, mocker):
+        from datetime import datetime as datetime_cls
+
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_datetime',
+            return_value=datetime_cls(2025, 6, 15, 12, 0),  # noqa: DTZ001
+        )
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_date',
+            return_value=date(2025, 6, 15),
+        )
+        assert _format_date_label(match_time) == expected
+
+    @pytest.mark.parametrize(
+        ('match_time', 'expected'),
+        [
+            ('10:00', 'Amanhã'),
+            ('20:00', 'Amanhã'),
+        ],
+    )
+    def test_returns_amanha_for_tomorrow(self, match_time, expected, mocker):
+        from datetime import datetime as datetime_cls
+
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_datetime',
+            return_value=datetime_cls(2025, 6, 15, 12, 0),  # noqa: DTZ001
+        )
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_date',
+            return_value=date(2025, 6, 14),
+        )
+        assert _format_date_label(match_time) == expected
+
+    def test_returns_date_format_for_future(self, mocker):
+        from datetime import datetime as datetime_cls
+
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_datetime',
+            return_value=datetime_cls(2025, 6, 15, 12, 0),  # noqa: DTZ001
+        )
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_date',
+            return_value=date(2025, 6, 15),
+        )
+        assert _format_date_label('14:00') == 'Hoje'
+
+    def test_returns_empty_for_invalid_time(self):
+        assert _format_date_label('') == ''
+        assert _format_date_label('invalid') == ''
 
 
 class TestConfig:
@@ -194,3 +254,110 @@ class TestExecute:
         assert isinstance(content, TextContent)
         assert '🔟' in content.text
         assert '0️⃣' in content.text
+
+    @pytest.mark.anyio
+    async def test_separates_live_and_upcoming_matches(self, command, mocker):
+        data = GroupCommandDataFactory.build(text='/placar')
+        matches = [
+            _make_match('Flamengo', 'Palmeiras', 2, 1, match_time="67'", status=MatchStatus.LIVE),
+            _make_match(
+                'Botafogo',
+                'Fluminense',
+                None,
+                None,
+                match_time='16:00',
+                status=MatchStatus.NOT_STARTED,
+            ),
+        ]
+
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_datetime',
+            return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
+        )
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_date',
+            return_value=date(2025, 6, 15),
+        )
+
+        with patch(
+            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            new_callable=AsyncMock,
+            return_value=matches,
+        ):
+            messages = await command.run(data)
+
+        content = messages[0].content
+        assert isinstance(content, TextContent)
+        text = content.text
+        assert '🔥 *Ao Vivo*' in text
+        assert '📅 *Próximos Jogos*' in text
+
+    @pytest.mark.anyio
+    async def test_upcoming_matches_show_date_label(self, command, mocker):
+        data = GroupCommandDataFactory.build(text='/placar')
+        matches = [
+            _make_match(
+                'Botafogo',
+                'Fluminense',
+                None,
+                None,
+                match_time='14:00',
+                status=MatchStatus.NOT_STARTED,
+            ),
+        ]
+
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_datetime',
+            return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
+        )
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_date',
+            return_value=date(2025, 6, 15),
+        )
+
+        with patch(
+            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            new_callable=AsyncMock,
+            return_value=matches,
+        ):
+            messages = await command.run(data)
+
+        content = messages[0].content
+        assert isinstance(content, TextContent)
+        assert 'Hoje 🕐 14:00' in content.text
+
+    @pytest.mark.anyio
+    async def test_upcoming_only_no_live_section(self, command, mocker):
+        data = GroupCommandDataFactory.build(text='/placar')
+        matches = [
+            _make_match(
+                'Botafogo',
+                'Fluminense',
+                None,
+                None,
+                match_time='18:00',
+                status=MatchStatus.NOT_STARTED,
+            ),
+        ]
+
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_datetime',
+            return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
+        )
+        mocker.patch(
+            'bot.domain.commands.placar._get_current_date',
+            return_value=date(2025, 6, 15),
+        )
+
+        with patch(
+            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            new_callable=AsyncMock,
+            return_value=matches,
+        ):
+            messages = await command.run(data)
+
+        content = messages[0].content
+        assert isinstance(content, TextContent)
+        text = content.text
+        assert '🔥 *Ao Vivo*' not in text
+        assert '📅 *Próximos Jogos*' in text
