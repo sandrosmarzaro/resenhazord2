@@ -1,15 +1,26 @@
 """HTML parsing for Transfermarkt pages — public facade."""
 
+import re
+
 import structlog
 from bs4 import BeautifulSoup, Tag
 
-from bot.domain.models.football import TmClub, TmPlayer, TmSquadStats, TmStandingRow
+from bot.data.nationality_flags import nationality_flag
+from bot.domain.models.football import (
+    MatchStatus,
+    TmClub,
+    TmLiveMatch,
+    TmPlayer,
+    TmSquadStats,
+    TmStandingRow,
+)
 from bot.domain.services.transfermarkt.row_parser import RowParser
 
 logger = structlog.get_logger()
 
 _GOALS_SEPARATOR = ':'
 _MIN_STANDING_CELLS = 7
+_SCORE_PARTS_COUNT = 2
 
 
 class TransfermarktParser(RowParser):
@@ -218,3 +229,170 @@ class TransfermarktParser(RowParser):
                 )
             )
         return clubs
+
+    @classmethod
+    def parse_live_matches(cls, html: str) -> list[TmLiveMatch]:
+        soup = BeautifulSoup(html, 'html.parser')
+        matches: list[TmLiveMatch] = []
+        seen_match_ids: set[str] = set()
+
+        for block in soup.find_all('div', class_='live-block'):
+            if not isinstance(block, Tag):
+                continue
+
+            comp_info = cls._extract_competition_info(block)
+            if not comp_info:
+                continue
+
+            comp_name, comp_code, country, country_flag = comp_info
+
+            for match in cls._parse_live_block_rows(
+                block, comp_code, comp_name, country, country_flag
+            ):
+                if match.match_id not in seen_match_ids:
+                    seen_match_ids.add(match.match_id)
+                    matches.append(match)
+
+        return matches
+
+    @classmethod
+    def _extract_competition_info(cls, block: Tag) -> tuple[str, str, str, str] | None:
+        header = block.find('h2')
+        if not header or not isinstance(header, Tag):
+            return None
+
+        comp_link = header.find('a')
+        comp_name = ''
+        comp_href = ''
+        if comp_link and isinstance(comp_link, Tag):
+            comp_name = comp_link.get_text(strip=True)
+            comp_href = comp_link.get('href', '')
+
+        comp_code = ''
+        if comp_href:
+            match = cls._WETTBEWERB_ID_RE.search(str(comp_href))
+            if match:
+                comp_code = match.group(1)
+
+        flag_img = header.find('img', class_='wettbewerblogo')
+        country = ''
+        if flag_img and isinstance(flag_img, Tag):
+            country = str(flag_img.get('title', ''))
+
+        country_flag = nationality_flag(country) if country else ''
+
+        return comp_name, comp_code, country, country_flag
+
+    @classmethod
+    def _parse_live_block_rows(
+        cls, block: Tag, comp_code: str, comp_name: str, country: str, country_flag: str
+    ) -> list[TmLiveMatch]:
+        matches: list[TmLiveMatch] = []
+
+        table = block.find('table', class_='livescore')
+        if not table or not isinstance(table, Tag):
+            return matches
+
+        for row in table.find_all('tr'):
+            if not isinstance(row, Tag):
+                continue
+
+            home_cell = row.find('td', class_='verein-heim')
+            away_cell = row.find('td', class_='verein-gast')
+            result_cell = row.find('td', class_='ergebnis')
+
+            if not (home_cell and away_cell and result_cell):
+                continue
+
+            home_team = cls._extract_team_name(home_cell)
+            away_team = cls._extract_team_name(away_cell)
+
+            result_link = result_cell.find('a')
+            if not result_link or not isinstance(result_link, Tag):
+                continue
+
+            match_id = cls._extract_match_id(result_link)
+
+            parsed_result = cls._parse_match_result(result_link, result_cell)
+            home_score, away_score, status, match_time = parsed_result
+
+            round_span = row.find('span', class_=' Spieltag')
+            round_str = (
+                round_span.get_text(strip=True)
+                if round_span and isinstance(round_span, Tag)
+                else None
+            )
+
+            matches.append(
+                TmLiveMatch(
+                    competition_code=comp_code,
+                    competition_name=comp_name,
+                    country=country,
+                    country_flag_emoji=country_flag,
+                    home_team=home_team,
+                    away_team=away_team,
+                    home_score=home_score,
+                    away_score=away_score,
+                    match_time=match_time,
+                    status=status,
+                    match_id=match_id,
+                    round=round_str,
+                )
+            )
+
+        return matches
+
+    @classmethod
+    def _parse_match_result(
+        cls, result_link: Tag, result_cell: Tag
+    ) -> tuple[int | None, int | None, MatchStatus, str]:
+        result_text = cls._extract_result_text(result_link)
+
+        if cls._is_live_score(result_text):
+            parts = result_text.split(' - ')
+            if len(parts) == _SCORE_PARTS_COUNT:
+                try:
+                    home = int(parts[0].strip())
+                    away = int(parts[1].strip())
+                    return (home, away, MatchStatus.LIVE, cls._extract_match_time(result_cell))
+                except ValueError:
+                    pass
+
+        return (None, None, MatchStatus.NOT_STARTED, result_text)
+
+    @staticmethod
+    def _extract_match_id(result_link: Tag) -> str:
+        match_id_href = result_link.get('href', '')
+        if match_id_href:
+            mid_match = re.search(r'/spielbericht/(\d+)', str(match_id_href))
+            if mid_match:
+                return mid_match.group(1)
+        return ''
+
+    @staticmethod
+    def _extract_result_text(link: Tag) -> str:
+        match_result_span = link.find('span', class_='matchresult')
+        if match_result_span and isinstance(match_result_span, Tag):
+            return match_result_span.get_text(strip=True)
+        return link.get_text(strip=True)
+
+    @staticmethod
+    def _is_live_score(result_text: str) -> bool:
+        return ':' in result_text and '-' in result_text
+
+    @staticmethod
+    def _extract_team_name(cell: Tag) -> str:
+        link = cell.find('a')
+        if link and isinstance(link, Tag):
+            return link.get_text(strip=True)
+        return ''
+
+    @staticmethod
+    def _extract_match_time(cell: Tag) -> str:
+        live_indicator = cell.find('span', class_='green')
+        if live_indicator and isinstance(live_indicator, Tag):
+            text = live_indicator.get_text(strip=True)
+            minute_match = re.search(r'(\d+)', text)
+            if minute_match:
+                return f"{minute_match.group(1)}'"
+        return ''

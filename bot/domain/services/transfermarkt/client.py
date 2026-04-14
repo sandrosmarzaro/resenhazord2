@@ -13,12 +13,13 @@ from bot.data.transfermarkt_urls import (
     HEADERS,
     LEAGUE_MAX_PAGES,
     LEAGUE_URL,
+    LIVE_URL,
     PLAYERS_PER_PAGE,
     POSITION_FILTER_URL,
     POSITION_MAX_PAGES,
     SQUAD_VALUES_URL,
 )
-from bot.domain.models.football import TmClub, TmPlayer, TmSquadStats, TmStandingRow
+from bot.domain.models.football import TmClub, TmLiveMatch, TmPlayer, TmSquadStats, TmStandingRow
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
 
@@ -152,3 +153,9 @@ class TransfermarktClient:
                     seen.add(p.name)
                     merged.append(p)
         return merged
+
+    @classmethod
+    async def fetch_live_matches(cls) -> list[TmLiveMatch]:
+        response = await HttpClient.get(LIVE_URL, headers=HEADERS)
+        response.raise_for_status()
+        return TransfermarktParser.parse_live_matches(response.text)
