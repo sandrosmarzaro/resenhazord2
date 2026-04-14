@@ -1,6 +1,7 @@
 """Transfermarkt URL templates, HTTP headers, and pagination constants."""
 
 GLOBAL_URL = 'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/marktwertetop'
+LIVE_URL = 'https://www.transfermarkt.com.br/live/'
 POSITION_FILTER_URL = (
     'https://www.transfermarkt.com.br/spieler-statistik/wertvollstespieler/'
     'marktwertetop/plus/0/galerie/0'

@@ -1,6 +1,15 @@
 """Football domain data types shared across services and commands."""
 
 from dataclasses import dataclass
+from enum import StrEnum
+
+
+class MatchStatus(StrEnum):
+    NOT_STARTED = 'notstarted'
+    LIVE = 'live'
+    FINISHED = 'finished'
+    POSTPONED = 'postponed'
+    HALF_TIME = 'halftime'
 
 
 @dataclass(frozen=True)
@@ -71,3 +80,19 @@ class TmStandingRow:
 class StandingRow:
     rank: int
     team: str
+
+
+@dataclass(frozen=True)
+class TmLiveMatch:
+    competition_code: str
+    competition_name: str
+    country: str
+    country_flag_emoji: str
+    home_team: str
+    away_team: str
+    home_score: int | None
+    away_score: int | None
+    match_time: str
+    status: MatchStatus
+    match_id: str
+    round: str | None = None
