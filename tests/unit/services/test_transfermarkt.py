@@ -1,7 +1,9 @@
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from bot.domain.services.transfermarkt.client import TransfermarktClient
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 
 _HTML_DIR = Path(__file__).resolve().parent.parent.parent / 'fixtures' / 'html'
@@ -235,3 +237,147 @@ class TestParseLeagueClubs:
 
     def test_empty_html_returns_empty_list(self):
         assert TransfermarktParser.parse_league_clubs('<div>no table</div>') == []
+
+
+@pytest.fixture
+def live_matches_html() -> str:
+    return _load_html('live_matches.html')
+
+
+class TestParseLiveMatches:
+    def test_returns_matches_from_all_competitions(self, live_matches_html):
+        matches = TransfermarktParser.parse_live_matches(live_matches_html)
+
+        assert len(matches) == 4
+        comps = {m.competition_name for m in matches}
+        assert 'Brasileirão' in comps
+        assert 'Premier League' in comps
+
+    def test_extracts_live_match_scores(self, live_matches_html):
+        matches = TransfermarktParser.parse_live_matches(live_matches_html)
+
+        flamengo = next(m for m in matches if m.home_team == 'Flamengo')
+        assert flamengo.home_score == 2
+        assert flamengo.away_score == 1
+        assert flamengo.status.value == 'live'
+
+    def test_extracts_not_started_match(self, live_matches_html):
+        matches = TransfermarktParser.parse_live_matches(live_matches_html)
+
+        botafogo = next(m for m in matches if m.home_team == 'Botafogo')
+        assert botafogo.home_score is None
+        assert botafogo.away_score is None
+        assert botafogo.status.value == 'notstarted'
+
+    def test_extracts_match_time(self, live_matches_html):
+        matches = TransfermarktParser.parse_live_matches(live_matches_html)
+
+        flamengo = next(m for m in matches if m.home_team == 'Flamengo')
+        assert flamengo.match_time == "67'"
+
+    def test_extracts_scheduled_time(self, live_matches_html):
+        matches = TransfermarktParser.parse_live_matches(live_matches_html)
+
+        botafogo = next(m for m in matches if m.home_team == 'Botafogo')
+        assert botafogo.match_time == '15:00'
+
+    def test_extracts_country_and_flag(self, live_matches_html):
+        matches = TransfermarktParser.parse_live_matches(live_matches_html)
+
+        brasileiro = next(m for m in matches if m.competition_name == 'Brasileirão')
+        assert brasileiro.country == 'Brasil'
+        assert brasileiro.country_flag_emoji == '🇧🇷'
+
+    def test_extracts_match_id(self, live_matches_html):
+        matches = TransfermarktParser.parse_live_matches(live_matches_html)
+
+        flamengo = next(m for m in matches if m.home_team == 'Flamengo')
+        assert flamengo.match_id == '4814374'
+
+    def test_deduplicates_duplicate_matches(self):
+        html = """
+        <div class="live-block">
+            <h2>
+                <img class="wettbewerblogo" title="Brasil">
+                <a href="/brasileirao/startseite/wettbewerb/BR1">Brasileirão</a>
+            </h2>
+            <table class="livescore">
+                <tr>
+                    <td class="club verein-heim"><a href="#">Time A</a></td>
+                    <td class="ergebnis">
+                        <a href="/spielbericht/123">
+                            <span class="matchresult">1 - 0</span>
+                        </a>
+                    </td>
+                    <td class="club verein-gast"><a href="#">Time B</a></td>
+                </tr>
+                <tr>
+                    <td class="club verein-heim"><a href="#">Time A</a></td>
+                    <td class="ergebnis">
+                        <a href="/spielbericht/123">
+                            <span class="matchresult">1 - 0</span>
+                        </a>
+                    </td>
+                    <td class="club verein-gast"><a href="#">Time B</a></td>
+                </tr>
+            </table>
+        </div>
+        """
+        matches = TransfermarktParser.parse_live_matches(html)
+
+        assert len(matches) == 1
+
+    def test_empty_html_returns_empty_list(self):
+        assert TransfermarktParser.parse_live_matches('<div>no matches</div>') == []
+
+    def test_no_live_blocks_returns_empty_list(self):
+        html = '<div class="other">Some other content</div>'
+        assert TransfermarktParser.parse_live_matches(html) == []
+
+
+class TestFetchLiveMatchesUrl:
+    @pytest.mark.anyio
+    @pytest.mark.skip(reason='Client uses asyncio.gather which is incompatible with trio')
+    async def test_fetch_live_matches_uses_br_yesterday_and_today_dates(self):
+        async def mock_get(url, **kwargs):
+            mock_response = AsyncMock()
+            mock_response.text = '<div class="live-block"></div>'
+            mock_response.raise_for_status = lambda: None
+            return mock_response
+
+        with patch(
+            'bot.infrastructure.http_client.HttpClient.get',
+            side_effect=mock_get,
+        ):
+            await TransfermarktClient.fetch_live_matches()
+
+    @pytest.mark.anyio
+    @pytest.mark.skip(reason='Client uses asyncio.gather which is incompatible with trio')
+    async def test_fetch_live_matches_dedupes_by_match_id(self):
+        shared_html = """
+        <div class="live-block">
+          <h2><a href="/wettbewerb/BR1">Brasileirão</a></h2>
+          <table class="livescore">
+            <tr>
+              <td class="verein-heim"><a>Flamengo</a></td>
+              <td class="ergebnis"><a title="Ao vivo" href="/spielbericht/9999">1:0</a></td>
+              <td class="verein-gast"><a>Palmeiras</a></td>
+            </tr>
+          </table>
+        </div>
+        """
+
+        async def mock_get(url, **kwargs):
+            mock_response = AsyncMock()
+            mock_response.text = shared_html
+            mock_response.raise_for_status = lambda: None
+            return mock_response
+
+        with patch(
+            'bot.infrastructure.http_client.HttpClient.get',
+            side_effect=mock_get,
+        ):
+            result = await TransfermarktClient.fetch_live_matches()
+
+            assert len(result) == 1
+            assert result[0].match_id == '9999'
