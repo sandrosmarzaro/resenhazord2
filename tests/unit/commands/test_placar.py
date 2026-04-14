@@ -442,3 +442,14 @@ class TestApplyFinishedCap:
         picked = _apply_finished_cap(matches, soft_cap=7)
 
         assert [m.competition_code for m in picked] == ['BRA1', 'GB1', 'MEX1']
+
+
+class TestFlagOverridesAreDeduplicated:
+    def test_overrides_resolve_from_nationality_flag(self):
+        from bot.data.nationality_flags import nationality_flag
+        from bot.data.transfermarkt_country_codes import COMPETITION_CODE_OVERRIDES
+
+        assert COMPETITION_CODE_OVERRIDES['BRNE'] == nationality_flag('Brasil')
+        assert COMPETITION_CODE_OVERRIDES['CNAT'] == nationality_flag('Inglaterra')
+        assert COMPETITION_CODE_OVERRIDES['KR1'] == nationality_flag('Croácia')
+        assert COMPETITION_CODE_OVERRIDES['RLB3'] == nationality_flag('Alemanha')

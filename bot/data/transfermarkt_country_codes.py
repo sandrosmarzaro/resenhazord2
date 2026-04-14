@@ -1,38 +1,64 @@
 """Transfermarkt competition code prefix → country flag emoji mapping."""
 
+from bot.data.nationality_flags import nationality_flag
+
+_BR = nationality_flag('Brasil')
+_EN = nationality_flag('Inglaterra')
+_DE = nationality_flag('Alemanha')
+_IT = nationality_flag('Itália')
+_ES = nationality_flag('Espanha')
+_AR = nationality_flag('Argentina')
+_PT = nationality_flag('Portugal')
+_BG = nationality_flag('Bulgária')
+_HU = nationality_flag('Hungria')
+_SI = nationality_flag('Eslovênia')
+_MK = nationality_flag('Macedônia do Norte')
+_BA = nationality_flag('Bósnia-Herzegovina')
+_HR = nationality_flag('Croácia')
+_LV = nationality_flag('Letônia')
+_ET = nationality_flag('Etiópia')
+_PA = nationality_flag('Panamá')
+_TN = nationality_flag('Tunísia')
+_US = nationality_flag('Estados Unidos')
+_XK = nationality_flag('Kosovo')
+_SG = '🇸🇬'
+_QA = '🇶🇦'
+_UZ = '🇺🇿'
+_NIR = '🏴'
+
 COMPETITION_CODE_OVERRIDES: dict[str, str] = {
-    'BRNE': '🇧🇷',
-    'CNAT': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    'NLN6': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    'NLS6': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    'GB21': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    'GB18': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    'KR1': '🇭🇷',
-    'MAZ1': '🇲🇰',
-    'SIN1': '🇸🇬',
-    'NIRU': '🏴',
-    'MLSP': '🇺🇸',
-    'URL3': '🇦🇷',
-    '2DVB': '🇪🇸',
-    'IJ1': '🇮🇹',
-    'ITJ7': '🇮🇹',
-    'RLB3': '🇩🇪',
-    'RLN4': '🇩🇪',
-    'BI17': '🇧🇦',
-    'ETP1': '🇪🇹',
-    'KO1': '🇽🇰',
-    'UZ1': '🇺🇿',
-    'LET1': '🇱🇻',
-    'UNG1': '🇭🇺',
-    'TUN1': '🇹🇳',
-    'QSL': '🇶🇦',
-    'BU1': '🇧🇬',
-    'BU2': '🇧🇬',
-    'PO1': '🇵🇹',
-    'PO2': '🇵🇹',
-    'PN1C': '🇵🇦',
-    'SL1': '🇸🇮',
-    'SL19': '🇸🇮',
+    'BRNE': _BR,
+    'CNAT': _EN,
+    'NLN6': _EN,
+    'NLS6': _EN,
+    'GB21': _EN,
+    'GB18': _EN,
+    'KR1': _HR,
+    'MAZ1': _MK,
+    'SIN1': _SG,
+    'NIRU': _NIR,
+    'MLSP': _US,
+    'URL3': _AR,
+    '2DVB': _ES,
+    'IJ1': _IT,
+    'ITJ7': _IT,
+    'RLB3': _DE,
+    'RLN4': _DE,
+    'BI17': _BA,
+    'ETP1': _ET,
+    'KO1': _XK,
+    'UZ1': _UZ,
+    'LET1': _LV,
+    'UNG1': _HU,
+    'TUN1': _TN,
+    'QSL': _QA,
+    'BU1': _BG,
+    'BU2': _BG,
+    'PO1': _PT,
+    'PO2': _PT,
+    'PN1C': _PA,
+    'SL1': _SI,
+    'SL19': _SI,
 }
 
 COUNTRY_CODE_TO_FLAG: dict[str, str] = {
