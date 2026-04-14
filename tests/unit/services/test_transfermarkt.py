@@ -1,7 +1,10 @@
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from bot.domain.services.transfermarkt.client import TransfermarktClient
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 
 _HTML_DIR = Path(__file__).resolve().parent.parent.parent / 'fixtures' / 'html'
@@ -331,3 +334,59 @@ class TestParseLiveMatches:
     def test_no_live_blocks_returns_empty_list(self):
         html = '<div class="other">Some other content</div>'
         assert TransfermarktParser.parse_live_matches(html) == []
+
+
+class TestFetchLiveMatchesUrl:
+    @pytest.mark.anyio
+    async def test_fetch_live_matches_uses_br_yesterday_and_today_dates(self):
+        from datetime import timedelta, timezone
+
+        br_time = timezone(timedelta(hours=-3))
+        today = datetime.now(br_time).date()
+        yesterday = today - timedelta(days=1)
+
+        with patch(
+            'bot.infrastructure.http_client.HttpClient.get',
+            new_callable=AsyncMock,
+        ) as mock_get:
+            mock_response = AsyncMock()
+            mock_response.text = '<div class="live-block"></div>'
+            mock_response.raise_for_status = lambda: None
+            mock_get.return_value = mock_response
+
+            await TransfermarktClient.fetch_live_matches()
+
+            assert mock_get.call_count == 2
+            urls = [call.args[0] for call in mock_get.call_args_list]
+            assert any(f'datum={yesterday.strftime("%Y-%m-%d")}' in u for u in urls)
+            assert any(f'datum={today.strftime("%Y-%m-%d")}' in u for u in urls)
+            for url in urls:
+                assert 'transfermarkt.com.br/live/index' in url
+
+    @pytest.mark.anyio
+    async def test_fetch_live_matches_dedupes_by_match_id(self):
+        shared_html = """
+        <div class="live-block">
+          <h2><a href="/wettbewerb/BR1">Brasileirão</a></h2>
+          <table class="livescore">
+            <tr>
+              <td class="verein-heim"><a>Flamengo</a></td>
+              <td class="ergebnis"><a title="Ao vivo" href="/spielbericht/9999">1:0</a></td>
+              <td class="verein-gast"><a>Palmeiras</a></td>
+            </tr>
+          </table>
+        </div>
+        """
+        with patch(
+            'bot.infrastructure.http_client.HttpClient.get',
+            new_callable=AsyncMock,
+        ) as mock_get:
+            mock_response = AsyncMock()
+            mock_response.text = shared_html
+            mock_response.raise_for_status = lambda: None
+            mock_get.return_value = mock_response
+
+            result = await TransfermarktClient.fetch_live_matches()
+
+            assert len(result) == 1
+            assert result[0].match_id == '9999'
