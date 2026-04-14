@@ -378,7 +378,7 @@ class TransfermarktParser(RowParser):
 
     @staticmethod
     def _is_live_score(result_text: str) -> bool:
-        return ':' in result_text and '-' in result_text
+        return ' - ' in result_text and result_text[0].isdigit()
 
     @staticmethod
     def _extract_team_name(cell: Tag) -> str:
