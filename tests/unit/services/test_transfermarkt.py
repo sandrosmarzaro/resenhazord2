@@ -293,7 +293,7 @@ class TestParseLiveMatches:
         assert flamengo.match_id == '4814374'
 
     def test_deduplicates_duplicate_matches(self):
-        html = '''
+        html = """
         <div class="live-block">
             <h2>
                 <img class="wettbewerblogo" title="Brasil">
@@ -320,7 +320,7 @@ class TestParseLiveMatches:
                 </tr>
             </table>
         </div>
-        '''
+        """
         matches = TransfermarktParser.parse_live_matches(html)
 
         assert len(matches) == 1

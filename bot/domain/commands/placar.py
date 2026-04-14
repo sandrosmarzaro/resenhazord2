@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from bot.domain.builders.reply import Reply
@@ -24,23 +24,8 @@ else:
     from bot.domain.models.football import MatchStatus, TmLiveMatch
     from bot.domain.models.message import BotMessage
 
+from bot.data.number_emoji import MAX_EMOJI_SCORE, NUMBER_EMOJI
 from bot.domain.services.transfermarkt.service import TransfermarktService
-
-_NUMBER_EMOJI = {
-    0: '0️⃣',
-    1: '1️⃣',
-    2: '2️⃣',
-    3: '3️⃣',
-    4: '4️⃣',
-    5: '5️⃣',
-    6: '6️⃣',
-    7: '7️⃣',
-    8: '8️⃣',
-    9: '9️⃣',
-    10: '🔟',
-}
-
-_MAX_EMOJI_SCORE = 10
 
 
 def _get_current_datetime() -> datetime:
@@ -69,7 +54,7 @@ def _format_date_label(match_time: str) -> str:
 
         if match_date == today:
             return 'Hoje'
-        tomorrow = today.replace(day=today.day + 1)
+        tomorrow = today + timedelta(days=1)
         if match_date == tomorrow:
             return 'Amanhã'
         return match_date.strftime('%d/%m')
@@ -80,8 +65,8 @@ def _format_date_label(match_time: str) -> str:
 def _score_emoji(score: int | None) -> str:
     if score is None:
         return '-'
-    if score <= _MAX_EMOJI_SCORE:
-        return _NUMBER_EMOJI.get(score, str(score))
+    if score <= MAX_EMOJI_SCORE:
+        return NUMBER_EMOJI.get(score, str(score))
     return str(score)
 
 
@@ -137,9 +122,7 @@ class PlacarCommand(Command):
                     date_label = _format_date_label(match.match_time)
                     time_str = _format_match_time(match.match_time, match.status)
                     date_str = f'{date_label} ' if date_label else ''
-                    lines.append(
-                        f'{match.home_team} - x - {match.away_team} {date_str}{time_str}'
-                    )
+                    lines.append(f'{match.home_team} - x - {match.away_team} {date_str}{time_str}')
                 lines.append('')
 
         caption = '\n'.join(lines).rstrip()
