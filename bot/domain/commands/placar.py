@@ -31,7 +31,7 @@ from bot.data.number_emoji import MAX_EMOJI_SCORE, NUMBER_EMOJI
 from bot.domain.services.transfermarkt.service import TransfermarktService
 
 _UPCOMING_WINDOW_HOURS = 6
-_FINISHED_SOFT_CAP = 7
+_SECTION_SOFT_CAP = 7
 
 
 def _get_current_datetime() -> datetime:
@@ -109,14 +109,16 @@ class PlacarCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         matches = await TransfermarktService.fetch_live_matches()
 
-        live_matches = [m for m in matches if m.status == MatchStatus.LIVE]
-        upcoming_matches = [
+        live_all = [m for m in matches if m.status == MatchStatus.LIVE]
+        upcoming_all = [
             m
             for m in matches
             if m.status == MatchStatus.NOT_STARTED and _is_within_upcoming_window(m.match_time)
         ]
         finished_all = [m for m in matches if m.status == MatchStatus.FINISHED]
-        finished_matches = _apply_finished_cap(finished_all, _FINISHED_SOFT_CAP)
+        live_matches = _apply_soft_cap(live_all, _SECTION_SOFT_CAP)
+        upcoming_matches = _apply_soft_cap(upcoming_all, _SECTION_SOFT_CAP)
+        finished_matches = _apply_soft_cap(finished_all, _SECTION_SOFT_CAP)
 
         if not live_matches and not upcoming_matches and not finished_matches:
             return [Reply.to(data).text('Nenhum jogo ao vivo agora. ✨')]
@@ -161,7 +163,7 @@ def _build_section(
     return lines
 
 
-def _apply_finished_cap(matches: list[TmLiveMatch], soft_cap: int) -> list[TmLiveMatch]:
+def _apply_soft_cap(matches: list[TmLiveMatch], soft_cap: int) -> list[TmLiveMatch]:
     picked: list[TmLiveMatch] = []
     for group in _group_by_competition(matches):
         if len(picked) >= soft_cap:
@@ -174,14 +176,14 @@ def _format_live_row(match: TmLiveMatch) -> str:
     home = _score_emoji(match.home_score)
     away = _score_emoji(match.away_score)
     time_str = _format_match_time(match.match_time, match.status)
-    return f'_{match.home_team}_ {home} x {away} _{match.away_team}_ {time_str}'
+    return f'_{match.home_team}_ {home} x {away} _{match.away_team}_\n{time_str}'
 
 
 def _format_upcoming_row(match: TmLiveMatch) -> str:
     date_label = _format_date_label(match.match_time)
     time_str = _format_match_time(match.match_time, match.status)
     date_str = f'{date_label} ' if date_label else ''
-    return f'_{match.home_team}_ - x - _{match.away_team}_ {date_str}{time_str}'
+    return f'_{match.home_team}_ - x - _{match.away_team}_\n{date_str}{time_str}'
 
 
 def _format_finished_row(match: TmLiveMatch) -> str:

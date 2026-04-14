@@ -5,7 +5,7 @@ import pytest
 
 from bot.domain.commands.placar import (
     PlacarCommand,
-    _apply_finished_cap,
+    _apply_soft_cap,
     _format_date_label,
     _score_emoji,
 )
@@ -398,7 +398,7 @@ def _finished(
     )
 
 
-class TestApplyFinishedCap:
+class TestApplySoftCap:
     def test_brasileirao_always_included_even_when_alphabetically_last(self):
         matches = [
             _finished('RU1', 'Premier Liga', 'Zenit', 'Spartak', '1'),
@@ -407,7 +407,7 @@ class TestApplyFinishedCap:
             _finished('BRA1', 'Brasileirão', 'Flamengo', 'Palmeiras', '4'),
         ]
 
-        picked = _apply_finished_cap(matches, soft_cap=7)
+        picked = _apply_soft_cap(matches, soft_cap=7)
 
         codes = [m.competition_code for m in picked]
         assert codes[0] == 'BRA1'
@@ -417,7 +417,7 @@ class TestApplyFinishedCap:
         top5 = [_finished('GB1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(6)]
         ar = [_finished('AR1N', 'Liga Profesional', f'AH{i}', f'AA{i}', f'a{i}') for i in range(3)]
 
-        picked = _apply_finished_cap([*top5, *ar], soft_cap=7)
+        picked = _apply_soft_cap([*top5, *ar], soft_cap=7)
 
         assert len(picked) == 9
         assert sum(1 for m in picked if m.competition_code == 'GB1') == 6
@@ -427,7 +427,7 @@ class TestApplyFinishedCap:
         top5 = [_finished('GB1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(8)]
         low = [_finished('ZZZ', 'Long Tail', 'X', 'Y', 'z')]
 
-        picked = _apply_finished_cap([*top5, *low], soft_cap=7)
+        picked = _apply_soft_cap([*top5, *low], soft_cap=7)
 
         assert len(picked) == 8
         assert all(m.competition_code == 'GB1' for m in picked)
@@ -439,7 +439,7 @@ class TestApplyFinishedCap:
             _finished('BRA1', 'Brasileirão', 'E', 'F', '3'),
         ]
 
-        picked = _apply_finished_cap(matches, soft_cap=7)
+        picked = _apply_soft_cap(matches, soft_cap=7)
 
         assert [m.competition_code for m in picked] == ['BRA1', 'GB1', 'MEX1']
 
