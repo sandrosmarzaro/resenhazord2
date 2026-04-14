@@ -21,10 +21,15 @@ _PA = nationality_flag('Panamá')
 _TN = nationality_flag('Tunísia')
 _US = nationality_flag('Estados Unidos')
 _XK = nationality_flag('Kosovo')
+_PE = nationality_flag('Peru')
+_NG = nationality_flag('Nigéria')
 _SG = '🇸🇬'
 _QA = '🇶🇦'
 _UZ = '🇺🇿'
 _NIR = '🏴'
+_EUROPE = '🌍'
+_AMERICAS = '🌎'
+_ASIA = '🌏'
 
 COMPETITION_CODE_OVERRIDES: dict[str, str] = {
     'BRNE': _BR,
@@ -59,6 +64,15 @@ COMPETITION_CODE_OVERRIDES: dict[str, str] = {
     'PN1C': _PA,
     'SL1': _SI,
     'SL19': _SI,
+    'TDeA': _PE,
+    'NPFL': _NG,
+    'CL': _EUROPE,
+    'EL': _EUROPE,
+    'UCOL': _EUROPE,
+    'CLI': _AMERICAS,
+    'CS': _AMERICAS,
+    'CCL': _AMERICAS,
+    'ACLE': _ASIA,
 }
 
 COUNTRY_CODE_TO_FLAG: dict[str, str] = {
