@@ -286,6 +286,7 @@ class TransfermarktParser(RowParser):
     def _parse_box_section(
         cls, soup: BeautifulSoup, matches: list[TmLiveMatch], seen_match_ids: set[str]
     ) -> None:
+        """Parse matches from box-section HTML structure."""
         for box in soup.find_all('div', class_='box'):
             if not isinstance(box, Tag):
                 continue
@@ -303,8 +304,6 @@ class TransfermarktParser(RowParser):
                     if match.match_id not in seen_match_ids:
                         seen_match_ids.add(match.match_id)
                         matches.append(match)
-
-        return matches
 
     @classmethod
     def _extract_competition_info_from_kategorie(
@@ -400,9 +399,10 @@ class TransfermarktParser(RowParser):
         for sibling in siblings:
             if not isinstance(sibling, Tag):
                 continue
-            if sibling.name == 'table' and 'livescore' in sibling.get('class', []):
+            classes = sibling.get('class') or []
+            if sibling.name == 'table' and 'livescore' in classes:
                 return sibling
-            if sibling.name == 'div' and 'kategorie' in sibling.get('class', []):
+            if sibling.name == 'div' and 'kategorie' in classes:
                 break
         return None
 
@@ -465,7 +465,7 @@ class TransfermarktParser(RowParser):
         cls, result_link: Tag, result_cell: Tag, time_cell: Tag | None = None
     ) -> tuple[int | None, int | None, MatchStatus, str]:
         result_text = cls._extract_result_text(result_link)
-        title = result_link.get('title', '')
+        title = str(result_link.get('title') or '')
         status_from_title = cls._get_match_status_from_title(title)
 
         if cls._is_finished_result(result_link):
