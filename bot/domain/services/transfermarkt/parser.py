@@ -1,6 +1,7 @@
 """HTML parsing for Transfermarkt pages — public facade."""
 
 import re
+from dataclasses import dataclass
 
 import structlog
 from bs4 import BeautifulSoup, Tag
@@ -30,6 +31,18 @@ _TIME_FORMAT_LENGTH = 5
 _MAJOR_COMP_CODE_LENGTH = 2
 _MAX_HOUR = 23
 _MAX_MINUTE = 59
+
+_MATCH_ID_RE_V1 = re.compile(r'/spielbericht/(\d+)')
+_MATCH_ID_RE_V2 = re.compile(r'/ticker/begegnung/live/(\d+)')
+_MINUTE_RE = re.compile(r'(\d+)')
+
+
+@dataclass(frozen=True)
+class CompetitionContext:
+    name: str
+    code: str
+    country: str
+    flag_emoji: str
 
 
 class TransfermarktParser(RowParser):
@@ -260,13 +273,11 @@ class TransfermarktParser(RowParser):
             comp_info = cls._extract_competition_info_from_live_block(block)
             if not comp_info:
                 continue
-            comp_name, comp_code, country, country_flag = comp_info
+            comp_ctx = CompetitionContext(*comp_info)
             table = block.find('table', class_='livescore')
             if not table or not isinstance(table, Tag):
                 continue
-            for match in cls._parse_live_table_rows(
-                table, comp_code, comp_name, country, country_flag
-            ):
+            for match in cls._parse_live_table_rows(table, comp_ctx):
                 if match.match_id not in seen_match_ids:
                     seen_match_ids.add(match.match_id)
                     matches.append(match)
@@ -284,13 +295,11 @@ class TransfermarktParser(RowParser):
                 comp_info = cls._extract_competition_info_from_kategorie(kategorie)
                 if not comp_info:
                     continue
-                comp_name, comp_code, country, country_flag = comp_info
+                comp_ctx = CompetitionContext(*comp_info)
                 table = cls._find_livescore_table_for_kategorie(kategorie)
                 if not table or not isinstance(table, Tag):
                     continue
-                for match in cls._parse_live_table_rows(
-                    table, comp_code, comp_name, country, country_flag
-                ):
+                for match in cls._parse_live_table_rows(table, comp_ctx):
                     if match.match_id not in seen_match_ids:
                         seen_match_ids.add(match.match_id)
                         matches.append(match)
@@ -398,9 +407,7 @@ class TransfermarktParser(RowParser):
         return None
 
     @classmethod
-    def _parse_live_table_rows(
-        cls, table: Tag, comp_code: str, comp_name: str, country: str, country_flag: str
-    ) -> list[TmLiveMatch]:
+    def _parse_live_table_rows(cls, table: Tag, comp_ctx: CompetitionContext) -> list[TmLiveMatch]:
         matches: list[TmLiveMatch] = []
 
         for row in table.find_all('tr'):
@@ -436,10 +443,10 @@ class TransfermarktParser(RowParser):
 
             matches.append(
                 TmLiveMatch(
-                    competition_code=comp_code,
-                    competition_name=comp_name,
-                    country=country,
-                    country_flag_emoji=country_flag,
+                    competition_code=comp_ctx.code,
+                    competition_name=comp_ctx.name,
+                    country=comp_ctx.country,
+                    country_flag_emoji=comp_ctx.flag_emoji,
                     home_team=home_team,
                     away_team=away_team,
                     home_score=home_score,
@@ -521,10 +528,10 @@ class TransfermarktParser(RowParser):
     def _extract_match_id(result_link: Tag) -> str:
         match_id_href = result_link.get('href', '')
         if match_id_href:
-            mid_match = re.search(r'/spielbericht/(\d+)', str(match_id_href))
+            mid_match = _MATCH_ID_RE_V1.search(str(match_id_href))
             if mid_match:
                 return mid_match.group(1)
-            mid_match = re.search(r'/ticker/begegnung/live/(\d+)', str(match_id_href))
+            mid_match = _MATCH_ID_RE_V2.search(str(match_id_href))
             if mid_match:
                 return mid_match.group(1)
         return ''
@@ -584,7 +591,7 @@ class TransfermarktParser(RowParser):
         live_indicator = cell.find('span', class_='green')
         if live_indicator and isinstance(live_indicator, Tag):
             text = live_indicator.get_text(strip=True)
-            minute_match = re.search(r'(\d+)', text)
+            minute_match = _MINUTE_RE.search(text)
             if minute_match:
                 return f"{minute_match.group(1)}'"
         return ''
@@ -596,7 +603,7 @@ class TransfermarktParser(RowParser):
         live_indicator = time_cell.find('span', class_='live-ergebnis')
         if live_indicator and isinstance(live_indicator, Tag):
             text = live_indicator.get_text(strip=True)
-            minute_match = re.search(r'(\d+)', text)
+            minute_match = _MINUTE_RE.search(text)
             if minute_match:
                 return f"{minute_match.group(1)}'"
         return ''
