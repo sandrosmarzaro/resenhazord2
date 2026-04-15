@@ -93,7 +93,9 @@ class FootballTeamCommand(Command):
 
         club = random.choice(clubs)  # noqa: S311
         rank = standings.get(club.club_id)
-        sports_team = TheSportsDBService.find_best_match(club.name, sports_teams)
+        sports_team: SportsDBTeam | None = TheSportsDBService.find_best_match(
+            club.name, sports_teams
+        )
         caption = TeamCaptionBuilder.build(club, sports_team, league, rank, global_rank=None)
 
         buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
@@ -123,7 +125,9 @@ class FootballTeamCommand(Command):
             return await self._global_top_bare(data, top_club, league=league)
 
         rank = standings.get(club.club_id)
-        sports_team = TheSportsDBService.find_best_match(club.name, sports_teams)
+        sports_team: SportsDBTeam | None = TheSportsDBService.find_best_match(
+            club.name, sports_teams
+        )
         caption = TeamCaptionBuilder.build(
             club, sports_team, league, rank, global_rank=top_club.rank
         )
@@ -133,7 +137,7 @@ class FootballTeamCommand(Command):
     async def _global_top_bare(
         self, data: CommandData, club: TmClub, league: LeagueInfo | None = None
     ) -> list[BotMessage]:
-        ts_team = await TheSportsDBService.search_team(club.name)
+        ts_team: SportsDBTeam | None = await TheSportsDBService.search_team(club.name)
 
         badge: bytes = b''
         if club.badge_url:
@@ -143,7 +147,7 @@ class FootballTeamCommand(Command):
         elif ts_team and ts_team.badge_url:
             badge = await HttpClient.get_buffer(ts_team.badge_url)
 
-        caption = self._build_bare_caption(club, ts_team, league)
+        caption = TeamCaptionBuilder.build_bare(club, ts_team, league)
         return [Reply.to(data).image_buffer(badge, caption)]
 
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
@@ -216,29 +220,3 @@ class FootballTeamCommand(Command):
                     tg.start_soon(_fetch_player, i, player)
 
         return photos, badges
-
-    @staticmethod
-    def _build_bare_caption(
-        club: TmClub, ts_team: SportsDBTeam | None, league: LeagueInfo | None
-    ) -> str:
-        country = ts_team.country if ts_team else (league.country if league else club.country)
-        founded = ts_team.founded if ts_team else ''
-        name = ts_team.name if ts_team else club.name
-        title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
-        flag = league.flag if league else '🌍'
-        head = f'\n{flag} {country}' if country else f'\n{flag}'
-        if founded:
-            head += f'   📅 {founded}'
-        lines = [title, head]
-        if ts_team and ts_team.stadium:
-            lines.append(f'🏟️ {ts_team.stadium}')
-            if ts_team.capacity:
-                try:
-                    cap = f'{int(ts_team.capacity):,}'.replace(',', '.')
-                except ValueError:
-                    cap = ts_team.capacity
-                lines.append(f'💺 {cap} lugares')
-        lines.append(f'🏆 #{club.rank}º mais valioso')
-        if club.squad_value:
-            lines.append(f'💰 {club.squad_value}')
-        return '\n'.join(lines)

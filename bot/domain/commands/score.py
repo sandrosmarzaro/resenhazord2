@@ -115,12 +115,13 @@ class ScoreCommand(Command):
             show_past = show_now = show_next = True
 
         live_all = [m for m in matches if m.status == MatchStatus.LIVE] if show_now else []
+        window_hours = ScoreCommand._upcoming_window_hours
         upcoming_all = (
             [
                 m
                 for m in matches
                 if m.status == MatchStatus.NOT_STARTED
-                and _is_within_upcoming_window(m.match_time, ScoreCommand._upcoming_window_hours)
+                and _is_within_upcoming_window(m.match_time, window_hours)
             ]
             if show_next
             else []
