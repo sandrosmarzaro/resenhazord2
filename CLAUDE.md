@@ -105,7 +105,7 @@ When a class exceeds these limits:
 
 - **Runtime**: Python 3.13+ for the bot, Bun (not Node.js) for gateway
 - **Modules**: ES modules with `.js` extensions in imports (even for `.ts` files)
-- **File naming**: PascalCase for TS classes (e.g., `OiCommand.ts`), snake_case for Python (e.g., `command_parser.py`)
+- **File & identifier naming**: PascalCase for TS classes (e.g., `OiCommand.ts`), snake_case for Python (e.g., `command_parser.py`). **Use English for all Python file names, class names, functions, and variables** — the codebase is read by contributors in English. User-facing trigger strings (`CommandConfig.name`, `aliases`), reply text, and `menu_description` stay in pt-br (the product's voice, not a code-naming choice). Proper-noun acronyms (FIPE, IBGE) are kept as-is.
 - **Exports**: Default exports for TS class files, named exports for data files
 - **Data files**: Large lookup tables, emoji maps, and static datasets belong in `bot/data/`. Do not define big mappings inline in service or command files.
 - **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
