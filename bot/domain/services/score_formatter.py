@@ -1,5 +1,6 @@
 """Format live match data for display."""
 
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 
 from bot.data.football_league_priority import league_priority
@@ -82,7 +83,11 @@ def apply_soft_cap(matches: list[TmLiveMatch], soft_cap: int) -> list[TmLiveMatc
     return picked
 
 
-def build_section(title: str, matches: list[TmLiveMatch], row_formatter: callable) -> list[str]:
+def build_section(
+    title: str,
+    matches: list[TmLiveMatch],
+    row_formatter: Callable[[TmLiveMatch], str],
+) -> list[str]:
     groups = group_by_competition(matches)
     groups.sort(key=lambda g: (league_priority(g[0].competition_code), g[0].competition_name))
     lines = [title]

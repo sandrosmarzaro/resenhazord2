@@ -18,23 +18,24 @@ if TYPE_CHECKING:
     from bot.domain.models.command_data import CommandData
     from bot.domain.models.message import BotMessage
 
-from bot.domain.services.score_formatter import (  # noqa: F401
-    format_date_label as _format_date_label,  # noqa: F401
+from bot.domain.services.score_formatter import (
+    apply_soft_cap,
+    build_section,
+    format_date_label,
     format_finished_row,
     format_live_row,
     format_upcoming_row,
     is_within_upcoming_window,
-    score_emoji as _score_emoji,  # noqa: F401
-)
-from bot.domain.services.score_formatter import (  # noqa: F401
-    _get_current_date,  # noqa: F401
-    _get_current_datetime,  # noqa: F401
-    apply_soft_cap as _apply_soft_cap,
-    build_section,
+    score_emoji,
 )
 from bot.domain.services.transfermarkt.service import (
     TransfermarktService,
 )
+
+# Re-export for backward compatibility with tests
+_apply_soft_cap = apply_soft_cap
+_score_emoji = score_emoji
+_format_date_label = format_date_label
 
 
 class ScoreCommand(Command):
@@ -96,6 +97,6 @@ class ScoreCommand(Command):
         if finished_matches:
             lines.extend(build_section('✅ *Encerrados*\n', finished_matches, format_finished_row))
 
-        reply = Reply.to(data).text('\n'.join(lines))
-        reply.quotes_message_id = data.quoted_message_id
-        return [reply]
+        message = Reply.to(data).text('\n'.join(lines))
+        message.quoted_message_id = data.quoted_message_id
+        return [message]
