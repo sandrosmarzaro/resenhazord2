@@ -2,6 +2,60 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-04-15)
+
+### Bug Fixes
+
+- **football**: Format_date_label uses date comparison
+  ([`272f11f`](https://github.com/sandrosmarzaro/resenhazord2/commit/272f11f8d1a21bf20590befb00880110a08b71e7))
+
+- **football**: Resolve type and lint errors in score module
+  ([`230bf76`](https://github.com/sandrosmarzaro/resenhazord2/commit/230bf7648e558a2d480e260b5c97bb15ffff3358))
+
+- **football**: Return league code string from GlobalTopTeam.find_league
+  ([`ac7a0af`](https://github.com/sandrosmarzaro/resenhazord2/commit/ac7a0aff950164f9a45cdd1d152358bc4284d0be))
+
+- **football**: Score emoji returns dash for none
+  ([`57eff1c`](https://github.com/sandrosmarzaro/resenhazord2/commit/57eff1c96d23626a83ae69ba9780df2b7bffd3b2))
+
+### Documentation
+
+- **conventions**: Require English for Python file/class/function names
+  ([`7f4a5b8`](https://github.com/sandrosmarzaro/resenhazord2/commit/7f4a5b81224507e6a979a9a6c2161cefc546fee7))
+
+### Refactoring
+
+- **football**: Extract caption building to TeamCaptionBuilder
+  ([`c4a8601`](https://github.com/sandrosmarzaro/resenhazord2/commit/c4a8601ece27fb04be457ce8ea6861651af53586))
+
+- **football**: Extract FullLineupBuilder from football_team
+  ([`c0c5259`](https://github.com/sandrosmarzaro/resenhazord2/commit/c0c52598446e26f53d618880a751c51514e1698b))
+
+- **football**: Extract services for cleaner code
+  ([`aa32b5a`](https://github.com/sandrosmarzaro/resenhazord2/commit/aa32b5af30502cb05e456917e06670655c8a3c14))
+
+- **football**: Fix Scout audit violations
+  ([`43268d3`](https://github.com/sandrosmarzaro/resenhazord2/commit/43268d3c9e778214c59421a263f5da4533c79b23))
+
+- **score**: Fix TYPE_CHECKING imports and remove TC001 suppress
+  ([`0d817ff`](https://github.com/sandrosmarzaro/resenhazord2/commit/0d817ffac8b92aff1ace6a7d1d9114415e390e43))
+
+- **score**: Rename placar module to score for English naming
+  ([`bb5c03a`](https://github.com/sandrosmarzaro/resenhazord2/commit/bb5c03a399eaba066a4f760b03764a1a6931c8ba))
+
+- **transfermarkt**: Extract live-match parsing to live_parser.py
+  ([`d3c57e7`](https://github.com/sandrosmarzaro/resenhazord2/commit/d3c57e726777efcfc2d9d455efb970a4c0b8350e))
+
+- **transfermarkt**: Move module-level constants to class attributes
+  ([`8e56946`](https://github.com/sandrosmarzaro/resenhazord2/commit/8e56946115989411f9e1a5226acfbf556161cc71))
+
+- **transfermarkt**: Split LiveMatchParser into focused parser classes
+  ([`6260bc0`](https://github.com/sandrosmarzaro/resenhazord2/commit/6260bc07daad57c302a2e141d1ffdb0a10a6e080))
+
+- **transfermarkt**: Split TransfermarktParser into focused parser classes
+  ([`15f6b20`](https://github.com/sandrosmarzaro/resenhazord2/commit/15f6b208e7ff5317dada92da16637651f7f6fcbe))
+
+
 ## v1.2.0 (2026-04-14)
 
 ### Bug Fixes
