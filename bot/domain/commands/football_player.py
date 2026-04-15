@@ -67,15 +67,21 @@ class FootballPlayerCommand(Command):
         )
 
         if top_str:
-            top_n = int(top_str[3:])
-            max_page = max(
-                1,
-                min(
-                    (top_n + TransfermarktService.PLAYERS_PER_PAGE - 1)
-                    // TransfermarktService.PLAYERS_PER_PAGE,
-                    default_max,
-                ),
-            )
+            try:
+                top_n = int(top_str[3:])
+            except ValueError:
+                top_n = 0
+            if top_n > 0:
+                max_page = max(
+                    1,
+                    min(
+                        (top_n + TransfermarktService.PLAYERS_PER_PAGE - 1)
+                        // TransfermarktService.PLAYERS_PER_PAGE,
+                        default_max,
+                    ),
+                )
+            else:
+                max_page = default_max
         else:
             max_page = default_max
 
@@ -83,7 +89,10 @@ class FootballPlayerCommand(Command):
         players = await TransfermarktService.fetch_page(page, league)
 
         if top_str and players and page == max_page:
-            top_n = int(top_str[3:])
+            try:
+                top_n = int(top_str[3:])
+            except ValueError:
+                top_n = 0
             items_on_last_page = top_n - (max_page - 1) * TransfermarktService.PLAYERS_PER_PAGE
             players = players[:items_on_last_page]
 

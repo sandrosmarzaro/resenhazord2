@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from bot.domain.commands.placar import (
-    PlacarCommand,
+from bot.domain.commands.score import (
+    ScoreCommand,
     _apply_soft_cap,
     _format_date_label,
     _score_emoji,
@@ -16,7 +16,7 @@ from tests.factories.command_data import GroupCommandDataFactory
 
 @pytest.fixture
 def command():
-    return PlacarCommand()
+    return ScoreCommand()
 
 
 def _make_match(  # noqa: PLR0913
@@ -78,11 +78,11 @@ class TestFormatDateLabel:
         from datetime import datetime as datetime_cls
 
         mocker.patch(
-            'bot.domain.commands.placar._get_current_datetime',
+            'bot.domain.services.score_formatter._get_current_datetime',
             return_value=datetime_cls(2025, 6, 15, 12, 0),  # noqa: DTZ001
         )
         mocker.patch(
-            'bot.domain.commands.placar._get_current_date',
+            'bot.domain.services.score_formatter._get_current_date',
             return_value=date(2025, 6, 15),
         )
         assert _format_date_label(match_time) == expected
@@ -98,11 +98,11 @@ class TestFormatDateLabel:
         from datetime import datetime as datetime_cls
 
         mocker.patch(
-            'bot.domain.commands.placar._get_current_datetime',
+            'bot.domain.services.score_formatter._get_current_datetime',
             return_value=datetime_cls(2025, 6, 15, 12, 0),  # noqa: DTZ001
         )
         mocker.patch(
-            'bot.domain.commands.placar._get_current_date',
+            'bot.domain.services.score_formatter._get_current_date',
             return_value=date(2025, 6, 14),
         )
         assert _format_date_label(match_time) == expected
@@ -111,11 +111,11 @@ class TestFormatDateLabel:
         from datetime import datetime as datetime_cls
 
         mocker.patch(
-            'bot.domain.commands.placar._get_current_datetime',
+            'bot.domain.services.score_formatter._get_current_datetime',
             return_value=datetime_cls(2025, 6, 15, 12, 0),  # noqa: DTZ001
         )
         mocker.patch(
-            'bot.domain.commands.placar._get_current_date',
+            'bot.domain.services.score_formatter._get_current_date',
             return_value=date(2025, 6, 15),
         )
         assert _format_date_label('14:00') == 'Hoje'
@@ -155,7 +155,7 @@ class TestExecute:
         data = GroupCommandDataFactory.build(text='/placar')
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=[],
         ):
@@ -185,7 +185,7 @@ class TestExecute:
         ]
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -206,7 +206,7 @@ class TestExecute:
         ]
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -232,16 +232,16 @@ class TestExecute:
         ]
 
         mocker.patch(
-            'bot.domain.commands.placar._get_current_datetime',
+            'bot.domain.services.score_formatter._get_current_datetime',
             return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
         )
         mocker.patch(
-            'bot.domain.commands.placar._get_current_date',
+            'bot.domain.services.score_formatter._get_current_date',
             return_value=date(2025, 6, 15),
         )
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -260,7 +260,7 @@ class TestExecute:
         ]
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -287,16 +287,16 @@ class TestExecute:
         ]
 
         mocker.patch(
-            'bot.domain.commands.placar._get_current_datetime',
+            'bot.domain.services.score_formatter._get_current_datetime',
             return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
         )
         mocker.patch(
-            'bot.domain.commands.placar._get_current_date',
+            'bot.domain.services.score_formatter._get_current_date',
             return_value=date(2025, 6, 15),
         )
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -323,16 +323,16 @@ class TestExecute:
         ]
 
         mocker.patch(
-            'bot.domain.commands.placar._get_current_datetime',
+            'bot.domain.services.score_formatter._get_current_datetime',
             return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
         )
         mocker.patch(
-            'bot.domain.commands.placar._get_current_date',
+            'bot.domain.services.score_formatter._get_current_date',
             return_value=date(2025, 6, 15),
         )
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -357,16 +357,16 @@ class TestExecute:
         ]
 
         mocker.patch(
-            'bot.domain.commands.placar._get_current_datetime',
+            'bot.domain.services.score_formatter._get_current_datetime',
             return_value=datetime(2025, 6, 15, 12, 0),  # noqa: DTZ001
         )
         mocker.patch(
-            'bot.domain.commands.placar._get_current_date',
+            'bot.domain.services.score_formatter._get_current_date',
             return_value=date(2025, 6, 15),
         )
 
         with patch(
-            'bot.domain.commands.placar.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
             new_callable=AsyncMock,
             return_value=matches,
         ):
