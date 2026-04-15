@@ -220,3 +220,42 @@ class TestPrivateChat:
 
         # MenuCommand has no group_only restriction
         assert len(messages) == 1
+
+
+class TestCategoryEnum:
+    def test_all_categories_have_headers(self):
+        from bot.data.menu_messages import CATEGORY_HEADERS
+        from bot.domain.commands.base import Category
+
+        for cat in Category:
+            assert cat.value in CATEGORY_HEADERS, f'Category.{cat.name} missing in CATEGORY_HEADERS'
+
+    def test_all_categories_in_order(self):
+        from bot.data.menu_messages import CATEGORY_ORDER
+        from bot.domain.commands.base import Category
+
+        for cat in Category:
+            assert cat.value in CATEGORY_ORDER, f'Category.{cat.name} missing in CATEGORY_ORDER'
+
+    def test_info_category_header_defined(self):
+        from bot.data.menu_messages import CATEGORY_HEADERS
+
+        assert 'info' in CATEGORY_HEADERS
+        assert 'INFORMA' in CATEGORY_HEADERS['info']
+
+    def test_info_category_in_order(self):
+        from bot.data.menu_messages import CATEGORY_ORDER
+
+        assert 'info' in CATEGORY_ORDER
+
+    def test_info_commands_have_correct_category(self):
+        from bot.domain.commands.base import Category
+        from bot.domain.commands.football_standings import FootballStandingsCommand
+        from bot.domain.commands.lottery import LotteryCommand
+        from bot.domain.commands.moon import MoonCommand
+        from bot.domain.commands.score import ScoreCommand
+
+        assert ScoreCommand().config.category == Category.INFORMATION
+        assert FootballStandingsCommand().config.category == Category.INFORMATION
+        assert MoonCommand().config.category == Category.INFORMATION
+        assert LotteryCommand().config.category == Category.INFORMATION

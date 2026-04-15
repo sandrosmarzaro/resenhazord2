@@ -135,7 +135,7 @@ class TestConfig:
     def test_category(self, command):
         from bot.domain.commands.base import Category
 
-        assert command.config.category == Category.OTHER
+        assert command.config.category == Category.INFORMATION
 
     def test_platforms(self, command):
         from bot.domain.commands.base import Platform
@@ -146,7 +146,9 @@ class TestConfig:
 
 class TestMenuDescription:
     def test_description(self, command):
-        assert command.menu_description == 'Jogos de futebol ao vivo.'
+        desc = 'Placar ao vivo de jogos de futebol com resultados ao vivo, '
+        desc += 'próximos e encerrados.'
+        assert command.menu_description == desc
 
 
 class TestExecute:

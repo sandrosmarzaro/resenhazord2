@@ -71,7 +71,7 @@ class TestConfig:
     def test_category(self, command):
         from bot.domain.commands.base import Category
 
-        assert command.config.category == Category.OTHER
+        assert command.config.category == Category.INFORMATION
 
     def test_platforms(self, command):
         from bot.domain.commands.base import Platform
