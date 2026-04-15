@@ -2,15 +2,18 @@
 
 from datetime import UTC, date, datetime, timedelta
 
+from bot.data.football_league_priority import league_priority
 from bot.data.number_emoji import MAX_EMOJI_SCORE, NUMBER_EMOJI
 from bot.domain.models.football import MatchStatus, TmLiveMatch
 
 
 def score_emoji(score: int | None) -> str:
     if score is None:
-        return '?'
-    if score >= MAX_EMOJI_SCORE:
+        return '-'
+    if score > MAX_EMOJI_SCORE:
         return f'{score}'
+    if score == MAX_EMOJI_SCORE:
+        return '🔟'
     return NUMBER_EMOJI.get(score, str(score))
 
 
@@ -24,14 +27,20 @@ def format_date_label(match_time: str) -> str:
     try:
         match_hour, match_minute = match_time.split(':')
         now = _get_current_datetime()
-        match_dt = now.replace(hour=int(match_hour), minute=int(match_minute), second=0)
-    except ValueError:
+        match_dt = now.replace(
+            hour=int(match_hour), minute=int(match_minute), second=0, microsecond=0
+        )
+        today = _get_current_date()
+        match_date = match_dt.date()
+
+        if match_date == today:
+            return 'Hoje'
+        tomorrow = today + timedelta(days=1)
+        if match_date == tomorrow:
+            return 'Amanhã'
+        return match_date.strftime('%d/%m')
+    except (ValueError, AttributeError):
         return ''
-    if match_dt < now:
-        return 'Hoje'
-    if (match_dt - now) < timedelta(days=1):
-        return 'Hoje'
-    return match_dt.strftime('%d/%m')
 
 
 def format_live_row(match: TmLiveMatch) -> str:
@@ -63,8 +72,10 @@ def group_by_competition(matches: list[TmLiveMatch]) -> list[list[TmLiveMatch]]:
 
 
 def apply_soft_cap(matches: list[TmLiveMatch], soft_cap: int) -> list[TmLiveMatch]:
+    groups = group_by_competition(matches)
+    groups.sort(key=lambda g: (league_priority(g[0].competition_code), g[0].competition_name))
     picked: list[TmLiveMatch] = []
-    for group in group_by_competition(matches):
+    for group in groups:
         if len(picked) >= soft_cap:
             break
         picked.extend(group)
@@ -72,8 +83,10 @@ def apply_soft_cap(matches: list[TmLiveMatch], soft_cap: int) -> list[TmLiveMatc
 
 
 def build_section(title: str, matches: list[TmLiveMatch], row_formatter: callable) -> list[str]:
+    groups = group_by_competition(matches)
+    groups.sort(key=lambda g: (league_priority(g[0].competition_code), g[0].competition_name))
     lines = [title]
-    for group in group_by_competition(matches):
+    for group in groups:
         head = group[0]
         lines.append(f'{head.country_flag_emoji} *{head.competition_name}*')
         lines.extend(row_formatter(m) for m in group)
