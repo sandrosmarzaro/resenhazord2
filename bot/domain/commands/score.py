@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
@@ -27,9 +27,6 @@ from bot.data.football_league_priority import league_priority
 from bot.data.number_emoji import MAX_EMOJI_SCORE, NUMBER_EMOJI
 from bot.domain.services.transfermarkt.service import TransfermarktService
 
-_UPCOMING_WINDOW_HOURS = 6
-_SECTION_SOFT_CAP = 7
-
 
 def _get_current_datetime() -> datetime:
     return datetime.now(UTC)
@@ -39,7 +36,7 @@ def _get_current_date() -> date:
     return datetime.now(UTC).date()
 
 
-def _is_within_upcoming_window(match_time: str) -> bool:
+def _is_within_upcoming_window(match_time: str, window_hours: int) -> bool:
     if not match_time or ':' not in match_time:
         return False
     try:
@@ -48,11 +45,12 @@ def _is_within_upcoming_window(match_time: str) -> bool:
     except ValueError:
         return False
     now = _get_current_datetime()
-    candidate = now.replace(hour=hour_int, minute=minute_int, second=0, microsecond=0)
-    if candidate < now:
-        candidate += timedelta(days=1)
+    match_dt = now.replace(hour=hour_int, minute=minute_int, second=0)
+    if match_dt < now:
+        match_dt += timedelta(days=1)
+    candidate = match_dt
     delta = candidate - now
-    return delta <= timedelta(hours=_UPCOMING_WINDOW_HOURS)
+    return delta <= timedelta(hours=window_hours)
 
 
 def _format_match_time(match_time: str, status: MatchStatus) -> str:
@@ -90,6 +88,9 @@ def _score_emoji(score: int | None) -> str:
 
 
 class ScoreCommand(Command):
+    _upcoming_window_hours: ClassVar[int] = 6
+    _section_soft_cap: ClassVar[int] = 7
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -118,15 +119,17 @@ class ScoreCommand(Command):
             [
                 m
                 for m in matches
-                if m.status == MatchStatus.NOT_STARTED and _is_within_upcoming_window(m.match_time)
+                if m.status == MatchStatus.NOT_STARTED
+                and _is_within_upcoming_window(m.match_time, ScoreCommand._upcoming_window_hours)
             ]
             if show_next
             else []
         )
         finished_all = [m for m in matches if m.status == MatchStatus.FINISHED] if show_past else []
-        live_matches = _apply_soft_cap(live_all, _SECTION_SOFT_CAP)
-        upcoming_matches = _apply_soft_cap(upcoming_all, _SECTION_SOFT_CAP)
-        finished_matches = _apply_soft_cap(finished_all, _SECTION_SOFT_CAP)
+        soft_cap = ScoreCommand._section_soft_cap
+        live_matches = _apply_soft_cap(live_all, soft_cap)
+        upcoming_matches = _apply_soft_cap(upcoming_all, soft_cap)
+        finished_matches = _apply_soft_cap(finished_all, soft_cap)
 
         if not live_matches and not upcoming_matches and not finished_matches:
             return [Reply.to(data).text('Nenhum jogo ao vivo agora. ✨')]

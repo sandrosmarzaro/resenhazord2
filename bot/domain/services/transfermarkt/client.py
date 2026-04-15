@@ -25,8 +25,6 @@ from bot.domain.models.football import TmClub, TmLiveMatch, TmPlayer, TmSquadSta
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
 
-BR_TIMEZONE_OFFSET = timedelta(hours=-3)
-
 
 class TransfermarktClient:
     HEADERS = HEADERS
@@ -34,6 +32,7 @@ class TransfermarktClient:
     GLOBAL_MAX_PAGES = GLOBAL_MAX_PAGES
     LEAGUE_MAX_PAGES = LEAGUE_MAX_PAGES
     POSITION_MAX_PAGES = POSITION_MAX_PAGES
+    BR_TIMEZONE_OFFSET = timedelta(hours=-3)
 
     @classmethod
     async def fetch_page(cls, page: int, league: LeagueInfo | None = None) -> list[TmPlayer]:
@@ -160,7 +159,7 @@ class TransfermarktClient:
 
     @classmethod
     async def fetch_live_matches(cls) -> list[TmLiveMatch]:
-        br_time = timezone(BR_TIMEZONE_OFFSET)
+        br_time = timezone(TransfermarktClient.BR_TIMEZONE_OFFSET)
         today = datetime.now(br_time).date()
         yesterday = today - timedelta(days=1)
         dates = [yesterday.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')]

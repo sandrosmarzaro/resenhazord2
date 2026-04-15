@@ -28,7 +28,8 @@ class LineupAssigner:
         )
 
         for i in slot_order:
-            player = cls._find_player(slot_specific[i], formation, i, role_pools, used)
+            slot_role = formation.slots[i].role
+            player = cls._find_player(slot_specific[i], role_pools, used, role=slot_role)
             if player:
                 used.add(player.name)
             ordered[i] = player
@@ -39,17 +40,17 @@ class LineupAssigner:
     def _find_player(
         cls,
         specific: str,
-        formation: Formation,
-        slot_index: int,
         role_pools: dict[str, list[TmPlayer]],
         used: set[str],
+        *,
+        role: str | None = None,
     ) -> TmPlayer | None:
         pool = role_pools.get(specific, [])
         player = next((p for p in pool if p.name not in used), None)
         if player:
             return player
 
-        group = ROLE_GROUPS.get(specific, formation.slots[slot_index].role)
+        group = ROLE_GROUPS.get(specific, role)
         for other_role, other_pool in role_pools.items():
             if ROLE_GROUPS.get(other_role) != group:
                 continue

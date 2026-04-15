@@ -60,7 +60,11 @@ class FootballTeamCommand(Command):
         top_str = parsed.options.get('top', '')
 
         if top_str and not liga_code:
-            return await self._global_top_team(data, int(top_str[3:]))
+            try:
+                top_n = int(top_str[3:])
+            except ValueError:
+                top_n = 0
+            return await self._global_top_team(data, top_n)
 
         effective_liga = liga_code or random.choice(LEAGUE_CODES)  # noqa: S311
         league = LEAGUES[effective_liga]
@@ -77,11 +81,15 @@ class FootballTeamCommand(Command):
             return [Reply.to(data).text('Nenhum time encontrado. Tente novamente! ⚽')]
 
         if top_str and standings:
-            top_n = int(top_str[3:])
-            top_ids = {cid for cid, rank in standings.items() if rank <= top_n}
-            filtered = [c for c in clubs if c.club_id in top_ids]
-            if filtered:
-                clubs = filtered
+            try:
+                top_n = int(top_str[3:])
+            except ValueError:
+                top_n = 0
+            if top_n > 0:
+                top_ids = {cid for cid, rank in standings.items() if rank <= top_n}
+                filtered = [c for c in clubs if c.club_id in top_ids]
+                if filtered:
+                    clubs = filtered
 
         club = random.choice(clubs)  # noqa: S311
         rank = standings.get(club.club_id)
@@ -148,9 +156,12 @@ class FootballTeamCommand(Command):
             all_players = await TransfermarktService.fetch_league_full_squad(league)
             ordered = LineupBuilder.from_league_squad(all_players, formation)
         else:
-            top_n: int | None = int(top_str[3:]) if top_str else None
+            try:
+                top_n = int(top_str[3:]) if top_str else 0
+            except ValueError:
+                top_n = 0
             max_pages = TransfermarktService.POSITION_MAX_PAGES
-            if top_n:
+            if top_n > 0:
                 max_pages = max(
                     1,
                     min(
