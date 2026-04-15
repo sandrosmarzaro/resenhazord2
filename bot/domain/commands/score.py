@@ -92,7 +92,7 @@ def _score_emoji(score: int | None) -> str:
     return str(score)
 
 
-class PlacarCommand(Command):
+class ScoreCommand(Command):
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
