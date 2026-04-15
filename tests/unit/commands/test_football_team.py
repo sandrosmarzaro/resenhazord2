@@ -311,7 +311,7 @@ class TestFullTeamWithLiga:
             new=mocker.AsyncMock(return_value=_MOCK_SQUAD),
         )
         mocker.patch(
-            'bot.domain.commands.football_team.build_football_field',
+            'bot.domain.services.full_lineup_builder.build_football_field',
             return_value=b'fake-field-image',
         )
         mocker.patch(
@@ -332,7 +332,7 @@ class TestFullTeamWithLiga:
             new=mocker.AsyncMock(return_value=_MOCK_SQUAD),
         )
         mocker.patch(
-            'bot.domain.commands.football_team.build_football_field',
+            'bot.domain.services.full_lineup_builder.build_football_field',
             return_value=b'fake-field-image',
         )
         mocker.patch(
@@ -359,7 +359,7 @@ class TestFullTeamGlobal:
             new=mocker.AsyncMock(return_value=_MOCK_SQUAD[:3]),
         )
         mocker.patch(
-            'bot.domain.commands.football_team.build_football_field',
+            'bot.domain.services.full_lineup_builder.build_football_field',
             return_value=b'fake-field-image',
         )
         mocker.patch(

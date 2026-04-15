@@ -5,7 +5,7 @@ import random
 
 import structlog
 
-from bot.data.football import LEAGUE_CODES, LEAGUES, LEAGUES_BY_TM_ID, LeagueInfo
+from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
 from bot.data.football_formations import random_formation
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
@@ -20,9 +20,8 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import SportsDBTeam, TmClub
 from bot.domain.models.message import BotMessage
-from bot.domain.services.football_field.build_field import build_football_field
-from bot.domain.services.lineup_builder import LineupBuilder
-from bot.domain.services.player_assets import PlayerAssets
+from bot.domain.services.full_lineup_builder import FullLineupBuilder
+from bot.domain.services.global_top_team import GlobalTopTeam
 from bot.domain.services.team_caption_builder import TeamCaptionBuilder
 from bot.domain.services.thesportsdb import TheSportsDBService
 from bot.domain.services.transfermarkt.service import TransfermarktService
@@ -101,18 +100,17 @@ class FootballTeamCommand(Command):
         return [Reply.to(data).image_buffer(buffer, caption)]
 
     async def _global_top_team(self, data: CommandData, top_n: int) -> list[BotMessage]:
-        top_clubs = await TransfermarktService.fetch_top_clubs(top_n)
-        if not top_clubs:
+        top_club = await GlobalTopTeam.fetch(top_n)
+        if not top_club:
             return [
                 Reply.to(data).text('Não foi possível buscar ranking global. Tente novamente! ⚽')
             ]
 
-        top_club = random.choice(top_clubs)  # noqa: S311
-        league = LEAGUES_BY_TM_ID.get(top_club.league_tm_id)
-
-        if league is None:
+        league_code = GlobalTopTeam.find_league(top_club)
+        if league_code is None:
             return await self._global_top_bare(data, top_club)
 
+        league = LEAGUES[league_code]
         squad_values, standings, sports_teams = await asyncio.gather(
             TransfermarktService.fetch_squad_values(league),
             TransfermarktService.fetch_standings(league),
@@ -151,45 +149,12 @@ class FootballTeamCommand(Command):
 
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
-        league = LEAGUES.get(liga_code) if liga_code else None
         formation = random_formation()
         top_str = parsed.options.get('top', '')
+        try:
+            top_n = int(top_str[3:]) if top_str else 0
+        except ValueError:
+            top_n = 0
 
-        if league:
-            all_players = await TransfermarktService.fetch_league_full_squad(league)
-            ordered = LineupBuilder.from_league_squad(all_players, formation)
-        else:
-            try:
-                top_n = int(top_str[3:]) if top_str else 0
-            except ValueError:
-                top_n = 0
-            max_pages = TransfermarktService.POSITION_MAX_PAGES
-            if top_n > 0:
-                max_pages = max(
-                    1,
-                    min(
-                        (top_n + TransfermarktService.PLAYERS_PER_PAGE - 1)
-                        // TransfermarktService.PLAYERS_PER_PAGE,
-                        TransfermarktService.GLOBAL_MAX_PAGES,
-                    ),
-                )
-            ordered = await LineupBuilder.from_position_queries(formation, max_pages, top_n)
-
-        photos_ordered, badge_images = await PlayerAssets.fetch(ordered)
-
-        names = [p.name if p else '' for p in ordered]
-        flag_emojis: list[str | None] = [
-            (p.nationality_flag_emoji if p and p.nationality_flag_emoji else None) for p in ordered
-        ]
-        overlays: list[tuple[str | None, bytes | None]] = list(
-            zip(flag_emojis, badge_images, strict=False)
-        )
-        total_value = TransfermarktService.sum_market_values(ordered)
-        field_image = await asyncio.to_thread(
-            build_football_field, photos_ordered, names, formation, overlays, total_value
-        )
-
-        caption = f'⚽ *Escalação Aleatória* — {formation.name}'
-        if total_value:
-            caption += f'\n💰 {total_value}'
+        field_image, caption = await FullLineupBuilder.build(liga_code, formation, top_n)
         return [Reply.to(data).image_buffer(field_image, caption)]
