@@ -229,4 +229,3 @@ class TransfermarktParser(RowParser):
     @classmethod
     def parse_live_matches(cls, html: str) -> list[TmLiveMatch]:
         return LiveMatchParser.parse_live_matches(html)
-

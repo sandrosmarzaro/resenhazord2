@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from typing import ClassVar
 
 from bs4 import BeautifulSoup, Tag
 
@@ -13,15 +14,6 @@ from bot.data.transfermarkt_country_codes import (
 from bot.domain.models.football import MatchStatus, TmLiveMatch
 from bot.domain.services.transfermarkt.parse_helpers import ParseHelpers
 
-_SCORE_PARTS_COUNT = 2
-_TIME_FORMAT_LENGTH = 5
-_MAX_HOUR = 23
-_MAX_MINUTE = 59
-
-_MATCH_ID_RE_V1 = re.compile(r'/spielbericht/(\d+)')
-_MATCH_ID_RE_V2 = re.compile(r'/ticker/begegnung/live/(\d+)')
-_MINUTE_RE = re.compile(r'(\d+)')
-
 
 @dataclass(frozen=True)
 class CompetitionContext:
@@ -32,6 +24,14 @@ class CompetitionContext:
 
 
 class LiveMatchParser(ParseHelpers):
+    _score_parts_count: ClassVar[int] = 2
+    _time_format_length: ClassVar[int] = 5
+    _max_hour: ClassVar[int] = 23
+    _max_minute: ClassVar[int] = 59
+    _match_id_re_v1: ClassVar[re.Pattern[str]] = re.compile(r'/spielbericht/(\d+)')
+    _match_id_re_v2: ClassVar[re.Pattern[str]] = re.compile(r'/ticker/begegnung/live/(\d+)')
+    _minute_re: ClassVar[re.Pattern[str]] = re.compile(r'(\d+)')
+
     @classmethod
     def parse_live_matches(cls, html: str) -> list[TmLiveMatch]:
         soup = BeautifulSoup(html, 'html.parser')
@@ -152,9 +152,7 @@ class LiveMatchParser(ParseHelpers):
         return None
 
     @classmethod
-    def _parse_live_table_rows(
-        cls, table: Tag, comp_ctx: CompetitionContext
-    ) -> list[TmLiveMatch]:
+    def _parse_live_table_rows(cls, table: Tag, comp_ctx: CompetitionContext) -> list[TmLiveMatch]:
         matches: list[TmLiveMatch] = []
 
         for row in table.find_all('tr'):
@@ -244,7 +242,7 @@ class LiveMatchParser(ParseHelpers):
     def _parse_score_parts(cls, result_text: str) -> tuple[int | None, int | None]:
         separator = ' - ' if ' - ' in result_text else ':'
         parts = result_text.split(separator)
-        if len(parts) != _SCORE_PARTS_COUNT:
+        if len(parts) != cls._score_parts_count:
             return (None, None)
         try:
             return (int(parts[0].strip()), int(parts[1].strip()))
@@ -259,7 +257,7 @@ class LiveMatchParser(ParseHelpers):
             return None
         separator = ' - ' if ' - ' in result_text else ':'
         parts = result_text.split(separator)
-        if len(parts) != _SCORE_PARTS_COUNT:
+        if len(parts) != cls._score_parts_count:
             return None
         try:
             home = int(parts[0].strip())
@@ -275,10 +273,10 @@ class LiveMatchParser(ParseHelpers):
     def _extract_match_id(result_link: Tag) -> str:
         match_id_href = result_link.get('href', '')
         if match_id_href:
-            mid_match = _MATCH_ID_RE_V1.search(str(match_id_href))
+            mid_match = LiveMatchParser._match_id_re_v1.search(str(match_id_href))
             if mid_match:
                 return mid_match.group(1)
-            mid_match = _MATCH_ID_RE_V2.search(str(match_id_href))
+            mid_match = LiveMatchParser._match_id_re_v2.search(str(match_id_href))
             if mid_match:
                 return mid_match.group(1)
         return ''
@@ -294,24 +292,27 @@ class LiveMatchParser(ParseHelpers):
     def _is_live_score(result_text: str) -> bool:
         if not result_text or not result_text[0].isdigit():
             return False
-        if len(result_text) == _TIME_FORMAT_LENGTH and result_text[2] == ':':
+        if len(result_text) == LiveMatchParser._time_format_length and result_text[2] == ':':
             return False
         if ':' in result_text:
             parts = result_text.split(':')
-            if len(parts) == _SCORE_PARTS_COUNT and parts[0].isdigit() and parts[1].isdigit():
+            is_digit = parts[0].isdigit() and parts[1].isdigit()
+            if len(parts) == LiveMatchParser._score_parts_count and is_digit:
                 return True
         return ' - ' in result_text
 
     @staticmethod
     def _looks_like_scheduled_time(text: str) -> bool:
-        if not text or len(text) != _TIME_FORMAT_LENGTH or text[2] != ':':
+        if not text or len(text) != LiveMatchParser._time_format_length or text[2] != ':':
             return False
         try:
             hour, minute = text.split(':')
             hour_int, minute_int = int(hour), int(minute)
         except ValueError:
             return False
-        return 0 <= hour_int <= _MAX_HOUR and 0 <= minute_int <= _MAX_MINUTE
+        max_hour = LiveMatchParser._max_hour
+        max_minute = LiveMatchParser._max_minute
+        return 0 <= hour_int <= max_hour and 0 <= minute_int <= max_minute
 
     @staticmethod
     def _get_match_status_from_title(title: str | None) -> MatchStatus | None:
@@ -338,7 +339,7 @@ class LiveMatchParser(ParseHelpers):
         live_indicator = cell.find('span', class_='green')
         if live_indicator and isinstance(live_indicator, Tag):
             text = live_indicator.get_text(strip=True)
-            minute_match = _MINUTE_RE.search(text)
+            minute_match = LiveMatchParser._minute_re.search(text)
             if minute_match:
                 return f"{minute_match.group(1)}'"
         return ''
@@ -350,7 +351,7 @@ class LiveMatchParser(ParseHelpers):
         live_indicator = time_cell.find('span', class_='live-ergebnis')
         if live_indicator and isinstance(live_indicator, Tag):
             text = live_indicator.get_text(strip=True)
-            minute_match = _MINUTE_RE.search(text)
+            minute_match = LiveMatchParser._minute_re.search(text)
             if minute_match:
                 return f"{minute_match.group(1)}'"
         return ''
