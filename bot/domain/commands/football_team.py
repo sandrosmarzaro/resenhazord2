@@ -1,10 +1,8 @@
 """Random football team with league standings and optional full lineup image."""
 
 import asyncio
-import contextlib
 import random
 
-import anyio
 import structlog
 
 from bot.data.football import LEAGUE_CODES, LEAGUES, LEAGUES_BY_TM_ID, LeagueInfo
@@ -20,10 +18,11 @@ from bot.domain.commands.base import (
     Platform,
 )
 from bot.domain.models.command_data import CommandData
-from bot.domain.models.football import SportsDBTeam, TmClub, TmPlayer
+from bot.domain.models.football import SportsDBTeam, TmClub
 from bot.domain.models.message import BotMessage
 from bot.domain.services.football_field.build_field import build_football_field
 from bot.domain.services.lineup_builder import LineupBuilder
+from bot.domain.services.player_assets import PlayerAssets
 from bot.domain.services.team_caption_builder import TeamCaptionBuilder
 from bot.domain.services.thesportsdb import TheSportsDBService
 from bot.domain.services.transfermarkt.service import TransfermarktService
@@ -176,7 +175,7 @@ class FootballTeamCommand(Command):
                 )
             ordered = await LineupBuilder.from_position_queries(formation, max_pages, top_n)
 
-        photos_ordered, badge_images = await self._fetch_assets(ordered)
+        photos_ordered, badge_images = await PlayerAssets.fetch(ordered)
 
         names = [p.name if p else '' for p in ordered]
         flag_emojis: list[str | None] = [
@@ -194,29 +193,3 @@ class FootballTeamCommand(Command):
         if total_value:
             caption += f'\n💰 {total_value}'
         return [Reply.to(data).image_buffer(field_image, caption)]
-
-    @staticmethod
-    async def _fetch_assets(
-        ordered: list[TmPlayer | None],
-    ) -> tuple[list[bytes | None], list[bytes | None]]:
-        n = len(ordered)
-        photos: list[bytes | None] = [None] * n
-        badges: list[bytes | None] = [None] * n
-
-        async def _get(url: str) -> bytes | None:
-            with contextlib.suppress(Exception):
-                return await HttpClient.get_buffer(url, headers=TransfermarktService.HEADERS)
-            return None
-
-        async def _fetch_player(i: int, player: TmPlayer) -> None:
-            if player.photo_url:
-                photos[i] = await _get(player.photo_url)
-            if player.badge_url:
-                badges[i] = await _get(player.badge_url)
-
-        async with anyio.create_task_group() as tg:
-            for i, player in enumerate(ordered):
-                if player:
-                    tg.start_soon(_fetch_player, i, player)
-
-        return photos, badges
