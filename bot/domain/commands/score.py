@@ -14,16 +14,13 @@ from bot.domain.commands.base import (
     ParsedCommand,
     Platform,
 )
+from bot.domain.models.football import MatchStatus
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from bot.domain.models.command_data import CommandData
-    from bot.domain.models.football import MatchStatus, TmLiveMatch
-    from bot.domain.models.message import BotMessage
-else:
-    from bot.domain.models.command_data import CommandData
-    from bot.domain.models.football import MatchStatus, TmLiveMatch
+    from bot.domain.models.football import TmLiveMatch
     from bot.domain.models.message import BotMessage
 
 from bot.data.football_league_priority import league_priority
