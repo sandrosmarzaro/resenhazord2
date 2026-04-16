@@ -69,10 +69,11 @@ CATEGORY_HEADERS: dict[str, str] = {
     'group': '🫂 FUNÇÕES DE GRUPO 🫂',
     'random': '🎲 FUNÇÕES ALEATÓRIAS 🎲',
     'download': '💾 FUNÇÕES DE DOWNLOAD 💾',
+    'info': '📰 INFORMAÇÕES 📰',
     'other': '🙂 OUTRAS FUNÇÕES 🙂',
 }
 
-CATEGORY_ORDER: list[str] = ['group', 'random', 'download', 'other']
+CATEGORY_ORDER: list[str] = ['group', 'random', 'download', 'info', 'other']
 
 ALEATORIA_SUBHEADER = (
     '\n\n_(use as opções *show* e/ou *dm* para enviar imagens'

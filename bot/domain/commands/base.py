@@ -29,6 +29,7 @@ class Category(StrEnum):
     RANDOM = 'random'
     DOWNLOAD = 'download'
     GROUP = 'group'
+    INFORMATION = 'info'
     OTHER = 'other'
 
 

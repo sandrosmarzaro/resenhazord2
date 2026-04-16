@@ -19,7 +19,7 @@ class MoonCommand(Command):
         return CommandConfig(
             name='lua',
             aliases=['moon'],
-            category=Category.OTHER,
+            category=Category.INFORMATION,
             platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 

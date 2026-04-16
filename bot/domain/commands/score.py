@@ -48,13 +48,13 @@ class ScoreCommand(Command):
             name='placar',
             aliases=['score'],
             flags=['past', 'now', 'next'],
-            category=Category.OTHER,
+            category=Category.INFORMATION,
             platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property
     def menu_description(self) -> str:
-        return 'Jogos de futebol ao vivo.'
+        return 'Placar ao vivo de jogos de futebol com resultados ao vivo, próximos e encerrados.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         matches = await TransfermarktService.fetch_live_matches()

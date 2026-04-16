@@ -39,7 +39,7 @@ class LotteryCommand(Command):
             args_pattern=r'^(?:ppt|ptm|pt|ptv|ptn|cor)?$',
             args_label='sorteio',
             options=[OptionDef(name='regiao', values=['rio', 'sp', 'mg', 'ba', 'go', 'ce'])],
-            category=Category.OTHER,
+            category=Category.INFORMATION,
             platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 

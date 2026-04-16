@@ -30,13 +30,13 @@ class FootballStandingsCommand(Command):
             aliases=['table'],
             options=[OptionDef(name='liga', values=LEAGUE_CODES)],
             flags=['g4', 'z4'],
-            category=Category.OTHER,
+            category=Category.INFORMATION,
             platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
     @property
     def menu_description(self) -> str:
-        return 'Tabela de classificacao de uma liga de futebol.'
+        return 'Tabela de classificação de uma liga de futebol com pontos, V/E/D e outros stats.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga', 'br')
