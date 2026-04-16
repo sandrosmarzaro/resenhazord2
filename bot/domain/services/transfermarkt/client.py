@@ -3,6 +3,9 @@
 import asyncio
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from typing import ClassVar
+
+import httpx
 
 from bot.data.football import LeagueInfo
 from bot.data.transfermarkt_positions import POSITION_FILTERS
@@ -33,6 +36,19 @@ class TransfermarktClient:
     LEAGUE_MAX_PAGES = LEAGUE_MAX_PAGES
     POSITION_MAX_PAGES = POSITION_MAX_PAGES
     BR_TIMEZONE_OFFSET = timedelta(hours=-3)
+    MAX_CONCURRENT_REQUESTS = 8
+    _semaphore: ClassVar[asyncio.Semaphore | None] = None
+
+    @classmethod
+    def _get_semaphore(cls) -> asyncio.Semaphore:
+        if cls._semaphore is None:
+            cls._semaphore = asyncio.Semaphore(cls.MAX_CONCURRENT_REQUESTS)
+        return cls._semaphore
+
+    @classmethod
+    async def _get(cls, url: str, **kwargs) -> httpx.Response:
+        async with cls._get_semaphore():
+            return await HttpClient.get(url, **kwargs)
 
     @classmethod
     async def fetch_page(cls, page: int, league: LeagueInfo | None = None) -> list[TmPlayer]:
@@ -40,7 +56,7 @@ class TransfermarktClient:
             url = LEAGUE_URL.format(slug=league.tm_slug, tm_id=league.tm_id, page=page)
         else:
             url = f'{GLOBAL_URL}?page={page}'
-        response = await HttpClient.get(url, headers=HEADERS)
+        response = await cls._get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_page(response.text)
 
@@ -65,15 +81,17 @@ class TransfermarktClient:
                 'jahr': '0',
                 'page': str(page),
             }
-            response = await HttpClient.get(POSITION_FILTER_URL, params=params, headers=HEADERS)
+            response = await cls._get(POSITION_FILTER_URL, params=params, headers=HEADERS)
             response.raise_for_status()
             return TransfermarktParser.parse_page(response.text)
 
         tasks = [_one(pid, page) for pid in pos_ids for page in range(1, pages + 1)]
-        batches = await asyncio.gather(*tasks)
+        batches = await asyncio.gather(*tasks, return_exceptions=True)
         seen: set[str] = set()
         merged: list[TmPlayer] = []
         for batch in batches:
+            if isinstance(batch, BaseException):
+                continue
             for p in batch:
                 if p.name not in seen:
                     seen.add(p.name)
@@ -82,41 +100,41 @@ class TransfermarktClient:
 
     @classmethod
     async def fetch_player_profile(cls, profile_url: str) -> dict[str, str]:
-        response = await HttpClient.get(profile_url, headers=HEADERS)
+        response = await cls._get(profile_url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_player_profile(response.text)
 
     @classmethod
     async def fetch_squad_values(cls, league: LeagueInfo) -> dict[str, TmSquadStats]:
         url = SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
-        response = await HttpClient.get(url, headers=HEADERS)
+        response = await cls._get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_squad_values(response.text)
 
     @classmethod
     async def fetch_standings(cls, league: LeagueInfo) -> dict[str, int]:
         url = f'{TransfermarktParser.TM_BASE}/{league.tm_slug}/tabelle/wettbewerb/{league.tm_id}'
-        response = await HttpClient.get(url, headers=HEADERS)
+        response = await cls._get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_tabelle(response.text)
 
     @classmethod
     async def fetch_full_standings(cls, league: LeagueInfo) -> list[TmStandingRow]:
         url = f'{TransfermarktParser.TM_BASE}/{league.tm_slug}/tabelle/wettbewerb/{league.tm_id}'
-        response = await HttpClient.get(url, headers=HEADERS)
+        response = await cls._get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_full_tabelle(response.text)
 
     @classmethod
     async def fetch_top_clubs(cls, count: int) -> list[TmClub]:
-        response = await HttpClient.get(CLUBS_URL, headers=HEADERS)
+        response = await cls._get(CLUBS_URL, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_clubs_page(response.text)[:count]
 
     @classmethod
     async def fetch_league_full_squad(cls, league: LeagueInfo) -> list[TmPlayer]:
         url = SQUAD_VALUES_URL.format(slug=league.tm_slug, tm_id=league.tm_id)
-        response = await HttpClient.get(url, headers=HEADERS)
+        response = await cls._get(url, headers=HEADERS)
         response.raise_for_status()
         clubs = TransfermarktParser.parse_league_clubs(response.text)
         if not clubs:
@@ -124,7 +142,7 @@ class TransfermarktClient:
 
         async def _one(club: TmClub) -> list[TmPlayer]:
             squad_url = CLUB_SQUAD_URL.format(club_id=club.club_id, season=DEFAULT_SEASON)
-            r = await HttpClient.get(squad_url, headers=HEADERS)
+            r = await cls._get(squad_url, headers=HEADERS)
             r.raise_for_status()
             players = TransfermarktParser.parse_page(r.text, require_club=False)
             return [
@@ -166,9 +184,7 @@ class TransfermarktClient:
 
         async def _fetch_one(date_str: str) -> list[TmLiveMatch]:
             try:
-                response = await HttpClient.get(
-                    LIVE_URL_TEMPLATE.format(date=date_str), headers=HEADERS
-                )
+                response = await cls._get(LIVE_URL_TEMPLATE.format(date=date_str), headers=HEADERS)
                 response.raise_for_status()
                 return TransfermarktParser.parse_live_matches(response.text)
             except OSError:
