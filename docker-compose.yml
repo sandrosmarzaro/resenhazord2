@@ -23,7 +23,7 @@ services:
 
   bot:
     container_name: bot
-    image: ghcr.io/sandrosmarzaro/resenhazord2-python:latest
+    image: ghcr.io/sandrosmarzaro/resenhazord2:python
     build:
       context: .
       dockerfile: Dockerfile
