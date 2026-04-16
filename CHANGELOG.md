@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.1 (2026-04-16)
+
+### Bug Fixes
+
+- **deploy**: Align bot image ref with pipeline push tag
+  ([`a3542a3`](https://github.com/sandrosmarzaro/resenhazord2/commit/a3542a330b6e615604e352f5ac518319d7f064cd))
+
+
 ## v1.3.0 (2026-04-16)
 
 ### Features
