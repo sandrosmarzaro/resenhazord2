@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-04-16)
+
+### Features
+
+- **menu**: Add INFORMATION category for info commands
+  ([`c8b7fd4`](https://github.com/sandrosmarzaro/resenhazord2/commit/c8b7fd423c6f0acbc98e63b9d6d4295fbafbc0c9))
+
+- **menu**: Move currency to INFORMATION category
+  ([`fe469af`](https://github.com/sandrosmarzaro/resenhazord2/commit/fe469af56a4c9531bf4e720896bf6e314db40834))
+
+### Testing
+
+- **menu**: Add regression tests for Category enum integration
+  ([`395edbd`](https://github.com/sandrosmarzaro/resenhazord2/commit/395edbde2540191a829186a2d2749e728ce50242))
+
+
 ## v1.2.1 (2026-04-15)
 
 ### Bug Fixes
