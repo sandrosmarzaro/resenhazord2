@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.2 (2026-04-16)
+
+### Bug Fixes
+
+- **transfermarkt**: Cap concurrency and tolerate partial failures
+  ([`7a52b31`](https://github.com/sandrosmarzaro/resenhazord2/commit/7a52b31904e3d3cae39f5fa9ac88c12b28345494))
+
+
 ## v1.3.1 (2026-04-16)
 
 ### Bug Fixes
