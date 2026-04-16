@@ -23,7 +23,7 @@ class CurrencyCommand(Command):
             aliases=['currency'],
             args=ArgType.OPTIONAL,
             args_label='valor',
-            category=Category.OTHER,
+            category=Category.INFORMATION,
             platforms=[Platform.WHATSAPP, Platform.DISCORD],
         )
 
