@@ -19,6 +19,8 @@ class StickerCreator:
     MIN_ANIMATED_WEBP_LEN = 21
     WEBP_ANIMATION_FLAG = 0x02
     DEFAULT_FRAME_DURATION_MS = 100
+    ANMF_DURATION_OFFSET = 12
+    ANMF_DURATION_SIZE = 3
 
     @classmethod
     async def create(
@@ -60,13 +62,13 @@ class StickerCreator:
         cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
     ) -> bytes:
         src = Image.open(io.BytesIO(buffer))
+        n_frames = getattr(src, 'n_frames', 1)
+        per_frame_ms = cls._parse_webp_durations(buffer, n_frames)
+
         frames: list[Image.Image] = []
-        durations: list[int] = []
-        for index in range(getattr(src, 'n_frames', 1)):
+        for index in range(n_frames):
             src.seek(index)
-            frame = cls._transform_frame(src.convert('RGBA'), sticker_type, working_size)
-            frames.append(frame)
-            durations.append(src.info.get('duration', cls.DEFAULT_FRAME_DURATION_MS))
+            frames.append(cls._transform_frame(src.convert('RGBA'), sticker_type, working_size))
 
         output = io.BytesIO()
         frames[0].save(
@@ -74,11 +76,33 @@ class StickerCreator:
             format='WEBP',
             save_all=True,
             append_images=frames[1:],
-            duration=durations,
+            duration=per_frame_ms,
             loop=0,
             quality=quality,
         )
         return output.getvalue()
+
+    @classmethod
+    def _parse_webp_durations(cls, buffer: bytes, n_frames: int) -> list[int]:
+        # PIL's WEBP reader does not surface per-frame durations reliably
+        # (returns None/0 for many inputs), so read them straight from ANMF
+        # chunks in the RIFF container.
+        durations: list[int] = []
+        header_size = 8
+        pos = 12
+        while pos + header_size <= len(buffer):
+            fourcc = buffer[pos : pos + 4]
+            chunk_size = int.from_bytes(buffer[pos + 4 : pos + header_size], 'little')
+            if fourcc == b'ANMF':
+                start = pos + header_size + cls.ANMF_DURATION_OFFSET
+                end = start + cls.ANMF_DURATION_SIZE
+                if end <= len(buffer):
+                    raw = int.from_bytes(buffer[start:end], 'little')
+                    durations.append(raw or cls.DEFAULT_FRAME_DURATION_MS)
+            pos += header_size + chunk_size + (chunk_size & 1)
+        while len(durations) < n_frames:
+            durations.append(cls.DEFAULT_FRAME_DURATION_MS)
+        return durations[:n_frames]
 
     @classmethod
     def _transform_frame(

@@ -322,3 +322,35 @@ class TestStickerCreatorAnimatedWebp:
         img = self._open_webp(result)
         assert img.size == StickerCreator.STICKER_SIZE
         assert getattr(img, 'is_animated', False)
+
+    def test_parse_webp_durations_reads_anmf_chunks(self) -> None:
+        frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue', 'green', 'yellow')]
+        buf = io.BytesIO()
+        frames[0].save(
+            buf,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=[40, 60, 80, 120],
+            loop=0,
+        )
+
+        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=4)
+
+        assert durations == [40, 60, 80, 120]
+
+    def test_parse_webp_durations_substitutes_default_for_zero(self) -> None:
+        frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue')]
+        buf = io.BytesIO()
+        frames[0].save(
+            buf,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=0,
+            loop=0,
+        )
+
+        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=2)
+
+        assert all(d == StickerCreator.DEFAULT_FRAME_DURATION_MS for d in durations)
