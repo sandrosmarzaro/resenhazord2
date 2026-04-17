@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-04-17)
+
+### Features
+
+- **sticker**: Add -X% option to reduce quality and resolution
+  ([`0750194`](https://github.com/sandrosmarzaro/resenhazord2/commit/075019467b33b595e344d0ff4331be3075cb8540))
+
+
 ## v1.3.2 (2026-04-16)
 
 ### Bug Fixes
