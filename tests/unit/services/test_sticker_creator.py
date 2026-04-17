@@ -323,6 +323,54 @@ class TestStickerCreatorAnimatedWebp:
         assert img.size == StickerCreator.STICKER_SIZE
         assert getattr(img, 'is_animated', False)
 
+    @pytest.mark.anyio
+    async def test_moderate_reduction_keeps_all_frames(self) -> None:
+        eight_colors = ('red', 'blue', 'green', 'yellow', 'cyan', 'magenta', 'white', 'black')
+        animated = _create_animated_webp(colors=eight_colors)
+
+        result = await StickerCreator.create(animated, 'full', quality_reduction=50)
+
+        img = self._open_webp(result)
+        assert getattr(img, 'is_animated', False)
+        assert getattr(img, 'n_frames', 0) == 8
+
+    @pytest.mark.anyio
+    async def test_heavy_reduction_shrinks_output(self) -> None:
+        sixteen_colors = tuple(f'#{i * 16:02x}{255 - i * 16:02x}80' for i in range(16))
+        animated = _create_animated_webp(width=512, height=512, colors=sixteen_colors)
+
+        baseline = await StickerCreator.create(animated, 'full', quality_reduction=0)
+        heavy = await StickerCreator.create(animated, 'full', quality_reduction=95)
+
+        assert len(heavy) < len(baseline)
+
+    @pytest.mark.anyio
+    async def test_output_fits_animated_sticker_limit(self) -> None:
+        from PIL import ImageDraw
+
+        frames = []
+        for i in range(40):
+            img = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            color = (255 - i * 6 % 256, i * 12 % 256, 128, 255)
+            cx = 256 + int(80 * (i - 20) / 40)
+            draw.ellipse((cx - 128, 128, cx + 128, 384), fill=color)
+            frames.append(img)
+        buf = io.BytesIO()
+        frames[0].save(
+            buf,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=80,
+            loop=0,
+            quality=80,
+        )
+
+        heavy = await StickerCreator.create(buf.getvalue(), 'full', quality_reduction=99)
+
+        assert len(heavy) <= StickerCreator.MAX_ANIMATED_STICKER_BYTES
+
     def test_parse_webp_durations_reads_anmf_chunks(self) -> None:
         frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue', 'green', 'yellow')]
         buf = io.BytesIO()
