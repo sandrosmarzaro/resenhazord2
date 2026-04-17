@@ -14,6 +14,31 @@ def _create_test_image(width: int = 100, height: int = 80, color: str = 'red') -
     return buf.getvalue()
 
 
+def _create_animated_webp(
+    width: int = 100,
+    height: int = 80,
+    colors: tuple[str, ...] = ('red', 'blue', 'green'),
+) -> bytes:
+    frames = [Image.new('RGBA', (width, height), c) for c in colors]
+    buf = io.BytesIO()
+    frames[0].save(
+        buf,
+        format='WEBP',
+        save_all=True,
+        append_images=frames[1:],
+        duration=100,
+        loop=0,
+    )
+    return buf.getvalue()
+
+
+def _create_static_webp(width: int = 100, height: int = 80, color: str = 'red') -> bytes:
+    img = Image.new('RGBA', (width, height), color)
+    buf = io.BytesIO()
+    img.save(buf, format='WEBP')
+    return buf.getvalue()
+
+
 class TestStickerCreatorImage:
     @staticmethod
     def _webp_to_image(webp_bytes: bytes) -> Image.Image:
@@ -215,3 +240,85 @@ class TestIsVideo:
 
     def test_short_buffer_not_video(self) -> None:
         assert not StickerCreator._is_video(b'\x00\x00')
+
+
+class TestIsAnimatedWebp:
+    def test_animated_webp_detected(self) -> None:
+        assert StickerCreator._is_animated_webp(_create_animated_webp())
+
+    def test_static_webp_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(_create_static_webp())
+
+    def test_png_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(_create_test_image())
+
+    def test_mp4_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(b'\x00\x00\x00\x1cftypisom' + b'\x00' * 20)
+
+    def test_short_buffer_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(b'RIFF\x00\x00\x00\x00WEBP')
+
+
+class TestStickerCreatorAnimatedWebp:
+    @staticmethod
+    def _open_webp(webp_bytes: bytes) -> Image.Image:
+        return Image.open(io.BytesIO(webp_bytes))
+
+    @pytest.mark.anyio
+    async def test_animated_webp_preserves_animation(self) -> None:
+        animated = _create_animated_webp(colors=('red', 'blue', 'green'))
+
+        result = await StickerCreator.create(animated, 'full')
+
+        img = self._open_webp(result)
+        assert getattr(img, 'is_animated', False)
+        assert getattr(img, 'n_frames', 0) == 3
+
+    @pytest.mark.anyio
+    async def test_animated_webp_resized_to_sticker_size(self) -> None:
+        animated = _create_animated_webp(width=200, height=150)
+
+        result = await StickerCreator.create(animated, 'full')
+
+        img = self._open_webp(result)
+        assert img.size == (512, 512)
+
+    @pytest.mark.anyio
+    async def test_animated_webp_skips_ffmpeg(self, mocker) -> None:
+        mock_exec = mocker.patch(
+            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+        )
+
+        await StickerCreator.create(_create_animated_webp(), 'full')
+
+        mock_exec.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_static_webp_routes_to_image_path(self, mocker) -> None:
+        mock_exec = mocker.patch(
+            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+        )
+
+        result = await StickerCreator.create(_create_static_webp(), 'full')
+
+        mock_exec.assert_not_called()
+        img = self._open_webp(result)
+        assert not getattr(img, 'is_animated', False)
+
+    @pytest.mark.anyio
+    async def test_animated_webp_quality_reduction_passed_to_pil(self, mocker) -> None:
+        save_spy = mocker.spy(Image.Image, 'save')
+
+        await StickerCreator.create(_create_animated_webp(), 'full', quality_reduction=50)
+
+        assert save_spy.call_args.kwargs['quality'] == 25
+
+    @pytest.mark.anyio
+    async def test_animated_webp_quality_reduction_pixelates_frames(self) -> None:
+        animated = _create_animated_webp(width=256, height=256)
+
+        result = await StickerCreator.create(animated, 'full', quality_reduction=90)
+
+        img = self._open_webp(result)
+        assert img.size == StickerCreator.STICKER_SIZE
+        assert getattr(img, 'is_animated', False)
