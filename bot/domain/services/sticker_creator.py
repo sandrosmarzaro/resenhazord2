@@ -9,6 +9,8 @@ from PIL import Image, ImageDraw, ImageOps
 class StickerCreator:
     STICKER_SIZE = (512, 512)
     WEBP_QUALITY = 50
+    MIN_WEBP_QUALITY = 1
+    MIN_WORKING_SIZE = 16
     MAX_VIDEO_DURATION = 10
     VIDEO_FPS = 15
     DEFAULT_PACK = 'Resenha'
@@ -20,13 +22,28 @@ class StickerCreator:
         cls,
         buffer: bytes,
         sticker_type: str = 'full',
+        quality_reduction: int = 0,
     ) -> bytes:
+        quality = cls._effective_quality(quality_reduction)
+        working_size = cls._effective_working_size(quality_reduction)
         if cls._is_video(buffer):
-            return await cls._create_from_video(buffer)
-        return cls._create_from_image(buffer, sticker_type)
+            return await cls._create_from_video(buffer, quality, working_size)
+        return cls._create_from_image(buffer, sticker_type, quality, working_size)
 
     @classmethod
-    def _create_from_image(cls, buffer: bytes, sticker_type: str) -> bytes:
+    def _effective_quality(cls, quality_reduction: int) -> int:
+        reduced = round(cls.WEBP_QUALITY * (100 - quality_reduction) / 100)
+        return max(cls.MIN_WEBP_QUALITY, reduced)
+
+    @classmethod
+    def _effective_working_size(cls, quality_reduction: int) -> int:
+        reduced = round(cls.STICKER_SIZE[0] * (100 - quality_reduction) / 100)
+        return max(cls.MIN_WORKING_SIZE, reduced)
+
+    @classmethod
+    def _create_from_image(
+        cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
+    ) -> bytes:
         img = Image.open(io.BytesIO(buffer)).convert('RGBA')
 
         match sticker_type:
@@ -39,12 +56,20 @@ class StickerCreator:
             case _:  # full
                 img = cls._contain_on_transparent(img)
 
+        if working_size < cls.STICKER_SIZE[0]:
+            img = cls._pixelate(img, working_size)
+
         output = io.BytesIO()
-        img.save(output, format='WEBP', quality=cls.WEBP_QUALITY)
+        img.save(output, format='WEBP', quality=quality)
         return output.getvalue()
 
     @classmethod
-    async def _create_from_video(cls, buffer: bytes) -> bytes:
+    def _pixelate(cls, img: Image.Image, working_size: int) -> Image.Image:
+        small = img.resize((working_size, working_size), Image.Resampling.BILINEAR)
+        return small.resize(cls.STICKER_SIZE, Image.Resampling.NEAREST)
+
+    @classmethod
+    async def _create_from_video(cls, buffer: bytes, quality: int, working_size: int) -> bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
             input_path = Path(tmpdir) / 'input'
             output_path = Path(tmpdir) / 'output.webp'
@@ -58,10 +83,14 @@ class StickerCreator:
                 'libwebp',
                 '-vf',
                 (
-                    'scale=512:512:force_original_aspect_ratio=decrease,'
+                    f'scale={working_size}:{working_size}:'
+                    'force_original_aspect_ratio=decrease:flags=bilinear,'
                     f'fps={cls.VIDEO_FPS},'
-                    'pad=512:512:-1:-1:color=0x00000000'
+                    f'pad={working_size}:{working_size}:-1:-1:color=0x00000000,'
+                    'scale=512:512:flags=neighbor'
                 ),
+                '-quality',
+                str(quality),
                 '-loop',
                 '0',
                 '-t',
