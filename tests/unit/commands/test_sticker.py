@@ -30,6 +30,11 @@ class TestMatches:
             (', stic Anime | Sandro', True),
             (', stic crop Anime | Sandro', True),
             (', sticker Meu Pack', True),
+            (', stic -50%', True),
+            (', stic -1%', True),
+            (', stic -99%', True),
+            (', stic crop -25%', True),
+            (', stic -50% Anime | Sandro', True),
             ('stic', False),
             ('hello', False),
         ],
@@ -83,7 +88,7 @@ class TestStickerCreation:
         assert len(messages) == 1
         assert messages[0].content.data == b'sticker-data'
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'direct')
-        mock_create.assert_called_once_with(b'image-data', 'full')
+        mock_create.assert_called_once_with(b'image-data', 'full', 0)
 
     @pytest.mark.anyio
     async def test_creates_sticker_from_quoted_sticker(self, command, mock_whatsapp, mocker):
@@ -104,7 +109,7 @@ class TestStickerCreation:
         assert len(messages) == 1
         assert messages[0].content.data == b'new-sticker'
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'quoted')
-        mock_create.assert_called_once_with(b'sticker-data', 'full')
+        mock_create.assert_called_once_with(b'sticker-data', 'full', 0)
 
     @pytest.mark.anyio
     async def test_creates_sticker_from_quoted_video(self, command, mock_whatsapp, mocker):
@@ -123,7 +128,7 @@ class TestStickerCreation:
         await command.run(data)
 
         mock_whatsapp.download_media.assert_called_once_with(MESSAGE_ID, 'quoted')
-        mock_create.assert_called_once_with(b'video-data', 'full')
+        mock_create.assert_called_once_with(b'video-data', 'full', 0)
 
     @pytest.mark.anyio
     async def test_sticker_type_option(self, command, mock_whatsapp, mocker):
@@ -141,7 +146,7 @@ class TestStickerCreation:
 
         await command.run(data)
 
-        mock_create.assert_called_once_with(b'image-data', 'crop')
+        mock_create.assert_called_once_with(b'image-data', 'crop', 0)
 
     @pytest.mark.anyio
     @pytest.mark.parametrize('sticker_type', ['crop', 'full', 'circle', 'rounded'])
@@ -160,7 +165,7 @@ class TestStickerCreation:
 
         await command.run(data)
 
-        mock_create.assert_called_once_with(b'data', sticker_type)
+        mock_create.assert_called_once_with(b'data', sticker_type, 0)
 
     @pytest.mark.anyio
     async def test_returns_sticker_content(self, command, mock_whatsapp, mocker):
@@ -201,7 +206,7 @@ class TestStickerCreation:
 
         assert len(messages) == 1
         mock_whatsapp.download_media.assert_not_called()
-        mock_create.assert_called_once_with(b'proactive-image', 'full')
+        mock_create.assert_called_once_with(b'proactive-image', 'full', 0)
 
 
 class TestPackAuthor:
@@ -261,6 +266,63 @@ class TestPackAuthor:
 
         assert messages[0].content.pack == 'Anime'
         assert messages[0].content.author == 'Sandro'
+
+
+class TestQualityReduction:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('text', 'expected'),
+        [
+            (',stic -1%', 1),
+            (',stic -50%', 50),
+            (',stic -99%', 99),
+            (',stic crop -25%', 25),
+        ],
+    )
+    async def test_quality_reduction_forwarded(
+        self, command, mock_whatsapp, mocker, text, expected
+    ):
+        mock_whatsapp.download_media.return_value = b'img'
+        data = GroupCommandDataFactory.build(
+            text=text,
+            media_type='image',
+            media_source='direct',
+            message_id=MESSAGE_ID,
+        )
+        mock_create = mocker.patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            return_value=b'sticker',
+        )
+
+        await command.run(data)
+
+        assert mock_create.call_args.args[2] == expected
+
+    @pytest.mark.anyio
+    async def test_quality_coexists_with_pack_author(self, command, mock_whatsapp, mocker):
+        mock_whatsapp.download_media.return_value = b'img'
+        data = GroupCommandDataFactory.build(
+            text=',stic -30% Anime | Sandro',
+            media_type='image',
+            media_source='direct',
+            message_id=MESSAGE_ID,
+        )
+        mock_create = mocker.patch(
+            'bot.domain.commands.sticker.StickerCreator.create',
+            return_value=b'sticker',
+        )
+
+        messages = await command.run(data)
+
+        mock_create.assert_called_once_with(b'img', 'full', 30)
+        assert messages[0].content.pack == 'Anime'
+        assert messages[0].content.author == 'Sandro'
+
+    def test_parse_quality_none(self, command):
+        assert command._parse_quality_reduction(None) == 0
+
+    def test_parse_quality_token(self, command):
+        assert command._parse_quality_reduction('-42%') == 42
 
 
 class TestParsePackAuthor:

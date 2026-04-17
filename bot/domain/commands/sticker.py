@@ -21,13 +21,17 @@ logger = structlog.get_logger()
 class StickerCommand(Command):
     MEDIA_TYPES = frozenset(('image', 'video', 'sticker'))
     STICKER_TYPES: ClassVar[list[str]] = ['crop', 'full', 'circle', 'rounded']
+    QUALITY_PATTERN = r'-[1-9]\d?%'
 
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='stic',
             aliases=['fig', 'figurinha', 'sticker'],
-            options=[OptionDef(name='type', values=self.STICKER_TYPES)],
+            options=[
+                OptionDef(name='type', values=self.STICKER_TYPES),
+                OptionDef(name='quality', pattern=self.QUALITY_PATTERN),
+            ],
             args=ArgType.OPTIONAL,
             args_label='pack | autor',
             category=Category.DOWNLOAD,
@@ -47,6 +51,7 @@ class StickerCommand(Command):
             ]
 
         sticker_type = parsed.options.get('type', 'full')
+        quality_reduction = self._parse_quality_reduction(parsed.options.get('quality'))
         pack, author = self._parse_pack_author(parsed.rest)
         pack = pack or StickerCreator.DEFAULT_PACK
         author = author or StickerCreator.DEFAULT_AUTHOR
@@ -56,13 +61,20 @@ class StickerCommand(Command):
             jid=data.jid,
             media_type=data.media_type,
             sticker_type=sticker_type,
+            quality_reduction=quality_reduction,
             pack=pack,
             author=author,
         )
 
         buffer = await self._get_media(data)
-        sticker = await StickerCreator.create(buffer, sticker_type)
+        sticker = await StickerCreator.create(buffer, sticker_type, quality_reduction)
         return [Reply.to(data).sticker(sticker, pack=pack, author=author)]
+
+    @staticmethod
+    def _parse_quality_reduction(token: str | None) -> int:
+        if not token:
+            return 0
+        return int(token.strip('-%'))
 
     @staticmethod
     def _parse_pack_author(args: str) -> tuple[str, str]:

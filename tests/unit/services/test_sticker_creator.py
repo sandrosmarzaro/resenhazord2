@@ -74,6 +74,52 @@ class TestStickerCreatorImage:
         full_result = await StickerCreator.create(_create_test_image(), 'full')
         assert self._webp_to_image(default_result).size == self._webp_to_image(full_result).size
 
+    def test_pixelate_produces_block_regions(self) -> None:
+        img = Image.new('RGBA', StickerCreator.STICKER_SIZE, 'red')
+        for x in range(img.width):
+            for y in range(img.height):
+                img.putpixel((x, y), (x % 256, y % 256, 128, 255))
+
+        result = StickerCreator._pixelate(img, working_size=32)
+
+        assert result.size == StickerCreator.STICKER_SIZE
+        block = StickerCreator.STICKER_SIZE[0] // 32
+        assert result.getpixel((0, 0)) == result.getpixel((block - 1, block - 1))
+
+    @pytest.mark.anyio
+    async def test_quality_reduction_passed_to_pil(self, mocker) -> None:
+        save_spy = mocker.spy(Image.Image, 'save')
+
+        await StickerCreator.create(_create_test_image(), 'full', quality_reduction=50)
+
+        assert save_spy.call_args.kwargs['quality'] == 25
+
+    @pytest.mark.anyio
+    async def test_quality_reduction_floors_at_min(self, mocker) -> None:
+        save_spy = mocker.spy(Image.Image, 'save')
+
+        await StickerCreator.create(_create_test_image(), 'full', quality_reduction=99)
+
+        assert save_spy.call_args.kwargs['quality'] >= StickerCreator.MIN_WEBP_QUALITY
+
+    def test_effective_quality_no_reduction(self) -> None:
+        assert StickerCreator._effective_quality(0) == StickerCreator.WEBP_QUALITY
+
+    def test_effective_quality_half_reduction(self) -> None:
+        assert StickerCreator._effective_quality(50) == 25
+
+    def test_effective_quality_never_below_min(self) -> None:
+        assert StickerCreator._effective_quality(99) >= StickerCreator.MIN_WEBP_QUALITY
+
+    def test_effective_working_size_no_reduction(self) -> None:
+        assert StickerCreator._effective_working_size(0) == StickerCreator.STICKER_SIZE[0]
+
+    def test_effective_working_size_half_reduction(self) -> None:
+        assert StickerCreator._effective_working_size(50) == 256
+
+    def test_effective_working_size_never_below_min(self) -> None:
+        assert StickerCreator._effective_working_size(99) >= StickerCreator.MIN_WORKING_SIZE
+
 
 class TestStickerCreatorVideo:
     @pytest.mark.anyio
@@ -107,6 +153,37 @@ class TestStickerCreatorVideo:
         assert call_args[0] == 'ffmpeg'
         assert '-vcodec' in call_args
         assert 'libwebp' in call_args
+        assert '-quality' in call_args
+
+    @pytest.mark.anyio
+    async def test_video_quality_reduction_passed_to_ffmpeg(self, mocker) -> None:
+        img = Image.new('RGBA', (512, 512), 'red')
+        buf = io.BytesIO()
+        img.save(buf, format='WEBP')
+        webp_bytes = buf.getvalue()
+
+        mock_proc = mocker.AsyncMock()
+        mock_proc.communicate.return_value = (b'', b'')
+        mock_proc.returncode = 0
+
+        def write_fake_output(*args, **_kwargs):
+            Path(args[-1]).write_bytes(webp_bytes)
+
+        async def fake_run(*args, **_kwargs):
+            write_fake_output(*args)
+            return mock_proc
+
+        mock_run = mocker.patch(
+            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            side_effect=fake_run,
+        )
+        video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
+
+        await StickerCreator.create(video_buffer, 'full', quality_reduction=80)
+
+        call_args = mock_run.call_args[0]
+        quality_index = call_args.index('-quality')
+        assert call_args[quality_index + 1] == '10'
 
     @pytest.mark.anyio
     async def test_video_ffmpeg_error_propagates(self, mocker) -> None:
