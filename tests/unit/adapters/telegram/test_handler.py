@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
@@ -25,7 +27,12 @@ def make_update(text: str, *, chat_type: str = ChatType.PRIVATE, chat_id: int = 
         else ()
     )
     message = Message(
-        message_id=1, date=None, chat=chat, from_user=user, text=text, entities=entities
+        message_id=1,
+        date=datetime.now(tz=UTC),
+        chat=chat,
+        from_user=user,
+        text=text,
+        entities=entities,
     )
     return Update(update_id=1, message=message)
 

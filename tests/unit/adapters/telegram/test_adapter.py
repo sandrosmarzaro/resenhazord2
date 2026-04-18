@@ -47,9 +47,7 @@ class TestSend:
     @pytest.mark.anyio
     async def test_caption_sent_when_text_on_media(self, adapter, bot):
         await adapter.send(
-            TelegramOutbound(
-                kind=TelegramKind.PHOTO, chat_id=1, url='https://x/y.png', text='cap'
-            )
+            TelegramOutbound(kind=TelegramKind.PHOTO, chat_id=1, url='https://x/y.png', text='cap')
         )
 
         kwargs = bot.send_photo.call_args.kwargs
@@ -58,9 +56,7 @@ class TestSend:
     @pytest.mark.anyio
     async def test_sticker_ignores_caption(self, adapter, bot):
         await adapter.send(
-            TelegramOutbound(
-                kind=TelegramKind.STICKER, chat_id=1, buffer=b'bytes', text='ignored'
-            )
+            TelegramOutbound(kind=TelegramKind.STICKER, chat_id=1, buffer=b'bytes', text='ignored')
         )
 
         kwargs = bot.send_sticker.call_args.kwargs
@@ -68,9 +64,7 @@ class TestSend:
 
     @pytest.mark.anyio
     async def test_voice_routes_to_send_voice(self, adapter, bot):
-        await adapter.send(
-            TelegramOutbound(kind=TelegramKind.VOICE, chat_id=1, buffer=b'bytes')
-        )
+        await adapter.send(TelegramOutbound(kind=TelegramKind.VOICE, chat_id=1, buffer=b'bytes'))
 
         bot.send_voice.assert_called_once()
 

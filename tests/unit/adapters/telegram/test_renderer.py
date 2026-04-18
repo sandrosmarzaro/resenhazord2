@@ -127,9 +127,7 @@ class TestRaw:
         assert outbounds[0].text == 'cap'
 
     def test_image_dict_routes_to_photo(self, renderer):
-        outbounds = render(
-            renderer, RawContent(content={'image': {'url': 'https://x/y.png'}})
-        )
+        outbounds = render(renderer, RawContent(content={'image': {'url': 'https://x/y.png'}}))
 
         assert outbounds[0].kind == TelegramKind.PHOTO
         assert outbounds[0].url == 'https://x/y.png'
