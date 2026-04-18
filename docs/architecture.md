@@ -8,6 +8,7 @@ resenhazord2/
     adapters/
       whatsapp/                  Thin Python-side port (WhatsAppPort)
       discord/                   discord.py slash-command adapter
+      telegram/                  python-telegram-bot polling adapter
       http/                      FastAPI app + WebSocket handler
     application/
       command_handler.py         Dispatches a parsed command
@@ -24,7 +25,7 @@ resenhazord2/
       logging.py                 structlog + stdlib unified config
       sentry.py                  sentry_sdk.init with FastApiIntegration
       http_client.py             Singleton httpx client with retries
-    ports/                       Protocols the domain depends on (DiscordPort, ...)
+    ports/                       Protocols the domain depends on (DiscordPort, TelegramPort, ...)
     main.py                      FastAPI lifespan: init Sentry, structlog, Discord task
     settings.py                  pydantic-settings from .env
   gateway/                       Bun + TypeScript — WhatsApp adapter only
@@ -40,7 +41,7 @@ resenhazord2/
 
 ## Message Flow
 
-Two inbound platforms, one command pipeline.
+Three inbound platforms, one command pipeline.
 
 ### WhatsApp (via Gateway)
 
@@ -59,6 +60,21 @@ Two inbound platforms, one command pipeline.
 3. `DiscordInteractionHandler` rewrites the Discord command name into the comma
    form (`/d20` → `',d20'`) and calls the same `CommandHandler`.
 
+### Telegram
+
+1. `TelegramBot` (python-telegram-bot) polls the Bot API; each registered
+   `CommandHandler` routes a `/name` update to `TelegramUpdateHandler`.
+2. The handler strips any `@botname` suffix, rewrites the slash into the comma
+   form (`/d20 2d6` → `',d20 2d6'`), and builds a `CommandData` with
+   `platform=Platform.TELEGRAM`.
+3. `keep_typing` wraps dispatch in an anyio task group that refreshes
+   `sendChatAction` every 4 s, so long commands don't leave a stale bubble.
+4. `TelegramResponseRenderer` turns each `BotMessage` into one or more
+   `TelegramOutbound` values; `TelegramBotAdapter` dispatches them to
+   `send_message` / `send_photo` / `send_video` / etc.
+5. NSFW-scoped commands are refused outside the `telegram_nsfw_chat_ids`
+   allowlist and also published via `BotCommandScopeChat` to those chats only.
+
 ### Shared pipeline
 
 ```
@@ -71,9 +87,10 @@ CommandData ──▶ CommandRegistry.get_strategy(text) ──▶ Command.run(d
                                                           ▼
                                                     list[BotMessage]
                                                           │
-                              ┌───────────────────────────┴──────────────────────────┐
-                              ▼                                                      ▼
-                  WebSocketHandler → gateway → Baileys        DiscordRenderer → discord.py
+                              ┌───────────────────────────┼──────────────────────────┐
+                              ▼                           ▼                          ▼
+                 WebSocketHandler → gateway        DiscordRenderer        TelegramResponseRenderer
+                   → Baileys                       → discord.py           → python-telegram-bot
 ```
 
 ## Command System
@@ -110,6 +127,10 @@ Python ports live under `bot/ports/` and `bot/adapters/whatsapp/port.py`:
   `update_profile_picture`, `download_media`, etc.
 - **`DiscordPort`** — operations a live Discord interaction exposes:
   `send_message`, `defer`, `send_followup`, `is_deferred`.
+- **`TelegramPort`** — `send(TelegramOutbound)` and `send_typing(chat_id)`.
+  `TelegramOutbound` is a tagged dataclass (`kind`, `chat_id`, plus
+  text/buffer/url/filename) so the renderer owns content-type dispatch and the
+  adapter stays thin.
 
 Adapters:
 
@@ -118,6 +139,9 @@ Adapters:
   which forwards to Baileys through `BaileysAdapter`.
 - **`DiscordInteractionAdapter`** (`bot/adapters/discord/adapter.py`) wraps a
   `discord.Interaction` and exposes `DiscordPort`.
+- **`TelegramBotAdapter`** (`bot/adapters/telegram/adapter.py`) wraps
+  `telegram.Bot` and dispatches each `TelegramOutbound.kind` to the matching
+  `send_*` call, wrapping buffers in `InputFile(BytesIO(...))`.
 
 Commands that need WhatsApp operations accept `WhatsAppPort` in the `Command`
 constructor and read it via `self.whatsapp`. `CommandRegistry.set_whatsapp(port)`
@@ -171,7 +195,7 @@ class CommandConfig:
     scope: CommandScope = CommandScope.PUBLIC
     group_only: bool = False
     category: Category | None = None
-    platforms: list[Platform] = [Platform.WHATSAPP]   # WHATSAPP and/or DISCORD
+    platforms: list[Platform] = [Platform.WHATSAPP]   # WHATSAPP, DISCORD, TELEGRAM
 ```
 
 | Concept | Shape | Example |
@@ -191,8 +215,9 @@ appear in subclass code.
 - `show` flag — flips `view_once` off (commands default to `view_once=True`).
 
 **Platform filter** — a command only becomes a Discord slash command when
-`Platform.DISCORD` is in `config.platforms`. WhatsApp-only flags (`dm`, `show`)
-are stripped from the Discord interface automatically.
+`Platform.DISCORD` is in `config.platforms`. Same rule for Telegram via
+`Platform.TELEGRAM`. WhatsApp-only flags (`dm`, `show`) are stripped from both
+interfaces automatically.
 
 ## Adding a New Command
 
@@ -229,9 +254,10 @@ Commands raise `BotError` subclasses from `bot/domain/exceptions.py`:
 - `ExternalServiceError` — external API failure.
 - `DownloadError` — yt-dlp or download pipeline failure.
 
-`WebSocketHandler` (for WhatsApp) and `DiscordInteractionHandler` (for Discord)
-catch `BotError` and convert `error.user_message` into a friendly reply. Unknown
-exceptions are logged via `logger.exception(...)` and surfaced as generic errors.
+`WebSocketHandler` (WhatsApp), `DiscordInteractionHandler` (Discord), and
+`TelegramUpdateHandler` (Telegram) all catch `BotError` and convert
+`error.user_message` into a friendly reply. Unknown exceptions are logged via
+`logger.exception(...)` and surfaced as generic errors.
 
 ## Group Metadata Cache (Gateway)
 
