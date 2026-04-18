@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.4.1 (2026-04-18)
+
+### Bug Fixes
+
+- **sticker**: Keep all frames unless size exceeds sticker limit
+  ([`08eeafe`](https://github.com/sandrosmarzaro/resenhazord2/commit/08eeafea4e61074e350b69de695652c8a8a282ad))
+
+- **sticker**: Parse per-frame durations from ANMF chunks
+  ([`51c1515`](https://github.com/sandrosmarzaro/resenhazord2/commit/51c1515f30b82c98ed6bad09f4b79b31ffc81b7d))
+
+- **sticker**: Preserve animation when input is animated webp
+  ([`92b30f5`](https://github.com/sandrosmarzaro/resenhazord2/commit/92b30f5f144f860d7e4432314fde0ea9ec7513f4))
+
+
 ## v1.4.0 (2026-04-17)
 
 ### Features
