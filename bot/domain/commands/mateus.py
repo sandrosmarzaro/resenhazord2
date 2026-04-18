@@ -14,7 +14,9 @@ class MateusCommand(Command):
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
-            name='mateus', category=Category.RANDOM, platforms=[Platform.WHATSAPP, Platform.DISCORD]
+            name='mateus',
+            category=Category.RANDOM,
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

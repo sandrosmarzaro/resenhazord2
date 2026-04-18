@@ -33,7 +33,7 @@ class AudioCommand(Command):
             flags=[Flag.DM],
             args=ArgType.OPTIONAL,
             category=Category.DOWNLOAD,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

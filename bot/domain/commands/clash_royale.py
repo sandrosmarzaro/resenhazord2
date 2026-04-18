@@ -30,7 +30,7 @@ class ClashRoyaleCommand(CardBoosterCommand):
             aliases=['clashroyale'],
             flags=['deck', Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

@@ -41,7 +41,7 @@ class FootballTeamCommand(Command):
             ],
             flags=['full', Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

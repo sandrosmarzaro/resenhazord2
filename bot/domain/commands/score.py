@@ -49,7 +49,7 @@ class ScoreCommand(Command):
             aliases=['score'],
             flags=['past', 'now', 'next'],
             category=Category.INFORMATION,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

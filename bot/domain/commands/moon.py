@@ -20,7 +20,7 @@ class MoonCommand(Command):
             name='lua',
             aliases=['moon'],
             category=Category.INFORMATION,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

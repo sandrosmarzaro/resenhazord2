@@ -27,7 +27,7 @@ class BeerCommand(Command):
             aliases=['beer'],
             flags=[Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property
