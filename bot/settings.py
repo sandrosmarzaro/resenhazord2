@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     discord_server_guild_id: str = ''
     discord_drive_guild_id: str = ''
     discord_app_id: str = ''
+    telegram_token: str = ''
+    telegram_bot_username: str = ''
+    telegram_nsfw_chat_ids: str = ''
 
     nhentai_mirror_url: str = 'https://nhentai.to'
 
