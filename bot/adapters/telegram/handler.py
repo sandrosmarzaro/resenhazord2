@@ -5,6 +5,7 @@ from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
+from bot.adapters.telegram.typing_loop import keep_typing
 from bot.application.command_registry import CommandRegistry
 from bot.application.message_preprocess import preprocess_messages
 from bot.domain.commands.base import Command, CommandScope, Platform
@@ -63,9 +64,9 @@ class TelegramUpdateHandler:
             await self._reply_text(port, chat.id, self.NSFW_ONLY_MESSAGE)
             return
 
-        await port.send_typing(chat.id)
         data = self._build_command_data(message, chat, user, text)
-        await self._run_and_reply(port, strategy, data, chat.id, command_name)
+        async with keep_typing(port, chat.id):
+            await self._run_and_reply(port, strategy, data, chat.id, command_name)
 
     def _extract_command_name(self, message: Message) -> str | None:
         entity = self._find_command_entity(message.entities)
