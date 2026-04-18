@@ -1,0 +1,93 @@
+import re
+import unicodedata
+from collections.abc import Callable, Coroutine
+from typing import Any, ClassVar
+
+import structlog
+from telegram import BotCommand, Update
+from telegram.ext import Application, CommandHandler, ContextTypes
+
+from bot.adapters.telegram.adapter import TelegramBotAdapter
+from bot.adapters.telegram.handler import TelegramUpdateHandler
+from bot.application.command_registry import CommandRegistry
+from bot.domain.commands.base import Command, CommandScope, Platform
+
+logger = structlog.get_logger()
+
+TelegramCallback = Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None]]
+
+
+class TelegramBot:
+    NAME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9_]')
+    NAME_MAX_LENGTH: ClassVar[int] = 32
+    DESCRIPTION_MAX_LENGTH: ClassVar[int] = 256
+    PUBLIC_SCOPE: ClassVar[CommandScope] = CommandScope.PUBLIC
+
+    def __init__(self, token: str, bot_username: str, nsfw_chat_ids: frozenset[int]) -> None:
+        self._app = Application.builder().token(token).build()
+        self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids)
+
+    async def start(self) -> None:
+        self._register_handlers()
+        await self._app.initialize()
+        await self._app.start()
+        if self._app.updater is not None:
+            await self._app.updater.start_polling()
+        await self._publish_command_menu()
+        logger.info('telegram_connected')
+
+    async def stop(self) -> None:
+        if self._app.updater is not None:
+            await self._app.updater.stop()
+        await self._app.stop()
+        await self._app.shutdown()
+        logger.info('telegram_stopped')
+
+    def _register_handlers(self) -> None:
+        callback = self._make_callback()
+        for command in CommandRegistry.instance().get_all():
+            if Platform.TELEGRAM not in command.config.platforms:
+                continue
+            self._add_command(command.config.name, callback)
+            for alias in command.config.aliases:
+                self._add_command(alias, callback)
+            logger.info('telegram_command_registered', name=command.config.name)
+
+    def _add_command(self, registry_name: str, callback: TelegramCallback) -> None:
+        telegram_name = self._normalize_name(registry_name)
+        self._handler.register_name(telegram_name, f',{registry_name}')
+        self._app.add_handler(CommandHandler(telegram_name, callback))
+
+    def _make_callback(self) -> TelegramCallback:
+        handler = self._handler
+
+        async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+            port = TelegramBotAdapter(context.bot)
+            await handler.handle(port, update)
+
+        return callback
+
+    async def _publish_command_menu(self) -> None:
+        commands = [
+            BotCommand(
+                command=self._normalize_name(cmd.config.name),
+                description=cmd.menu_description[: self.DESCRIPTION_MAX_LENGTH],
+            )
+            for cmd in CommandRegistry.instance().get_all()
+            if self._is_menu_eligible(cmd)
+        ]
+        await self._app.bot.set_my_commands(commands)
+
+    @classmethod
+    def _is_menu_eligible(cls, command: Command) -> bool:
+        return (
+            Platform.TELEGRAM in command.config.platforms
+            and command.config.scope == cls.PUBLIC_SCOPE
+        )
+
+    @classmethod
+    def _normalize_name(cls, name: str) -> str:
+        decomposed = unicodedata.normalize('NFD', name.lower())
+        ascii_only = ''.join(c for c in decomposed if unicodedata.category(c) != 'Mn')
+        cleaned = cls.NAME_PATTERN.sub('', ascii_only.replace(' ', '_').replace('-', '_'))
+        return cleaned[: cls.NAME_MAX_LENGTH]
