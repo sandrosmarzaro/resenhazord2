@@ -22,6 +22,8 @@ class TelegramBot:
     NAME_MAX_LENGTH: ClassVar[int] = 32
     DESCRIPTION_MAX_LENGTH: ClassVar[int] = 256
     PUBLIC_SCOPE: ClassVar[CommandScope] = CommandScope.PUBLIC
+    START_COMMAND: ClassVar[str] = 'start'
+    MENU_COMMAND: ClassVar[str] = 'menu'
 
     def __init__(self, token: str, bot_username: str, nsfw_chat_ids: frozenset[int]) -> None:
         self._app = Application.builder().token(token).build()
@@ -52,11 +54,19 @@ class TelegramBot:
             for alias in command.config.aliases:
                 self._add_command(alias, callback)
             logger.info('telegram_command_registered', name=command.config.name)
+        self._register_start_alias(callback)
 
     def _add_command(self, registry_name: str, callback: TelegramCallback) -> None:
         telegram_name = self._normalize_name(registry_name)
         self._handler.register_name(telegram_name, f',{registry_name}')
         self._app.add_handler(CommandHandler(telegram_name, callback))
+
+    def _register_start_alias(self, callback: TelegramCallback) -> None:
+        menu = CommandRegistry.instance().get_by_name(self.MENU_COMMAND)
+        if menu is None or Platform.TELEGRAM not in menu.config.platforms:
+            return
+        self._handler.register_name(self.START_COMMAND, f',{self.MENU_COMMAND}')
+        self._app.add_handler(CommandHandler(self.START_COMMAND, callback))
 
     def _make_callback(self) -> TelegramCallback:
         handler = self._handler
