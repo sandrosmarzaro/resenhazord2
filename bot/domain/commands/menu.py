@@ -36,7 +36,7 @@ class MenuCommand(Command):
             options=[OptionDef(name='section', values=['grupo', 'bíblia'])],
             flags=[Flag.DM],
             category=Category.OTHER,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property
