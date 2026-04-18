@@ -14,6 +14,31 @@ def _create_test_image(width: int = 100, height: int = 80, color: str = 'red') -
     return buf.getvalue()
 
 
+def _create_animated_webp(
+    width: int = 100,
+    height: int = 80,
+    colors: tuple[str, ...] = ('red', 'blue', 'green'),
+) -> bytes:
+    frames = [Image.new('RGBA', (width, height), c) for c in colors]
+    buf = io.BytesIO()
+    frames[0].save(
+        buf,
+        format='WEBP',
+        save_all=True,
+        append_images=frames[1:],
+        duration=100,
+        loop=0,
+    )
+    return buf.getvalue()
+
+
+def _create_static_webp(width: int = 100, height: int = 80, color: str = 'red') -> bytes:
+    img = Image.new('RGBA', (width, height), color)
+    buf = io.BytesIO()
+    img.save(buf, format='WEBP')
+    return buf.getvalue()
+
+
 class TestStickerCreatorImage:
     @staticmethod
     def _webp_to_image(webp_bytes: bytes) -> Image.Image:
@@ -215,3 +240,165 @@ class TestIsVideo:
 
     def test_short_buffer_not_video(self) -> None:
         assert not StickerCreator._is_video(b'\x00\x00')
+
+
+class TestIsAnimatedWebp:
+    def test_animated_webp_detected(self) -> None:
+        assert StickerCreator._is_animated_webp(_create_animated_webp())
+
+    def test_static_webp_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(_create_static_webp())
+
+    def test_png_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(_create_test_image())
+
+    def test_mp4_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(b'\x00\x00\x00\x1cftypisom' + b'\x00' * 20)
+
+    def test_short_buffer_not_detected(self) -> None:
+        assert not StickerCreator._is_animated_webp(b'RIFF\x00\x00\x00\x00WEBP')
+
+
+class TestStickerCreatorAnimatedWebp:
+    @staticmethod
+    def _open_webp(webp_bytes: bytes) -> Image.Image:
+        return Image.open(io.BytesIO(webp_bytes))
+
+    @pytest.mark.anyio
+    async def test_animated_webp_preserves_animation(self) -> None:
+        animated = _create_animated_webp(colors=('red', 'blue', 'green'))
+
+        result = await StickerCreator.create(animated, 'full')
+
+        img = self._open_webp(result)
+        assert getattr(img, 'is_animated', False)
+        assert getattr(img, 'n_frames', 0) == 3
+
+    @pytest.mark.anyio
+    async def test_animated_webp_resized_to_sticker_size(self) -> None:
+        animated = _create_animated_webp(width=200, height=150)
+
+        result = await StickerCreator.create(animated, 'full')
+
+        img = self._open_webp(result)
+        assert img.size == (512, 512)
+
+    @pytest.mark.anyio
+    async def test_animated_webp_skips_ffmpeg(self, mocker) -> None:
+        mock_exec = mocker.patch(
+            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+        )
+
+        await StickerCreator.create(_create_animated_webp(), 'full')
+
+        mock_exec.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_static_webp_routes_to_image_path(self, mocker) -> None:
+        mock_exec = mocker.patch(
+            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+        )
+
+        result = await StickerCreator.create(_create_static_webp(), 'full')
+
+        mock_exec.assert_not_called()
+        img = self._open_webp(result)
+        assert not getattr(img, 'is_animated', False)
+
+    @pytest.mark.anyio
+    async def test_animated_webp_quality_reduction_passed_to_pil(self, mocker) -> None:
+        save_spy = mocker.spy(Image.Image, 'save')
+
+        await StickerCreator.create(_create_animated_webp(), 'full', quality_reduction=50)
+
+        assert save_spy.call_args.kwargs['quality'] == 25
+
+    @pytest.mark.anyio
+    async def test_animated_webp_quality_reduction_pixelates_frames(self) -> None:
+        animated = _create_animated_webp(width=256, height=256)
+
+        result = await StickerCreator.create(animated, 'full', quality_reduction=90)
+
+        img = self._open_webp(result)
+        assert img.size == StickerCreator.STICKER_SIZE
+        assert getattr(img, 'is_animated', False)
+
+    @pytest.mark.anyio
+    async def test_moderate_reduction_keeps_all_frames(self) -> None:
+        eight_colors = ('red', 'blue', 'green', 'yellow', 'cyan', 'magenta', 'white', 'black')
+        animated = _create_animated_webp(colors=eight_colors)
+
+        result = await StickerCreator.create(animated, 'full', quality_reduction=50)
+
+        img = self._open_webp(result)
+        assert getattr(img, 'is_animated', False)
+        assert getattr(img, 'n_frames', 0) == 8
+
+    @pytest.mark.anyio
+    async def test_heavy_reduction_shrinks_output(self) -> None:
+        sixteen_colors = tuple(f'#{i * 16:02x}{255 - i * 16:02x}80' for i in range(16))
+        animated = _create_animated_webp(width=512, height=512, colors=sixteen_colors)
+
+        baseline = await StickerCreator.create(animated, 'full', quality_reduction=0)
+        heavy = await StickerCreator.create(animated, 'full', quality_reduction=95)
+
+        assert len(heavy) < len(baseline)
+
+    @pytest.mark.anyio
+    async def test_output_fits_animated_sticker_limit(self) -> None:
+        from PIL import ImageDraw
+
+        frames = []
+        for i in range(40):
+            img = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            color = (255 - i * 6 % 256, i * 12 % 256, 128, 255)
+            cx = 256 + int(80 * (i - 20) / 40)
+            draw.ellipse((cx - 128, 128, cx + 128, 384), fill=color)
+            frames.append(img)
+        buf = io.BytesIO()
+        frames[0].save(
+            buf,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=80,
+            loop=0,
+            quality=80,
+        )
+
+        heavy = await StickerCreator.create(buf.getvalue(), 'full', quality_reduction=99)
+
+        assert len(heavy) <= StickerCreator.MAX_ANIMATED_STICKER_BYTES
+
+    def test_parse_webp_durations_reads_anmf_chunks(self) -> None:
+        frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue', 'green', 'yellow')]
+        buf = io.BytesIO()
+        frames[0].save(
+            buf,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=[40, 60, 80, 120],
+            loop=0,
+        )
+
+        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=4)
+
+        assert durations == [40, 60, 80, 120]
+
+    def test_parse_webp_durations_substitutes_default_for_zero(self) -> None:
+        frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue')]
+        buf = io.BytesIO()
+        frames[0].save(
+            buf,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=0,
+            loop=0,
+        )
+
+        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=2)
+
+        assert all(d == StickerCreator.DEFAULT_FRAME_DURATION_MS for d in durations)

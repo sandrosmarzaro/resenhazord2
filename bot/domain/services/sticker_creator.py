@@ -16,6 +16,13 @@ class StickerCreator:
     DEFAULT_PACK = 'Resenha'
     DEFAULT_AUTHOR = 'Resenhazord2'
     MIN_VIDEO_SIGNATURE_LEN = 12
+    MIN_ANIMATED_WEBP_LEN = 21
+    WEBP_ANIMATION_FLAG = 0x02
+    DEFAULT_FRAME_DURATION_MS = 100
+    MAX_FRAME_STRIDE = 4
+    MAX_ANIMATED_STICKER_BYTES = 500_000
+    ANMF_DURATION_OFFSET = 12
+    ANMF_DURATION_SIZE = 3
 
     @classmethod
     async def create(
@@ -28,6 +35,8 @@ class StickerCreator:
         working_size = cls._effective_working_size(quality_reduction)
         if cls._is_video(buffer):
             return await cls._create_from_video(buffer, quality, working_size)
+        if cls._is_animated_webp(buffer):
+            return cls._create_from_animated_webp(buffer, sticker_type, quality, working_size)
         return cls._create_from_image(buffer, sticker_type, quality, working_size)
 
     @classmethod
@@ -45,7 +54,83 @@ class StickerCreator:
         cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
     ) -> bytes:
         img = Image.open(io.BytesIO(buffer)).convert('RGBA')
+        img = cls._transform_frame(img, sticker_type, working_size)
+        output = io.BytesIO()
+        img.save(output, format='WEBP', quality=quality)
+        return output.getvalue()
 
+    @classmethod
+    def _create_from_animated_webp(
+        cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
+    ) -> bytes:
+        src = Image.open(io.BytesIO(buffer))
+        n_frames = getattr(src, 'n_frames', 1)
+        per_frame_ms = cls._parse_webp_durations(buffer, n_frames)
+
+        all_frames: list[Image.Image] = []
+        for i in range(n_frames):
+            src.seek(i)
+            all_frames.append(cls._transform_frame(src.convert('RGBA'), sticker_type, working_size))
+
+        # Reduction degrades quality + pixelation; only drop frames as a last
+        # resort when pixelation breaks inter-frame compression and the file
+        # exceeds the animated-sticker limit.
+        output = b''
+        max_stride = min(cls.MAX_FRAME_STRIDE, max(1, n_frames // 2))
+        for stride in range(1, max_stride + 1):
+            output = cls._encode_animated_webp(all_frames, per_frame_ms, stride, quality)
+            if len(output) <= cls.MAX_ANIMATED_STICKER_BYTES:
+                return output
+        return output
+
+    @classmethod
+    def _encode_animated_webp(
+        cls,
+        all_frames: list[Image.Image],
+        per_frame_ms: list[int],
+        stride: int,
+        quality: int,
+    ) -> bytes:
+        frames = all_frames[::stride]
+        durations = [sum(per_frame_ms[i : i + stride]) for i in range(0, len(all_frames), stride)]
+        output = io.BytesIO()
+        frames[0].save(
+            output,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=durations,
+            loop=0,
+            quality=quality,
+        )
+        return output.getvalue()
+
+    @classmethod
+    def _parse_webp_durations(cls, buffer: bytes, n_frames: int) -> list[int]:
+        # PIL's WEBP reader does not surface per-frame durations reliably
+        # (returns None/0 for many inputs), so read them straight from ANMF
+        # chunks in the RIFF container.
+        durations: list[int] = []
+        header_size = 8
+        pos = 12
+        while pos + header_size <= len(buffer):
+            fourcc = buffer[pos : pos + 4]
+            chunk_size = int.from_bytes(buffer[pos + 4 : pos + header_size], 'little')
+            if fourcc == b'ANMF':
+                start = pos + header_size + cls.ANMF_DURATION_OFFSET
+                end = start + cls.ANMF_DURATION_SIZE
+                if end <= len(buffer):
+                    raw = int.from_bytes(buffer[start:end], 'little')
+                    durations.append(raw or cls.DEFAULT_FRAME_DURATION_MS)
+            pos += header_size + chunk_size + (chunk_size & 1)
+        while len(durations) < n_frames:
+            durations.append(cls.DEFAULT_FRAME_DURATION_MS)
+        return durations[:n_frames]
+
+    @classmethod
+    def _transform_frame(
+        cls, img: Image.Image, sticker_type: str, working_size: int
+    ) -> Image.Image:
         match sticker_type:
             case 'crop':
                 img = ImageOps.fit(img, cls.STICKER_SIZE)
@@ -55,13 +140,9 @@ class StickerCreator:
                 img = cls._apply_rounded_mask(img)
             case _:  # full
                 img = cls._contain_on_transparent(img)
-
         if working_size < cls.STICKER_SIZE[0]:
             img = cls._pixelate(img, working_size)
-
-        output = io.BytesIO()
-        img.save(output, format='WEBP', quality=quality)
-        return output.getvalue()
+        return img
 
     @classmethod
     def _pixelate(cls, img: Image.Image, working_size: int) -> Image.Image:
@@ -154,3 +235,13 @@ class StickerCreator:
             return True
         # MKV/WebM
         return buffer[:4] == b'\x1a\x45\xdf\xa3'
+
+    @classmethod
+    def _is_animated_webp(cls, buffer: bytes) -> bool:
+        if len(buffer) < cls.MIN_ANIMATED_WEBP_LEN:
+            return False
+        if buffer[:4] != b'RIFF' or buffer[8:12] != b'WEBP':
+            return False
+        if buffer[12:16] != b'VP8X':
+            return False
+        return bool(buffer[20] & cls.WEBP_ANIMATION_FLAG)
