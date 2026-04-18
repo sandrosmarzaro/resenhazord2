@@ -4,7 +4,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any, ClassVar
 
 import structlog
-from telegram import BotCommand, Update
+from telegram import BotCommand, BotCommandScopeChat, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
@@ -22,12 +22,14 @@ class TelegramBot:
     NAME_MAX_LENGTH: ClassVar[int] = 32
     DESCRIPTION_MAX_LENGTH: ClassVar[int] = 256
     PUBLIC_SCOPE: ClassVar[CommandScope] = CommandScope.PUBLIC
+    NSFW_SCOPE: ClassVar[CommandScope] = CommandScope.NSFW
     START_COMMAND: ClassVar[str] = 'start'
     MENU_COMMAND: ClassVar[str] = 'menu'
 
     def __init__(self, token: str, bot_username: str, nsfw_chat_ids: frozenset[int]) -> None:
         self._app = Application.builder().token(token).build()
         self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids)
+        self._nsfw_chat_ids = nsfw_chat_ids
 
     async def start(self) -> None:
         self._register_handlers()
@@ -78,22 +80,27 @@ class TelegramBot:
         return callback
 
     async def _publish_command_menu(self) -> None:
-        commands = [
+        public = self._bot_commands_for_scopes({self.PUBLIC_SCOPE})
+        await self._app.bot.set_my_commands(public)
+        if not self._nsfw_chat_ids:
+            return
+        nsfw = self._bot_commands_for_scopes({self.PUBLIC_SCOPE, self.NSFW_SCOPE})
+        for chat_id in self._nsfw_chat_ids:
+            await self._app.bot.set_my_commands(nsfw, scope=BotCommandScopeChat(chat_id=chat_id))
+
+    def _bot_commands_for_scopes(self, scopes: set[CommandScope]) -> list[BotCommand]:
+        return [
             BotCommand(
                 command=self._normalize_name(cmd.config.name),
                 description=cmd.menu_description[: self.DESCRIPTION_MAX_LENGTH],
             )
             for cmd in CommandRegistry.instance().get_all()
-            if self._is_menu_eligible(cmd)
+            if self._is_menu_eligible(cmd, scopes)
         ]
-        await self._app.bot.set_my_commands(commands)
 
-    @classmethod
-    def _is_menu_eligible(cls, command: Command) -> bool:
-        return (
-            Platform.TELEGRAM in command.config.platforms
-            and command.config.scope == cls.PUBLIC_SCOPE
-        )
+    @staticmethod
+    def _is_menu_eligible(command: Command, scopes: set[CommandScope]) -> bool:
+        return Platform.TELEGRAM in command.config.platforms and command.config.scope in scopes
 
     @classmethod
     def _normalize_name(cls, name: str) -> str:
