@@ -16,12 +16,14 @@ class FakeCommand(Command):
         platforms: list[Platform],
         scope: CommandScope = CommandScope.PUBLIC,
         description: str = 'desc',
+        aliases: list[str] | None = None,
     ) -> None:
         super().__init__()
         self._name = name
         self._platforms = platforms
         self._scope = scope
         self._description = description
+        self._aliases = aliases or []
 
     @property
     def config(self) -> CommandConfig:
@@ -30,6 +32,7 @@ class FakeCommand(Command):
             category=Category.OTHER,
             platforms=self._platforms,
             scope=self._scope,
+            aliases=list(self._aliases),
         )
 
     @property
@@ -115,6 +118,42 @@ class TestPublishCommandMenu:
         bot._app.bot.set_my_commands.assert_called_once()
         published = bot._app.bot.set_my_commands.call_args.args[0]
         assert [c.command for c in published] == ['oi']
+
+    @pytest.mark.anyio
+    async def test_publishes_aliases_alongside_primary(self, bot, mocker):
+        commands = [
+            FakeCommand(
+                'figurinha',
+                platforms=[Platform.TELEGRAM],
+                aliases=['fig', 'sticker'],
+                description='gera sticker',
+            ),
+        ]
+        mocker.patch(
+            'bot.adapters.telegram.bot.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
+        )
+
+        await bot._publish_command_menu()
+
+        published = bot._app.bot.set_my_commands.call_args.args[0]
+        assert [c.command for c in published] == ['figurinha', 'fig', 'sticker']
+        assert {c.description for c in published} == {'gera sticker'}
+
+    @pytest.mark.anyio
+    async def test_skips_alias_that_normalizes_to_existing_name(self, bot, mocker):
+        commands = [
+            FakeCommand('oi', platforms=[Platform.TELEGRAM], aliases=['Oi', 'hi']),
+        ]
+        mocker.patch(
+            'bot.adapters.telegram.bot.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
+        )
+
+        await bot._publish_command_menu()
+
+        published = bot._app.bot.set_my_commands.call_args.args[0]
+        assert [c.command for c in published] == ['oi', 'hi']
 
     @pytest.mark.anyio
     async def test_publishes_nsfw_per_chat(self, commands, mocker):

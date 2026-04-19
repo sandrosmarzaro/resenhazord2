@@ -99,14 +99,19 @@ class TelegramBot:
             await self._app.bot.set_my_commands(nsfw, scope=BotCommandScopeChat(chat_id=chat_id))
 
     def _bot_commands_for_scopes(self, scopes: set[CommandScope]) -> list[BotCommand]:
-        return [
-            BotCommand(
-                command=self._normalize_name(cmd.config.name),
-                description=cmd.menu_description[: self.DESCRIPTION_MAX_LENGTH],
-            )
-            for cmd in CommandRegistry.instance().get_all()
-            if self._is_menu_eligible(cmd, scopes)
-        ]
+        commands: list[BotCommand] = []
+        seen: set[str] = set()
+        for cmd in CommandRegistry.instance().get_all():
+            if not self._is_menu_eligible(cmd, scopes):
+                continue
+            description = cmd.menu_description[: self.DESCRIPTION_MAX_LENGTH]
+            for name in (cmd.config.name, *cmd.config.aliases):
+                telegram_name = self._normalize_name(name)
+                if not telegram_name or telegram_name in seen:
+                    continue
+                seen.add(telegram_name)
+                commands.append(BotCommand(command=telegram_name, description=description))
+        return commands
 
     @staticmethod
     def _is_menu_eligible(command: Command, scopes: set[CommandScope]) -> bool:
