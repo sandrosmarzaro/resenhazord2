@@ -71,10 +71,31 @@ class TestHandle:
         await handler.handle(port, make_update('/d20'))
 
         port.send_typing.assert_called_once_with(DEFAULT_CHAT_ID)
+        port.react.assert_called_once_with(DEFAULT_CHAT_ID, 1, handler.ACK_REACTION)
         assert any(
             call.args[0].kind == TelegramKind.TEXT and call.args[0].text == 'pong'
             for call in port.send.call_args_list
         )
+
+    @pytest.mark.anyio
+    async def test_react_failure_does_not_block_command(self, handler, port, mocker):
+        strategy = make_strategy(
+            mocker, messages=[BotMessage(jid='1', content=TextContent(text='pong'))]
+        )
+        patch_registry(mocker, strategy=strategy)
+        port.react.side_effect = RuntimeError('boom')
+
+        await handler.handle(port, make_update('/d20'))
+
+        strategy.run.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_does_not_react_for_unknown_command(self, handler, port, mocker):
+        patch_registry(mocker, strategy=None)
+
+        await handler.handle(port, make_update('/missing'))
+
+        port.react.assert_not_called()
 
     @pytest.mark.anyio
     async def test_unknown_command_replies_not_recognized(self, handler, port, mocker):

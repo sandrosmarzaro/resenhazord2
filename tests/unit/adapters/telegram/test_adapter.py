@@ -81,3 +81,15 @@ class TestSendTyping:
         await adapter.send_typing(99)
 
         bot.send_chat_action.assert_called_once_with(chat_id=99, action=ChatAction.TYPING)
+
+
+class TestReact:
+    @pytest.mark.anyio
+    async def test_calls_set_message_reaction_with_emoji(self, adapter, bot):
+        await adapter.react(chat_id=7, message_id=42, emoji='\U0001f44d')
+
+        bot.set_message_reaction.assert_called_once()
+        kwargs = bot.set_message_reaction.call_args.kwargs
+        assert kwargs['chat_id'] == 7
+        assert kwargs['message_id'] == 42
+        assert kwargs['reaction'][0].emoji == '\U0001f44d'

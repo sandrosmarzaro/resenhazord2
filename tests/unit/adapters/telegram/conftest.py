@@ -6,4 +6,5 @@ def port(mocker):
     mock_port = mocker.AsyncMock()
     mock_port.send = mocker.AsyncMock()
     mock_port.send_typing = mocker.AsyncMock()
+    mock_port.react = mocker.AsyncMock()
     return mock_port

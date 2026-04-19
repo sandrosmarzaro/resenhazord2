@@ -24,6 +24,7 @@ class TelegramUpdateHandler:
     NSFW_ONLY_MESSAGE: ClassVar[str] = 'Este comando so pode ser usado em canais NSFW.'
     GENERIC_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
     EMPTY_REPLY_MESSAGE: ClassVar[str] = 'Sem resposta do bot.'
+    ACK_REACTION: ClassVar[str] = '\U0001f44d'
 
     def __init__(
         self,
@@ -65,6 +66,7 @@ class TelegramUpdateHandler:
             return
 
         data = self._build_command_data(message, chat, user, text)
+        await self._safe_react(port, chat.id, message.message_id)
         async with keep_typing(port, chat.id):
             await self._run_and_reply(port, strategy, data, chat.id, command_name)
 
@@ -141,3 +143,10 @@ class TelegramUpdateHandler:
     @staticmethod
     async def _reply_text(port: TelegramPort, chat_id: int, text: str) -> None:
         await port.send(TelegramOutbound(kind=TelegramKind.TEXT, chat_id=chat_id, text=text))
+
+    @classmethod
+    async def _safe_react(cls, port: TelegramPort, chat_id: int, message_id: int) -> None:
+        try:
+            await port.react(chat_id, message_id, cls.ACK_REACTION)
+        except Exception:
+            logger.exception('telegram_react_failed', chat_id=chat_id, message_id=message_id)

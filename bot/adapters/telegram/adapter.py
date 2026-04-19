@@ -1,7 +1,7 @@
 from io import BytesIO
 from typing import Any, ClassVar
 
-from telegram import Bot, InputFile
+from telegram import Bot, InputFile, ReactionTypeEmoji
 from telegram.constants import ChatAction, ParseMode
 
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound
@@ -33,6 +33,11 @@ class TelegramBotAdapter:
 
     async def send_typing(self, chat_id: int) -> None:
         await self._bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+
+    async def react(self, chat_id: int, message_id: int, emoji: str) -> None:
+        await self._bot.set_message_reaction(
+            chat_id=chat_id, message_id=message_id, reaction=[ReactionTypeEmoji(emoji=emoji)]
+        )
 
     async def _send_media(self, outbound: TelegramOutbound) -> None:
         method = getattr(self._bot, f'send_{outbound.kind.value}')
