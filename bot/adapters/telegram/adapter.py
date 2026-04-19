@@ -2,7 +2,7 @@ from io import BytesIO
 from typing import Any, ClassVar
 
 from telegram import Bot, InputFile
-from telegram.constants import ChatAction
+from telegram.constants import ChatAction, ParseMode
 
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound
 
@@ -23,7 +23,11 @@ class TelegramBotAdapter:
 
     async def send(self, outbound: TelegramOutbound) -> None:
         if outbound.kind == TelegramKind.TEXT:
-            await self._bot.send_message(chat_id=outbound.chat_id, text=outbound.text or '')
+            await self._bot.send_message(
+                chat_id=outbound.chat_id,
+                text=outbound.text or '',
+                parse_mode=ParseMode.HTML,
+            )
             return
         await self._send_media(outbound)
 
@@ -38,6 +42,7 @@ class TelegramBotAdapter:
         }
         if outbound.text and outbound.kind != TelegramKind.STICKER:
             kwargs['caption'] = outbound.text
+            kwargs['parse_mode'] = ParseMode.HTML
         await method(**kwargs)
 
     @staticmethod

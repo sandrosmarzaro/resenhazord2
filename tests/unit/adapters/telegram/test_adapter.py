@@ -1,6 +1,6 @@
 import pytest
 from telegram import Bot, InputFile
-from telegram.constants import ChatAction
+from telegram.constants import ChatAction, ParseMode
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound
@@ -21,7 +21,7 @@ class TestSend:
     async def test_text_routes_to_send_message(self, adapter, bot):
         await adapter.send(TelegramOutbound(kind=TelegramKind.TEXT, chat_id=1, text='hi'))
 
-        bot.send_message.assert_called_once_with(chat_id=1, text='hi')
+        bot.send_message.assert_called_once_with(chat_id=1, text='hi', parse_mode=ParseMode.HTML)
 
     @pytest.mark.anyio
     async def test_photo_with_url_passes_url(self, adapter, bot):
@@ -52,6 +52,7 @@ class TestSend:
 
         kwargs = bot.send_photo.call_args.kwargs
         assert kwargs['caption'] == 'cap'
+        assert kwargs['parse_mode'] == ParseMode.HTML
 
     @pytest.mark.anyio
     async def test_sticker_ignores_caption(self, adapter, bot):

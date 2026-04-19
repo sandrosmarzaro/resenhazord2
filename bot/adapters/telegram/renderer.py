@@ -3,6 +3,7 @@ from typing import ClassVar
 
 import structlog
 
+from bot.adapters.telegram.formatter import whatsapp_to_html
 from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
 from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
 from bot.domain.models.contents.raw_content import RawContent
@@ -46,7 +47,7 @@ class TelegramResponseRenderer:
 
     def _render_text(self, content: TextContent, chat_id: int) -> list[TelegramOutbound]:
         return [
-            TelegramOutbound(kind=TelegramKind.TEXT, chat_id=chat_id, text=chunk)
+            TelegramOutbound(kind=TelegramKind.TEXT, chat_id=chat_id, text=whatsapp_to_html(chunk))
             for chunk in self._split(content.text, self.MAX_TEXT_LENGTH)
         ]
 
@@ -124,8 +125,10 @@ class TelegramResponseRenderer:
         if not caption:
             return [media]
         if len(caption) <= cls.MAX_CAPTION_LENGTH:
-            return [replace(media, text=caption)]
-        overflow = TelegramOutbound(kind=TelegramKind.TEXT, chat_id=media.chat_id, text=caption)
+            return [replace(media, text=whatsapp_to_html(caption))]
+        overflow = TelegramOutbound(
+            kind=TelegramKind.TEXT, chat_id=media.chat_id, text=whatsapp_to_html(caption)
+        )
         return [media, overflow]
 
     @staticmethod

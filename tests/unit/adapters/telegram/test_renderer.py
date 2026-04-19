@@ -30,6 +30,16 @@ class TestText:
         assert outbounds[0].kind == TelegramKind.TEXT
         assert outbounds[0].text == 'hello'
 
+    def test_bold_markdown_becomes_html(self, renderer):
+        outbounds = render(renderer, TextContent(text='oi *mundo*'))
+
+        assert outbounds[0].text == 'oi <b>mundo</b>'
+
+    def test_blockquote_prefix_becomes_blockquote(self, renderer):
+        outbounds = render(renderer, TextContent(text='> citacao'))
+
+        assert outbounds[0].text == '<blockquote>citacao</blockquote>'
+
     def test_splits_beyond_limit(self, renderer):
         long_text = 'a' * (renderer.MAX_TEXT_LENGTH + 50)
 
@@ -42,12 +52,12 @@ class TestText:
 
 class TestImage:
     def test_url_photo_with_caption(self, renderer):
-        outbounds = render(renderer, ImageContent(url='https://x/y.png', caption='cap'))
+        outbounds = render(renderer, ImageContent(url='https://x/y.png', caption='*cap*'))
 
         assert len(outbounds) == 1
         assert outbounds[0].kind == TelegramKind.PHOTO
         assert outbounds[0].url == 'https://x/y.png'
-        assert outbounds[0].text == 'cap'
+        assert outbounds[0].text == '<b>cap</b>'
 
     def test_buffer_photo_has_filename(self, renderer):
         outbounds = render(renderer, ImageBufferContent(data=b'bytes', caption='cap'))
@@ -119,12 +129,12 @@ class TestSticker:
 class TestRaw:
     def test_video_dict_routes_to_video(self, renderer):
         outbounds = render(
-            renderer, RawContent(content={'video': {'url': 'https://x/y.mp4'}, 'caption': 'cap'})
+            renderer, RawContent(content={'video': {'url': 'https://x/y.mp4'}, 'caption': '*cap*'})
         )
 
         assert outbounds[0].kind == TelegramKind.VIDEO
         assert outbounds[0].url == 'https://x/y.mp4'
-        assert outbounds[0].text == 'cap'
+        assert outbounds[0].text == '<b>cap</b>'
 
     def test_image_dict_routes_to_photo(self, renderer):
         outbounds = render(renderer, RawContent(content={'image': {'url': 'https://x/y.png'}}))
@@ -166,3 +176,25 @@ class TestRenderMany:
         outbounds = renderer.render_many(messages, CHAT_ID)
 
         assert [out.text for out in outbounds] == ['one', 'two']
+
+
+class TestFormatter:
+    def test_escapes_html_specials(self, renderer):
+        outbounds = render(renderer, TextContent(text='a < b & c'))
+
+        assert outbounds[0].text == 'a &lt; b &amp; c'
+
+    def test_italic_markdown(self, renderer):
+        outbounds = render(renderer, TextContent(text='_ola_'))
+
+        assert outbounds[0].text == '<i>ola</i>'
+
+    def test_snake_case_underscores_are_preserved(self, renderer):
+        outbounds = render(renderer, TextContent(text='foo_bar_baz'))
+
+        assert outbounds[0].text == 'foo_bar_baz'
+
+    def test_multiple_blockquote_lines_merge(self, renderer):
+        outbounds = render(renderer, TextContent(text='> um\n> dois\nfim'))
+
+        assert outbounds[0].text == '<blockquote>um\ndois</blockquote>\nfim'
