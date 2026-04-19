@@ -138,6 +138,23 @@ class TestRaw:
         assert outbounds[0].kind == TelegramKind.TEXT
         assert outbounds[0].text == renderer.UNSUPPORTED_MESSAGE
 
+    def test_image_with_gif_playback_renders_as_animation(self, renderer):
+        outbounds = render(
+            renderer,
+            RawContent(content={'image': {'url': 'https://x/y.gif'}, 'gifPlayback': True}),
+        )
+
+        assert outbounds[0].kind == TelegramKind.ANIMATION
+        assert outbounds[0].url == 'https://x/y.gif'
+
+    def test_video_with_gif_playback_renders_as_animation(self, renderer):
+        outbounds = render(
+            renderer,
+            RawContent(content={'video': {'url': 'https://x/y.mp4'}, 'gifPlayback': True}),
+        )
+
+        assert outbounds[0].kind == TelegramKind.ANIMATION
+
 
 class TestRenderMany:
     def test_concatenates_outbounds(self, renderer):

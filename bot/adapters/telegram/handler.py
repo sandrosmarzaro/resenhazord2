@@ -7,7 +7,7 @@ from telegram.constants import ChatType, MessageEntityType
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.adapters.telegram.typing_loop import keep_typing
 from bot.application.command_registry import CommandRegistry
-from bot.application.message_preprocess import preprocess_messages
+from bot.application.message_preprocess import preprocess_for_telegram
 from bot.domain.commands.base import Command, CommandScope, Platform
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
@@ -134,7 +134,7 @@ class TelegramUpdateHandler:
             await self._reply_text(port, chat_id, self.EMPTY_REPLY_MESSAGE)
             return
 
-        messages = await preprocess_messages(messages)
+        messages = await preprocess_for_telegram(messages)
         for outbound in self._renderer.render_many(messages, chat_id):
             await port.send(outbound)
 

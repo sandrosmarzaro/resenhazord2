@@ -100,13 +100,16 @@ class TelegramResponseRenderer:
     def _render_raw(self, content: RawContent, chat_id: int) -> list[TelegramOutbound]:
         raw = content.content
         caption: str | None = raw.get('caption') or None
+        gif_playback = bool(raw.get('gifPlayback'))
         if 'video' in raw:
+            kind = TelegramKind.ANIMATION if gif_playback else TelegramKind.VIDEO
             url = raw['video'].get('url', '')
-            media = TelegramOutbound(kind=TelegramKind.VIDEO, chat_id=chat_id, url=url)
+            media = TelegramOutbound(kind=kind, chat_id=chat_id, url=url)
             return self._with_caption(media, caption)
         if 'image' in raw:
+            kind = TelegramKind.ANIMATION if gif_playback else TelegramKind.PHOTO
             url = raw['image'].get('url', '')
-            media = TelegramOutbound(kind=TelegramKind.PHOTO, chat_id=chat_id, url=url)
+            media = TelegramOutbound(kind=kind, chat_id=chat_id, url=url)
             return self._with_caption(media, caption)
         return self._render_unsupported(content, chat_id)
 
