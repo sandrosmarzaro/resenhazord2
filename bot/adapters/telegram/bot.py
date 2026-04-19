@@ -25,9 +25,19 @@ class TelegramBot:
     NSFW_SCOPE: ClassVar[CommandScope] = CommandScope.NSFW
     START_COMMAND: ClassVar[str] = 'start'
     MENU_COMMAND: ClassVar[str] = 'menu'
+    READ_TIMEOUT_SECONDS: ClassVar[float] = 60.0
+    WRITE_TIMEOUT_SECONDS: ClassVar[float] = 60.0
+    MEDIA_WRITE_TIMEOUT_SECONDS: ClassVar[float] = 120.0
 
     def __init__(self, token: str, bot_username: str, nsfw_chat_ids: frozenset[int]) -> None:
-        self._app = Application.builder().token(token).build()
+        self._app = (
+            Application.builder()
+            .token(token)
+            .read_timeout(self.READ_TIMEOUT_SECONDS)
+            .write_timeout(self.WRITE_TIMEOUT_SECONDS)
+            .media_write_timeout(self.MEDIA_WRITE_TIMEOUT_SECONDS)
+            .build()
+        )
         self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids)
         self._nsfw_chat_ids = nsfw_chat_ids
 
