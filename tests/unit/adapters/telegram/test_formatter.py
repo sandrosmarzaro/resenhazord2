@@ -67,3 +67,20 @@ class TestCombined:
 
     def test_bold_and_italic_together(self):
         assert whatsapp_to_html('*forte* _fraco_') == '<b>forte</b> <i>fraco</i>'
+
+
+class TestBullet:
+    def test_dash_at_line_start_becomes_bullet(self):
+        assert whatsapp_to_html('- item') == '\u2022 item'
+
+    def test_subsequent_lines_also_bullet(self):
+        assert whatsapp_to_html('- um\n- dois') == '\u2022 um\n\u2022 dois'
+
+    def test_dash_inside_line_preserved(self):
+        assert whatsapp_to_html('a - b') == 'a - b'
+
+    def test_double_dash_preserved(self):
+        assert whatsapp_to_html('-- um') == '-- um'
+
+    def test_bullet_with_bold_item(self):
+        assert whatsapp_to_html('- *,oi*') == '\u2022 <b>,oi</b>'
