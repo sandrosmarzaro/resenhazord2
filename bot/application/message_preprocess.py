@@ -1,6 +1,7 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from typing import ClassVar
 
+import anyio
 import httpx
 import structlog
 
@@ -24,7 +25,7 @@ async def preprocess_messages(messages: Iterable[BotMessage]) -> list[BotMessage
     """Download AudioContent/ImageContent URLs into buffer variants for platforms
     that need us to upload bytes rather than hand them a URL. Falls back to the
     original message when the download fails."""
-    return [await _preprocess(message) for message in messages]
+    return await _gather_preprocessed(messages, _preprocess)
 
 
 async def preprocess_for_telegram(messages: Iterable[BotMessage]) -> list[BotMessage]:
@@ -32,7 +33,23 @@ async def preprocess_for_telegram(messages: Iterable[BotMessage]) -> list[BotMes
     RawContent URLs. Telegram's Bot API refuses most CDN URLs that require
     browser headers, so we pre-download them ourselves."""
     shared = await preprocess_messages(messages)
-    return [await _preprocess_telegram(message) for message in shared]
+    return await _gather_preprocessed(shared, _preprocess_telegram)
+
+
+async def _gather_preprocessed(
+    messages: Iterable[BotMessage],
+    processor: Callable[[BotMessage], Awaitable[BotMessage]],
+) -> list[BotMessage]:
+    items = list(messages)
+    results: list[BotMessage] = list(items)
+
+    async def worker(index: int, message: BotMessage) -> None:
+        results[index] = await processor(message)
+
+    async with anyio.create_task_group() as tg:
+        for index, message in enumerate(items):
+            tg.start_soon(worker, index, message)
+    return results
 
 
 async def _preprocess(message: BotMessage) -> BotMessage:
