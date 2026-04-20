@@ -38,19 +38,6 @@ class TestPreprocessMessages:
         assert isinstance(result[0].content, AudioBufferContent)
         assert result[0].content.data == b'mp3-bytes'
 
-    @pytest.fixture
-    def anyio_backend(self):
-        return 'asyncio'
-
-    @pytest.mark.anyio
-    async def test_falls_back_to_original_on_download_failure(self):
-        with respx.mock() as mock:
-            mock.get(AUDIO_URL).mock(side_effect=httpx.ConnectError('boom'))
-
-            result = await preprocess_messages([_msg(AudioContent(url=AUDIO_URL))])
-
-        assert isinstance(result[0].content, AudioContent)
-
     @pytest.mark.anyio
     async def test_passes_through_unrelated_content_untouched(self):
         video = VideoContent(url=VIDEO_URL)
@@ -61,10 +48,6 @@ class TestPreprocessMessages:
 
 
 class TestPreprocessForTelegram:
-    @pytest.fixture
-    def anyio_backend(self):
-        return 'asyncio'
-
     @pytest.mark.anyio
     async def test_downloads_video_url_into_buffer(self):
         with respx.mock() as mock:
@@ -132,8 +115,23 @@ class TestPreprocessForTelegram:
 
         assert result[0].content is raw
 
-    @pytest.mark.anyio(backends=['asyncio'])
-    async def test_falls_back_to_raw_on_download_failure(self):
+
+class TestDownloadFailures:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_audio_falls_back_to_original(self):
+        with respx.mock() as mock:
+            mock.get(AUDIO_URL).mock(side_effect=httpx.ConnectError('boom'))
+
+            result = await preprocess_messages([_msg(AudioContent(url=AUDIO_URL))])
+
+        assert isinstance(result[0].content, AudioContent)
+
+    @pytest.mark.anyio
+    async def test_raw_falls_back_to_original(self):
         raw = RawContent(content={'video': {'url': VIDEO_URL}})
         with respx.mock() as mock:
             mock.get(VIDEO_URL).mock(side_effect=httpx.ConnectError('boom'))
