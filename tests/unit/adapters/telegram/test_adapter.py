@@ -67,7 +67,9 @@ class TestSend:
     async def test_voice_routes_to_send_voice(self, adapter, bot):
         await adapter.send(TelegramOutbound(kind=TelegramKind.VOICE, chat_id=1, buffer=b'bytes'))
 
-        bot.send_voice.assert_called_once()
+        kwargs = bot.send_voice.call_args.kwargs
+        assert kwargs['chat_id'] == 1
+        assert isinstance(kwargs['voice'], (bytes, InputFile))
 
     @pytest.mark.anyio
     async def test_missing_url_and_buffer_raises(self, adapter):

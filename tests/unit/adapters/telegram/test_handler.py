@@ -7,7 +7,7 @@ from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
 from bot.adapters.telegram.handler import TelegramUpdateHandler
-from bot.domain.commands.base import CommandScope
+from bot.domain.commands.base import CommandScope, Platform
 from bot.domain.exceptions import BotError
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
@@ -87,7 +87,10 @@ class TestHandle:
 
         await handler.handle(port, make_update('/d20'))
 
-        strategy.run.assert_called_once()
+        data = strategy.run.call_args.args[0]
+        assert data.platform == Platform.TELEGRAM
+        assert data.jid == str(DEFAULT_CHAT_ID)
+        assert data.text == ',d20'
 
     @pytest.mark.anyio
     async def test_does_not_react_for_unknown_command(self, handler, port, mocker):
