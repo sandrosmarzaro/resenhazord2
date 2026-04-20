@@ -24,7 +24,7 @@ class CurrencyCommand(Command):
             args=ArgType.OPTIONAL,
             args_label='valor',
             category=Category.INFORMATION,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

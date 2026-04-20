@@ -27,7 +27,7 @@ class MyAnimeListCommand(Command):
             flags=[Flag.SHOW, Flag.DM],
             options=[OptionDef(name='top', pattern=r'top\d+')],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

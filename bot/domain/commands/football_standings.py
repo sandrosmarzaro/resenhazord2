@@ -31,7 +31,7 @@ class FootballStandingsCommand(Command):
             options=[OptionDef(name='liga', values=LEAGUE_CODES)],
             flags=['g4', 'z4'],
             category=Category.INFORMATION,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

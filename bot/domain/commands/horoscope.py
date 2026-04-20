@@ -29,7 +29,7 @@ class HoroscopeCommand(Command):
             args_label='signo',
             flags=[Flag.DM, Flag.SHOW],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
         )
 
     @property

@@ -9,6 +9,7 @@ addopts = [
     '--cov=bot',
     '--cov-report=term-missing',
     '--cov-report=xml',
+    '--import-mode=importlib',
 ]
 strict = true
 log_cli = true

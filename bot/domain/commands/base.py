@@ -23,6 +23,7 @@ class Flag(StrEnum):
 class Platform(StrEnum):
     WHATSAPP = 'whatsapp'
     DISCORD = 'discord'
+    TELEGRAM = 'telegram'
 
 
 class Category(StrEnum):
