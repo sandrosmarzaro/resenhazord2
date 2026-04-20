@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Mapping
-from typing import Final
+from typing import ClassVar
 
 import httpx
 import structlog
@@ -14,8 +14,10 @@ from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
-_AUDIO_MIMETYPE: Final[str] = 'audio/mpeg'
-_AUDIO_TYPE: Final[str] = 'audio_mp3'
+
+class _AudioBufferDefaults:
+    MIMETYPE: ClassVar[str] = 'audio/mpeg'
+    TYPE: ClassVar[str] = 'audio_mp3'
 
 
 async def preprocess_messages(messages: Iterable[BotMessage]) -> list[BotMessage]:
@@ -39,7 +41,11 @@ async def _preprocess(message: BotMessage) -> BotMessage:
         buffer = await _download(content.url)
         if buffer is None:
             return message
-        new_content = AudioBufferContent(data=buffer, mimetype=_AUDIO_MIMETYPE, type=_AUDIO_TYPE)
+        new_content = AudioBufferContent(
+            data=buffer,
+            mimetype=_AudioBufferDefaults.MIMETYPE,
+            type=_AudioBufferDefaults.TYPE,
+        )
         return BotMessage(jid=message.jid, content=new_content)
     if isinstance(content, ImageContent):
         buffer = await _download(content.url, headers=BROWSER_HEADERS)

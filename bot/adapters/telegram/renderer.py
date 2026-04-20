@@ -15,12 +15,11 @@ from bot.ports.telegram_port import TelegramKind, TelegramOutbound
 
 logger = structlog.get_logger()
 
-_VOICE_AUDIO_TYPE = 'audio_ogg'
-
 
 class TelegramResponseRenderer:
     MAX_TEXT_LENGTH: ClassVar[int] = 4096
     MAX_CAPTION_LENGTH: ClassVar[int] = 1024
+    VOICE_AUDIO_TYPE: ClassVar[str] = 'audio_ogg'
     UNSUPPORTED_MESSAGE: ClassVar[str] = 'Este tipo de conteudo ainda nao e suportado no Telegram.'
     RENDER_MAP: ClassVar[dict[type, str]] = {
         TextContent: '_render_text',
@@ -82,7 +81,7 @@ class TelegramResponseRenderer:
     def _render_audio_buffer(
         self, content: AudioBufferContent, chat_id: int
     ) -> list[TelegramOutbound]:
-        kind = TelegramKind.VOICE if content.type == _VOICE_AUDIO_TYPE else TelegramKind.AUDIO
+        kind = TelegramKind.VOICE if content.type == self.VOICE_AUDIO_TYPE else TelegramKind.AUDIO
         filename = 'audio.ogg' if kind == TelegramKind.VOICE else 'audio.mp3'
         return [
             TelegramOutbound(kind=kind, chat_id=chat_id, buffer=content.data, filename=filename)

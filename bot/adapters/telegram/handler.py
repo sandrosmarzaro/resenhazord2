@@ -5,7 +5,7 @@ from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
-from bot.adapters.telegram.typing_loop import keep_typing
+from bot.adapters.telegram.typing_loop import TypingLoop
 from bot.application.command_registry import CommandRegistry
 from bot.application.message_preprocess import preprocess_for_telegram
 from bot.domain.commands.base import Command, CommandScope, Platform
@@ -67,7 +67,7 @@ class TelegramUpdateHandler:
 
         data = self._build_command_data(message, chat, user, text)
         await self._safe_react(port, chat.id, message.message_id)
-        async with keep_typing(port, chat.id):
+        async with TypingLoop.keep_typing(port, chat.id):
             await self._run_and_reply(port, strategy, data, chat.id, command_name)
 
     def _extract_command_name(self, message: Message) -> str | None:
