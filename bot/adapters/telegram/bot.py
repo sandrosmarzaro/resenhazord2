@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 import structlog
 from telegram import BotCommand, BotCommandScopeChat, Update
+from telegram.error import TelegramError
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
@@ -91,12 +92,23 @@ class TelegramBot:
 
     async def _publish_command_menu(self) -> None:
         public = self._bot_commands_for_scopes({self.PUBLIC_SCOPE})
-        await self._app.bot.set_my_commands(public)
+        await self._safe_set_commands(public)
         if not self._nsfw_chat_ids:
             return
         nsfw = self._bot_commands_for_scopes({self.PUBLIC_SCOPE, self.NSFW_SCOPE})
         for chat_id in self._nsfw_chat_ids:
-            await self._app.bot.set_my_commands(nsfw, scope=BotCommandScopeChat(chat_id=chat_id))
+            await self._safe_set_commands(nsfw, scope=BotCommandScopeChat(chat_id=chat_id))
+
+    async def _safe_set_commands(
+        self, commands: list[BotCommand], scope: BotCommandScopeChat | None = None
+    ) -> None:
+        try:
+            if scope is None:
+                await self._app.bot.set_my_commands(commands)
+            else:
+                await self._app.bot.set_my_commands(commands, scope=scope)
+        except TelegramError as error:
+            logger.warning('telegram_set_commands_failed', scope=repr(scope), error=str(error))
 
     def _bot_commands_for_scopes(self, scopes: set[CommandScope]) -> list[BotCommand]:
         commands: list[BotCommand] = []

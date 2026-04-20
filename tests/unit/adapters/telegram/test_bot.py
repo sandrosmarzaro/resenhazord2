@@ -1,4 +1,5 @@
 import pytest
+from telegram.error import TelegramError
 
 from bot.adapters.telegram.bot import TelegramBot
 from bot.domain.commands.base import Category, Command, CommandConfig, CommandScope, Platform
@@ -154,6 +155,18 @@ class TestPublishCommandMenu:
 
         published = bot._app.bot.set_my_commands.call_args.args[0]
         assert [c.command for c in published] == ['oi', 'hi']
+
+    @pytest.mark.anyio
+    async def test_api_failure_is_logged_and_swallowed(self, bot, commands, mocker):
+        mocker.patch(
+            'bot.adapters.telegram.bot.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
+        )
+        bot._app.bot.set_my_commands.side_effect = TelegramError('rate limited')
+
+        await bot._publish_command_menu()
+
+        bot._app.bot.set_my_commands.assert_called_once()
 
     @pytest.mark.anyio
     async def test_publishes_nsfw_per_chat(self, commands, mocker):
