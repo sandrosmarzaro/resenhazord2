@@ -13,6 +13,7 @@ from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
+from bot.domain.models.command_data import CommandData
 
 logger = structlog.get_logger()
 
@@ -27,7 +28,8 @@ class DiscordBot:
 
     def __init__(self, guild_id: str) -> None:
         self._guild = discord.Object(id=int(guild_id))
-        self._client = discord.Client(intents=discord.Intents(guilds=True))
+        intents = discord.Intents(guilds=True, messages=True, message_content=True)
+        self._client = discord.Client(intents=intents)
         self._tree = app_commands.CommandTree(self._client)
         self._handler = DiscordInteractionHandler()
         self._setup_events()
@@ -181,3 +183,52 @@ class DiscordBot:
                         synced_commands=[c.name for c in synced],
                     )
                     return
+
+        @client.event
+        async def on_message(message: discord.Message) -> None:
+            if message.author == client.user:
+                return
+            if not message.content:
+                return
+            if not message.guild or message.guild.id != guild.id:
+                return
+
+            app_user = client.user
+            if app_user is None:
+                return
+
+            bot_mention = f"<@{app_user.id}>"
+            if bot_mention not in message.content and f"@{app_user.name}" not in message.content:
+                return
+
+            logger.info("discord_agent_mention", text=message.content)
+
+            try:
+                from bot.application.agent_executor import AgentExecutor
+
+                executor = AgentExecutor(CommandRegistry.instance())
+                data = CommandData(
+                    text=message.content,
+                    jid=str(message.channel.id),
+                    sender_jid=str(message.author.id),
+                    is_group=True,
+                    platform="discord",
+                )
+                result = await executor.run(data)
+
+                strategy = CommandRegistry.instance().get_strategy(result.text)
+                if strategy is None:
+                    await message.reply("Comando não reconhecido.")
+                    return
+
+                messages = await strategy.run(data)
+
+                if not messages:
+                    await message.reply("Sem resposta do comando.")
+                    return
+
+                for msg in messages:
+                    await message.reply(msg.content.text)
+            except Exception:
+                logger.exception("discord_agent_error")
+                await message.reply("Erro ao processar comando.")
