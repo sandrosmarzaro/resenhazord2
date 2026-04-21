@@ -64,6 +64,9 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
 
+    from bot.infrastructure.llm.provider_chain import configure_chain
+    configure_chain(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
+
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
     _register_configured_commands(registry, settings)

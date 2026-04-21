@@ -6,6 +6,7 @@ from typing import ClassVar
 import structlog
 import structlog.contextvars
 
+from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import CommandScope
@@ -30,6 +31,14 @@ class CommandHandler:
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
+        self._agent_executor: AgentExecutor | None = None
+
+    def _is_agent_mention(self, data: CommandData) -> bool:
+        """Check if message contains @resenhazord mention."""
+        if not data.mentioned_jids:
+            return False
+        text_lower = data.text.lower() if data.text else ""
+        return "@resenhazord" in text_lower or "resenhazord" in text_lower
 
     async def handle(
         self,
@@ -39,6 +48,16 @@ class CommandHandler:
     ) -> list[BotMessage] | None:
         """Returns messages if a command matched, None if no match."""
         logger.debug('handle_raw', text=repr(data.text))
+
+        if self._is_agent_mention(data):
+            logger.info("agent_mention_detected", text=data.text)
+            try:
+                if self._agent_executor is None:
+                    self._agent_executor = AgentExecutor(self._registry)
+                data = await self._agent_executor.run(data)
+            except Exception:
+                pass
+
         repeat, data = self._parse_batch(data)
         logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
 
