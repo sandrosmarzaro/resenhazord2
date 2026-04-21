@@ -6,6 +6,7 @@ from telegram.constants import ChatType, MessageEntityType
 
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.adapters.telegram.typing_loop import TypingLoop
+from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.application.message_preprocess import preprocess_for_telegram
 from bot.domain.commands.base import Command, CommandScope, Platform
@@ -49,6 +50,9 @@ class TelegramUpdateHandler:
 
         command_name = self._extract_command_name(message)
         if command_name is None:
+            if self._is_agent_mention(message):
+                await self._handle_agent_mention(port, message, chat, user)
+                return
             return
 
         text = self._build_command_text(command_name, message)
@@ -113,6 +117,41 @@ class TelegramUpdateHandler:
             push_name=user.full_name,
             platform=Platform.TELEGRAM,
         )
+
+    def _is_agent_mention(self, message: Message) -> bool:
+        """Check if message mentions @bot_username."""
+        if not message.text or not self._bot_username:
+            return False
+        return f"@{self._bot_username}" in message.text.lower()
+
+    async def _handle_agent_mention(
+        self,
+        port: TelegramPort,
+        message: Message,
+        chat: Chat,
+        user: User,
+    ) -> None:
+        """Handle agent mention for Telegram."""
+        data = self._build_command_data(message, chat, user, message.text or "")
+
+        logger.info("telegram_agent_mention", text=message.text)
+
+        await self._safe_react(port, chat.id, message.message_id)
+        async with TypingLoop.keep_typing(port, chat.id):
+            try:
+                executor = AgentExecutor(CommandRegistry.instance())
+                result = await executor.run(data)
+            except Exception:
+                logger.exception("telegram_agent_error")
+                await self._reply_text(port, chat.id, self.GENERIC_ERROR_MESSAGE)
+                return
+
+            strategy = CommandRegistry.instance().get_strategy(result.text)
+            if strategy is None:
+                await self._reply_text(port, chat.id, self.UNKNOWN_COMMAND_MESSAGE)
+                return
+
+            await self._run_and_reply(port, strategy, result, chat.id, result.text)
 
     async def _run_and_reply(
         self,
