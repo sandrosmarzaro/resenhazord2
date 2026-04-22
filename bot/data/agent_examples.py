@@ -96,7 +96,7 @@ Exemplos de mapeamento (USE ESSES PARA INFERIR PADRÕES):
 
 IMPORTANTE:
 - infira o comando baseado na descrição e semântica (ex: funk->música, video->dl)
-- Responda APENAS com o comando: ",nome_do_comando --flag"
+- Responda APENAS com o comando: ",nome_do_comando flag"
 
 Regras OBRIGATÓRIAS:
 1. Infira o comando mais próximo da descrição given
