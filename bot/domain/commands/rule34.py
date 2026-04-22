@@ -19,7 +19,7 @@ class Rule34Command(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='rule 34',
-            aliases=['rule_34', 'rule-34', 'rule34'],
+            aliases=['rule34'],
             flags=[Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
             platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],

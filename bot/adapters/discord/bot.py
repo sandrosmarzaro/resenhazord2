@@ -66,6 +66,11 @@ class DiscordBot:
         self._do_register(discord_name, command)
 
     def _do_register(self, discord_name: str, command: Command) -> None:
+        existing = self._tree.get_command(discord_name, guild=self._guild)
+        if existing:
+            logger.debug('command_already_registered', name=discord_name)
+            return
+
         config = command.config
         description = command.menu_description[: self.DISCORD_DESC_MAX_LENGTH]
 
