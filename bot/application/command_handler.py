@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from typing import ClassVar
 
+import httpx
 import structlog
 import structlog.contextvars
 
@@ -40,6 +41,16 @@ class CommandHandler:
         text_lower = data.text.lower() if data.text else ""
         return "@resenhazord" in text_lower or "resenhazord" in text_lower
 
+    async def _run_agent(self, data: CommandData) -> CommandData:
+        """Run the LLM agent to map natural language to command."""
+        try:
+            if self._agent_executor is None:
+                self._agent_executor = AgentExecutor(self._registry)
+            return await self._agent_executor.run(data)
+        except (httpx.HTTPError, RuntimeError, ValueError):
+            logger.warning("agent_execution_failed", text=data.text)
+            return data
+
     async def handle(
         self,
         data: CommandData,
@@ -51,12 +62,7 @@ class CommandHandler:
 
         if self._is_agent_mention(data):
             logger.info("agent_mention_detected", text=data.text)
-            try:
-                if self._agent_executor is None:
-                    self._agent_executor = AgentExecutor(self._registry)
-                data = await self._agent_executor.run(data)
-            except Exception:
-                pass
+            data = await self._run_agent(data)
 
         repeat, data = self._parse_batch(data)
         logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
