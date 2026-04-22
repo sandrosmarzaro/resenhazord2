@@ -260,7 +260,7 @@ class DiscordBot:
                             await message.reply(content.caption or '📷')
                     elif isinstance(content, TextContent):
                         text = content.text
-                        max_chunk = 1900
+                        max_chunk = 2000
                         if len(text) > max_chunk:
                             for i in range(0, len(text), max_chunk):
                                 chunk = text[i : i + max_chunk]
