@@ -90,7 +90,7 @@ class AgentExecutor:
         except json.JSONDecodeError:
             args_dict = {}
 
-        flags = [f'--{k}' for k, v in args_dict.items() if v is True]
+        flags = [k for k, v in args_dict.items() if v is True]
 
         command_text = f',{command_name} {" ".join(flags)}'.strip()
 
