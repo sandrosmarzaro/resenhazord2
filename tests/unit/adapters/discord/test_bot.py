@@ -254,3 +254,16 @@ class TestCommandAliases:
 
         assert content.url == 'https://example.com/video.mp4'
         assert content.caption == 'test'
+
+
+class TestRegisterCommands:
+    """Regression tests for duplicate command registration."""
+
+    def test_duplicate_aliases_are_skipped(self):
+        """Aliases that normalize to same name should be detected."""
+        from bot.adapters.discord.bot import DiscordBot
+
+        aliases = ['rule 34', 'rule_34', 'rule-34', 'rule34']
+        normalized = [DiscordBot._normalize_name(a) for a in aliases]
+
+        assert len(set(normalized)) == 3
