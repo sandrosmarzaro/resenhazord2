@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import io
 import re
 import unicodedata
 from typing import Any, ClassVar, cast
@@ -247,7 +248,7 @@ class DiscordBot:
                     content = msg.content
                     if isinstance(content, ImageBufferContent):
                         file = discord.File(
-                            discord.BytesIO(content.data),
+                            io.BytesIO(content.data),
                             filename='image.jpg',
                         )
                         await message.reply(content.caption or '📷', file=file)
