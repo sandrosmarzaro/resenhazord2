@@ -252,15 +252,18 @@ class DiscordBot:
                         )
                         await message.reply(content.caption or '📷', file=file)
                     elif isinstance(content, ImageContent):
-                        await message.reply(content.caption or '📷')
+                        if content.url:
+                            embed = discord.Embed()
+                            embed.set_image(url=content.url)
+                            await message.reply(content.caption or '📷', embed=embed)
+                        else:
+                            await message.reply(content.caption or '📷')
                     elif isinstance(content, TextContent):
                         text = content.text
-                        if len(text) > self.DISCORD_DESC_MAX_LENGTH * 2:
-                            chunks = [
-                text[i : i + self.DISCORD_DESC_MAX_LENGTH * 2]
-                for i in range(0, len(text), self.DISCORD_DESC_MAX_LENGTH * 2)
-            ]
-                            for chunk in chunks:
+                        max_chunk = 1900
+                        if len(text) > max_chunk:
+                            for i in range(0, len(text), max_chunk):
+                                chunk = text[i : i + max_chunk]
                                 await message.reply(chunk)
                         else:
                             await message.reply(text)

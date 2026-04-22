@@ -91,8 +91,15 @@ class AgentExecutor:
             args_dict = {}
 
         flags = [k for k, v in args_dict.items() if v is True]
+        text_args = args_dict.get('args', '')
 
-        command_text = f',{command_name} {" ".join(flags)}'.strip()
+        command_parts = [f',{command_name}']
+        if flags:
+            command_parts.extend(flags)
+        if text_args:
+            command_parts.append(text_args)
+
+        command_text = ' '.join(command_parts)
 
         logger.info(
             'agent_mapped_command',
