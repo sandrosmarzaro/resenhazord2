@@ -71,7 +71,7 @@ class TestAgentExecutor:
         with patch("bot.application.agent_executor.get_chain", return_value=mock_chain):
             result = await executor.run(data)
 
-        assert result.text == ",placar --now"
+        assert result.text == ",placar now"
 
     @pytest.mark.anyio
     async def test_agent_clears_memory_after_execution(self):
@@ -101,7 +101,7 @@ class TestCommandMapping:
 
         result = executor._build_command_data(data, "placar", '{"now": true}')
 
-        assert result.text == ",placar --now"
+        assert result.text == ",placar now"
 
     @pytest.mark.anyio
     async def test_build_command_data_with_args(self):
@@ -129,7 +129,7 @@ class TestCommandMapping:
 
         result = executor._build_command_data(data, "test", '{"verbose": false, "debug": true}')
 
-        assert result.text == ",test --debug"
+        assert result.text == ",test debug"
 
     @pytest.mark.anyio
     async def test_build_command_data_with_empty_args(self):
