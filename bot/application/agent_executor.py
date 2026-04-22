@@ -2,18 +2,22 @@
 
 import json
 
+import httpx
 import structlog
 
 from bot.application.command_registry import CommandRegistry
 from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
 from bot.domain.models.command_data import CommandData
 from bot.infrastructure.llm.provider_chain import get_chain
-from bot.infrastructure.llm.tools import build_tools_for_prompt, get_command_names
+from bot.infrastructure.llm.tools import (
+    build_tools_for_prompt,
+    get_command_list_with_descriptions,
+)
 
 logger = structlog.get_logger()
 
-FALLBACK_COMMAND = ",menu"
-FALLBACK_MESSAGE = "Não entendi. Tente usar um comando direto, ex: ,menu"
+FALLBACK_COMMAND = ',menu'
+FALLBACK_MESSAGE = 'Não entendi. Tente usar um comando direto, ex: ,menu'
 
 
 class AgentExecutor:
@@ -29,7 +33,7 @@ class AgentExecutor:
         tools = build_tools_for_prompt(self._registry)
 
         logger.info(
-            "agent_executing",
+            'agent_executing',
             user_input=data.text,
             tool_count=len(tools),
         )
@@ -37,22 +41,22 @@ class AgentExecutor:
         try:
             chain = get_chain()
             response = await chain.complete(prompt, tools)
-        except Exception as e:
-            logger.warning("agent_provider_failed", error=str(e))
+        except (httpx.HTTPError, RuntimeError) as e:
+            logger.warning('agent_provider_failed', error=str(e))
             return self._fallback(data)
 
         if response.tool_call:
-            command_name = response.tool_call.get("name", "")
-            arguments = response.tool_call.get("arguments", "{}")
+            command_name = response.tool_call.get('name', '')
+            arguments = response.tool_call.get('arguments', '{}')
 
             return self._build_command_data(data, command_name, arguments)
 
         content = response.content.strip()
-        if content.startswith(",") or content.startswith("/"):
-            return self._build_command_data(data, content.lstrip(",/"), "")
+        if content.startswith((',', '/')):
+            return self._build_command_data(data, content.lstrip(',/'), '')
 
         logger.warning(
-            "agent_no_tool_call",
+            'agent_no_tool_call',
             content=content,
             tool_call=response.tool_call,
         )
@@ -60,15 +64,12 @@ class AgentExecutor:
 
     def _build_prompt(self, user_input: str) -> str:
         """Build the prompt with tools and examples."""
-        filtered_input = user_input.replace("@resenhazord", "").strip()
+        filtered_input = user_input.replace('@resenhazord', '').strip()
 
-        command_list = "\n".join(
-            f"- {name}" for name in get_command_names(self._registry)
-        )
+        command_list = get_command_list_with_descriptions(self._registry)
 
-        examples_text = "\n".join(
-            f'Usuário: "{prompt}" -> Comando: {cmd}'
-            for prompt, cmd in AGENT_EXAMPLES[:10]
+        examples_text = '\n'.join(
+            f'Usuário: "{prompt}" -> Comando: {cmd}' for prompt, cmd in AGENT_EXAMPLES[:20]
         )
 
         return SYSTEM_PROMPT_TEMPLATE.format(
@@ -89,12 +90,12 @@ class AgentExecutor:
         except json.JSONDecodeError:
             args_dict = {}
 
-        flags = [f"--{k}" for k, v in args_dict.items() if v is True]
+        flags = [f'--{k}' for k, v in args_dict.items() if v is True]
 
-        command_text = f",{command_name} {' '.join(flags)}".strip()
+        command_text = f',{command_name} {" ".join(flags)}'.strip()
 
         logger.info(
-            "agent_mapped_command",
+            'agent_mapped_command',
             original=data.text,
             mapped=command_text,
         )

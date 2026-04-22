@@ -13,47 +13,50 @@ def command_to_tool_schema(command: Command) -> dict:
     properties: dict = {}
 
     for flag in config.flags:
-        properties[flag] = {"type": "boolean"}
+        properties[flag] = {'type': 'boolean'}
 
     for option in config.options:
         if option.values:
             properties[option.name] = {
-                "type": "string",
-                "enum": option.values,
+                'type': 'string',
+                'enum': option.values,
             }
         elif option.pattern:
-            properties[option.name] = {"type": "string"}
+            properties[option.name] = {'type': 'string'}
         else:
-            properties[option.name] = {"type": "string"}
+            properties[option.name] = {'type': 'string'}
 
     if config.args != ArgType.NONE:
-        properties["args"] = {"type": "string"}
+        properties['args'] = {'type': 'string'}
 
     def _to_ascii(name: str) -> str:
         replacements = {
-            "ã": "a", "á": "a", "à": "a", "â": "a",
-            "é": "e", "ê": "e",
-            "í": "i",
-            "ó": "o", "ô": "o", "õ": "o",
-            "ú": "u",
-            "ç": "c",
-            " ": "_",
+            'ã': 'a',
+            'á': 'a',
+            'à': 'a',
+            'â': 'a',
+            'é': 'e',
+            'ê': 'e',
+            'í': 'i',
+            'ó': 'o',
+            'ô': 'o',
+            'õ': 'o',
+            'ú': 'u',
+            'ç': 'c',
+            ' ': '_',
         }
-        result = []
-        for ch in name.lower():
-            result.append(replacements.get(ch, ch if ch.isascii() else "_"))
-        return "".join(result)
+        return ''.join(replacements.get(ch, ch if ch.isascii() else '_') for ch in name.lower())
 
     ascii_name = _to_ascii(config.name)
 
     return {
-        "type": "function",
-        "function": {
-            "name": ascii_name,
-            "description": command.menu_description or config.name,
-            "parameters": {
-                "type": "object",
-                "properties": properties,
+        'type': 'function',
+        'function': {
+            'name': ascii_name,
+            'description': command.menu_description or config.name,
+            'parameters': {
+                'type': 'object',
+                'properties': properties,
             },
         },
     }
@@ -68,7 +71,8 @@ def build_tools_for_prompt(
 
     Args:
         registry: CommandRegistry instance
-        include_scope: Only include commands with this scope or higher (PUBLIC < INTERNAL < DEV < ADMIN)
+        include_scope: Only include commands with this scope or higher
+        (PUBLIC < INTERNAL < DEV < ADMIN)
         exclude_scopes: Explicitly exclude these scopes
     """
     if exclude_scopes is None:
@@ -107,3 +111,15 @@ def build_tools_for_prompt(
 def get_command_names(registry: CommandRegistry) -> list[str]:
     """Get list of all command names for prompt."""
     return [cmd.config.name for cmd in registry.get_all()]
+
+
+def get_command_list_with_descriptions(registry: CommandRegistry) -> str:
+    """Get formatted list of commands with descriptions."""
+    lines = []
+    for cmd in registry.get_all():
+        name = cmd.config.name
+        desc = cmd.menu_description or ''
+        aliases = cmd.config.aliases or []
+        names = f'{name} ({", ".join(aliases)})' if aliases else name
+        lines.append(f'- {names}: {desc}' if desc else f'- {names}')
+    return '\n'.join(lines)

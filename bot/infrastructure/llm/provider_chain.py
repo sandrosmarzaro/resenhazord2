@@ -18,9 +18,9 @@ logger = structlog.get_logger()
 
 RETRY_DELAY = 60.0
 HTTP_TOO_MANY_REQUESTS = 429
-NO_PROVIDERS_MSG = "No LLM providers configured"
-ALL_FAILED_MSG = "All LLM providers failed"
-NOT_CONFIGURED_MSG = "ProviderChain not configured"
+NO_PROVIDERS_MSG = 'No LLM providers configured'
+ALL_FAILED_MSG = 'All LLM providers failed'
+NOT_CONFIGURED_MSG = 'ProviderChain not configured'
 
 
 class ProviderRateLimitedError(Exception):
@@ -66,29 +66,27 @@ class ProviderChain:
             state = self._states[self._current_index]
             provider = state.provider
 
-            if asyncio.get_event_loop().time() < state.cooldown_until:
-                logger.debug("provider_in_cooldown", provider=provider.provider_name)
+            try:
+                now = asyncio.get_running_loop().time()
+            except RuntimeError:
+                now = 0.0
+            if now < state.cooldown_until:
+                logger.debug('provider_in_cooldown', provider=provider.provider_name)
                 self._advance()
                 tried += 1
                 continue
 
             logger.info(
-                "provider_attempt",
+                'provider_attempt',
                 provider=provider.provider_name,
                 model=provider.model_id,
             )
 
             try:
                 response = await provider.complete(prompt, tools)
-                logger.info(
-                    "provider_success",
-                    provider=provider.provider_name,
-                    has_tool_call=response.tool_call is not None,
-                )
-                return response
             except httpx.HTTPStatusError as e:
                 logger.warning(
-                    "provider_http_error",
+                    'provider_http_error',
                     provider=provider.provider_name,
                     status=e.response.status_code,
                 )
@@ -97,20 +95,30 @@ class ProviderChain:
                 tried += 1
 
                 if e.response.status_code == HTTP_TOO_MANY_REQUESTS:
-                    state.cooldown_until = asyncio.get_event_loop().time() + RETRY_DELAY
+                    try:
+                        state.cooldown_until = asyncio.get_running_loop().time() + RETRY_DELAY
+                    except RuntimeError:
+                        state.cooldown_until = float('inf')
                     logger.warning(
-                        "provider_rate_limited",
+                        'provider_rate_limited',
                         provider=provider.provider_name,
                         cooldown=RETRY_DELAY,
                     )
             except httpx.HTTPError as e:
                 logger.warning(
-                    "provider_failed",
+                    'provider_failed',
                     provider=provider.provider_name,
                     error=str(e),
                 )
                 self._advance()
                 tried += 1
+            else:
+                logger.info(
+                    'provider_success',
+                    provider=provider.provider_name,
+                    has_tool_call=response.tool_call is not None,
+                )
+                return response
 
         raise RuntimeError(ALL_FAILED_MSG)
 
