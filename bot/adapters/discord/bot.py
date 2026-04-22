@@ -259,6 +259,12 @@ class DiscordBot:
                             await message.reply(content.caption or '📷', embed=embed)
                         else:
                             await message.reply(content.caption or '📷')
+                    elif isinstance(content, VideoContent):
+                        if content.url:
+                            await message.reply(content.caption or '🎬', suppress_embeds=False)
+                            await message.reply(content.url)
+                        else:
+                            await message.reply(content.caption or '🎬')
                     elif isinstance(content, TextContent):
                         text = content.text
                         max_chunk = 2000

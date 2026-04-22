@@ -226,3 +226,33 @@ class TestContentFormatting:
         should_chunk = len(short_text) > max_chunk
 
         assert should_chunk is False
+
+
+class TestCommandAliases:
+    """Regression tests for command alias matching."""
+
+    def test_rule_34_aliases_match(self):
+        """rule 34 should match rule_34, rule-34, rule34."""
+        from bot.application.register_commands import register_all_commands
+        from bot.application.command_registry import CommandRegistry
+        from bot.settings import Settings
+
+        register_all_commands(Settings())
+        registry = CommandRegistry.instance()
+
+        cmd = registry.get_by_name('rule 34')
+        assert cmd is not None
+
+        assert cmd.matches(',rule_34') is True
+        assert cmd.matches(',rule-34') is True
+        assert cmd.matches(',rule34') is True
+        assert cmd.matches(',rule 34') is True
+
+    def test_video_content_handling(self):
+        """VideoContent should be handled in Discord."""
+        from bot.domain.models.contents.video_content import VideoContent
+
+        content = VideoContent(url='https://example.com/video.mp4', caption='test')
+
+        assert content.url == 'https://example.com/video.mp4'
+        assert content.caption == 'test'
