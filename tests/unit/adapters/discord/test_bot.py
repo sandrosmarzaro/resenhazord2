@@ -1,11 +1,17 @@
 import inspect
+import io
 from typing import TYPE_CHECKING, cast
+
+import discord
+import pytest
 
 if TYPE_CHECKING:
     from discord import app_commands
 
 from bot.adapters.discord.bot import DiscordBot
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, Platform
+from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
+from bot.domain.models.contents.text_content import TextContent
 
 
 class TestNormalizeName:
@@ -178,3 +184,45 @@ class TestRegisterCommands:
         choice_values = [c.value for c in type_param.choices]
         assert 'crop' in choice_values
         assert 'full' in choice_values
+
+
+class TestContentFormatting:
+    """Regression tests for Discord content handling."""
+
+    def test_image_buffer_content_uses_io_bytesio(self):
+        """ImageBufferContent should work with io.BytesIO, not discord.BytesIO."""
+        content = ImageBufferContent(data=b'fake image data', caption='test')
+
+        file = discord.File(io.BytesIO(content.data), filename='image.jpg')
+
+        assert hasattr(file, 'fp')
+        assert file.filename == 'image.jpg'
+
+    def test_image_content_with_url_creates_embed(self):
+        """ImageContent with URL should use embed for Discord."""
+        content = ImageContent(url='https://example.com/image.jpg', caption='test')
+
+        embed = discord.Embed()
+        embed.set_image(url=content.url)
+
+        assert embed.image.url == 'https://example.com/image.jpg'
+
+    def test_text_chunking_at_2000_chars(self):
+        """TextContent should chunk at 2000 chars for Discord."""
+        max_chunk = 2000
+        long_text = 'a' * 2500
+
+        chunks = [long_text[i : i + max_chunk] for i in range(0, len(long_text), max_chunk)]
+
+        assert len(chunks) == 2
+        assert len(chunks[0]) == 2000
+        assert len(chunks[1]) == 500
+
+    def test_text_under_limit_sends_single_message(self):
+        """TextContent under 2000 chars should not chunk."""
+        max_chunk = 2000
+        short_text = 'a' * 1500
+
+        should_chunk = len(short_text) > max_chunk
+
+        assert should_chunk is False

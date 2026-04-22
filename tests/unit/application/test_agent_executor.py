@@ -104,18 +104,39 @@ class TestCommandMapping:
         assert result.text == ",placar now"
 
     @pytest.mark.anyio
-    async def test_build_command_data_with_args(self):
-        """Test command data with text args."""
+    async def test_build_command_data_with_text_args(self):
+        """Regression: text args should be appended after flags.
+
+        Previously the agent used 'args' field but it was ignored, causing
+        commands like audio to fail. Now 'args' is appended to command text.
+        """
         data = CommandData(
-            text="@resenhazord buscar música",
+            text="@resenhazord áudio",
             jid="test@g.us",
             sender_jid="test@s.whatsapp.net",
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, "music", "")
+        result = executor._build_command_data(data, "áudio", '{"args": "hello world"}')
 
-        assert result.text == ",music"
+        assert result.text == ",áudio hello world"
+
+    @pytest.mark.anyio
+    async def test_build_command_data_with_flags_and_args(self):
+        """Test command with both flags and text args."""
+        data = CommandData(
+            text="@resenhazord áudio",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(
+            data, "áudio", '{"dm": true, "args": "test text"}'
+        )
+
+        assert "dm" in result.text
+        assert "test text" in result.text
 
     @pytest.mark.anyio
     async def test_build_command_data_with_false_flags(self):
