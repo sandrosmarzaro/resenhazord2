@@ -1,9 +1,12 @@
 """Tests for Agent Executor."""
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.llm.provider_chain import LLMResponse
 
 
 class TestAgentExecutor:
@@ -44,6 +47,46 @@ class TestAgentExecutor:
 
         assert result.text == ",menu"
 
+    @pytest.mark.anyio
+    async def test_agent_parses_natural_language_to_command(self):
+        """Test agent maps natural language to command via tool call."""
+        data = CommandData(
+            text="@resenhazord mostrar placar dos jogos",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+        )
+        executor = AgentExecutor()
+
+        # Mock the provider chain to return a tool call
+        mock_chain = Mock()
+        mock_chain.complete = AsyncMock(
+            return_value=LLMResponse(
+                content="",
+                provider="github",
+                model="gpt-4o",
+                tool_call={"name": "placar", "arguments": '{"now": true}'},
+            )
+        )
+
+        with patch("bot.application.agent_executor.get_chain", return_value=mock_chain):
+            result = await executor.run(data)
+
+        assert result.text == ",placar --now"
+
+    @pytest.mark.anyio
+    async def test_agent_clears_memory_after_execution(self):
+        """Test agent clears memory (no-op for single-turn)."""
+        data = CommandData(
+            text="@resenhazord teste",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+        )
+        executor = AgentExecutor()
+
+        # _clear_memory is a no-op, just ensure it doesn't raise
+        await executor.run(data)
+        executor._clear_memory()  # Should not raise
+
 
 class TestCommandMapping:
     @pytest.mark.anyio
@@ -73,3 +116,33 @@ class TestCommandMapping:
         result = executor._build_command_data(data, "music", "")
 
         assert result.text == ",music"
+
+    @pytest.mark.anyio
+    async def test_build_command_data_with_false_flags(self):
+        """Test command data with false flags are omitted."""
+        data = CommandData(
+            text="@resenhazord teste",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(data, "test", '{"verbose": false, "debug": true}')
+
+        assert result.text == ",test --debug"
+
+    @pytest.mark.anyio
+    async def test_build_command_data_with_empty_args(self):
+        """Test command data with empty args."""
+        data = CommandData(
+            text="@resenhazord ola",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(data, "oi", "")
+
+        assert result.text == ",oi"
+
+

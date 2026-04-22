@@ -1,15 +1,15 @@
 """Tests for LLM providers (TDD: write failing tests first)."""
 
-import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+import pytest
+
+from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.providers import (
     GitHubProvider,
-    MistralProvider,
-    GroqProvider,
     LLMResponse,
 )
-from bot.infrastructure.llm.provider_chain import ProviderChain
 
 
 class TestGitHubProvider:
@@ -38,9 +38,11 @@ class TestGitHubProvider:
             }
         ]
         with patch("httpx.AsyncClient") as mock_client:
-            mock_response = AsyncMock()
-            mock_response.raise_for_status = AsyncMock()
-            mock_response.json.return_value = {
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.text = ""
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json = MagicMock(return_value={
                 "choices": [
                     {
                         "message": {
@@ -55,7 +57,7 @@ class TestGitHubProvider:
                         }
                     }
                 ]
-            }
+            })
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                 return_value=mock_response
             )
@@ -76,13 +78,25 @@ class TestProviderChain:
 
     @pytest.mark.anyio
     async def test_skips_on_429(self, chain):
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        http_error = httpx.HTTPStatusError(
+            "429", request=MagicMock(), response=mock_response
+        )
         with patch.object(
             chain._states[0].provider,
             "complete",
-            side_effect=Exception("429"),
+            side_effect=http_error,
+        ), patch.object(
+            chain._states[1].provider,
+            "complete",
+            side_effect=http_error,
+        ), patch.object(
+            chain._states[2].provider,
+            "complete",
+            return_value=LLMResponse(content="fallback success", provider="groq", model="mixtral"),
         ):
-            result = await chain.complete("test prompt", [])
-            pass
+            await chain.complete("test prompt", [])
 
     @pytest.mark.anyio
     async def test_all_providers_down_returns_error(self, chain):

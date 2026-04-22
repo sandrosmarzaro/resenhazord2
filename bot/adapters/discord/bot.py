@@ -11,9 +11,15 @@ from discord import app_commands
 
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
+from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.contents.image_content import (
+    ImageBufferContent,
+    ImageContent,
+)
+from bot.domain.models.contents.text_content import TextContent
 
 logger = structlog.get_logger()
 
@@ -197,38 +203,67 @@ class DiscordBot:
             if app_user is None:
                 return
 
-            bot_mention = f"<@{app_user.id}>"
-            if bot_mention not in message.content and f"@{app_user.name}" not in message.content:
+            bot_mention = f'<@{app_user.id}>'
+            if bot_mention not in message.content and f'@{app_user.name}' not in message.content:
                 return
 
-            logger.info("discord_agent_mention", text=message.content)
+            logger.info('discord_agent_mention', text=message.content)
 
             try:
-                from bot.application.agent_executor import AgentExecutor
-
                 executor = AgentExecutor(CommandRegistry.instance())
                 data = CommandData(
                     text=message.content,
                     jid=str(message.channel.id),
                     sender_jid=str(message.author.id),
                     is_group=True,
-                    platform="discord",
+                    platform='discord',
                 )
                 result = await executor.run(data)
 
                 strategy = CommandRegistry.instance().get_strategy(result.text)
                 if strategy is None:
-                    await message.reply("Comando não reconhecido.")
+                    await message.reply('Comando não reconhecido.')
                     return
 
-                messages = await strategy.run(data)
+                command_data = CommandData(
+                    text=result.text,
+                    jid=data.jid,
+                    sender_jid=data.sender_jid,
+                    participant=data.participant,
+                    is_group=data.is_group,
+                    mentioned_jids=data.mentioned_jids,
+                    quoted_message_id=data.quoted_message_id,
+                    message_id=data.message_id,
+                    platform='discord',
+                )
+
+                messages = await strategy.run(command_data)
 
                 if not messages:
-                    await message.reply("Sem resposta do comando.")
+                    await message.reply('Sem resposta do comando.')
                     return
 
                 for msg in messages:
-                    await message.reply(msg.content.text)
+                    content = msg.content
+                    if isinstance(content, ImageBufferContent):
+                        file = discord.File(
+                            discord.BytesIO(content.data),
+                            filename='image.jpg',
+                        )
+                        await message.reply(content.caption or '📷', file=file)
+                    elif isinstance(content, ImageContent):
+                        await message.reply(content.caption or '📷')
+                    elif isinstance(content, TextContent):
+                        text = content.text
+                        if len(text) > self.DISCORD_DESC_MAX_LENGTH * 2:
+                            chunks = [
+                text[i : i + self.DISCORD_DESC_MAX_LENGTH * 2]
+                for i in range(0, len(text), self.DISCORD_DESC_MAX_LENGTH * 2)
+            ]
+                            for chunk in chunks:
+                                await message.reply(chunk)
+                        else:
+                            await message.reply(text)
             except Exception:
-                logger.exception("discord_agent_error")
-                await message.reply("Erro ao processar comando.")
+                logger.exception('discord_agent_error')
+                await message.reply('Erro ao processar comando.')
