@@ -15,6 +15,7 @@ from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
+from bot.settings import Settings
 
 logger = structlog.get_logger()
 
@@ -36,10 +37,14 @@ class CommandHandler:
 
     def _is_agent_mention(self, data: CommandData) -> bool:
         """Check if message contains @resenhazord mention."""
-        if not data.mentioned_jids:
-            return False
-        text_lower = data.text.lower() if data.text else ""
-        return "@resenhazord" in text_lower or "resenhazord" in text_lower
+        text_lower = (data.text or "").lower()
+        if data.mentioned_jids:
+            settings = Settings()
+            bot_jids = [settings.resenhazord2_jid, settings.resenha_jid]
+            for jid in data.mentioned_jids:
+                if any(bot_jid.lower() in jid.lower() for bot_jid in bot_jids if bot_jid):
+                    return True
+        return "@resenhazord" in text_lower
 
     async def _run_agent(self, data: CommandData) -> CommandData:
         """Run the LLM agent to map natural language to command."""

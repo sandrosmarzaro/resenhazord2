@@ -38,13 +38,9 @@ export default class CommandHandler {
       Resenhazord2.bridge.isConnected &&
       (text?.trimStart().startsWith(',') || hasResenhazordMention(data, text))
     ) {
-      const botJid = RESENHA_JID.split('@')[0];
-      const botZordJid = RESENHAZORD2_JID.split('@')[0];
-      const cleanedText = text.replace(new RegExp(`@${botJid}|@${botZordJid}`, 'gi'), '').trim();
-
       const commandData = {
         ...data,
-        text: cleanedText || text,
+        text,
         expiration: await GetGroupExpiration.run(data),
       } as CommandData;
 
