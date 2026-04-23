@@ -53,7 +53,8 @@ class AgentExecutor:
 
         content = response.content.strip().strip('`').strip('"\'').strip()
         if content.startswith((',', '/')):
-            return self._build_command_data(data, content.lstrip(',/'), '')
+            cmd = content.lstrip(',/').strip("'\"")
+            return self._build_command_data(data, cmd, '')
 
         logger.warning(
             'agent_no_tool_call',
