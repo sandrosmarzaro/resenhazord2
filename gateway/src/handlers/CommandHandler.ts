@@ -9,6 +9,18 @@ import GetGroupExpiration from '../utils/GetGroupExpiration.js';
 import TypingIndicator from '../utils/TypingIndicator.js';
 import { Sentry } from '../infra/Sentry.js';
 
+const RESENHA_JID = process.env.RESENHA_JID!;
+const RESENHAZORD2_JID = process.env.RESENHAZORD2_JID!;
+
+function hasResenhazordMention(data: WAMessage, text: string): boolean {
+  if (!text) return false;
+  const textLower = text.toLowerCase();
+  return (
+    textLower.includes(RESENHA_JID.split('@')[0].toLowerCase()) ||
+    textLower.includes(RESENHAZORD2_JID.split('@')[0].toLowerCase())
+  );
+}
+
 export default class CommandHandler {
   static async run(data: WAMessage): Promise<void> {
     const text = GetTextMessage.run(data);
@@ -22,10 +34,17 @@ export default class CommandHandler {
       return;
     }
 
-    if (Resenhazord2.bridge.isConnected && text?.trimStart().startsWith(',')) {
+    if (
+      Resenhazord2.bridge.isConnected &&
+      (text?.trimStart().startsWith(',') || hasResenhazordMention(data, text))
+    ) {
+      const botJid = RESENHA_JID.split('@')[0];
+      const botZordJid = RESENHAZORD2_JID.split('@')[0];
+      const cleanedText = text.replace(new RegExp(`@${botJid}|@${botZordJid}`, 'gi'), '').trim();
+
       const commandData = {
         ...data,
-        text,
+        text: cleanedText || text,
         expiration: await GetGroupExpiration.run(data),
       } as CommandData;
 

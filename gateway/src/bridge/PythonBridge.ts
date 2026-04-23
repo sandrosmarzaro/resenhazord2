@@ -126,7 +126,10 @@ export default class PythonBridge {
         participant: data.key.participant ?? null,
         is_group: data.key.remoteJid?.includes('g.us') ?? false,
         expiration: data.expiration ?? null,
-        mentioned_jids: data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [],
+        mentioned_jids:
+          data.message?.extendedTextMessage?.contextInfo?.mentionedJid ??
+          (data.message as any)?.conversationMessage?.contextInfo?.mentionedJid ??
+          [],
         quoted_message_id: data.message?.extendedTextMessage?.contextInfo?.stanzaId ?? null,
         quoted_text: (() => {
           const quoted = data.message?.extendedTextMessage?.contextInfo?.quotedMessage;
