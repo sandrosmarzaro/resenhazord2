@@ -115,6 +115,8 @@ class AgentExecutor:
         logger.info(
             'agent_mapped_command',
             original=data.text,
+            response_content=response.content,
+            cleaned_content=response.content.strip("`'\"").strip(),
             mapped=command_text,
         )
 
