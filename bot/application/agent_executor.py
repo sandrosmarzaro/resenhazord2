@@ -51,7 +51,7 @@ class AgentExecutor:
 
             return self._build_command_data(data, command_name, arguments)
 
-        content = response.content.strip().strip('`').strip()
+        content = response.content.strip().strip('`').strip('"\'').strip()
         if content.startswith((',', '/')):
             return self._build_command_data(data, content.lstrip(',/'), '')
 
