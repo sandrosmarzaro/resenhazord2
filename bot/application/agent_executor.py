@@ -109,7 +109,7 @@ class AgentExecutor:
         if text_args:
             command_parts.append(text_args)
 
-        command_text = ' '.join(command_parts)
+        command_text = ' '.join(command_parts).strip("'\"")
 
         logger.info(
             'agent_mapped_command',
