@@ -2,6 +2,7 @@ import io
 from dataclasses import dataclass
 from typing import ClassVar
 
+import aiohttp
 import discord
 import structlog
 
@@ -27,6 +28,7 @@ class DiscordReply:
 class DiscordResponseRenderer:
     MAX_TEXT_LENGTH: ClassVar[int] = 2000
     MAX_EMBED_DESC_LENGTH: ClassVar[int] = 4096
+    HTTP_OK: ClassVar[int] = 200
     UNSUPPORTED_MESSAGE: ClassVar[str] = 'Este tipo de conteudo nao e suportado no Discord.'
     RENDER_MAP: ClassVar[dict[type, str]] = {
         TextContent: '_render_text',
@@ -45,12 +47,20 @@ class DiscordResponseRenderer:
         method_name = self.RENDER_MAP.get(type(content), '_render_unsupported')
         return getattr(self, method_name)(content)
 
+    async def render_async(self, message: BotMessage) -> DiscordReply:
+        content = message.content
+        logger.info('discord_render_async', content_type=type(content).__name__)
+        if isinstance(content, AudioContent):
+            return await self._render_audio_async(content)
+        return self.render(message)
+
+    async def render_many_async(self, messages: list[BotMessage]) -> list[DiscordReply]:
+        return [await self.render_async(m) for m in messages]
+
     def render_many(self, messages: list[BotMessage]) -> list[DiscordReply]:
         return [self.render(m) for m in messages]
 
     def _render_text(self, content: TextContent) -> DiscordReply:
-        if len(content.text) <= self.MAX_TEXT_LENGTH:
-            return DiscordReply(text=content.text)
         embed = discord.Embed(description=content.text[: self.MAX_EMBED_DESC_LENGTH])
         return DiscordReply(embed=embed)
 
@@ -85,6 +95,25 @@ class DiscordResponseRenderer:
 
     def _render_audio(self, content: AudioContent) -> DiscordReply:
         return DiscordReply(text=content.url)
+
+    async def _render_audio_async(self, content: AudioContent) -> DiscordReply:
+        try:
+            async with aiohttp.ClientSession() as session, session.get(
+                content.url, timeout=aiohttp.ClientTimeout(total=30)
+            ) as resp:
+                if resp.status == self.HTTP_OK:
+                    data = await resp.read()
+                    logger.info('discord_audio_downloaded', url=content.url, size=len(data))
+                    ext = '.mp3'
+                    if content.mimetype:
+                        ext = BUFFER_EXTENSIONS.get(content.mimetype, '.mp3')
+                    filename = f'audio{ext}'
+                    file = discord.File(io.BytesIO(data), filename=filename)
+                    return DiscordReply(file=file)
+                logger.warning('discord_audio_http_error', url=content.url, status=resp.status)
+        except aiohttp.ClientError:
+            logger.warning('discord_audio_download_failed', url=content.url, exc_info=True)
+        return DiscordReply(text=f'🎵 {content.url}')
 
     def _render_audio_buffer(self, content: AudioBufferContent) -> DiscordReply:
         ext = BUFFER_EXTENSIONS.get(content.type, 'mp4')

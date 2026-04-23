@@ -1,6 +1,5 @@
 import asyncio
 import inspect
-import io
 import re
 import unicodedata
 from typing import Any, ClassVar, cast
@@ -12,15 +11,11 @@ from discord import app_commands
 
 from bot.adapters.discord.adapter import DiscordInteractionAdapter
 from bot.adapters.discord.handler import DiscordInteractionHandler
+from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
 from bot.domain.models.command_data import CommandData
-from bot.domain.models.contents.image_content import (
-    ImageBufferContent,
-    ImageContent,
-)
-from bot.domain.models.contents.text_content import TextContent
 
 logger = structlog.get_logger()
 
@@ -39,6 +34,7 @@ class DiscordBot:
         self._client = discord.Client(intents=intents)
         self._tree = app_commands.CommandTree(self._client)
         self._handler = DiscordInteractionHandler()
+        self._renderer = DiscordResponseRenderer()
         self._setup_events()
 
     @property
@@ -250,35 +246,12 @@ class DiscordBot:
                     return
 
                 for msg in messages:
-                    content = msg.content
-                    if isinstance(content, ImageBufferContent):
-                        file = discord.File(
-                            io.BytesIO(content.data),
-                            filename='image.jpg',
-                        )
-                        await message.reply(content.caption or '📷', file=file)
-                    elif isinstance(content, ImageContent):
-                        if content.url:
-                            embed = discord.Embed()
-                            embed.set_image(url=content.url)
-                            await message.reply(content.caption or '📷', embed=embed)
-                        else:
-                            await message.reply(content.caption or '📷')
-                    elif isinstance(content, VideoContent):
-                        if content.url:
-                            await message.reply(content.caption or '🎬', suppress_embeds=False)
-                            await message.reply(content.url)
-                        else:
-                            await message.reply(content.caption or '🎬')
-                    elif isinstance(content, TextContent):
-                        text = content.text
-                        max_chunk = 2000
-                        if len(text) > max_chunk:
-                            for i in range(0, len(text), max_chunk):
-                                chunk = text[i : i + max_chunk]
-                                await message.reply(chunk)
-                        else:
-                            await message.reply(text)
+                    reply = await self._renderer.render_async(msg)
+                    await message.reply(
+                        reply.text or '\u200b',
+                        file=reply.file or None,  # type: ignore[arg-type]
+                        embed=reply.embed or None,  # type: ignore[arg-type]
+                    )
             except Exception:
                 logger.exception('discord_agent_error')
                 await message.reply('Erro ao processar comando.')

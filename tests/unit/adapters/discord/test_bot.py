@@ -3,7 +3,6 @@ import io
 from typing import TYPE_CHECKING, cast
 
 import discord
-import pytest
 
 if TYPE_CHECKING:
     from discord import app_commands
@@ -11,7 +10,6 @@ if TYPE_CHECKING:
 from bot.adapters.discord.bot import DiscordBot
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, Platform
 from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
-from bot.domain.models.contents.text_content import TextContent
 
 
 class TestNormalizeName:
@@ -233,8 +231,8 @@ class TestCommandAliases:
 
     def test_rule_34_aliases_match(self):
         """rule 34 should match rule34."""
-        from bot.application.register_commands import register_all_commands
         from bot.application.command_registry import CommandRegistry
+        from bot.application.register_commands import register_all_commands
         from bot.settings import Settings
 
         register_all_commands(Settings())
@@ -246,17 +244,25 @@ class TestCommandAliases:
         assert cmd.matches(',rule34') is True
         assert cmd.matches(',rule 34') is True
 
-    def test_video_content_handling(self):
-        """VideoContent should be handled in Discord."""
+    def test_video_content_imported_in_discord_bot(self):
+        """VideoContent from discord bot module (regression test for NameError)."""
         from bot.domain.models.contents.video_content import VideoContent
 
         content = VideoContent(url='https://example.com/video.mp4', caption='test')
 
         assert content.url == 'https://example.com/video.mp4'
         assert content.caption == 'test'
+        assert isinstance(content, VideoContent)
+
+    def test_video_content_isinstance_check(self):
+        """VideoContent usable with isinstance checks."""
+        from bot.domain.models.contents.video_content import VideoContent
+
+        content = VideoContent(url='https://example.com/video.mp4')
+        assert isinstance(content, VideoContent)
 
 
-class TestRegisterCommands:
+class TestDuplicateAliases:
     """Regression tests for duplicate command registration."""
 
     def test_duplicate_aliases_are_skipped(self):

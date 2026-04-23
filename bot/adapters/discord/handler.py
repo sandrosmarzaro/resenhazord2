@@ -72,7 +72,7 @@ class DiscordInteractionHandler:
             return
 
         messages = await preprocess_messages(messages)
-        replies = self._renderer.render_many(messages)
+        replies = await self._renderer.render_many_async(messages)
         for reply in replies:
             await port.send_followup(reply.text, embed=reply.embed, file=reply.file)
 

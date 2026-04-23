@@ -20,13 +20,13 @@ def renderer():
 
 
 class TestRenderText:
-    def test_short_text_returns_text(self, renderer):
+    def test_short_text_returns_embed(self, renderer):
         msg = make_message(TextContent(text='hello'))
 
         reply = renderer.render(msg)
 
-        assert reply.text == 'hello'
-        assert reply.embed is None
+        assert reply.embed is not None
+        assert reply.embed.description == 'hello'
 
     def test_long_text_returns_embed(self, renderer):
         text = 'x' * 2001
@@ -38,14 +38,14 @@ class TestRenderText:
         assert reply.embed is not None
         assert len(reply.embed.description) <= 4096
 
-    def test_exactly_2000_chars_returns_text(self, renderer):
+    def test_exactly_2000_chars_returns_embed(self, renderer):
         text = 'x' * 2000
         msg = make_message(TextContent(text=text))
 
         reply = renderer.render(msg)
 
-        assert reply.text == text
-        assert reply.embed is None
+        assert reply.embed is not None
+        assert reply.embed.description == text
 
 
 class TestRenderImage:
@@ -156,6 +156,23 @@ class TestRenderAudioBuffer:
         assert reply.text is None
 
 
+class TestRenderAsync:
+    @pytest.mark.anyio
+    async def test_non_audio_uses_sync_render(self, renderer):
+        """Non-AudioContent types should use sync render via render_async."""
+        msg = make_message(TextContent(text='hello'))
+
+        reply = await renderer.render_async(msg)
+
+        assert reply.embed is not None
+        assert reply.embed.description == 'hello'
+
+    def test_audio_content_isinstance_check(self, renderer):
+        """AudioContent should be detected correctly."""
+        content = AudioContent(url='https://example.com/audio.mp3', mimetype='audio/mpeg')
+        assert isinstance(content, AudioContent)
+
+
 class TestRenderUnsupported:
     def test_sticker_returns_fallback_text(self, renderer):
         msg = make_message(StickerContent(data=b'sticker'))
@@ -225,8 +242,8 @@ class TestRenderMany:
         replies = renderer.render_many(messages)
 
         assert len(replies) == 2
-        assert replies[0].text == 'first'
-        assert replies[1].text == 'second'
+        assert replies[0].embed.description == 'first'
+        assert replies[1].embed.description == 'second'
 
     def test_mixed_content_types(self, renderer):
         messages = [
@@ -236,6 +253,6 @@ class TestRenderMany:
 
         replies = renderer.render_many(messages)
 
-        assert replies[0].text == 'caption'
+        assert replies[0].embed.description == 'caption'
         assert replies[1].file is not None
         assert replies[1].embed is not None

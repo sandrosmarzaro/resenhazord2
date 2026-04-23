@@ -90,12 +90,22 @@ class AgentExecutor:
         except json.JSONDecodeError:
             args_dict = {}
 
-        flags = [k for k, v in args_dict.items() if v is True]
+        flags = [k.lstrip('-') for k, v in args_dict.items() if v is True]
+        options = {
+            k.lstrip('-'): v
+            for k, v in args_dict.items()
+            if v is not True and v is not False and k != 'args'
+        }
         text_args = args_dict.get('args', '')
 
         command_parts = [f',{command_name}']
-        if flags:
-            command_parts.extend(flags)
+        for flag in flags:
+            command_parts.append(flag)
+        for opt_name, opt_value in options.items():
+            if isinstance(opt_value, str):
+                command_parts.append(f'{opt_name} {opt_value}')
+            else:
+                command_parts.append(str(opt_value))
         if text_args:
             command_parts.append(text_args)
 
