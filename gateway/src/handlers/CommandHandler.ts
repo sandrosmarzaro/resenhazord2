@@ -15,10 +15,20 @@ const RESENHAZORD2_JID = process.env.RESENHAZORD2_JID!;
 function hasResenhazordMention(data: WAMessage, text: string): boolean {
   if (!text) return false;
   const textLower = text.toLowerCase();
-  return (
-    textLower.includes(RESENHA_JID.split('@')[0].toLowerCase()) ||
-    textLower.includes(RESENHAZORD2_JID.split('@')[0].toLowerCase())
+  const mentionedJids = data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
+  const botJids = [RESENHAZORD2_JID, RESENHA_JID];
+  
+  const hasJidMention = mentionedJids.some((jid: string) =>
+    botJids.some((botJid: string) => jid && jid.includes(botJid.split('@')[0]))
   );
+  
+  const hasTextMention = botJids.some((botJid: string) =>
+    textLower.includes(botJid.split('@')[0].toLowerCase())
+  );
+  
+  logger.debug('mention_check', { mentionedJids, hasJidMention, hasTextMention, text: textLower });
+  
+  return hasJidMention || hasTextMention;
 }
 
 export default class CommandHandler {
