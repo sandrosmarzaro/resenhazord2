@@ -16,7 +16,7 @@ from bot.infrastructure.llm.tools import (
 
 logger = structlog.get_logger()
 
-FALLBACK_COMMAND = ',menu'
+FALLBACK_COMMAND = None
 FALLBACK_MESSAGE = 'Não entendi. Tente usar um comando direto, ex: ,menu'
 
 
@@ -130,9 +130,9 @@ class AgentExecutor:
         )
 
     def _fallback(self, data: CommandData) -> CommandData:
-        """Return fallback command."""
+        """Return empty command to indicate no response."""
         return CommandData(
-            text=FALLBACK_COMMAND,
+            text='',
             jid=data.jid,
             sender_jid=data.sender_jid,
             participant=data.participant,
