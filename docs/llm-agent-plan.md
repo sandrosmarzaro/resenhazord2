@@ -11,6 +11,7 @@
 - Add debug logging for command matching
 - Strip backticks from agent text response
 - Strip quotes from mapped command
+- Agent should not use leading dashes (-- or -) in command flags/args; gateways add their own formatting
 
 ## In Progress
 
