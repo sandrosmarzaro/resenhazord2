@@ -73,6 +73,7 @@ class CommandHandler:
         logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
 
         command = self._registry.get_strategy(data.text)
+        logger.debug("command_strategy_found", command=command.config.name if command else None, text=data.text)
         if command is None:
             return None
 
