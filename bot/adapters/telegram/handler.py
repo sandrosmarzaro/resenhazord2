@@ -49,8 +49,10 @@ class TelegramUpdateHandler:
             return
 
         command_name = self._extract_command_name(message)
+
         if command_name is None:
-            if self._is_agent_mention(message):
+            is_agent = self._is_agent_mention(message)
+            if is_agent:
                 await self._handle_agent_mention(port, message, chat, user)
                 return
             return
@@ -122,7 +124,7 @@ class TelegramUpdateHandler:
         """Check if message mentions @bot_username."""
         if not message.text or not self._bot_username:
             return False
-        return f"@{self._bot_username}" in message.text.lower()
+        return f'@{self._bot_username}' in message.text.lower()
 
     async def _handle_agent_mention(
         self,
@@ -132,9 +134,7 @@ class TelegramUpdateHandler:
         user: User,
     ) -> None:
         """Handle agent mention for Telegram."""
-        data = self._build_command_data(message, chat, user, message.text or "")
-
-        logger.info("telegram_agent_mention", text=message.text)
+        data = self._build_command_data(message, chat, user, message.text or '')
 
         await self._safe_react(port, chat.id, message.message_id)
         async with TypingLoop.keep_typing(port, chat.id):
@@ -142,7 +142,7 @@ class TelegramUpdateHandler:
                 executor = AgentExecutor(CommandRegistry.instance())
                 result = await executor.run(data)
             except Exception:
-                logger.exception("telegram_agent_error")
+                logger.exception('telegram_agent_error')
                 await self._reply_text(port, chat.id, self.GENERIC_ERROR_MESSAGE)
                 return
 

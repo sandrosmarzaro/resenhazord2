@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 import structlog
 from telegram import BotCommand, BotCommandScopeChat, Update
 from telegram.error import TelegramError
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
@@ -68,6 +68,7 @@ class TelegramBot:
                 self._add_command(alias, callback)
             logger.info('telegram_command_registered', name=command.config.name)
         self._register_start_alias(callback)
+        self._app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, callback))
 
     def _add_command(self, registry_name: str, callback: TelegramCallback) -> None:
         telegram_name = self._normalize_name(registry_name)

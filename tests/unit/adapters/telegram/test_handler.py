@@ -202,3 +202,31 @@ class TestHandle:
         await handler.handle(port, make_update('just some text'))
 
         port.send.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_agent_mention_in_group_triggers_agent(self, handler, port, mocker):
+        strategy = make_strategy(
+            mocker, messages=[BotMessage(jid='1', content=TextContent(text='pong'))]
+        )
+        patch_registry(mocker, strategy=strategy)
+        executor = mocker.MagicMock()
+        executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',d20'))
+        mocker.patch(
+            'bot.adapters.telegram.handler.AgentExecutor',
+            return_value=executor,
+        )
+
+        user = User(id=DEFAULT_USER_ID, first_name='TestUser', is_bot=False)
+        chat = Chat(id=DEFAULT_CHAT_ID, type=ChatType.GROUP)
+        message = Message(
+            message_id=1,
+            date=datetime.now(tz=UTC),
+            chat=chat,
+            from_user=user,
+            text='@resenhazord_bot oi',
+            entities=(MessageEntity(type=MessageEntityType.MENTION, offset=0, length=16),),
+        )
+        await handler.handle(port, Update(update_id=1, message=message))
+
+        executor.run.assert_called_once()
+        port.send.assert_called()
