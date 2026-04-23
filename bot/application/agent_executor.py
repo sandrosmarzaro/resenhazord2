@@ -52,6 +52,11 @@ class AgentExecutor:
             return self._build_command_data(data, command_name, arguments)
 
         content = response.content.strip().strip('`').strip('"\'').strip()
+        # Remove leading -- or - from flags (agent might send --now or -now)
+        if content.startswith('--'):
+            content = content[2:]
+        elif content.startswith('-'):
+            content = content[1:]
         if content.startswith((',', '/')):
             cmd = content.lstrip(',/').strip("'\"")
             return self._build_command_data(data, cmd, '')
@@ -115,8 +120,6 @@ class AgentExecutor:
         logger.info(
             'agent_mapped_command',
             original=data.text,
-            response_content=response.content,
-            cleaned_content=response.content.strip("`'\"").strip(),
             mapped=command_text,
         )
 
