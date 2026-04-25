@@ -14,7 +14,8 @@ const RESENHA_JID = process.env.RESENHA_JID!;
 const RESENHAZORD2_JID = process.env.RESENHAZORD2_JID!;
 const RESENHAZORD2_LID = process.env.RESENHAZORD2_LID!;
 
-function isBotId(id: string): boolean {
+function isBotId(id?: string): boolean {
+  if (!id) return false;
   // Handle both full JID (@s.whatsapp.net or @g.us) and just the numeric part
   const numericPart = id.split('@')[0];
   return (
@@ -31,10 +32,10 @@ function hasResenhazordMention(data: WAMessage, text: string): boolean {
 
   const hasJidMention = mentionedJids.some(isBotId);
   const hasTextMention = [
-    RESENHAZORD2_JID.split('@')[0],
-    RESENHA_JID.split('@')[0],
+    RESENHAZORD2_JID?.split('@')[0],
+    RESENHA_JID?.split('@')[0],
     RESENHAZORD2_LID,
-  ].some((botId) => textLower.includes(botId.toLowerCase()));
+  ].filter(Boolean).some((botId) => textLower.includes(botId.toLowerCase()));
 
   const hasAnyMention = mentionedJids.length > 0;
 
@@ -64,6 +65,14 @@ export default class CommandHandler {
     }
 
     const isDM = !data.key.remoteJid?.includes('@g.us');
+    logger.debug({
+      event: 'mention_forward_check',
+      isConnected: Resenhazord2.bridge.isConnected,
+      startsWithComma: text?.trimStart().startsWith(','),
+      mentionsBot: hasResenhazordMention(data, text),
+      isDM,
+      text: text?.slice(0, 50),
+    });
     if (
       Resenhazord2.bridge.isConnected &&
       (text?.trimStart().startsWith(',') || hasResenhazordMention(data, text) || isDM)
