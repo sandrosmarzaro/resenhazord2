@@ -34,8 +34,8 @@ class TestAgentExecutor:
         assert "command_list" in prompt or "placar" in prompt.lower()
 
     @pytest.mark.anyio
-    async def test_fallback_returns_menu(self):
-        """Test fallback returns ,menu command."""
+    async def test_fallback_returns_empty(self):
+        """Test fallback returns empty text (no response)."""
         data = CommandData(
             text="@resenhazord blah",
             jid="test@g.us",
@@ -45,7 +45,46 @@ class TestAgentExecutor:
 
         result = executor._fallback(data)
 
-        assert result.text == ",menu"
+        assert result.text == ""
+
+    @pytest.mark.anyio
+    async def test_fallback_preserves_media_fields(self):
+        """Test fallback preserves media fields from original data."""
+        data = CommandData(
+            text="@resenhazord blah",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+            media_type="image",
+            media_source="https://example.com/image.jpg",
+            media_is_animated=False,
+            media_caption="test image",
+        )
+        executor = AgentExecutor()
+
+        result = executor._fallback(data)
+
+        assert result.media_type == "image"
+        assert result.media_source == "https://example.com/image.jpg"
+        assert result.media_caption == "test image"
+
+    @pytest.mark.anyio
+    async def test_build_command_data_preserves_media_fields(self):
+        """Test _build_command_data preserves media fields."""
+        data = CommandData(
+            text="make sticker",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+            media_type="image",
+            media_source="https://example.com/image.jpg",
+            media_is_animated=False,
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(data, "stic", "")
+
+        assert result.text == ",stic"
+        assert result.media_type == "image"
+        assert result.media_source == "https://example.com/image.jpg"
 
     @pytest.mark.anyio
     async def test_agent_parses_natural_language_to_command(self):
@@ -165,5 +204,73 @@ class TestCommandMapping:
         result = executor._build_command_data(data, "oi", "")
 
         assert result.text == ",oi"
+
+    @pytest.mark.anyio
+    async def test_build_command_data_excludes_command_key(self):
+        """Regression: agent JSON should not include 'command' key in output.
+
+        LLM tool calls include {"command": "tabela", "liga": "br"} but 'command'
+        should be filtered out to avoid duplicate in text like ",tabela command tabela liga br".
+        """
+        data = CommandData(
+            text="@resenhazord ver tabela do brasil",
+            jid="test@g.us",
+            sender_jid="test@s.whatsapp.net",
+            is_group=True,
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(data, "tabela", '{"command": "tabela", "liga": "br"}')
+
+        assert "command" not in result.text
+        assert ",tabela" in result.text
+        assert "br" in result.text
+
+    @pytest.mark.anyio
+    async def test_build_command_data_dm_mode_in_group(self):
+        """When user requests DM in group, respond via DM (change jid to sender)."""
+        data = CommandData(
+            text="@resenhazord ver placar privado",
+            jid="test@g.us",
+            sender_jid="user@s.whatsapp.net",
+            is_group=True,
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(data, "placar", '{"now": true}')
+
+        assert result.jid == "user@s.whatsapp.net"
+        assert result.is_group is True
+
+    @pytest.mark.anyio
+    async def test_build_command_data_dm_ignored_in_private(self):
+        """DM keyword ignored in private chat (not a group)."""
+        data = CommandData(
+            text="@resenhazord ver placar privado",
+            jid="user@s.whatsapp.net",
+            sender_jid="user@s.whatsapp.net",
+            is_group=False,
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(data, "placar", '{"now": true}')
+
+        assert result.jid == "user@s.whatsapp.net"
+
+    @pytest.mark.anyio
+    async def test_build_command_data_strips_dashes_from_flags(self):
+        """Flags like --g4 should become g4 (no dashes)."""
+        data = CommandData(
+            text="@resenhazord ver tabela br g4",
+            jid="test@g.us",
+            sender_jid="user@s.whatsapp.net",
+            is_group=True,
+        )
+        executor = AgentExecutor()
+
+        result = executor._build_command_data(data, "tabela", '{"g4": true}')
+
+        assert "g4" in result.text
+        assert "--" not in result.text
 
 

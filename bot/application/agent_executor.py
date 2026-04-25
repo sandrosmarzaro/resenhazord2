@@ -1,6 +1,7 @@
 """LLM Agent Executor - maps natural language to bot commands."""
 
 import json
+import re
 
 import httpx
 import structlog
@@ -18,6 +19,11 @@ logger = structlog.get_logger()
 
 FALLBACK_COMMAND = None
 FALLBACK_MESSAGE = 'Não entendi. Tente usar um comando direto, ex: ,menu'
+
+DM_KEYWORDS = re.compile(
+    r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(me\s*)?dm|send\s*(me\s*)?privately)\b',
+    re.IGNORECASE,
+)
 
 
 class AgentExecutor:
@@ -52,14 +58,32 @@ class AgentExecutor:
             return self._build_command_data(data, command_name, arguments)
 
         content = response.content.strip().strip('`').strip('"\'').strip()
-        # Remove leading -- or - from flags (agent might send --now or -now)
-        if content.startswith('--'):
-            content = content[2:]
-        elif content.startswith('-'):
-            content = content[1:]
+        content = re.sub(r'(\s)--(\w+)', r'\1\2', content)
+        content = re.sub(r'^,+-', lambda m: ',' + m.group(1).lstrip('-'), content)
+
         if content.startswith((',', '/')):
-            cmd = content.lstrip(',/').strip("'\"")
+            cmd = content.lstrip(',/').strip('\'"')
             return self._build_command_data(data, cmd, '')
+
+        if content.startswith('CLARIFY:'):
+            question = content[len('CLARIFY:') :].strip()
+            logger.info('agent_asking_clarification', question=question)
+            return CommandData(
+                text=f',clarify:{question}',
+                jid=data.jid,
+                sender_jid=data.sender_jid,
+                participant=data.participant,
+                is_group=data.is_group,
+                mentioned_jids=data.mentioned_jids,
+                quoted_message_id=data.quoted_message_id,
+                message_id=data.message_id,
+                platform=data.platform,
+                media_type=data.media_type,
+                media_source=data.media_source,
+                media_is_animated=data.media_is_animated,
+                media_caption=data.media_caption,
+                media_buffer=data.media_buffer,
+            )
 
         logger.warning(
             'agent_no_tool_call',
@@ -97,35 +121,50 @@ class AgentExecutor:
             args_dict = {}
 
         flags = [k.lstrip('-') for k, v in args_dict.items() if v is True]
+        command_name = command_name.lstrip('-')
         options = {
             k.lstrip('-'): v
             for k, v in args_dict.items()
-            if v is not True and v is not False and k != 'args'
+            if v is not True and v is not False and k not in ('args', 'command')
         }
         text_args = args_dict.get('args', '')
 
         command_parts = [f',{command_name}']
-        for flag in flags:
-            command_parts.append(flag)
         for opt_name, opt_value in options.items():
             if isinstance(opt_value, str):
                 command_parts.append(f'{opt_name} {opt_value}')
             else:
                 command_parts.append(str(opt_value))
+        for flag in flags:
+            clean_flag = flag.lstrip('-')
+            command_parts.append(clean_flag)
         if text_args:
             command_parts.append(text_args)
 
-        command_text = ' '.join(command_parts).strip("'\"")
+        command_text = ' '.join(command_parts).strip('\'"')
+        command_text = self._resolve_command_name(command_text)
+
+        target_jid = data.jid
+        if data.is_group and DM_KEYWORDS.search(data.text):
+            target_jid = data.sender_jid
+            command_text = DM_KEYWORDS.sub('', command_text).strip()
+            if command_text.startswith(','):
+                command_text = command_text[1:].strip()
+            command_text = f',{command_text}'
+
+        command_text = re.sub(r'(\s)--(\w+)', r'\1\2', command_text)
+        command_text = re.sub(r'^,+-', lambda m: ',' + m.group(1).lstrip('-'), command_text)
 
         logger.info(
             'agent_mapped_command',
             original=data.text,
             mapped=command_text,
+            dm_mode=target_jid != data.jid,
         )
 
         return CommandData(
             text=command_text,
-            jid=data.jid,
+            jid=target_jid,
             sender_jid=data.sender_jid,
             participant=data.participant,
             is_group=data.is_group,
@@ -133,6 +172,11 @@ class AgentExecutor:
             quoted_message_id=data.quoted_message_id,
             message_id=data.message_id,
             platform=data.platform,
+            media_type=data.media_type,
+            media_source=data.media_source,
+            media_is_animated=data.media_is_animated,
+            media_caption=data.media_caption,
+            media_buffer=data.media_buffer,
         )
 
     def _fallback(self, data: CommandData) -> CommandData:
@@ -147,7 +191,27 @@ class AgentExecutor:
             quoted_message_id=data.quoted_message_id,
             message_id=data.message_id,
             platform=data.platform,
+            media_type=data.media_type,
+            media_source=data.media_source,
+            media_is_animated=data.media_is_animated,
+            media_caption=data.media_caption,
+            media_buffer=data.media_buffer,
         )
 
     def _clear_memory(self) -> None:
         """Clear any memory after execution (no-op for single-turn)."""
+
+    def _resolve_command_name(self, command_text: str) -> str:
+        """Convert LLM command names to registered names using aliases."""
+        if not command_text.startswith(','):
+            return command_text
+
+        parts = command_text.split()
+        if not parts:
+            return command_text
+
+        cmd_name = parts[0][1:]
+        cmd = self._registry.get_by_name(cmd_name)
+        if cmd:
+            parts[0] = f',{cmd.config.name}'
+        return ' '.join(parts)

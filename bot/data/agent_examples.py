@@ -68,6 +68,10 @@ AGENT_EXAMPLES = [
     ('horóscopo', ',horóscopo'),
     ('jogador aleatório', ',jogador'),
     ('moeda conversão', ',moeda'),
+    # Sticker
+    ('transformar em sticker', ',stic'),
+    ('fazer figurinha', ',stic'),
+    ('tornar figurinha', ',stic'),
     # Greetings
     ('oi', ',oi'),
     ('me mande um oi', ',oi'),

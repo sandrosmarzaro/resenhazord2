@@ -5,7 +5,6 @@ from typing import ClassVar
 
 import httpx
 import structlog
-import structlog.contextvars
 
 from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
@@ -25,6 +24,10 @@ class CommandHandler:
     _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
     _BATCH_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'\s+(\d+)x\s*$')
     _MAX_BATCH: ClassVar[int] = 5
+    _SEND_ME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r'\b(mande|me\s+manda|me\s+envie|envie)\s+(um?|uma)\b',
+        re.IGNORECASE,
+    )
 
     def __init__(
         self,
@@ -36,15 +39,19 @@ class CommandHandler:
         self._agent_executor: AgentExecutor | None = None
 
     def _is_agent_mention(self, data: CommandData) -> bool:
-        """Check if message contains @resenhazord mention."""
-        text_lower = (data.text or "").lower()
+        """Check if message is agent-mode: @resenhazord mention, DM, or 'send me a...' pattern."""
+        text_lower = (data.text or '').lower()
         if data.mentioned_jids:
             settings = Settings()
             bot_jids = [settings.resenhazord2_jid, settings.resenha_jid]
             for jid in data.mentioned_jids:
                 if any(bot_jid.lower() in jid.lower() for bot_jid in bot_jids if bot_jid):
                     return True
-        return "@resenhazord" in text_lower
+        if '@resenhazord' in text_lower:
+            return True
+        if not data.is_group:
+            return True
+        return bool(self._SEND_ME_PATTERN.search(text_lower))
 
     async def _run_agent(self, data: CommandData) -> CommandData:
         """Run the LLM agent to map natural language to command."""
@@ -53,10 +60,10 @@ class CommandHandler:
                 self._agent_executor = AgentExecutor(self._registry)
             return await self._agent_executor.run(data)
         except (httpx.HTTPError, RuntimeError, ValueError):
-            logger.warning("agent_execution_failed", text=data.text)
+            logger.warning('agent_execution_failed', text=data.text)
             return data
 
-    async def handle(
+    async def handle(  # noqa: C901
         self,
         data: CommandData,
         *,
@@ -65,19 +72,28 @@ class CommandHandler:
         """Returns messages if a command matched, None if no match."""
         logger.debug('handle_raw', text=repr(data.text))
 
-        if self._is_agent_mention(data):
-            logger.info("agent_mention_detected", text=data.text)
+        is_agent = self._is_agent_mention(data)
+        if is_agent:
+            logger.info('agent_mention_detected', text=data.text)
             data = await self._run_agent(data)
 
         repeat, data = self._parse_batch(data)
         logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
 
-        command = self._registry.get_strategy(data.text)
-        logger.debug("command_strategy_found", command=command.config.name if command else None, text=data.text)
-        if command is None:
-            return None
+        if data.text.startswith(',clarify:'):
+            question = data.text[len(',clarify:') :].strip()
+            return [Reply.to(data).text(question)]
 
-        structlog.contextvars.bind_contextvars(command=command.config.name)
+        command = self._registry.get_strategy(data.text)
+        logger.debug(
+            'command_strategy_found',
+            command=command.config.name if command else None,
+            text=data.text,
+        )
+        if command is None:
+            if is_agent:
+                return None
+            return None
 
         if on_match:
             await on_match()
