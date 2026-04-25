@@ -98,9 +98,10 @@ class DiscordResponseRenderer:
 
     async def _render_audio_async(self, content: AudioContent) -> DiscordReply:
         try:
-            async with aiohttp.ClientSession() as session, session.get(
-                content.url, timeout=aiohttp.ClientTimeout(total=30)
-            ) as resp:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(content.url, timeout=aiohttp.ClientTimeout(total=30)) as resp,
+            ):
                 if resp.status == self.HTTP_OK:
                     data = await resp.read()
                     logger.info('discord_audio_downloaded', url=content.url, size=len(data))
