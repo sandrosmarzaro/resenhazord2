@@ -3,6 +3,7 @@ import io
 from typing import TYPE_CHECKING, cast
 
 import discord
+import pytest
 
 if TYPE_CHECKING:
     from discord import app_commands
@@ -136,7 +137,7 @@ class TestRegisterCommands:
         bot = DiscordBot('123456789')
         bot.register_commands()
 
-        added_names = [cmd.name for cmd in bot._tree.get_commands(guild=bot._guild)]
+        added_names = [cmd.name for cmd in bot._tree.get_commands()]
         assert 'd20' in added_names
         assert 'jackpot' in added_names
         assert 'sticker' not in added_names
@@ -154,7 +155,7 @@ class TestRegisterCommands:
         bot = DiscordBot('123456789')
         bot.register_commands()
 
-        added_names = [c.name for c in bot._tree.get_commands(guild=bot._guild)]
+        added_names = [c.name for c in bot._tree.get_commands()]
         assert 'anime' in added_names
         assert 'manga' in added_names
 
@@ -173,7 +174,7 @@ class TestRegisterCommands:
         bot = DiscordBot('123456789')
         bot.register_commands()
 
-        registered = bot._tree.get_commands(guild=bot._guild)
+        registered = bot._tree.get_commands()
         assert len(registered) == 1
         slash = cast('app_commands.Command', registered[0])
         type_param = slash._params.get('type')
@@ -273,3 +274,96 @@ class TestDuplicateAliases:
         normalized = [DiscordBot._normalize_name(a) for a in aliases]
 
         assert len(set(normalized)) == 3
+
+
+class TestGlobalSlashCommands:
+    @staticmethod
+    def _make_command(mocker, config: CommandConfig, description: str = 'Test description'):
+        cmd = mocker.MagicMock(spec=Command)
+        cmd.config = config
+        cmd.menu_description = description
+        return cmd
+
+    def test_commands_registered_globally_not_guild_only(self, mocker):
+        cmd = self._make_command(
+            mocker,
+            CommandConfig(name='d20', platforms=[Platform.WHATSAPP, Platform.DISCORD]),
+        )
+        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry.instance.return_value.get_all.return_value = [cmd]
+        bot = DiscordBot('123456789')
+        bot.register_commands()
+
+        registered = bot._tree.get_commands()
+        assert len(registered) == 1
+        assert registered[0].name == 'd20'
+
+
+class TestDmAgentMode:
+    def _make_message(self, mocker, content, guild_id=None):
+        msg = mocker.MagicMock(spec=discord.Message)
+        msg.author = mocker.MagicMock()
+        msg.author.id = 111
+        msg.author.__eq__ = mocker.MagicMock(return_value=False)
+        msg.content = content
+        msg.channel = mocker.MagicMock()
+        msg.channel.id = 222
+        msg.guild = mocker.MagicMock() if guild_id else None
+        if guild_id:
+            msg.guild.id = guild_id
+        msg.reply = mocker.AsyncMock()
+        return msg
+
+    @pytest.mark.anyio
+    async def test_dm_message_runs_agent_and_executes_command(self, mocker):
+        mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        bot = DiscordBot('123456789')
+
+        msg = self._make_message(mocker, 'me mande o g4 do Brasileirão', guild_id=None)
+        msg.author.__eq__ = mocker.MagicMock(return_value=False)
+
+        executor_mock = mocker.MagicMock()
+        executor_mock.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',table br g4'))
+        mocker.patch('bot.adapters.discord.bot.AgentExecutor', return_value=executor_mock)
+
+        strategy_mock = mocker.MagicMock()
+        strategy_mock.run = mocker.AsyncMock(return_value=[])
+        mocker.patch(
+            'bot.adapters.discord.bot.CommandRegistry.instance',
+            return_value=mocker.MagicMock(
+                get_strategy=mocker.MagicMock(return_value=strategy_mock)
+            ),
+        )
+
+        await bot._handle_dm_message(msg)
+
+        executor_mock.run.assert_called_once()
+        call_data = executor_mock.run.call_args.args[0]
+        assert call_data.is_group is False
+        assert call_data.platform == 'discord'
+        strategy_mock.run.assert_called_once()
+        msg.reply.assert_called()
+        reply_text = msg.reply.call_args[0][0]
+        assert 'resposta' in reply_text
+
+    @pytest.mark.anyio
+    async def test_dm_unknown_command_replies_not_recognized(self, mocker):
+        mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        bot = DiscordBot('123456789')
+
+        msg = self._make_message(mocker, 'foo bar baz', guild_id=None)
+        msg.author.__eq__ = mocker.MagicMock(return_value=False)
+
+        executor_mock = mocker.AsyncMock()
+        executor_mock.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',foo'))
+        mocker.patch('bot.adapters.discord.bot.AgentExecutor', return_value=executor_mock)
+        mocker.patch(
+            'bot.adapters.discord.bot.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=None)),
+        )
+
+        await bot._handle_dm_message(msg)
+
+        msg.reply.assert_called()
+        reply_text = msg.reply.call_args[0][0]
+        assert 'reconhecido' in reply_text

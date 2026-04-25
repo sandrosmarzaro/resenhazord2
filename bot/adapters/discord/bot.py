@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import re
 import unicodedata
+from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar, cast
 
 import aiohttp
@@ -62,7 +63,7 @@ class DiscordBot:
         self._do_register(discord_name, command)
 
     def _do_register(self, discord_name: str, command: Command) -> None:
-        existing = self._tree.get_command(discord_name, guild=self._guild)
+        existing = self._tree.get_command(discord_name)
         if existing:
             logger.debug('command_already_registered', name=discord_name)
             return
@@ -92,7 +93,7 @@ class DiscordBot:
         if 'args' in slash_cmd._params and config.args_label:
             slash_cmd._params['args'].description = config.args_label
 
-        self._tree.add_command(slash_cmd, guild=self._guild)
+        self._tree.add_command(slash_cmd)
 
     def _make_callback(self):
         handler = self._handler
@@ -157,6 +158,35 @@ class DiscordBot:
         cleaned = cls.DISCORD_NAME_PATTERN.sub('', ascii_only.replace(' ', '-'))
         return cleaned[: cls.DISCORD_NAME_MAX_LENGTH]
 
+    def _make_on_message(
+        self, client: discord.Client, guild: discord.Object
+    ) -> Callable[[discord.Message], Awaitable[None]]:
+        async def on_message(message: discord.Message) -> None:
+            if message.author == client.user:
+                return
+            if not message.content:
+                return
+
+            is_dm = message.guild is None
+            if is_dm:
+                await self._handle_dm_message(message)
+                return
+
+            if message.guild.id != guild.id:
+                return
+
+            app_user = client.user
+            if app_user is None:
+                return
+
+            bot_mention = f'<@{app_user.id}>'
+            if bot_mention not in message.content and f'@{app_user.name}' not in message.content:
+                return
+
+            await self._handle_agent_message(message)
+
+        return on_message
+
     def _setup_events(self) -> None:
         client = self._client
         tree = self._tree
@@ -166,7 +196,7 @@ class DiscordBot:
         async def on_ready() -> None:
             for attempt in range(1, self.MAX_SYNC_RETRIES + 1):
                 try:
-                    synced = await tree.sync(guild=guild)
+                    synced = await tree.sync()
                 except aiohttp.ClientConnectorError:
                     if attempt == self.MAX_SYNC_RETRIES:
                         logger.exception(
@@ -187,71 +217,97 @@ class DiscordBot:
                     logger.info(
                         'discord_connected',
                         tag=str(client.user),
-                        guild_id=guild.id,
                         synced_commands=[c.name for c in synced],
                     )
                     return
 
-        @client.event
-        async def on_message(message: discord.Message) -> None:
-            if message.author == client.user:
-                return
-            if not message.content:
-                return
-            if not message.guild or message.guild.id != guild.id:
+        client.event(self._make_on_message(client, guild))
+
+    async def _handle_dm_message(self, message: discord.Message) -> None:
+        try:
+            executor = AgentExecutor(CommandRegistry.instance())
+            data = CommandData(
+                text=message.content,
+                jid=str(message.channel.id),
+                sender_jid=str(message.author.id),
+                is_group=False,
+                platform='discord',
+            )
+            result = await executor.run(data)
+
+            strategy = CommandRegistry.instance().get_strategy(result.text)
+            if strategy is None:
+                await message.reply('Comando não reconhecido.')
                 return
 
-            app_user = client.user
-            if app_user is None:
+            command_data = CommandData(
+                text=result.text,
+                jid=data.jid,
+                sender_jid=data.sender_jid,
+                is_group=False,
+                platform='discord',
+            )
+
+            messages = await strategy.run(command_data)
+
+            if not messages:
+                await message.reply('Sem resposta do comando.')
                 return
 
-            bot_mention = f'<@{app_user.id}>'
-            if bot_mention not in message.content and f'@{app_user.name}' not in message.content:
-                return
+            for msg in messages:
+                reply = await self._renderer.render_async(msg)
+                await message.reply(
+                    reply.text or '\u200b',
+                    file=reply.file or None,  # type: ignore[arg-type]
+                    embed=reply.embed or None,  # type: ignore[arg-type]
+                )
+        except Exception:
+            logger.exception('discord_dm_error')
+            await message.reply('Erro ao processar comando.')
 
+    async def _handle_agent_message(self, message: discord.Message) -> None:
+        try:
             logger.info('discord_agent_mention', text=message.content)
+            executor = AgentExecutor(CommandRegistry.instance())
+            data = CommandData(
+                text=message.content,
+                jid=str(message.channel.id),
+                sender_jid=str(message.author.id),
+                is_group=True,
+                platform='discord',
+            )
+            result = await executor.run(data)
 
-            try:
-                executor = AgentExecutor(CommandRegistry.instance())
-                data = CommandData(
-                    text=message.content,
-                    jid=str(message.channel.id),
-                    sender_jid=str(message.author.id),
-                    is_group=True,
-                    platform='discord',
+            strategy = CommandRegistry.instance().get_strategy(result.text)
+            if strategy is None:
+                await message.reply('Comando não reconhecido.')
+                return
+
+            command_data = CommandData(
+                text=result.text,
+                jid=data.jid,
+                sender_jid=data.sender_jid,
+                participant=data.participant,
+                is_group=data.is_group,
+                mentioned_jids=data.mentioned_jids,
+                quoted_message_id=data.quoted_message_id,
+                message_id=data.message_id,
+                platform='discord',
+            )
+
+            messages = await strategy.run(command_data)
+
+            if not messages:
+                await message.reply('Sem resposta do comando.')
+                return
+
+            for msg in messages:
+                reply = await self._renderer.render_async(msg)
+                await message.reply(
+                    reply.text or '\u200b',
+                    file=reply.file or None,  # type: ignore[arg-type]
+                    embed=reply.embed or None,  # type: ignore[arg-type]
                 )
-                result = await executor.run(data)
-
-                strategy = CommandRegistry.instance().get_strategy(result.text)
-                if strategy is None:
-                    await message.reply('Comando não reconhecido.')
-                    return
-
-                command_data = CommandData(
-                    text=result.text,
-                    jid=data.jid,
-                    sender_jid=data.sender_jid,
-                    participant=data.participant,
-                    is_group=data.is_group,
-                    mentioned_jids=data.mentioned_jids,
-                    quoted_message_id=data.quoted_message_id,
-                    message_id=data.message_id,
-                    platform='discord',
-                )
-
-                messages = await strategy.run(command_data)
-
-                if not messages:
-                    await message.reply('Sem resposta do comando.')
-                    return
-
-                for msg in messages:
-                    reply = await self._renderer.render_async(msg)
-                    await message.reply(
-                        reply.text or '\u200b',
-                        file=reply.file or None,  # type: ignore[arg-type]
-                        embed=reply.embed or None,  # type: ignore[arg-type]
-                    )
-            except Exception:
-                logger.exception('discord_agent_error')
-                await message.reply('Erro ao processar comando.')
+        except Exception:
+            logger.exception('discord_agent_error')
+            await message.reply('Erro ao processar comando.')

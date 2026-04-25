@@ -51,7 +51,8 @@ class TelegramUpdateHandler:
         command_name = self._extract_command_name(message)
 
         if command_name is None:
-            is_agent = self._is_agent_mention(message)
+            is_dm = chat.type == ChatType.PRIVATE
+            is_agent = is_dm or self._is_agent_mention(message)
             if is_agent:
                 await self._handle_agent_mention(port, message, chat, user)
                 return
@@ -177,7 +178,12 @@ class TelegramUpdateHandler:
 
         messages = await preprocess_for_telegram(messages)
         for outbound in self._renderer.render_many(messages, chat_id):
-            await port.send(outbound)
+            try:
+                await port.send(outbound)
+            except Exception:
+                logger.exception('telegram_send_failed', command=command_name)
+                await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)
+                return
 
     @staticmethod
     async def _reply_text(port: TelegramPort, chat_id: int, text: str) -> None:

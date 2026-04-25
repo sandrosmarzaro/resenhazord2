@@ -196,15 +196,120 @@ class TestHandle:
         assert sent.text == handler.EMPTY_REPLY_MESSAGE
 
     @pytest.mark.anyio
-    async def test_non_command_update_ignored(self, handler, port, mocker):
+    async def test_non_command_update_in_group_ignored(self, handler, port, mocker):
         patch_registry(mocker, strategy=None)
 
-        await handler.handle(port, make_update('just some text'))
+        await handler.handle(port, make_update('just some text', chat_type=ChatType.GROUP))
 
         port.send.assert_not_called()
 
     @pytest.mark.anyio
     async def test_agent_mention_in_group_triggers_agent(self, handler, port, mocker):
+        strategy = make_strategy(
+            mocker, messages=[BotMessage(jid='1', content=TextContent(text='pong'))]
+        )
+        patch_registry(mocker, strategy=strategy)
+        executor = mocker.MagicMock()
+        executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',d20'))
+        mocker.patch(
+            'bot.adapters.telegram.handler.AgentExecutor',
+            return_value=executor,
+        )
+
+        user = User(id=DEFAULT_USER_ID, first_name='TestUser', is_bot=False)
+        chat = Chat(id=DEFAULT_CHAT_ID, type=ChatType.GROUP)
+        message = Message(
+            message_id=1,
+            date=datetime.now(tz=UTC),
+            chat=chat,
+            from_user=user,
+            text='@resenhazord_bot oi',
+            entities=(MessageEntity(type=MessageEntityType.MENTION, offset=0, length=16),),
+        )
+        await handler.handle(port, Update(update_id=1, message=message))
+
+        executor.run.assert_called_once()
+        port.send.assert_called()
+
+
+class TestDmAgentMode:
+    @pytest.fixture
+    def handler(self):
+        return TelegramUpdateHandler(bot_username='resenhazord_bot', nsfw_chat_ids=frozenset())
+
+    @pytest.mark.anyio
+    async def test_dm_without_command_triggers_agent(self, handler, port, mocker):
+        strategy = make_strategy(
+            mocker, messages=[BotMessage(jid='1', content=TextContent(text='pong'))]
+        )
+        patch_registry(mocker, strategy=strategy)
+        executor = mocker.MagicMock()
+        executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',d20'))
+        mocker.patch(
+            'bot.adapters.telegram.handler.AgentExecutor',
+            return_value=executor,
+        )
+
+        user = User(id=DEFAULT_USER_ID, first_name='TestUser', is_bot=False)
+        chat = Chat(id=DEFAULT_CHAT_ID, type=ChatType.PRIVATE)
+        message = Message(
+            message_id=1,
+            date=datetime.now(tz=UTC),
+            chat=chat,
+            from_user=user,
+            text='me mande o g4 do Brasileirão',
+            entities=(),
+        )
+        await handler.handle(port, Update(update_id=1, message=message))
+
+        executor.run.assert_called_once()
+        call_data = executor.run.call_args.args[0]
+        assert call_data.is_group is False
+        port.send.assert_called()
+
+    @pytest.mark.anyio
+    async def test_dm_unknown_command_replied(self, handler, port, mocker):
+        patch_registry(mocker, strategy=None)
+        executor = mocker.MagicMock()
+        executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',foo'))
+        mocker.patch(
+            'bot.adapters.telegram.handler.AgentExecutor',
+            return_value=executor,
+        )
+
+        user = User(id=DEFAULT_USER_ID, first_name='TestUser', is_bot=False)
+        chat = Chat(id=DEFAULT_CHAT_ID, type=ChatType.PRIVATE)
+        message = Message(
+            message_id=1,
+            date=datetime.now(tz=UTC),
+            chat=chat,
+            from_user=user,
+            text='foo bar baz',
+            entities=(),
+        )
+        await handler.handle(port, Update(update_id=1, message=message))
+
+        sent = port.send.call_args.args[0]
+        assert sent.text == handler.UNKNOWN_COMMAND_MESSAGE
+
+    @pytest.mark.anyio
+    async def test_group_without_mention_ignored(self, handler, port, mocker):
+        user = User(id=DEFAULT_USER_ID, first_name='TestUser', is_bot=False)
+        chat = Chat(id=DEFAULT_CHAT_ID, type=ChatType.GROUP)
+        message = Message(
+            message_id=1,
+            date=datetime.now(tz=UTC),
+            chat=chat,
+            from_user=user,
+            text='hello world',
+            entities=(),
+        )
+        await handler.handle(port, Update(update_id=1, message=message))
+
+        port.send.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_group_with_mention_still_triggers_agent(self, handler, port, mocker):
         strategy = make_strategy(
             mocker, messages=[BotMessage(jid='1', content=TextContent(text='pong'))]
         )
