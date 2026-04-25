@@ -134,7 +134,7 @@ LANGUAGES: set[str] = {
     'uz-uz',
     'vi-vn',
     'yue-hant-hk',
-    'zh (cmn-hans-cn)',
-    'zh-tw (cmn-hant-tw)',
+    'zh-cn',
+    'zh-tw',
     'zu-za',
 }
