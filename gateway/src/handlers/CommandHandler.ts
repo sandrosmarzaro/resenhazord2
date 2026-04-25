@@ -8,6 +8,7 @@ import ReactMessage from '../utils/ReactMessage.js';
 import GetGroupExpiration from '../utils/GetGroupExpiration.js';
 import TypingIndicator from '../utils/TypingIndicator.js';
 import { Sentry } from '../infra/Sentry.js';
+import logger from '../infra/Logger.js';
 
 const RESENHA_JID = process.env.RESENHA_JID!;
 const RESENHAZORD2_JID = process.env.RESENHAZORD2_JID!;
@@ -17,17 +18,23 @@ function hasResenhazordMention(data: WAMessage, text: string): boolean {
   const textLower = text.toLowerCase();
   const mentionedJids = data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
   const botJids = [RESENHAZORD2_JID, RESENHA_JID];
-  
+
   const hasJidMention = mentionedJids.some((jid: string) =>
-    botJids.some((botJid: string) => jid && jid.includes(botJid.split('@')[0]))
+    botJids.some((botJid: string) => jid && jid.includes(botJid.split('@')[0])),
   );
-  
+
   const hasTextMention = botJids.some((botJid: string) =>
-    textLower.includes(botJid.split('@')[0].toLowerCase())
+    textLower.includes(botJid.split('@')[0].toLowerCase()),
   );
-  
-  logger.debug('mention_check', { mentionedJids, hasJidMention, hasTextMention, text: textLower });
-  
+
+  logger.debug({
+    event: 'mention_check',
+    mentionedJids,
+    hasJidMention,
+    hasTextMention,
+    text: textLower,
+  });
+
   return hasJidMention || hasTextMention;
 }
 
@@ -44,9 +51,10 @@ export default class CommandHandler {
       return;
     }
 
+    const isDM = !data.key.remoteJid?.includes('@g.us');
     if (
       Resenhazord2.bridge.isConnected &&
-      (text?.trimStart().startsWith(',') || hasResenhazordMention(data, text))
+      (text?.trimStart().startsWith(',') || hasResenhazordMention(data, text) || isDM)
     ) {
       const commandData = {
         ...data,
