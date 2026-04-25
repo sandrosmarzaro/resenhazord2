@@ -21,7 +21,7 @@ logger = structlog.get_logger()
 class StickerCommand(Command):
     MEDIA_TYPES = frozenset(('image', 'video', 'sticker'))
     STICKER_TYPES: ClassVar[list[str]] = ['crop', 'full', 'circle', 'rounded']
-    QUALITY_PATTERN = r'-?[1-9]\d?%'
+    QUALITY_PATTERN = r'-?\d{1,2}%?'
 
     @property
     def config(self) -> CommandConfig:
