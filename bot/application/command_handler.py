@@ -69,7 +69,7 @@ class CommandHandler:
             logger.warning('agent_execution_failed', text=data.text)
             return data
 
-    async def handle(  # noqa: C901
+    async def handle(  # noqa: C901, PLR0912, PLR0911
         self,
         data: CommandData,
         *,
@@ -89,6 +89,10 @@ class CommandHandler:
         if data.text.startswith(',clarify:'):
             question = data.text[len(',clarify:') :].strip()
             return [Reply.to(data).text(question)]
+
+        if data.text.startswith(',suggest:'):
+            suggestion = data.text[len(',suggest:') :].strip()
+            return [Reply.to(data).text(suggestion)]
 
         command = self._registry.get_strategy(data.text)
         logger.debug(

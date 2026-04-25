@@ -126,11 +126,19 @@ REGRAS DE INFERÊNCIA:
  7. SE NÃO SOUBER mapear: Responda com "CLARIFY: <pergunta>".
     Ex: "CLARIFY: Você quer ver a tabela do brasileiro?"
     Não responda apenas "não entendi".
- 8. CONTEXTO DE RESPOSTA: Se o usuário está RESPONDENDO a uma mensagem do bot
+ 8. NÃO SEI + SUGESTÃO: Se a pergunta é específica mas você encontra um comando
+    SIMILAR, responda CONVERSACIONALMENTE primeiro, SEM executar o comando.
+    Ex: "qual a fundação do flamengo?" → ,time (similar: football team)
+    → "Eu não sei te dizer a data exata, mas posso te mandar um time aleatório se quiser! Use ,time"
+    Ex: "por que o céu é azul?" → ,fato (similar: random fact)
+    → "Não sei responder isso, mas posso te contar um fato aleatório! Use ,fato"
+    Ex: "quem ganhou a champions 2024?" → ,tabela bl (similar: champions table)
+    → "Não tenho essa info, mas posso mostrar a tabela! Use ,tabela bl"
+    O formato deve ser: "SUGGEST: <mensagem conversacional> ,comando"
+ 9. CONTEXTO DE RESPOSTA: Se o usuário está RESPONDENDO a uma mensagem do bot
     (reply/quotation), use o contexto para inferir o comando correto.
-    Ex: se o bot disse "Não sei... mas posso te contar um fato aleatório com ,fato!"
-    e o usuário responde "sim" ou "yes", → ",fato"
-    Ex: se o bot sugeriu "tabela champions" e o usuário diz "sim" → ",tabela bl"{context}
+    Ex: se o bot disse "Use ,fato" e o usuário responde "sim" → ",fato"
+    Ex: se o bot sugeriu "Use ,tabela bl" e o usuário diz "sim" → ",tabela bl"{context}
 
 {user_context}
 Comando:"""

@@ -85,6 +85,26 @@ class AgentExecutor:
                 media_buffer=data.media_buffer,
             )
 
+        if content.startswith('SUGGEST:'):
+            suggestion = content[len('SUGGEST:') :].strip()
+            logger.info('agent_suggesting_command', suggestion=suggestion)
+            return CommandData(
+                text=f',suggest:{suggestion}',
+                jid=data.jid,
+                sender_jid=data.sender_jid,
+                participant=data.participant,
+                is_group=data.is_group,
+                mentioned_jids=data.mentioned_jids,
+                quoted_message_id=data.quoted_message_id,
+                message_id=data.message_id,
+                platform=data.platform,
+                media_type=data.media_type,
+                media_source=data.media_source,
+                media_is_animated=data.media_is_animated,
+                media_caption=data.media_caption,
+                media_buffer=data.media_buffer,
+            )
+
         logger.warning(
             'agent_no_tool_call',
             content=content,
