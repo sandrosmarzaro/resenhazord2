@@ -5,8 +5,8 @@ import pytest
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.score import ScoreCommand
 from bot.infrastructure.llm.tools import (
-    command_to_tool_schema,
     build_tools_for_prompt,
+    command_to_tool_schema,
     get_command_names,
 )
 
@@ -18,9 +18,9 @@ class TestCommandToToolSchema:
         command = ScoreCommand()
         schema = command_to_tool_schema(command)
 
-        assert schema["type"] == "function"
-        assert "function" in schema
-        assert schema["function"]["name"] == "placar"
+        assert schema['type'] == 'function'
+        assert 'function' in schema
+        assert schema['function']['name'] == 'placar'
 
     @pytest.mark.anyio
     async def test_tool_schema_has_description(self):
@@ -28,8 +28,8 @@ class TestCommandToToolSchema:
         command = ScoreCommand()
         schema = command_to_tool_schema(command)
 
-        assert "description" in schema["function"]
-        assert len(schema["function"]["description"]) > 0
+        assert 'description' in schema['function']
+        assert len(schema['function']['description']) > 0
 
     @pytest.mark.anyio
     async def test_tool_schema_has_flags_as_boolean(self):
@@ -37,9 +37,9 @@ class TestCommandToToolSchema:
         command = ScoreCommand()
         schema = command_to_tool_schema(command)
 
-        properties = schema["function"]["parameters"]["properties"]
-        assert "past" in properties
-        assert properties["past"]["type"] == "boolean"
+        properties = schema['function']['parameters']['properties']
+        assert 'past' in properties
+        assert properties['past']['type'] == 'boolean'
 
 
 class TestBuildToolsForPrompt:
@@ -65,8 +65,8 @@ class TestBuildToolsForPrompt:
         command = ScoreCommand()
         schema = command_to_tool_schema(command)
 
-        assert schema["type"] == "function"
-        assert schema["function"]["name"] == "placar"
-        assert "past" in schema["function"]["parameters"]["properties"]
-        assert "now" in schema["function"]["parameters"]["properties"]
-        assert "next" in schema["function"]["parameters"]["properties"]
+        assert schema['type'] == 'function'
+        assert schema['function']['name'] == 'placar'
+        assert 'past' in schema['function']['parameters']['properties']
+        assert 'now' in schema['function']['parameters']['properties']
+        assert 'next' in schema['function']['parameters']['properties']
