@@ -60,7 +60,7 @@ class WebSocketHandler:
 
         cmd_data = WSCommandData.model_validate(msg.data)
         logger.info(
-            "ws_command_received",
+            'ws_command_received',
             text=cmd_data.text,
             mentioned_jids=cmd_data.mentioned_jids,
             is_group=cmd_data.is_group,
@@ -94,7 +94,8 @@ class WebSocketHandler:
         )
 
         async def send_ack() -> None:
-            await self._ws.send_json({'id': msg.id, 'type': 'command_ack'})
+            text_preview = cmd_data.text[:50]
+            await self._ws.send_json({'id': msg.id, 'type': 'command_ack', 'text': text_preview})
 
         try:
             messages = await self._command_handler.handle(command_data, on_match=send_ack)
