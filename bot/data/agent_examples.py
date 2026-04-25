@@ -72,6 +72,12 @@ AGENT_EXAMPLES = [
     ('transformar em sticker', ',stic'),
     ('fazer figurinha', ',stic'),
     ('tornar figurinha', ',stic'),
+    ('figurinha centralizada', ',stic type crop'),
+    ('sticker centralizado', ',stic type crop'),
+    ('figurinha com bordas arredondadas', ',stic type rounded'),
+    ('sticker sem bordas', ',stic type rounded'),
+    ('figurinha redonda', ',stic type circle'),
+    ('sticker circular', ',stic type circle'),
     # Greetings
     ('oi', ',oi'),
     ('me mande um oi', ',oi'),
@@ -135,7 +141,12 @@ REGRAS DE INFERÊNCIA:
     Ex: "quem ganhou a champions 2024?" → ,tabela bl (similar: champions table)
     → "Não tenho essa info, mas posso mostrar a tabela! Use ,tabela bl"
     O formato deve ser: "SUGGEST: <mensagem conversacional> ,comando"
- 9. CONTEXTO DE RESPOSTA: Se o usuário está RESPONDENDO a uma mensagem do bot
+  9. STICKER type:
+     - crop: "centralizada", "centralizado", "cortada", "meio"
+     - rounded: "bordas arredondadas", "sem bordas", "cantos arredondados"
+     - circle: "redonda", "circular", "completamente circular"
+     - full: padrão, sem especificação
+ 10. CONTEXTO DE RESPOSTA: Se o usuário está RESPONDENDO a uma mensagem do bot
     (reply/quotation), use o contexto para inferir o comando correto.
     Ex: se o bot disse "Use ,fato" e o usuário responde "sim" → ",fato"
     Ex: se o bot sugeriu "Use ,tabela bl" e o usuário diz "sim" → ",tabela bl"{context}
