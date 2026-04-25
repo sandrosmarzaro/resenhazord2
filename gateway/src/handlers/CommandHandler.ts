@@ -12,22 +12,29 @@ import logger from '../infra/Logger.js';
 
 const RESENHA_JID = process.env.RESENHA_JID!;
 const RESENHAZORD2_JID = process.env.RESENHAZORD2_JID!;
+const RESENHAZORD2_LID = process.env.RESENHAZORD2_LID!;
+
+function isBotId(id: string): boolean {
+  // Handle both full JID (@s.whatsapp.net or @g.us) and just the numeric part
+  const numericPart = id.split('@')[0];
+  return (
+    numericPart === RESENHAZORD2_JID.split('@')[0] ||
+    numericPart === RESENHA_JID.split('@')[0] ||
+    numericPart === RESENHAZORD2_LID
+  );
+}
 
 function hasResenhazordMention(data: WAMessage, text: string): boolean {
   if (!text) return false;
   const textLower = text.toLowerCase();
   const mentionedJids = data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
-  const botJids = [RESENHAZORD2_JID, RESENHA_JID];
 
-  const botJidParts = botJids.map((jid) => jid.split('@')[0]);
-
-  const hasJidMention = mentionedJids.some((jid: string) =>
-    botJidParts.some((part) => part && jid.includes(part)),
-  );
-
-  const hasTextMention = botJidParts.some((part) =>
-    part && textLower.includes(part.toLowerCase()),
-  );
+  const hasJidMention = mentionedJids.some(isBotId);
+  const hasTextMention = [
+    RESENHAZORD2_JID.split('@')[0],
+    RESENHA_JID.split('@')[0],
+    RESENHAZORD2_LID,
+  ].some((botId) => textLower.includes(botId.toLowerCase()));
 
   const hasAnyMention = mentionedJids.length > 0;
 
@@ -37,7 +44,6 @@ function hasResenhazordMention(data: WAMessage, text: string): boolean {
     hasJidMention,
     hasTextMention,
     hasAnyMention,
-    botJidParts,
     text: textLower,
   });
 
