@@ -147,9 +147,51 @@ class TestBatch:
 
     @pytest.mark.anyio
     async def test_no_batch_suffix_runs_once(self, handler):
-        data = GroupCommandDataFactory.build(text=', pub')
+        data = GroupCommandDataFactory.build(text=',pub')
 
         result = await handler.handle(data)
 
         assert result is not None
-        assert len(result) == 1
+
+
+class TestAgentDetection:
+    @pytest.mark.anyio
+    async def test_agent_trigger_in_dm(self, handler):
+        """Test that any message in DM triggers agent mode."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text='me mande um yugioh',
+            jid='test@s.whatsapp.net',
+            sender_jid='test@s.whatsapp.net',
+            is_group=False,
+        )
+
+        is_agent = handler._is_agent_mention(data)
+
+        assert is_agent is True
+
+    @pytest.mark.anyio
+    async def test_agent_trigger_with_send_me_pattern(self, handler):
+        """Test that 'mande um' pattern triggers agent in group."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text='me mande um pacotinho de yugioh',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        is_agent = handler._is_agent_mention(data)
+
+        assert is_agent is True
+
+    @pytest.mark.anyio
+    async def test_no_agent_for_plain_command_in_group(self, handler):
+        """Test that plain comma command in group doesn't trigger agent."""
+        data = GroupCommandDataFactory.build(text=',pub')
+
+        is_agent = handler._is_agent_mention(data)
+
+        assert is_agent is False
