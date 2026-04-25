@@ -126,7 +126,11 @@ REGRAS DE INFERÊNCIA:
  7. SE NÃO SOUBER mapear: Responda com "CLARIFY: <pergunta>".
     Ex: "CLARIFY: Você quer ver a tabela do brasileiro?"
     Não responda apenas "não entendi".
- 8. Responda APENAS com o comando (com vírgula) ou "CLARIFY: <pergunta>".
+ 8. CONTEXTO DE RESPOSTA: Se o usuário está RESPONDENDO a uma mensagem do bot
+    (reply/quotation), use o contexto para inferir o comando correto.
+    Ex: se o bot disse "Não sei... mas posso te contar um fato aleatório com ,fato!"
+    e o usuário responde "sim" ou "yes", → ",fato"
+    Ex: se o bot sugeriu "tabela champions" e o usuário diz "sim" → ",tabela bl"{context}
 
-Pedido do usuário: {user_input}
+{user_context}
 Comando:"""

@@ -35,7 +35,7 @@ class AgentExecutor:
 
         Returns CommandData with rewritten text for command execution.
         """
-        prompt = self._build_prompt(data.text)
+        prompt = self._build_prompt(data.text, context=data.quoted_text)
         tools = build_tools_for_prompt(self._registry)
 
         logger.info(
@@ -92,7 +92,7 @@ class AgentExecutor:
         )
         return self._fallback(data)
 
-    def _build_prompt(self, user_input: str) -> str:
+    def _build_prompt(self, user_input: str, context: str | None = None) -> str:
         """Build the prompt with tools and examples."""
         filtered_input = user_input.replace('@resenhazord', '').strip()
 
@@ -102,10 +102,19 @@ class AgentExecutor:
             f'Usuário: "{prompt}" -> Comando: {cmd}' for prompt, cmd in AGENT_EXAMPLES[:20]
         )
 
+        if context:
+            context_block = f'\nContexto da mensagem anterior: "{context}"'
+            user_block = f'\nPedido do usuário (respondendo acima): {filtered_input}'
+        else:
+            context_block = ''
+            user_block = f'\nPedido do usuário: {filtered_input}'
+
         return SYSTEM_PROMPT_TEMPLATE.format(
             command_list=command_list,
             examples=examples_text,
             user_input=filtered_input,
+            context=context_block,
+            user_context=user_block,
         )
 
     def _build_command_data(
