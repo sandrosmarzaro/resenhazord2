@@ -43,9 +43,15 @@ class CommandHandler:
         text_lower = (data.text or '').lower()
         if data.mentioned_jids:
             settings = Settings()
-            bot_jids = [settings.resenhazord2_jid, settings.resenha_jid]
-            for jid in data.mentioned_jids:
-                if any(bot_jid.lower() in jid.lower() for bot_jid in bot_jids if bot_jid):
+            bot_ids = [
+                settings.resenhazord2_jid,
+                settings.resenha_jid,
+                settings.resenhazord2_lid,
+            ]
+            bot_numeric = [jid.split('@')[0] for jid in bot_ids if jid]
+            for mentioned in data.mentioned_jids:
+                mentioned_numeric = mentioned.split('@')[0]
+                if any(bot_id == mentioned_numeric for bot_id in bot_numeric):
                     return True
         if '@resenhazord' in text_lower:
             return True

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     resenhazord2_jid: str = ''
+    resenhazord2_lid: str = ''
     resenha_jid: str = ''
     discord_token: str = ''
     discord_server_guild_id: str = ''

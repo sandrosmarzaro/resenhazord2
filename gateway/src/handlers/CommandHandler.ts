@@ -77,6 +77,7 @@ export default class CommandHandler {
       Resenhazord2.bridge.isConnected &&
       (text?.trimStart().startsWith(',') || hasResenhazordMention(data, text) || isDM)
     ) {
+      logger.info({ event: 'forwarding_to_python', text, textPreview: text?.slice(0, 50) });
       const commandData = {
         ...data,
         text,

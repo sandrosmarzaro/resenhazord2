@@ -92,7 +92,11 @@ export default class PythonBridge {
     data: CommandData,
     onAck?: () => void | Promise<void>,
   ): Promise<Message[] | null> {
-    if (!this.isConnected) return null;
+    logger.info({ event: 'send_command_called', isConnected: this.isConnected, text: data.text });
+    if (!this.isConnected) {
+      logger.warn({ event: 'send_command_skipped_not_connected' });
+      return null;
+    }
 
     const id = crypto.randomUUID();
     const messageId = data.key.id ?? null;
