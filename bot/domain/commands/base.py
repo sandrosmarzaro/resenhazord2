@@ -96,6 +96,9 @@ class Command(ABC):
     def matches(self, text: str) -> bool:
         return self.parser.matches(text)
 
+    def parse(self, text: str) -> ParsedCommand:
+        return self.parser.parse(text)
+
     async def run(self, data: CommandData) -> list[BotMessage]:
         if self.config.group_only and not data.is_group:
             return [Reply.to(data).text('Esse comando só funciona em grupo! 🤦‍♂️')]

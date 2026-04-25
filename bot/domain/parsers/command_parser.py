@@ -39,18 +39,31 @@ class CommandParser:
 
         tokens = [t for t in remaining.split() if t]
 
-        for token in tokens:
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
             opt = self._try_match_option(token, options)
             if opt:
                 options[opt[0]] = opt[1]
+                i += 1
                 continue
+
+            if i + 1 < len(tokens):
+                next_token = tokens[i + 1]
+                opt_as_value = self._try_match_option_as_value(next_token)
+                if opt_as_value and opt_as_value not in options:
+                    options[token] = opt_as_value
+                    i += 2
+                    continue
 
             flag = self._try_match_flag(token, flags)
             if flag:
                 flags.add(flag)
+                i += 1
                 continue
 
             rest_parts.append(token)
+            i += 1
 
         return ParsedCommand(
             command_name=command_name,
@@ -58,6 +71,15 @@ class CommandParser:
             options=options,
             rest=' '.join(rest_parts),
         )
+
+    def _try_match_option_as_value(self, token: str) -> str | None:
+        for opt in self._config.options:
+            if opt.values:
+                for v in opt.values:
+                    pattern = self._replace_diacritics(v)
+                    if re.match(f'^{pattern}$', token, re.IGNORECASE):
+                        return v
+        return None
 
     def _try_match_option(self, token: str, matched: dict[str, str]) -> tuple[str, str] | None:
         for opt in self._config.options:

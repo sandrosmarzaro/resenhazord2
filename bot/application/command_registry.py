@@ -30,6 +30,10 @@ class CommandRegistry:
         for cmd in self._commands:
             if cmd.matches(text):
                 return cmd
+        for cmd in self._commands:
+            parsed = cmd.parse(text)
+            if parsed.command_name:
+                return cmd
         return None
 
     def get_by_name(self, name: str) -> Command | None:
