@@ -19,6 +19,7 @@ logger = structlog.get_logger()
 
 FALLBACK_COMMAND = None
 FALLBACK_MESSAGE = 'Não entendi. Tente usar um comando direto, ex: ,menu'
+MAX_AGENT_EXAMPLES = 20
 
 DM_KEYWORDS = re.compile(
     r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(me\s*)?dm|send\s*(me\s*)?privately)\b',
@@ -119,7 +120,8 @@ class AgentExecutor:
         command_list = get_command_list_with_descriptions(self._registry)
 
         examples_text = '\n'.join(
-            f'Usuário: "{prompt}" -> Comando: {cmd}' for prompt, cmd in AGENT_EXAMPLES[:20]
+            f'Usuário: "{prompt}" -> Comando: {cmd}'
+            for prompt, cmd in AGENT_EXAMPLES[:MAX_AGENT_EXAMPLES]
         )
 
         if context:
