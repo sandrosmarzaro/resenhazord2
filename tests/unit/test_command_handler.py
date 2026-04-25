@@ -195,3 +195,47 @@ class TestAgentDetection:
         is_agent = handler._is_agent_mention(data)
 
         assert is_agent is False
+
+
+class TestSuggestHandler:
+    """Tests for ,suggest: handler in command handler."""
+
+    @pytest.mark.anyio
+    async def test_suggest_returns_conversational_message(self, handler):
+        """Test that ,suggest: returns the conversational message."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',suggest:Não sei te dizer a data exata, '
+            'mas posso te mandar um time aleatório! Use ,time',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            mentioned_jids=['bot_jid@s.whatsapp.net'],
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert len(result) == 1
+        assert 'Não sei' in result[0].content.text
+        assert 'time' in result[0].content.text
+
+    @pytest.mark.anyio
+    async def test_clarify_returns_question(self, handler):
+        """Test that ,clarify: returns the question."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',clarify:Você quer ver a tabela de qual competição?',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            mentioned_jids=['bot_jid@s.whatsapp.net'],
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert len(result) == 1
+        assert 'tabela' in result[0].content.text

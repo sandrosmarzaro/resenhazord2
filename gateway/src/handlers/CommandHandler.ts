@@ -35,7 +35,9 @@ function hasResenhazordMention(data: WAMessage, text: string): boolean {
     RESENHAZORD2_JID?.split('@')[0],
     RESENHA_JID?.split('@')[0],
     RESENHAZORD2_LID,
-  ].filter(Boolean).some((botId) => textLower.includes(botId.toLowerCase()));
+  ]
+    .filter(Boolean)
+    .some((botId) => textLower.includes(botId.toLowerCase()));
 
   const hasAnyMention = mentionedJids.length > 0;
 
