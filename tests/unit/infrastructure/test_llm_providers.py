@@ -1,6 +1,4 @@
-"""Tests for LLM providers (TDD: write failing tests first)."""
-
-from unittest.mock import AsyncMock, MagicMock, patch
+"""Tests for LLM providers."""
 
 import httpx
 import pytest
@@ -26,7 +24,7 @@ class TestGitHubProvider:
         assert provider.model_id == 'gpt-4o'
 
     @pytest.mark.anyio
-    async def test_complete_returns_tool_call(self, provider):
+    async def test_complete_returns_tool_call(self, provider, mocker):
         tools = [
             {
                 'type': 'function',
@@ -37,34 +35,34 @@ class TestGitHubProvider:
                 },
             }
         ]
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.text = ''
-            mock_response.raise_for_status = MagicMock()
-            mock_response.json = MagicMock(
-                return_value={
-                    'choices': [
-                        {
-                            'message': {
-                                'tool_calls': [
-                                    {
-                                        'function': {
-                                            'name': 'score',
-                                            'arguments': '{}',
-                                        }
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = ''
+        mock_response.raise_for_status = mocker.MagicMock()
+        mock_response.json = mocker.MagicMock(
+            return_value={
+                'choices': [
+                    {
+                        'message': {
+                            'tool_calls': [
+                                {
+                                    'function': {
+                                        'name': 'score',
+                                        'arguments': '{}',
                                     }
-                                ]
-                            }
+                                }
+                            ]
                         }
-                    ]
-                }
-            )
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
-            )
+                    }
+                ]
+            }
+        )
 
-            result = await provider.complete('mostrar placar', tools)
+        mock_client = mocker.MagicMock()
+        mock_client.post = mocker.AsyncMock(return_value=mock_response)
+        mocker.patch.object(GitHubProvider, '_client', mock_client)
+
+        result = await provider.complete('mostrar placar', tools)
 
         assert result.tool_call is not None
         assert result.tool_call['name'] == 'score'
@@ -79,53 +77,30 @@ class TestProviderChain:
         return chain
 
     @pytest.mark.anyio
-    async def test_skips_on_429(self, chain):
-        mock_response = MagicMock()
+    async def test_skips_on_429(self, chain, mocker):
+        mock_response = mocker.MagicMock()
         mock_response.status_code = 429
-        http_error = httpx.HTTPStatusError('429', request=MagicMock(), response=mock_response)
-        with (
-            patch.object(
-                chain._states[0].provider,
-                'complete',
-                side_effect=http_error,
-            ),
-            patch.object(
-                chain._states[1].provider,
-                'complete',
-                side_effect=http_error,
-            ),
-            patch.object(
-                chain._states[2].provider,
-                'complete',
-                return_value=LLMResponse(
-                    content='fallback success', provider='groq', model='mixtral'
-                ),
-            ),
-        ):
-            await chain.complete('test prompt', [])
+        http_error = httpx.HTTPStatusError('429', request=mocker.MagicMock(), response=mock_response)
+
+        mocker.patch.object(chain._states[0].provider, 'complete', side_effect=http_error)
+        mocker.patch.object(chain._states[1].provider, 'complete', side_effect=http_error)
+        mocker.patch.object(
+            chain._states[2].provider,
+            'complete',
+            return_value=LLMResponse(content='fallback success', provider='groq', model='mixtral'),
+        )
+
+        result = await chain.complete('test prompt', [])
+
+        assert result.content == 'fallback success'
+        assert result.provider == 'groq'
 
     @pytest.mark.anyio
-    async def test_all_providers_down_returns_error(self, chain):
-        for state in chain._states:
-            with patch.object(
-                state.provider,
-                'complete',
-                side_effect=Exception('Provider down'),
-            ):
-                pass
+    async def test_all_providers_down_returns_error(self, chain, mocker):
+        http_error = httpx.HTTPError('Provider down')
+        mocker.patch.object(chain._states[0].provider, 'complete', side_effect=http_error)
+        mocker.patch.object(chain._states[1].provider, 'complete', side_effect=http_error)
+        mocker.patch.object(chain._states[2].provider, 'complete', side_effect=http_error)
 
         with pytest.raises(RuntimeError, match='All LLM providers failed'):
             await chain.complete('test prompt', [])
-
-
-class TestMockResponses:
-    @pytest.mark.anyio
-    async def test_github_tool_call_response_format(self):
-        expected_tool_call = {
-            'name': 'score',
-            'arguments': '{"flag": "now"}',
-        }
-        import json
-
-        args = json.loads(expected_tool_call['arguments'])
-        assert 'flag' in args

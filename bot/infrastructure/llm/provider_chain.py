@@ -2,6 +2,8 @@
 
 import asyncio
 from dataclasses import dataclass
+from http import HTTPStatus
+from typing import ClassVar
 
 import httpx
 import structlog
@@ -16,12 +18,6 @@ from bot.infrastructure.llm.providers import (
 
 logger = structlog.get_logger()
 
-RETRY_DELAY = 60.0
-HTTP_TOO_MANY_REQUESTS = 429
-NO_PROVIDERS_MSG = 'No LLM providers configured'
-ALL_FAILED_MSG = 'All LLM providers failed'
-NOT_CONFIGURED_MSG = 'ProviderChain not configured'
-
 
 class ProviderRateLimitedError(Exception):
     pass
@@ -34,9 +30,15 @@ class ProviderState:
 
 
 class ProviderChain:
+    RETRY_DELAY: ClassVar[float] = 60.0
+    NO_PROVIDERS_MSG: ClassVar[str] = 'No LLM providers configured'
+    ALL_FAILED_MSG: ClassVar[str] = 'All LLM providers failed'
+    NOT_CONFIGURED_MSG: ClassVar[str] = 'ProviderChain not configured'
+
     def __init__(self) -> None:
         self._states: list[ProviderState] = []
         self._current_index = 0
+        self._lock = asyncio.Lock()
 
     def configure(
         self,
@@ -58,23 +60,24 @@ class ProviderChain:
         tools: list[dict],
     ) -> LLMResponse:
         if not self._states:
-            raise RuntimeError(NO_PROVIDERS_MSG)
+            raise RuntimeError(self.NO_PROVIDERS_MSG)
 
         tried = 0
 
         while tried < len(self._states):
-            state = self._states[self._current_index]
-            provider = state.provider
+            async with self._lock:
+                state = self._states[self._current_index]
+                provider = state.provider
 
-            try:
-                now = asyncio.get_running_loop().time()
-            except RuntimeError:
-                now = 0.0
-            if now < state.cooldown_until:
-                logger.debug('provider_in_cooldown', provider=provider.provider_name)
-                self._advance()
-                tried += 1
-                continue
+                try:
+                    now = asyncio.get_running_loop().time()
+                except RuntimeError:
+                    now = 0.0
+                if now < state.cooldown_until:
+                    logger.debug('provider_in_cooldown', provider=provider.provider_name)
+                    self._advance()
+                    tried += 1
+                    continue
 
             logger.info(
                 'provider_attempt',
@@ -91,27 +94,30 @@ class ProviderChain:
                     status=e.response.status_code,
                 )
 
-                self._advance()
-                tried += 1
+                async with self._lock:
+                    self._advance()
+                    tried += 1
 
-                if e.response.status_code == HTTP_TOO_MANY_REQUESTS:
-                    try:
-                        state.cooldown_until = asyncio.get_running_loop().time() + RETRY_DELAY
-                    except RuntimeError:
-                        state.cooldown_until = float('inf')
-                    logger.warning(
-                        'provider_rate_limited',
-                        provider=provider.provider_name,
-                        cooldown=RETRY_DELAY,
-                    )
+                    if e.response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                        try:
+                            loop_time = asyncio.get_running_loop().time()
+                            state.cooldown_until = loop_time + self.RETRY_DELAY
+                        except RuntimeError:
+                            state.cooldown_until = float('inf')
+                        logger.warning(
+                            'provider_rate_limited',
+                            provider=provider.provider_name,
+                            cooldown=self.RETRY_DELAY,
+                        )
             except httpx.HTTPError as e:
                 logger.warning(
                     'provider_failed',
                     provider=provider.provider_name,
                     error=str(e),
                 )
-                self._advance()
-                tried += 1
+                async with self._lock:
+                    self._advance()
+                    tried += 1
             else:
                 logger.info(
                     'provider_success',
@@ -120,7 +126,7 @@ class ProviderChain:
                 )
                 return response
 
-        raise RuntimeError(ALL_FAILED_MSG)
+        raise RuntimeError(self.ALL_FAILED_MSG)
 
     def _advance(self) -> None:
         self._current_index = (self._current_index + 1) % max(len(self._states), 1)
@@ -134,7 +140,8 @@ def configure_chain(
     mistral_key: str | None,
     groq_key: str | None,
 ) -> ProviderChain:
-    global _chain  # noqa: PLW0603 - singleton pattern requires global
+    # Singleton pattern requires module-level state for get_chain() access
+    global _chain  # noqa: PLW0603
     _chain = ProviderChain()
     _chain.configure(github_token, mistral_key, groq_key)
     return _chain
@@ -142,5 +149,5 @@ def configure_chain(
 
 def get_chain() -> ProviderChain:
     if _chain is None:
-        raise RuntimeError(NOT_CONFIGURED_MSG)
+        raise RuntimeError(ProviderChain.NOT_CONFIGURED_MSG)
     return _chain

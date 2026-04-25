@@ -73,10 +73,10 @@ def build_tools_for_prompt(
         registry: CommandRegistry instance
         include_scope: Only include commands with this scope or higher
         (PUBLIC < INTERNAL < DEV < ADMIN)
-        exclude_scopes: Explicitly exclude these scopes
+        exclude_scopes: Explicitly exclude these scopes (defaults to NSFW)
     """
     if exclude_scopes is None:
-        exclude_scopes = frozenset()
+        exclude_scopes = frozenset({CommandScope.NSFW})
 
     tools: list[dict] = []
     scope_priority = {

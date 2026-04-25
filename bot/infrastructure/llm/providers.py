@@ -2,11 +2,10 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import ClassVar
 
 import httpx
 import structlog
-
-from bot.settings import Settings
 
 logger = structlog.get_logger()
 
@@ -22,6 +21,18 @@ class LLMResponse:
 
 
 class LLMProvider(ABC):
+    REQUEST_TIMEOUT: ClassVar[float] = 60.0
+    MAX_TOKENS: ClassVar[int] = 500
+    LOG_BODY_PREVIEW_LENGTH: ClassVar[int] = 500
+
+    _client: ClassVar[httpx.AsyncClient | None] = None
+
+    @classmethod
+    def _get_client(cls) -> httpx.AsyncClient:
+        if cls._client is None:
+            cls._client = httpx.AsyncClient(timeout=cls.REQUEST_TIMEOUT)
+        return cls._client
+
     @property
     @abstractmethod
     def provider_name(self) -> str: ...
@@ -63,52 +74,52 @@ class GitHubProvider(LLMProvider):
         prompt: str,
         tools: list[dict],
     ) -> LLMResponse:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            messages = [{'role': 'user', 'content': prompt}]
-            payload: dict = {
-                'model': self.model_id,
-                'messages': messages,
-                'max_tokens': 500,
-            }
-            if tools:
-                payload['tools'] = tools
+        client = self._get_client()
+        messages = [{'role': 'user', 'content': prompt}]
+        payload: dict = {
+            'model': self.model_id,
+            'messages': messages,
+            'max_tokens': self.MAX_TOKENS,
+        }
+        if tools:
+            payload['tools'] = tools
 
-            logger.debug(
-                'github_request',
-                model=self.model_id,
-                has_tools=bool(tools),
-                tool_count=len(tools) if tools else 0,
+        logger.debug(
+            'github_request',
+            model=self.model_id,
+            has_tools=bool(tools),
+            tool_count=len(tools) if tools else 0,
+        )
+        response = await client.post(
+            f'{self.BASE_URL}/chat/completions',
+            json=payload,
+            headers={
+                'Accept': 'application/vnd.github+json',
+                'Authorization': f'Bearer {self._token}',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json',
+            },
+        )
+        if response.status_code >= HTTP_STATUS_ERROR_THRESHOLD:
+            logger.warning(
+                'github_error_response',
+                status=response.status_code,
+                body=response.text[: self.LOG_BODY_PREVIEW_LENGTH],
             )
-            response = await client.post(
-                f'{self.BASE_URL}/chat/completions',
-                json=payload,
-                headers={
-                    'Accept': 'application/vnd.github+json',
-                    'Authorization': f'Bearer {self._token}',
-                    'X-GitHub-Api-Version': '2022-11-28',
-                    'Content-Type': 'application/json',
-                },
-            )
-            if response.status_code >= HTTP_STATUS_ERROR_THRESHOLD:
-                logger.warning(
-                    'github_error_response',
-                    status=response.status_code,
-                    body=response.text[:500],
-                )
-            response.raise_for_status()
-            data = response.json()
+        response.raise_for_status()
+        data = response.json()
 
-            choice = data['choices'][0]
-            message = choice['message']
+        choice = data['choices'][0]
+        message = choice['message']
 
-            tool_call = self._parse_tool_call(message)
+        tool_call = self._parse_tool_call(message)
 
-            return LLMResponse(
-                content=message.get('content', ''),
-                provider=self.provider_name,
-                model=self.model_id,
-                tool_call=tool_call,
-            )
+        return LLMResponse(
+            content=message.get('content', ''),
+            provider=self.provider_name,
+            model=self.model_id,
+            tool_call=tool_call,
+        )
 
 
 class MistralProvider(LLMProvider):
@@ -130,38 +141,38 @@ class MistralProvider(LLMProvider):
         prompt: str,
         tools: list[dict],
     ) -> LLMResponse:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            messages = [{'role': 'user', 'content': prompt}]
-            payload: dict = {
-                'model': self.model_id,
-                'messages': messages,
-                'max_tokens': 500,
-            }
-            if tools:
-                payload['tools'] = tools
+        client = self._get_client()
+        messages = [{'role': 'user', 'content': prompt}]
+        payload: dict = {
+            'model': self.model_id,
+            'messages': messages,
+            'max_tokens': self.MAX_TOKENS,
+        }
+        if tools:
+            payload['tools'] = tools
 
-            response = await client.post(
-                f'{self.BASE_URL}/chat/completions',
-                json=payload,
-                headers={
-                    'Authorization': f'Bearer {self._api_key}',
-                    'Content-Type': 'application/json',
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        response = await client.post(
+            f'{self.BASE_URL}/chat/completions',
+            json=payload,
+            headers={
+                'Authorization': f'Bearer {self._api_key}',
+                'Content-Type': 'application/json',
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
 
-            choice = data['choices'][0]
-            message = choice['message']
+        choice = data['choices'][0]
+        message = choice['message']
 
-            tool_call = self._parse_tool_call(message)
+        tool_call = self._parse_tool_call(message)
 
-            return LLMResponse(
-                content=message.get('content', ''),
-                provider=self.provider_name,
-                model=self.model_id,
-                tool_call=tool_call,
-            )
+        return LLMResponse(
+            content=message.get('content', ''),
+            provider=self.provider_name,
+            model=self.model_id,
+            tool_call=tool_call,
+        )
 
 
 class GroqProvider(LLMProvider):
@@ -183,45 +194,31 @@ class GroqProvider(LLMProvider):
         prompt: str,
         tools: list[dict],
     ) -> LLMResponse:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            messages = [{'role': 'user', 'content': prompt}]
-            payload: dict = {
-                'model': self.model_id,
-                'messages': messages,
-                'max_tokens': 500,
-            }
+        client = self._get_client()
+        messages = [{'role': 'user', 'content': prompt}]
+        payload: dict = {
+            'model': self.model_id,
+            'messages': messages,
+            'max_tokens': self.MAX_TOKENS,
+        }
 
-            # Groq doesn't support tool calling well, use text-based parsing
-            response = await client.post(
-                f'{self.BASE_URL}/chat/completions',
-                json=payload,
-                headers={
-                    'Authorization': f'Bearer {self._api_key}',
-                    'Content-Type': 'application/json',
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        response = await client.post(
+            f'{self.BASE_URL}/chat/completions',
+            json=payload,
+            headers={
+                'Authorization': f'Bearer {self._api_key}',
+                'Content-Type': 'application/json',
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
 
-            choice = data['choices'][0]
-            message = choice['message']
+        choice = data['choices'][0]
+        message = choice['message']
 
-            tool_call = None  # Groq doesn't support tools reliably
-
-            return LLMResponse(
-                content=message.get('content', ''),
-                provider=self.provider_name,
-                model=self.model_id,
-                tool_call=tool_call,
-            )
-
-
-def create_provider(settings: Settings) -> LLMProvider | None:
-    """Create provider based on settings with fallback order."""
-    if settings.github_token:
-        return GitHubProvider(settings.github_token)
-    if settings.mistral_api_key:
-        return MistralProvider(settings.mistral_api_key)
-    if settings.groq_api_key:
-        return GroqProvider(settings.groq_api_key)
-    return None
+        return LLMResponse(
+            content=message.get('content', ''),
+            provider=self.provider_name,
+            model=self.model_id,
+            tool_call=None,
+        )

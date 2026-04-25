@@ -2,6 +2,8 @@
 
 import json
 import re
+from dataclasses import replace
+from typing import ClassVar
 
 import httpx
 import structlog
@@ -17,19 +19,18 @@ from bot.infrastructure.llm.tools import (
 
 logger = structlog.get_logger()
 
-FALLBACK_COMMAND = None
-FALLBACK_MESSAGE = 'Não entendi. Tente usar um comando direto, ex: ,menu'
-MAX_AGENT_EXAMPLES = 20
-
-DM_KEYWORDS = re.compile(
-    r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(me\s*)?dm|send\s*(me\s*)?privately)\b',
-    re.IGNORECASE,
-)
-
 
 class AgentExecutor:
+    MAX_AGENT_EXAMPLES: ClassVar[int] = 20
+    DM_KEYWORDS: ClassVar[re.Pattern[str]] = re.compile(
+        r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(me\s*)?dm|send\s*(me\s*)?privately)\b',
+        re.IGNORECASE,
+    )
+
     def __init__(self, registry: CommandRegistry | None = None) -> None:
         self._registry = registry or CommandRegistry.instance()
+        self._tools = build_tools_for_prompt(self._registry)
+        self._command_list = get_command_list_with_descriptions(self._registry)
 
     async def run(self, data: CommandData) -> CommandData:
         """Execute agent: map natural language to command.
@@ -37,7 +38,7 @@ class AgentExecutor:
         Returns CommandData with rewritten text for command execution.
         """
         prompt = self._build_prompt(data.text, context=data.quoted_text)
-        tools = build_tools_for_prompt(self._registry)
+        tools = self._tools
 
         logger.info(
             'agent_executing',
@@ -69,42 +70,12 @@ class AgentExecutor:
         if content.startswith('CLARIFY:'):
             question = content[len('CLARIFY:') :].strip()
             logger.info('agent_asking_clarification', question=question)
-            return CommandData(
-                text=f',clarify:{question}',
-                jid=data.jid,
-                sender_jid=data.sender_jid,
-                participant=data.participant,
-                is_group=data.is_group,
-                mentioned_jids=data.mentioned_jids,
-                quoted_message_id=data.quoted_message_id,
-                message_id=data.message_id,
-                platform=data.platform,
-                media_type=data.media_type,
-                media_source=data.media_source,
-                media_is_animated=data.media_is_animated,
-                media_caption=data.media_caption,
-                media_buffer=data.media_buffer,
-            )
+            return replace(data, text=f',clarify:{question}')
 
         if content.startswith('SUGGEST:'):
             suggestion = content[len('SUGGEST:') :].strip()
             logger.info('agent_suggesting_command', suggestion=suggestion)
-            return CommandData(
-                text=f',suggest:{suggestion}',
-                jid=data.jid,
-                sender_jid=data.sender_jid,
-                participant=data.participant,
-                is_group=data.is_group,
-                mentioned_jids=data.mentioned_jids,
-                quoted_message_id=data.quoted_message_id,
-                message_id=data.message_id,
-                platform=data.platform,
-                media_type=data.media_type,
-                media_source=data.media_source,
-                media_is_animated=data.media_is_animated,
-                media_caption=data.media_caption,
-                media_buffer=data.media_buffer,
-            )
+            return replace(data, text=f',suggest:{suggestion}')
 
         logger.warning(
             'agent_no_tool_call',
@@ -117,11 +88,11 @@ class AgentExecutor:
         """Build the prompt with tools and examples."""
         filtered_input = user_input.replace('@resenhazord', '').strip()
 
-        command_list = get_command_list_with_descriptions(self._registry)
+        command_list = self._command_list
 
         examples_text = '\n'.join(
             f'Usuário: "{prompt}" -> Comando: {cmd}'
-            for prompt, cmd in AGENT_EXAMPLES[:MAX_AGENT_EXAMPLES]
+            for prompt, cmd in AGENT_EXAMPLES[:self.MAX_AGENT_EXAMPLES]
         )
 
         if context:
@@ -176,9 +147,9 @@ class AgentExecutor:
         command_text = self._resolve_command_name(command_text)
 
         target_jid = data.jid
-        if data.is_group and DM_KEYWORDS.search(data.text):
+        if data.is_group and self.DM_KEYWORDS.search(data.text):
             target_jid = data.sender_jid
-            command_text = DM_KEYWORDS.sub('', command_text).strip()
+            command_text = self.DM_KEYWORDS.sub('', command_text).strip()
             if command_text.startswith(','):
                 command_text = command_text[1:].strip()
             command_text = f',{command_text}'
@@ -193,44 +164,11 @@ class AgentExecutor:
             dm_mode=target_jid != data.jid,
         )
 
-        return CommandData(
-            text=command_text,
-            jid=target_jid,
-            sender_jid=data.sender_jid,
-            participant=data.participant,
-            is_group=data.is_group,
-            mentioned_jids=data.mentioned_jids,
-            quoted_message_id=data.quoted_message_id,
-            message_id=data.message_id,
-            platform=data.platform,
-            media_type=data.media_type,
-            media_source=data.media_source,
-            media_is_animated=data.media_is_animated,
-            media_caption=data.media_caption,
-            media_buffer=data.media_buffer,
-        )
+        return replace(data, text=command_text, jid=target_jid)
 
     def _fallback(self, data: CommandData) -> CommandData:
         """Return empty command to indicate no response."""
-        return CommandData(
-            text='',
-            jid=data.jid,
-            sender_jid=data.sender_jid,
-            participant=data.participant,
-            is_group=data.is_group,
-            mentioned_jids=data.mentioned_jids,
-            quoted_message_id=data.quoted_message_id,
-            message_id=data.message_id,
-            platform=data.platform,
-            media_type=data.media_type,
-            media_source=data.media_source,
-            media_is_animated=data.media_is_animated,
-            media_caption=data.media_caption,
-            media_buffer=data.media_buffer,
-        )
-
-    def _clear_memory(self) -> None:
-        """Clear any memory after execution (no-op for single-turn)."""
+        return replace(data, text='')
 
     def _resolve_command_name(self, command_text: str) -> str:
         """Convert LLM command names to registered names using aliases."""

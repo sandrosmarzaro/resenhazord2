@@ -1,7 +1,5 @@
 """Tests for Agent Executor."""
 
-from unittest.mock import AsyncMock, Mock, patch
-
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
@@ -87,7 +85,7 @@ class TestAgentExecutor:
         assert result.media_source == 'https://example.com/image.jpg'
 
     @pytest.mark.anyio
-    async def test_agent_parses_natural_language_to_command(self):
+    async def test_agent_parses_natural_language_to_command(self, mocker):
         """Test agent maps natural language to command via tool call."""
         data = CommandData(
             text='@resenhazord mostrar placar dos jogos',
@@ -96,9 +94,8 @@ class TestAgentExecutor:
         )
         executor = AgentExecutor()
 
-        # Mock the provider chain to return a tool call
-        mock_chain = Mock()
-        mock_chain.complete = AsyncMock(
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(
             return_value=LLMResponse(
                 content='',
                 provider='github',
@@ -106,26 +103,11 @@ class TestAgentExecutor:
                 tool_call={'name': 'placar', 'arguments': '{"now": true}'},
             )
         )
+        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
 
-        with patch('bot.application.agent_executor.get_chain', return_value=mock_chain):
-            result = await executor.run(data)
+        result = await executor.run(data)
 
         assert result.text == ',placar now'
-
-    @pytest.mark.anyio
-    async def test_agent_clears_memory_after_execution(self):
-        """Test agent clears memory (no-op for single-turn)."""
-        data = CommandData(
-            text='@resenhazord teste',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-        )
-        executor = AgentExecutor()
-
-        # _clear_memory is a no-op, just ensure it doesn't raise
-        await executor.run(data)
-        executor._clear_memory()  # Should not raise
-
 
 class TestCommandMapping:
     @pytest.mark.anyio
@@ -276,7 +258,7 @@ class TestSuggestPrefix:
     """Tests for SUGGEST prefix handling in agent executor."""
 
     @pytest.mark.anyio
-    async def test_run_with_suggest_prefix_returns_suggest_command(self):
+    async def test_run_with_suggest_prefix_returns_suggest_command(self, mocker):
         """Test that SUGGEST: prefix returns suggest command data."""
         data = CommandData(
             text='@resenhazord qual a fundação do flamengo',
@@ -285,12 +267,12 @@ class TestSuggestPrefix:
         )
         executor = AgentExecutor()
 
-        mock_chain = Mock()
+        mock_chain = mocker.Mock()
         suggest_content = (
             'SUGGEST: Não sei te dizer a data exata, '
             'mas posso te mandar um time aleatório! Use ,time'
         )
-        mock_chain.complete = AsyncMock(
+        mock_chain.complete = mocker.AsyncMock(
             return_value=LLMResponse(
                 content=suggest_content,
                 provider='github',
@@ -298,16 +280,16 @@ class TestSuggestPrefix:
                 tool_call=None,
             )
         )
+        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
 
-        with patch('bot.application.agent_executor.get_chain', return_value=mock_chain):
-            result = await executor.run(data)
+        result = await executor.run(data)
 
         assert result.text.startswith(',suggest:')
         assert 'Não sei' in result.text
         assert 'time' in result.text
 
     @pytest.mark.anyio
-    async def test_run_with_clarify_prefix_returns_clarify_command(self):
+    async def test_run_with_clarify_prefix_returns_clarify_command(self, mocker):
         """Test that CLARIFY: prefix returns clarify command data."""
         data = CommandData(
             text='@resenhazord qual a tabela do brasileiro',
@@ -316,8 +298,8 @@ class TestSuggestPrefix:
         )
         executor = AgentExecutor()
 
-        mock_chain = Mock()
-        mock_chain.complete = AsyncMock(
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(
             return_value=LLMResponse(
                 content='CLARIFY: Você quer ver a tabela de qual competição?',
                 provider='github',
@@ -325,9 +307,9 @@ class TestSuggestPrefix:
                 tool_call=None,
             )
         )
+        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
 
-        with patch('bot.application.agent_executor.get_chain', return_value=mock_chain):
-            result = await executor.run(data)
+        result = await executor.run(data)
 
         assert result.text.startswith(',clarify:')
         assert 'tabela' in result.text.lower()
@@ -353,7 +335,7 @@ class TestSuggestPrefix:
         assert 'Contexto da mensagem anterior' not in prompt
 
     @pytest.mark.anyio
-    async def test_run_preserves_media_fields_on_suggest(self):
+    async def test_run_preserves_media_fields_on_suggest(self, mocker):
         """Test that media fields are preserved when returning suggest."""
         data = CommandData(
             text='make sticker',
@@ -364,8 +346,8 @@ class TestSuggestPrefix:
         )
         executor = AgentExecutor()
 
-        mock_chain = Mock()
-        mock_chain.complete = AsyncMock(
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(
             return_value=LLMResponse(
                 content='SUGGEST: Não posso fazer sticker dessa imagem, use ,carro!',
                 provider='github',
@@ -373,9 +355,9 @@ class TestSuggestPrefix:
                 tool_call=None,
             )
         )
+        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
 
-        with patch('bot.application.agent_executor.get_chain', return_value=mock_chain):
-            result = await executor.run(data)
+        result = await executor.run(data)
 
         assert result.media_type == 'image'
         assert result.media_source == 'https://example.com/image.jpg'
