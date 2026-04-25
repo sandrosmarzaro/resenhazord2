@@ -19,23 +19,29 @@ function hasResenhazordMention(data: WAMessage, text: string): boolean {
   const mentionedJids = data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
   const botJids = [RESENHAZORD2_JID, RESENHA_JID];
 
+  const botJidParts = botJids.map((jid) => jid.split('@')[0]);
+
   const hasJidMention = mentionedJids.some((jid: string) =>
-    botJids.some((botJid: string) => jid && jid.includes(botJid.split('@')[0])),
+    botJidParts.some((part) => part && jid.includes(part)),
   );
 
-  const hasTextMention = botJids.some((botJid: string) =>
-    textLower.includes(botJid.split('@')[0].toLowerCase()),
+  const hasTextMention = botJidParts.some((part) =>
+    part && textLower.includes(part.toLowerCase()),
   );
+
+  const hasAnyMention = mentionedJids.length > 0;
 
   logger.debug({
     event: 'mention_check',
     mentionedJids,
     hasJidMention,
     hasTextMention,
+    hasAnyMention,
+    botJidParts,
     text: textLower,
   });
 
-  return hasJidMention || hasTextMention;
+  return hasJidMention || hasTextMention || hasAnyMention;
 }
 
 export default class CommandHandler {
