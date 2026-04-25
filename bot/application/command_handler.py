@@ -36,17 +36,17 @@ class CommandHandler:
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
+        self._settings = Settings()
         self._agent_executor: AgentExecutor | None = None
 
     def _is_agent_mention(self, data: CommandData) -> bool:
         """Check if message is agent-mode: @resenhazord mention, DM, or 'send me a...' pattern."""
         text_lower = (data.text or '').lower()
         if data.mentioned_jids:
-            settings = Settings()
             bot_ids = [
-                settings.resenhazord2_jid,
-                settings.resenha_jid,
-                settings.resenhazord2_lid,
+                self._settings.resenhazord2_jid,
+                self._settings.resenha_jid,
+                self._settings.resenhazord2_lid,
             ]
             bot_numeric = [jid.split('@')[0] for jid in bot_ids if jid]
             for mentioned in data.mentioned_jids:
@@ -69,7 +69,7 @@ class CommandHandler:
             logger.warning('agent_execution_failed', text=data.text)
             return data
 
-    async def handle(  # noqa: C901, PLR0912, PLR0911
+    async def handle(  # noqa: C901
         self,
         data: CommandData,
         *,
@@ -86,13 +86,8 @@ class CommandHandler:
         repeat, data = self._parse_batch(data)
         logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
 
-        if data.text.startswith(',clarify:'):
-            question = data.text[len(',clarify:') :].strip()
-            return [Reply.to(data).text(question)]
-
-        if data.text.startswith(',suggest:'):
-            suggestion = data.text[len(',suggest:') :].strip()
-            return [Reply.to(data).text(suggestion)]
+        if builtin := self._parse_builtin_prefix(data):
+            return builtin
 
         command = self._registry.get_strategy(data.text)
         logger.debug(
@@ -101,8 +96,8 @@ class CommandHandler:
             text=data.text,
         )
         if command is None:
-            if is_agent:
-                return None
+            # Agent mode returns None (no response); regular mode returns None (no command matched)
+            # Future: agent fallback could differ (e.g., "command not found" message)
             return None
 
         if on_match:
@@ -140,3 +135,14 @@ class CommandHandler:
         count = min(int(match.group(1)), cls._MAX_BATCH)
         stripped_text = data.text[: match.start()]
         return max(count, 1), replace(data, text=stripped_text)
+
+    def _parse_builtin_prefix(self, data: CommandData) -> list[BotMessage] | None:
+        """Parse ,clarify: and ,suggest: prefixes."""
+        text = data.text or ''
+        if text.startswith(',clarify:'):
+            question = text[len(',clarify:') :].strip()
+            return [Reply.to(data).text(question)]
+        if text.startswith(',suggest:'):
+            suggestion = text[len(',suggest:') :].strip()
+            return [Reply.to(data).text(suggestion)]
+        return None
