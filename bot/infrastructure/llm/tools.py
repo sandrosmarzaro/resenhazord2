@@ -1,14 +1,30 @@
-"""Tool schema builder for LLM agent."""
+import re
+import unicodedata
+from typing import ClassVar
 
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import ArgType, Command, CommandScope
 
 
-def command_to_tool_schema(command: Command) -> dict:
-    """Convert a Command to tool schema format for LLM tool calling.
+class _ToolBuilder:
+    NON_ASCII_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9_-]')
+    SCOPE_PRIORITY: ClassVar[dict[CommandScope, int]] = {
+        CommandScope.PUBLIC: 0,
+        CommandScope.INTERNAL: 1,
+        CommandScope.DEV: 2,
+        CommandScope.ADMIN: 3,
+        CommandScope.NSFW: 4,
+        CommandScope.DISABLED: 5,
+    }
 
-    Format tested and confirmed working (NO 'required' field).
-    """
+    @classmethod
+    def to_ascii_name(cls, name: str) -> str:
+        normalized = unicodedata.normalize('NFD', name.lower())
+        stripped = ''.join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+        return cls.NON_ASCII_PATTERN.sub('_', stripped.replace(' ', '_'))
+
+
+def command_to_tool_schema(command: Command) -> dict:
     config = command.config
     properties: dict = {}
 
@@ -17,47 +33,19 @@ def command_to_tool_schema(command: Command) -> dict:
 
     for option in config.options:
         if option.values:
-            properties[option.name] = {
-                'type': 'string',
-                'enum': option.values,
-            }
-        elif option.pattern:
-            properties[option.name] = {'type': 'string'}
+            properties[option.name] = {'type': 'string', 'enum': option.values}
         else:
             properties[option.name] = {'type': 'string'}
 
     if config.args != ArgType.NONE:
         properties['args'] = {'type': 'string'}
 
-    def _to_ascii(name: str) -> str:
-        replacements = {
-            'ã': 'a',
-            'á': 'a',
-            'à': 'a',
-            'â': 'a',
-            'é': 'e',
-            'ê': 'e',
-            'í': 'i',
-            'ó': 'o',
-            'ô': 'o',
-            'õ': 'o',
-            'ú': 'u',
-            'ç': 'c',
-            ' ': '_',
-        }
-        return ''.join(replacements.get(ch, ch if ch.isascii() else '_') for ch in name.lower())
-
-    ascii_name = _to_ascii(config.name)
-
     return {
         'type': 'function',
         'function': {
-            'name': ascii_name,
+            'name': _ToolBuilder.to_ascii_name(config.name),
             'description': command.menu_description or config.name,
-            'parameters': {
-                'type': 'object',
-                'properties': properties,
-            },
+            'parameters': {'type': 'object', 'properties': properties},
         },
     }
 
@@ -67,54 +55,28 @@ def build_tools_for_prompt(
     include_scope: CommandScope = CommandScope.PUBLIC,
     exclude_scopes: frozenset[CommandScope] | None = None,
 ) -> list[dict]:
-    """Build tool schemas filtered by scope.
-
-    Args:
-        registry: CommandRegistry instance
-        include_scope: Only include commands with this scope or higher
-        (PUBLIC < INTERNAL < DEV < ADMIN)
-        exclude_scopes: Explicitly exclude these scopes (defaults to NSFW)
-    """
-    if exclude_scopes is None:
-        exclude_scopes = frozenset({CommandScope.NSFW})
+    excluded = exclude_scopes if exclude_scopes is not None else frozenset({CommandScope.NSFW})
+    min_priority = _ToolBuilder.SCOPE_PRIORITY.get(include_scope, 0)
 
     tools: list[dict] = []
-    scope_priority = {
-        CommandScope.PUBLIC: 0,
-        CommandScope.INTERNAL: 1,
-        CommandScope.DEV: 2,
-        CommandScope.ADMIN: 3,
-        CommandScope.NSFW: 4,
-        CommandScope.DISABLED: 5,
-    }
-
     for command in registry.get_all():
-        config = command.config
-
-        if config.scope in exclude_scopes:
+        scope = command.config.scope
+        if scope in excluded or scope == CommandScope.DISABLED:
             continue
-
-        if config.scope == CommandScope.DISABLED:
+        if (
+            include_scope != CommandScope.PUBLIC
+            and _ToolBuilder.SCOPE_PRIORITY.get(scope, 0) < min_priority
+        ):
             continue
-
-        if include_scope != CommandScope.PUBLIC:
-            min_priority = scope_priority.get(include_scope, 0)
-            cmd_priority = scope_priority.get(config.scope, 0)
-            if cmd_priority < min_priority:
-                continue
-
         tools.append(command_to_tool_schema(command))
-
     return tools
 
 
 def get_command_names(registry: CommandRegistry) -> list[str]:
-    """Get list of all command names for prompt."""
     return [cmd.config.name for cmd in registry.get_all()]
 
 
 def get_command_list_with_descriptions(registry: CommandRegistry) -> str:
-    """Get formatted list of commands with descriptions."""
     lines = []
     for cmd in registry.get_all():
         name = cmd.config.name
