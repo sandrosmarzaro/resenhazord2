@@ -1,6 +1,7 @@
 """LLM provider chain with fallback and circuit breaker."""
 
 import asyncio
+import time
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import ClassVar
@@ -69,11 +70,7 @@ class ProviderChain:
                 state = self._states[self._current_index]
                 provider = state.provider
 
-                try:
-                    now = asyncio.get_running_loop().time()
-                except RuntimeError:
-                    now = 0.0
-                if now < state.cooldown_until:
+                if time.monotonic() < state.cooldown_until:
                     logger.debug('provider_in_cooldown', provider=provider.provider_name)
                     self._advance()
                     tried += 1
@@ -99,11 +96,7 @@ class ProviderChain:
                     tried += 1
 
                     if e.response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
-                        try:
-                            loop_time = asyncio.get_running_loop().time()
-                            state.cooldown_until = loop_time + self.RETRY_DELAY
-                        except RuntimeError:
-                            state.cooldown_until = float('inf')
+                        state.cooldown_until = time.monotonic() + self.RETRY_DELAY
                         logger.warning(
                             'provider_rate_limited',
                             provider=provider.provider_name,
