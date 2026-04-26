@@ -70,3 +70,38 @@ class TestCommandRegistry:
         assert len(all_cmds) == 2
         assert cmd1 in all_cmds
         assert cmd2 in all_cmds
+
+
+class TestGetByName:
+    def test_returns_command_for_canonical_name(self):
+        registry = CommandRegistry.instance()
+        cmd = FakeCommand()
+        registry.register(cmd)
+
+        assert registry.get_by_name('fake') is cmd
+
+    def test_lookup_is_case_insensitive(self):
+        registry = CommandRegistry.instance()
+        cmd = FakeCommand()
+        registry.register(cmd)
+
+        assert registry.get_by_name('FAKE') is cmd
+
+    def test_returns_none_for_unknown_name(self):
+        registry = CommandRegistry.instance()
+        registry.register(FakeCommand())
+
+        assert registry.get_by_name('missing') is None
+
+
+class TestStrategyFastPath:
+    def test_leading_token_lookup_returns_match_via_index(self, mocker):
+        registry = CommandRegistry.instance()
+        fake = FakeCommand()
+        another = AnotherCommand()
+        registry.register(fake)
+        registry.register(another)
+        spy = mocker.spy(another, 'matches')
+
+        assert registry.get_strategy(',fake') is fake
+        spy.assert_not_called()
