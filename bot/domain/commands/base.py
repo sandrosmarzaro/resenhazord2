@@ -24,6 +24,11 @@ class Platform(StrEnum):
     WHATSAPP = 'whatsapp'
     DISCORD = 'discord'
     TELEGRAM = 'telegram'
+    ALL = 'all'
+
+    @classmethod
+    def supports(cls, declared: list['Platform'], target: 'Platform | str') -> bool:
+        return cls.ALL in declared or target in declared
 
 
 class Category(StrEnum):

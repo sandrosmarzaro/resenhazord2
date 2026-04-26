@@ -30,7 +30,7 @@ class DevCommand(Command):
             scope=CommandScope.DEV,
             args=ArgType.OPTIONAL,
             args_label='add/remove @número ou <@usuário>',
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

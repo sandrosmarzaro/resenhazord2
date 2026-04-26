@@ -16,7 +16,7 @@ class MateusCommand(Command):
         return CommandConfig(
             name='mateus',
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

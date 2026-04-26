@@ -33,7 +33,7 @@ class AnimalCommand(Command):
             name='animal',
             flags=[Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

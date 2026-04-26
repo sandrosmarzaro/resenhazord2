@@ -28,7 +28,7 @@ class CountryFlagCommand(Command):
             aliases=['flag'],
             flags=[Flag.SHOW, Flag.DM, 'detail'],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

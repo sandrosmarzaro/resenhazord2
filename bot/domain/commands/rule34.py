@@ -22,7 +22,7 @@ class Rule34Command(Command):
             aliases=['rule34', 'rule_34', 'r34'],
             flags=[Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

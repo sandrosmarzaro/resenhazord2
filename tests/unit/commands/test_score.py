@@ -140,8 +140,8 @@ class TestConfig:
     def test_platforms(self, command):
         from bot.domain.commands.base import Platform
 
-        assert Platform.WHATSAPP in command.config.platforms
-        assert Platform.DISCORD in command.config.platforms
+        assert Platform.supports(command.config.platforms, Platform.WHATSAPP)
+        assert Platform.supports(command.config.platforms, Platform.DISCORD)
 
 
 class TestMenuDescription:

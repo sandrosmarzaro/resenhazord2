@@ -61,7 +61,7 @@ class TelegramBot:
     def _register_handlers(self) -> None:
         callback = self._make_callback()
         for command in CommandRegistry.instance().get_all():
-            if Platform.TELEGRAM not in command.config.platforms:
+            if not Platform.supports(command.config.platforms, Platform.TELEGRAM):
                 continue
             self._add_command(command.config.name, callback)
             for alias in command.config.aliases:
@@ -77,7 +77,7 @@ class TelegramBot:
 
     def _register_start_alias(self, callback: TelegramCallback) -> None:
         menu = CommandRegistry.instance().get_by_name(self.MENU_COMMAND)
-        if menu is None or Platform.TELEGRAM not in menu.config.platforms:
+        if menu is None or not Platform.supports(menu.config.platforms, Platform.TELEGRAM):
             return
         self._handler.register_name(self.START_COMMAND, f',{self.MENU_COMMAND}')
         self._app.add_handler(CommandHandler(self.START_COMMAND, callback))
@@ -128,7 +128,10 @@ class TelegramBot:
 
     @staticmethod
     def _is_menu_eligible(command: Command, scopes: set[CommandScope]) -> bool:
-        return Platform.TELEGRAM in command.config.platforms and command.config.scope in scopes
+        return (
+            Platform.supports(command.config.platforms, Platform.TELEGRAM)
+            and command.config.scope in scopes
+        )
 
     @classmethod
     def _normalize_name(cls, name: str) -> str:

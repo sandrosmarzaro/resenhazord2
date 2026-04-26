@@ -14,7 +14,7 @@ class BorgesCommand(Command):
         return CommandConfig(
             name='borges',
             category=Category.OTHER,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

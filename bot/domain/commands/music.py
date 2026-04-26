@@ -40,7 +40,7 @@ class MusicCommand(Command):
             args=ArgType.OPTIONAL,
             args_label='gênero',
             category=Category.DOWNLOAD,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

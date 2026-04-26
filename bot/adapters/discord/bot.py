@@ -44,7 +44,7 @@ class DiscordBot:
 
     def register_commands(self) -> None:
         for command in CommandRegistry.instance().get_all():
-            if Platform.DISCORD not in command.config.platforms:
+            if not Platform.supports(command.config.platforms, Platform.DISCORD):
                 continue
             self._register_slash_command(command)
             for alias in command.config.aliases:
