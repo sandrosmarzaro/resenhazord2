@@ -39,18 +39,15 @@ function hasResenhazordMention(data: WAMessage, text: string): boolean {
     .filter(Boolean)
     .some((botId) => textLower.includes(botId.toLowerCase()));
 
-  const hasAnyMention = mentionedJids.length > 0;
-
   logger.debug({
     event: 'mention_check',
     mentionedJids,
     hasJidMention,
     hasTextMention,
-    hasAnyMention,
     text: textLower,
   });
 
-  return hasJidMention || hasTextMention || hasAnyMention;
+  return hasJidMention || hasTextMention;
 }
 
 export default class CommandHandler {
