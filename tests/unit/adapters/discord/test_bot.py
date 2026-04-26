@@ -308,9 +308,11 @@ class TestDmAgentMode:
         msg.content = content
         msg.channel = mocker.MagicMock()
         msg.channel.id = 222
-        msg.guild = mocker.MagicMock() if guild_id else None
         if guild_id:
+            msg.guild = mocker.MagicMock()
             msg.guild.id = guild_id
+        else:
+            msg.guild = None
         msg.reply = mocker.AsyncMock()
         return msg
 
