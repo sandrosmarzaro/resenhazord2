@@ -36,23 +36,24 @@ class CommandHandler:
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
-        self._settings = Settings()
         self._agent_executor: AgentExecutor | None = None
+        settings = Settings()
+        self._bot_numeric: frozenset[str] = frozenset(
+            jid.split('@')[0]
+            for jid in (
+                settings.resenhazord2_jid,
+                settings.resenha_jid,
+                settings.resenhazord2_lid,
+            )
+            if jid
+        )
 
     def _is_agent_mention(self, data: CommandData) -> bool:
         """Check if message is agent-mode: @resenhazord mention, DM, or 'send me a...' pattern."""
         text_lower = (data.text or '').lower()
-        if data.mentioned_jids:
-            bot_ids = [
-                self._settings.resenhazord2_jid,
-                self._settings.resenha_jid,
-                self._settings.resenhazord2_lid,
-            ]
-            bot_numeric = [jid.split('@')[0] for jid in bot_ids if jid]
-            for mentioned in data.mentioned_jids:
-                mentioned_numeric = mentioned.split('@')[0]
-                if any(bot_id == mentioned_numeric for bot_id in bot_numeric):
-                    return True
+        for mentioned in data.mentioned_jids or ():
+            if mentioned.split('@')[0] in self._bot_numeric:
+                return True
         if AgentExecutor.BOT_MENTION_TAG in text_lower:
             return True
         if not data.is_group:
