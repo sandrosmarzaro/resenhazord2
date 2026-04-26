@@ -68,6 +68,14 @@ class TestGitHubProvider:
         assert result.tool_call['name'] == 'score'
         assert result.provider == 'github'
 
+        mock_client.post.assert_called_once()
+        call = mock_client.post.call_args
+        assert call.args[0] == 'https://models.github.ai/inference/chat/completions'
+        assert call.kwargs['json']['model'] == 'gpt-4o'
+        assert call.kwargs['json']['messages'] == [{'role': 'user', 'content': 'mostrar placar'}]
+        assert call.kwargs['json']['tools'] == tools
+        assert call.kwargs['headers']['Authorization'] == 'Bearer test-token'
+
 
 class TestProviderChain:
     @pytest.fixture
@@ -76,16 +84,16 @@ class TestProviderChain:
         chain.configure('github-token', 'mistral-key', 'groq-key')
         return chain
 
-    @pytest.mark.anyio
-    async def test_skips_on_429(self, chain, mocker):
+    @pytest.fixture
+    def http_429(self, mocker):
         mock_response = mocker.MagicMock()
         mock_response.status_code = 429
-        http_error = httpx.HTTPStatusError(
-            '429', request=mocker.MagicMock(), response=mock_response
-        )
+        return httpx.HTTPStatusError('429', request=mocker.MagicMock(), response=mock_response)
 
-        mocker.patch.object(chain._states[0].provider, 'complete', side_effect=http_error)
-        mocker.patch.object(chain._states[1].provider, 'complete', side_effect=http_error)
+    @pytest.mark.anyio
+    async def test_skips_on_429(self, chain, mocker, http_429):
+        mocker.patch.object(chain._states[0].provider, 'complete', side_effect=http_429)
+        mocker.patch.object(chain._states[1].provider, 'complete', side_effect=http_429)
         mocker.patch.object(
             chain._states[2].provider,
             'complete',
@@ -96,6 +104,26 @@ class TestProviderChain:
 
         assert result.content == 'fallback success'
         assert result.provider == 'groq'
+
+    @pytest.mark.anyio
+    async def test_subsequent_call_skips_cooldown_provider(self, chain, mocker, http_429):
+        github_complete = mocker.patch.object(
+            chain._states[0].provider, 'complete', side_effect=http_429
+        )
+        mistral_complete = mocker.patch.object(
+            chain._states[1].provider,
+            'complete',
+            return_value=LLMResponse(content='ok', provider='mistral', model='small'),
+        )
+
+        await chain.complete('first', [])
+        github_complete.assert_called_once()
+        mistral_complete.assert_called_once()
+
+        await chain.complete('second', [])
+
+        assert github_complete.call_count == 1
+        assert mistral_complete.call_count == 2
 
     @pytest.mark.anyio
     async def test_all_providers_down_returns_error(self, chain, mocker):
