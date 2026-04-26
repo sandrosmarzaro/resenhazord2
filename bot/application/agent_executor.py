@@ -1,13 +1,12 @@
 """LLM Agent Executor - maps natural language to bot commands."""
 
-import json
-import re
 from dataclasses import replace
 from typing import ClassVar
 
 import httpx
 import structlog
 
+from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
 from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
 from bot.domain.models.command_data import CommandData
@@ -25,22 +24,12 @@ class AgentExecutor:
     MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
     BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
-    DM_KEYWORDS: ClassVar[re.Pattern[str]] = re.compile(
-        r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(me\s*)?dm|send\s*(me\s*)?privately)\b',
-        re.IGNORECASE,
-    )
-    LONG_FLAG_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'(\s)--(\w+)')
-    LEADING_DASH_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'^,+-')
-
-    @classmethod
-    def _normalize_flags(cls, text: str) -> str:
-        text = cls.LONG_FLAG_PATTERN.sub(r'\1\2', text)
-        return cls.LEADING_DASH_PATTERN.sub(',', text)
 
     def __init__(self, registry: CommandRegistry | None = None) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._tools = build_tools_for_prompt(self._registry)
         self._command_list = get_command_list_with_descriptions(self._registry)
+        self._translator = AgentResponseTranslator(self._registry)
 
     async def run(self, data: CommandData) -> CommandData:
         """Execute agent: map natural language to command.
@@ -48,33 +37,28 @@ class AgentExecutor:
         Returns CommandData with rewritten text for command execution.
         """
         prompt = self._build_prompt(data.text, context=data.quoted_text)
-        tools = self._tools
 
-        logger.info(
-            'agent_executing',
-            user_input=data.text,
-            tool_count=len(tools),
-        )
+        logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
 
         try:
-            chain = get_chain()
-            response = await chain.complete(prompt, tools)
+            response = await get_chain().complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError) as e:
             logger.warning('agent_provider_failed', error=str(e))
             return self._fallback(data)
 
         if response.tool_call:
-            command_name = response.tool_call.get('name', '')
-            arguments = response.tool_call.get('arguments', '{}')
+            return self._translator.translate(
+                data,
+                response.tool_call.get('name', ''),
+                response.tool_call.get('arguments', '{}'),
+            )
 
-            return self._build_command_data(data, command_name, arguments)
-
-        content = response.content.strip().strip('`').strip('"\'').strip()
-        content = self._normalize_flags(content)
+        content = AgentResponseTranslator.normalize_flags(
+            response.content.strip().strip('`').strip('"\'').strip()
+        )
 
         if content.startswith((',', '/')):
-            cmd = content.lstrip(',/').strip('\'"')
-            return self._build_command_data(data, cmd, '')
+            return self._translator.translate(data, content.lstrip(',/').strip('\'"'), '')
 
         if content.startswith('CLARIFY:'):
             question = content[len('CLARIFY:') :].strip()
@@ -86,21 +70,14 @@ class AgentExecutor:
             logger.info('agent_suggesting_command', suggestion=suggestion)
             return replace(data, text=f',suggest:{suggestion}')
 
-        logger.warning(
-            'agent_no_tool_call',
-            content=content,
-            tool_call=response.tool_call,
-        )
+        logger.warning('agent_no_tool_call', content=content, tool_call=response.tool_call)
         return self._fallback(data)
 
     def _build_prompt(self, user_input: str, context: str | None = None) -> str:
-        """Build the prompt with tools and examples."""
         filtered_input = user_input.replace(self.BOT_MENTION_TAG, '').strip()[
             : self.MAX_USER_INPUT_LENGTH
         ]
         truncated_context = context[: self.MAX_CONTEXT_LENGTH] if context else None
-
-        command_list = self._command_list
 
         examples_text = '\n'.join(
             f'Usuário: "{prompt}" -> Comando: {cmd}'
@@ -115,83 +92,12 @@ class AgentExecutor:
             user_block = f'\nPedido do usuário: {filtered_input}'
 
         return SYSTEM_PROMPT_TEMPLATE.format(
-            command_list=command_list,
+            command_list=self._command_list,
             examples=examples_text,
             user_input=filtered_input,
             context=context_block,
             user_context=user_block,
         )
 
-    def _build_command_data(
-        self,
-        data: CommandData,
-        command_name: str,
-        arguments: str,
-    ) -> CommandData:
-        """Build new CommandData with mapped command."""
-        try:
-            args_dict = json.loads(arguments) if arguments else {}
-        except json.JSONDecodeError:
-            args_dict = {}
-
-        flags = [k.lstrip('-') for k, v in args_dict.items() if v is True]
-        command_name = command_name.lstrip('-')
-        options = {
-            k.lstrip('-'): v
-            for k, v in args_dict.items()
-            if v is not True and v is not False and k not in ('args', 'command')
-        }
-        text_args = args_dict.get('args', '')
-
-        command_parts = [f',{command_name}']
-        for opt_name, opt_value in options.items():
-            if isinstance(opt_value, str):
-                command_parts.append(f'{opt_name} {opt_value}')
-            else:
-                command_parts.append(str(opt_value))
-        for flag in flags:
-            clean_flag = flag.lstrip('-')
-            command_parts.append(clean_flag)
-        if text_args:
-            command_parts.append(text_args)
-
-        command_text = ' '.join(command_parts).strip('\'"')
-        command_text = self._resolve_command_name(command_text)
-
-        target_jid = data.jid
-        if data.is_group and self.DM_KEYWORDS.search(data.text):
-            target_jid = data.sender_jid
-            command_text = self.DM_KEYWORDS.sub('', command_text).strip()
-            if command_text.startswith(','):
-                command_text = command_text[1:].strip()
-            command_text = f',{command_text}'
-
-        command_text = self._normalize_flags(command_text)
-
-        logger.info(
-            'agent_mapped_command',
-            original=data.text,
-            mapped=command_text,
-            dm_mode=target_jid != data.jid,
-        )
-
-        return replace(data, text=command_text, jid=target_jid)
-
     def _fallback(self, data: CommandData) -> CommandData:
-        """Return empty command to indicate no response."""
         return replace(data, text='')
-
-    def _resolve_command_name(self, command_text: str) -> str:
-        """Convert LLM command names to registered names using aliases."""
-        if not command_text.startswith(','):
-            return command_text
-
-        parts = command_text.split()
-        if not parts:
-            return command_text
-
-        cmd_name = parts[0][1:]
-        cmd = self._registry.get_by_name(cmd_name)
-        if cmd:
-            parts[0] = f',{cmd.config.name}'
-        return ' '.join(parts)

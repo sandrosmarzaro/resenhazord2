@@ -78,7 +78,7 @@ class TestAgentExecutor:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'stic', '')
+        result = executor._translator.translate(data, 'stic', '')
 
         assert result.text == ',stic'
         assert result.media_type == 'image'
@@ -121,7 +121,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'placar', '{"now": true}')
+        result = executor._translator.translate(data, 'placar', '{"now": true}')
 
         assert result.text == ',placar now'
 
@@ -139,7 +139,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'áudio', '{"args": "hello world"}')
+        result = executor._translator.translate(data, 'áudio', '{"args": "hello world"}')
 
         assert result.text == ',áudio hello world'
 
@@ -153,7 +153,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'áudio', '{"dm": true, "args": "test text"}')
+        result = executor._translator.translate(data, 'áudio', '{"dm": true, "args": "test text"}')
 
         assert 'dm' in result.text
         assert 'test text' in result.text
@@ -168,7 +168,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'test', '{"verbose": false, "debug": true}')
+        result = executor._translator.translate(data, 'test', '{"verbose": false, "debug": true}')
 
         assert result.text == ',test debug'
 
@@ -182,7 +182,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'oi', '')
+        result = executor._translator.translate(data, 'oi', '')
 
         assert result.text == ',oi'
 
@@ -201,7 +201,9 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'tabela', '{"command": "tabela", "liga": "br"}')
+        result = executor._translator.translate(
+            data, 'tabela', '{"command": "tabela", "liga": "br"}'
+        )
 
         assert 'command' not in result.text
         assert ',tabela' in result.text
@@ -218,7 +220,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'placar', '{"now": true}')
+        result = executor._translator.translate(data, 'placar', '{"now": true}')
 
         assert result.jid == 'user@s.whatsapp.net'
         assert result.is_group is True
@@ -234,7 +236,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'placar', '{"now": true}')
+        result = executor._translator.translate(data, 'placar', '{"now": true}')
 
         assert result.jid == 'user@s.whatsapp.net'
 
@@ -249,7 +251,7 @@ class TestCommandMapping:
         )
         executor = AgentExecutor()
 
-        result = executor._build_command_data(data, 'tabela', '{"g4": true}')
+        result = executor._translator.translate(data, 'tabela', '{"g4": true}')
 
         assert 'g4' in result.text
         assert '--' not in result.text
