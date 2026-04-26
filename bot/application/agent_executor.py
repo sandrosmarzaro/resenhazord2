@@ -22,10 +22,20 @@ logger = structlog.get_logger()
 
 class AgentExecutor:
     MAX_AGENT_EXAMPLES: ClassVar[int] = 20
+    MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
+    MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
+    BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
     DM_KEYWORDS: ClassVar[re.Pattern[str]] = re.compile(
         r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(me\s*)?dm|send\s*(me\s*)?privately)\b',
         re.IGNORECASE,
     )
+    LONG_FLAG_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'(\s)--(\w+)')
+    LEADING_DASH_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'^,+-')
+
+    @classmethod
+    def _normalize_flags(cls, text: str) -> str:
+        text = cls.LONG_FLAG_PATTERN.sub(r'\1\2', text)
+        return cls.LEADING_DASH_PATTERN.sub(',', text)
 
     def __init__(self, registry: CommandRegistry | None = None) -> None:
         self._registry = registry or CommandRegistry.instance()
@@ -60,8 +70,7 @@ class AgentExecutor:
             return self._build_command_data(data, command_name, arguments)
 
         content = response.content.strip().strip('`').strip('"\'').strip()
-        content = re.sub(r'(\s)--(\w+)', r'\1\2', content)
-        content = re.sub(r'^,+-', lambda m: ',' + m.group(1).lstrip('-'), content)
+        content = self._normalize_flags(content)
 
         if content.startswith((',', '/')):
             cmd = content.lstrip(',/').strip('\'"')
@@ -86,17 +95,20 @@ class AgentExecutor:
 
     def _build_prompt(self, user_input: str, context: str | None = None) -> str:
         """Build the prompt with tools and examples."""
-        filtered_input = user_input.replace('@resenhazord', '').strip()
+        filtered_input = user_input.replace(self.BOT_MENTION_TAG, '').strip()[
+            : self.MAX_USER_INPUT_LENGTH
+        ]
+        truncated_context = context[: self.MAX_CONTEXT_LENGTH] if context else None
 
         command_list = self._command_list
 
         examples_text = '\n'.join(
             f'Usuário: "{prompt}" -> Comando: {cmd}'
-            for prompt, cmd in AGENT_EXAMPLES[:self.MAX_AGENT_EXAMPLES]
+            for prompt, cmd in AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES]
         )
 
-        if context:
-            context_block = f'\nContexto da mensagem anterior: "{context}"'
+        if truncated_context:
+            context_block = f'\nContexto da mensagem anterior: "{truncated_context}"'
             user_block = f'\nPedido do usuário (respondendo acima): {filtered_input}'
         else:
             context_block = ''
@@ -154,8 +166,7 @@ class AgentExecutor:
                 command_text = command_text[1:].strip()
             command_text = f',{command_text}'
 
-        command_text = re.sub(r'(\s)--(\w+)', r'\1\2', command_text)
-        command_text = re.sub(r'^,+-', lambda m: ',' + m.group(1).lstrip('-'), command_text)
+        command_text = self._normalize_flags(command_text)
 
         logger.info(
             'agent_mapped_command',

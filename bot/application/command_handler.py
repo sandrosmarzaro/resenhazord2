@@ -53,7 +53,7 @@ class CommandHandler:
                 mentioned_numeric = mentioned.split('@')[0]
                 if any(bot_id == mentioned_numeric for bot_id in bot_numeric):
                     return True
-        if '@resenhazord' in text_lower:
+        if AgentExecutor.BOT_MENTION_TAG in text_lower:
             return True
         if not data.is_group:
             return True
