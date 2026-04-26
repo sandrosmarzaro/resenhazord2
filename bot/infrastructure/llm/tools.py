@@ -89,17 +89,17 @@ def build_tools_for_prompt(
     }
 
     for command in registry.get_all():
-        cfg = command.config
+        config = command.config
 
-        if cfg.scope in exclude_scopes:
+        if config.scope in exclude_scopes:
             continue
 
-        if cfg.scope == CommandScope.DISABLED:
+        if config.scope == CommandScope.DISABLED:
             continue
 
         if include_scope != CommandScope.PUBLIC:
             min_priority = scope_priority.get(include_scope, 0)
-            cmd_priority = scope_priority.get(cfg.scope, 0)
+            cmd_priority = scope_priority.get(config.scope, 0)
             if cmd_priority < min_priority:
                 continue
 
