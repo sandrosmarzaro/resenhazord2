@@ -2,7 +2,7 @@ import asyncio
 import inspect
 import re
 import unicodedata
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from typing import Any, ClassVar, cast
 
 import aiohttp
@@ -160,15 +160,14 @@ class DiscordBot:
 
     def _make_on_message(
         self, client: discord.Client, guild: discord.Object
-    ) -> Callable[[discord.Message], Awaitable[None]]:
+    ) -> Callable[[discord.Message], Coroutine[Any, Any, None]]:
         async def on_message(message: discord.Message) -> None:
             if message.author == client.user:
                 return
             if not message.content:
                 return
 
-            is_dm = message.guild is None
-            if is_dm:
+            if message.guild is None:
                 await self._handle_dm_message(message)
                 return
 
