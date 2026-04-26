@@ -69,6 +69,8 @@ class CommandHandler:
             logger.warning('agent_execution_failed', text=data.text)
             return data
 
+    # C901 suppressed: dispatch fan-out (registry match, agent path, DM
+    # fallback, ack callback, cooldown branch) — splitting scatters branches.
     async def handle(  # noqa: C901
         self,
         data: CommandData,
