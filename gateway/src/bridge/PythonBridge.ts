@@ -132,6 +132,7 @@ export default class PythonBridge {
         expiration: data.expiration ?? null,
         mentioned_jids:
           data.message?.extendedTextMessage?.contextInfo?.mentionedJid ??
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Baileys WAMessage union does not expose conversationMessage; fall back narrowly.
           (data.message as any)?.conversationMessage?.contextInfo?.mentionedJid ??
           [],
         quoted_message_id: data.message?.extendedTextMessage?.contextInfo?.stanzaId ?? null,
