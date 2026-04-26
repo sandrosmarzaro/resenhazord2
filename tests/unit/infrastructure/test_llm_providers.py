@@ -80,7 +80,9 @@ class TestProviderChain:
     async def test_skips_on_429(self, chain, mocker):
         mock_response = mocker.MagicMock()
         mock_response.status_code = 429
-        http_error = httpx.HTTPStatusError('429', request=mocker.MagicMock(), response=mock_response)
+        http_error = httpx.HTTPStatusError(
+            '429', request=mocker.MagicMock(), response=mock_response
+        )
 
         mocker.patch.object(chain._states[0].provider, 'complete', side_effect=http_error)
         mocker.patch.object(chain._states[1].provider, 'complete', side_effect=http_error)

@@ -109,6 +109,7 @@ class TestAgentExecutor:
 
         assert result.text == ',placar now'
 
+
 class TestCommandMapping:
     @pytest.mark.anyio
     async def test_build_command_data(self):
