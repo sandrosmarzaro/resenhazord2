@@ -64,7 +64,10 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
 
-    from bot.infrastructure.llm.provider_chain import configure_chain  # noqa: PLC0415
+    # Lazy import: provider_chain pulls in httpx and reads settings at module
+    # load — importing here keeps cold-start cheap and avoids circular bootstrap
+    # during test setup. PLC0415 suppression for this file lives in ruff.toml.
+    from bot.infrastructure.llm.provider_chain import configure_chain
 
     configure_chain(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
 
