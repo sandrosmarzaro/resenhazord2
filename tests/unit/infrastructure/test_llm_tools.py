@@ -3,12 +3,33 @@
 import pytest
 
 from bot.application.command_registry import CommandRegistry
+from bot.domain.commands.base import Command, CommandConfig, CommandScope
 from bot.domain.commands.score import ScoreCommand
+from bot.domain.models.command_data import CommandData
+from bot.domain.models.message import BotMessage
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     command_to_tool_schema,
     get_command_names,
 )
+
+
+class _ScopedCommand(Command):
+    def __init__(self, name: str, scope: CommandScope) -> None:
+        super().__init__()
+        self._name = name
+        self._scope = scope
+
+    @property
+    def config(self) -> CommandConfig:
+        return CommandConfig(name=self._name, scope=self._scope)
+
+    @property
+    def menu_description(self) -> str:
+        return f'{self._name} command'
+
+    async def execute(self, data: CommandData, parsed: object) -> list[BotMessage]:
+        return []
 
 
 class TestCommandToToolSchema:
@@ -70,3 +91,52 @@ class TestBuildToolsForPrompt:
         assert 'past' in schema['function']['parameters']['properties']
         assert 'now' in schema['function']['parameters']['properties']
         assert 'next' in schema['function']['parameters']['properties']
+
+
+class TestScopeFilter:
+    @pytest.fixture
+    def registry(self) -> CommandRegistry:
+        registry = CommandRegistry()
+        registry.register(_ScopedCommand('public_one', CommandScope.PUBLIC))
+        registry.register(_ScopedCommand('internal_one', CommandScope.INTERNAL))
+        registry.register(_ScopedCommand('dev_one', CommandScope.DEV))
+        registry.register(_ScopedCommand('admin_one', CommandScope.ADMIN))
+        registry.register(_ScopedCommand('nsfw_one', CommandScope.NSFW))
+        registry.register(_ScopedCommand('disabled_one', CommandScope.DISABLED))
+        return registry
+
+    @pytest.mark.anyio
+    async def test_public_default_excludes_nsfw_and_disabled(self, registry):
+        names = {tool['function']['name'] for tool in build_tools_for_prompt(registry)}
+
+        assert names == {'public_one', 'internal_one', 'dev_one', 'admin_one'}
+
+    @pytest.mark.anyio
+    async def test_dev_scope_filters_lower_priority_commands(self, registry):
+        names = {
+            tool['function']['name']
+            for tool in build_tools_for_prompt(registry, include_scope=CommandScope.DEV)
+        }
+
+        assert names == {'dev_one', 'admin_one'}
+
+    @pytest.mark.anyio
+    async def test_admin_scope_keeps_only_admin(self, registry):
+        names = {
+            tool['function']['name']
+            for tool in build_tools_for_prompt(registry, include_scope=CommandScope.ADMIN)
+        }
+
+        assert names == {'admin_one'}
+
+    @pytest.mark.anyio
+    async def test_explicit_exclude_overrides_default(self, registry):
+        names = {
+            tool['function']['name']
+            for tool in build_tools_for_prompt(
+                registry, exclude_scopes=frozenset({CommandScope.INTERNAL})
+            )
+        }
+
+        assert 'internal_one' not in names
+        assert 'nsfw_one' in names
