@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from bot.domain.commands.base import Platform
 from bot.domain.commands.score import (
     ScoreCommand,
     _apply_soft_cap,
@@ -137,11 +138,9 @@ class TestConfig:
 
         assert command.config.category == Category.INFORMATION
 
-    def test_platforms(self, command):
-        from bot.domain.commands.base import Platform
-
-        assert Platform.supports(command.config.platforms, Platform.WHATSAPP)
-        assert Platform.supports(command.config.platforms, Platform.DISCORD)
+    @pytest.mark.parametrize('platform', [Platform.WHATSAPP, Platform.DISCORD])
+    def test_supports_platform(self, command, platform):
+        assert Platform.supports(command.config.platforms, platform)
 
 
 class TestMenuDescription:
