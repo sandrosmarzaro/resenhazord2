@@ -1,13 +1,27 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
 from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
 from bot.adapters.telegram.handler import TelegramUpdateHandler
-from bot.domain.commands.base import CommandScope
+from bot.adapters.telegram.renderer import TelegramResponseRenderer
+from bot.domain.commands.base import (
+    Category,
+    Command,
+    CommandConfig,
+    CommandScope,
+    Platform,
+)
+from bot.domain.models.message import BotMessage
+
+if TYPE_CHECKING:
+    from bot.domain.models.command_data import CommandData
+
+CHAT_ID = 1234
 
 DEFAULT_CHAT_ID = 111222333
 DEFAULT_USER_ID = 999888777
@@ -29,6 +43,15 @@ def handler() -> TelegramUpdateHandler:
         bot_username=DEFAULT_BOT_USERNAME,
         nsfw_chat_ids=frozenset({99}),
     )
+
+
+@pytest.fixture
+def renderer() -> TelegramResponseRenderer:
+    return TelegramResponseRenderer()
+
+
+def render(renderer: TelegramResponseRenderer, content):
+    return renderer.render(BotMessage(jid='jid', content=content), CHAT_ID)
 
 
 def make_update(
@@ -100,3 +123,38 @@ def stub_agent_executor(mocker, *, returns_text: str):
         return_value=executor,
     )
     return executor
+
+
+class FakeCommand(Command):
+    def __init__(
+        self,
+        name: str,
+        *,
+        platforms: list[Platform],
+        scope: CommandScope = CommandScope.PUBLIC,
+        description: str = 'desc',
+        aliases: list[str] | None = None,
+    ) -> None:
+        super().__init__()
+        self._name = name
+        self._platforms = platforms
+        self._scope = scope
+        self._description = description
+        self._aliases = aliases or []
+
+    @property
+    def config(self) -> CommandConfig:
+        return CommandConfig(
+            name=self._name,
+            category=Category.OTHER,
+            platforms=self._platforms,
+            scope=self._scope,
+            aliases=list(self._aliases),
+        )
+
+    @property
+    def menu_description(self) -> str:
+        return self._description
+
+    async def execute(self, data: CommandData, parsed) -> list[BotMessage]:
+        return []

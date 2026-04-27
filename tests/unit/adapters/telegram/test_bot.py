@@ -4,46 +4,10 @@ import pytest
 from telegram.error import TelegramError
 
 from bot.adapters.telegram.bot import TelegramBot
-from bot.domain.commands.base import Category, Command, CommandConfig, CommandScope, Platform
-from bot.domain.models.command_data import CommandData
-from bot.domain.models.message import BotMessage
+from bot.domain.commands.base import CommandScope, Platform
+from tests.unit.adapters.telegram.conftest import FakeCommand
 
 FAKE_TOKEN = 'x' * 10
-
-
-class FakeCommand(Command):
-    def __init__(
-        self,
-        name: str,
-        *,
-        platforms: list[Platform],
-        scope: CommandScope = CommandScope.PUBLIC,
-        description: str = 'desc',
-        aliases: list[str] | None = None,
-    ) -> None:
-        super().__init__()
-        self._name = name
-        self._platforms = platforms
-        self._scope = scope
-        self._description = description
-        self._aliases = aliases or []
-
-    @property
-    def config(self) -> CommandConfig:
-        return CommandConfig(
-            name=self._name,
-            category=Category.OTHER,
-            platforms=self._platforms,
-            scope=self._scope,
-            aliases=list(self._aliases),
-        )
-
-    @property
-    def menu_description(self) -> str:
-        return self._description
-
-    async def execute(self, data: CommandData, parsed) -> list[BotMessage]:
-        return []
 
 
 def _patch_registry(mocker, commands):
@@ -77,29 +41,24 @@ class TestNormalizeName:
 
     def test_caps_length(self):
         result = TelegramBot._normalize_name('a' * 50)
-
         assert len(result) == TelegramBot.NAME_MAX_LENGTH
 
 
 class TestIsMenuEligible:
     def test_public_command_with_telegram_platform(self):
         cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM])
-
         assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC}) is True
 
     def test_rejects_non_telegram_platform(self):
         cmd = FakeCommand('ok', platforms=[Platform.DISCORD])
-
         assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC}) is False
 
     def test_rejects_scope_outside_set(self):
         cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=CommandScope.NSFW)
-
         assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC}) is False
 
     def test_accepts_nsfw_when_in_scope(self):
         cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=CommandScope.NSFW)
-
         assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC, CommandScope.NSFW}) is True
 
 
