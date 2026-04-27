@@ -105,3 +105,17 @@ class TestStrategyFastPath:
 
         assert registry.get_strategy(',fake') is fake
         spy.assert_not_called()
+
+
+class TestMultiWordAliasMatching:
+    def test_rule_34_aliases_match_with_and_without_space(self):
+        from bot.application.register_commands import register_all_commands
+        from bot.settings import Settings
+
+        register_all_commands(Settings())
+        registry = CommandRegistry.instance()
+
+        cmd = registry.get_by_name('rule 34')
+        assert cmd is not None
+        assert cmd.matches(',rule34') is True
+        assert cmd.matches(',rule 34') is True
