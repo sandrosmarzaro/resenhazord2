@@ -1,7 +1,9 @@
-"""Builds a regex from CommandConfig for matching, and tokenizes text for parsing."""
+"""Tokenises command text against a CommandConfig regex into a ParsedCommand."""
 
 import re
 from typing import TYPE_CHECKING, ClassVar
+
+from bot.domain.parsers.command_parser_regex import CommandParserRegex
 
 if TYPE_CHECKING:
     from bot.domain.commands.base import CommandConfig, OptionDef, ParsedCommand
@@ -9,13 +11,10 @@ if TYPE_CHECKING:
 
 class CommandParser:
     LEADING_COMMA: ClassVar[re.Pattern[str]] = re.compile(r'^\s*,\s*')
-    METACHARS: ClassVar[re.Pattern[str]] = re.compile(r'[.*+?^${}()|[\]\\]')
-    NON_ASCII: ClassVar[re.Pattern[str]] = re.compile(r'[^\x00-\x7f]')
-    INTERNAL_WHITESPACE: ClassVar[re.Pattern[str]] = re.compile(r'\s+')
 
     def __init__(self, config: 'CommandConfig') -> None:
         self._config = config
-        self._regex = self._build_regex()
+        self._regex = CommandParserRegex.build(config)
 
     def matches(self, text: str) -> bool:
         return self._regex.search(text) is not None
@@ -43,8 +42,8 @@ class CommandParser:
         )
 
     def _consume_command_name(self, text: str) -> tuple[str, str]:
-        for name in self._sorted_names():
-            pattern = self._name_regex(name)
+        for name in CommandParserRegex.sorted_names(self._config):
+            pattern = CommandParserRegex.name_pattern(name)
             match = re.match(pattern, text, re.IGNORECASE)
             if not match:
                 continue
@@ -94,7 +93,7 @@ class CommandParser:
     def _try_match_option_as_value(self, token: str) -> str | None:
         for opt in self._config.options:
             for value in opt.values:
-                if re.match(f'^{self._escape(value)}$', token, re.IGNORECASE):
+                if re.match(f'^{CommandParserRegex.escape(value)}$', token, re.IGNORECASE):
                     return value
         return None
 
@@ -107,9 +106,10 @@ class CommandParser:
                 return opt.name, value
         return None
 
-    def _match_option_value(self, opt: 'OptionDef', token: str) -> str | None:
+    @staticmethod
+    def _match_option_value(opt: 'OptionDef', token: str) -> str | None:
         for value in opt.values:
-            if re.match(f'^{self._escape(value)}$', token, re.IGNORECASE):
+            if re.match(f'^{CommandParserRegex.escape(value)}$', token, re.IGNORECASE):
                 return value
         if opt.pattern and re.match(f'^{opt.pattern}$', token, re.IGNORECASE):
             return token
@@ -119,61 +119,6 @@ class CommandParser:
         for flag in self._config.flags:
             if flag in matched:
                 continue
-            if re.match(f'^{self._escape(flag)}$', token, re.IGNORECASE):
+            if re.match(f'^{CommandParserRegex.escape(flag)}$', token, re.IGNORECASE):
                 return flag
         return None
-
-    def _build_regex(self) -> re.Pattern[str]:
-        from bot.domain.commands.base import ArgType
-
-        parts: list[str] = [r'^\s*,\s*', self._build_name_alt()]
-
-        token_alt = self._build_token_alt()
-        if token_alt:
-            parts.append(f'(?:\\s+(?:{token_alt}))*')
-
-        parts.append(self._build_args_part(self._config.args, ArgType))
-        return re.compile(''.join(parts), re.IGNORECASE)
-
-    def _build_name_alt(self) -> str:
-        patterns = [self._name_regex(name) for name in self._sorted_names()]
-        if len(patterns) == 1:
-            return patterns[0]
-        return f'(?:{"|".join(patterns)})'
-
-    def _build_token_alt(self) -> str:
-        alternatives: list[str] = []
-        for opt in self._config.options:
-            if opt.values:
-                values = sorted(opt.values, key=len, reverse=True)
-                alternatives.append(f'(?:{"|".join(self._escape(v) for v in values)})')
-            elif opt.pattern:
-                alternatives.append(f'(?:{opt.pattern})')
-        alternatives.extend(self._escape(flag) for flag in self._config.flags)
-        return '|'.join(alternatives)
-
-    def _build_args_part(self, args, arg_type) -> str:
-        if args == arg_type.NONE:
-            return r'\s*$'
-        pattern = self._config.args_pattern
-        if pattern:
-            stripped = self._strip_anchors(pattern)
-            return f'\\s*{stripped}\\s*$'
-        if args == arg_type.REQUIRED:
-            return r'\s+.+'
-        return r'(?:\s+.*)?$'
-
-    def _sorted_names(self) -> list[str]:
-        return sorted([self._config.name, *self._config.aliases], key=len, reverse=True)
-
-    def _name_regex(self, name: str) -> str:
-        return self.INTERNAL_WHITESPACE.sub(r'\\s*', self._escape(name))
-
-    @classmethod
-    def _escape(cls, text: str) -> str:
-        escaped = cls.METACHARS.sub(r'\\\g<0>', text)
-        return cls.NON_ASCII.sub('.', escaped)
-
-    @staticmethod
-    def _strip_anchors(pattern: str) -> str:
-        return pattern.removeprefix('^').removesuffix('$')
