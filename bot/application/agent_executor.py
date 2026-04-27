@@ -10,7 +10,7 @@ from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
 from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
 from bot.domain.models.command_data import CommandData
-from bot.infrastructure.llm.provider_chain import get_chain
+from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     get_command_list_with_descriptions,
@@ -41,7 +41,7 @@ class AgentExecutor:
         logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
 
         try:
-            response = await get_chain().complete(prompt, self._tools)
+            response = await ProviderChain.instance().complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError) as e:
             logger.warning('agent_provider_failed', error=str(e))
             return self._fallback(data)

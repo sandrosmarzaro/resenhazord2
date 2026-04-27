@@ -4,7 +4,8 @@ import pytest
 
 from bot.application.agent_executor import AgentExecutor
 from bot.domain.models.command_data import CommandData
-from bot.infrastructure.llm.provider_chain import LLMResponse
+from bot.infrastructure.llm.provider_chain import ProviderChain
+from bot.infrastructure.llm.providers.base import LLMResponse
 
 
 class TestAgentExecutor:
@@ -103,7 +104,7 @@ class TestAgentExecutor:
                 tool_call={'name': 'placar', 'arguments': '{"now": true}'},
             )
         )
-        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
 
         result = await executor.run(data)
 
@@ -283,7 +284,7 @@ class TestSuggestPrefix:
                 tool_call=None,
             )
         )
-        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
 
         result = await executor.run(data)
 
@@ -310,7 +311,7 @@ class TestSuggestPrefix:
                 tool_call=None,
             )
         )
-        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
 
         result = await executor.run(data)
 
@@ -358,7 +359,7 @@ class TestSuggestPrefix:
                 tool_call=None,
             )
         )
-        mocker.patch('bot.application.agent_executor.get_chain', return_value=mock_chain)
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
 
         result = await executor.run(data)
 

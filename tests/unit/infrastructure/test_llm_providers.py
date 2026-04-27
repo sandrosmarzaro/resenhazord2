@@ -79,7 +79,7 @@ class TestProviderChain:
     @pytest.fixture
     def chain(self):
         chain = ProviderChain()
-        chain.configure('github-token', 'mistral-key', 'groq-key')
+        chain.populate('github-token', 'mistral-key', 'groq-key')
         return chain
 
     @pytest.fixture
