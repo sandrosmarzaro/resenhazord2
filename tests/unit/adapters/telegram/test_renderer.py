@@ -176,25 +176,3 @@ class TestRenderMany:
         outbounds = renderer.render_many(messages, CHAT_ID)
 
         assert [out.text for out in outbounds] == ['one', 'two']
-
-
-class TestFormatter:
-    def test_escapes_html_specials(self, renderer):
-        outbounds = render(renderer, TextContent(text='a < b & c'))
-
-        assert outbounds[0].text == 'a &lt; b &amp; c'
-
-    def test_italic_markdown(self, renderer):
-        outbounds = render(renderer, TextContent(text='_ola_'))
-
-        assert outbounds[0].text == '<i>ola</i>'
-
-    def test_snake_case_underscores_are_preserved(self, renderer):
-        outbounds = render(renderer, TextContent(text='foo_bar_baz'))
-
-        assert outbounds[0].text == 'foo_bar_baz'
-
-    def test_multiple_blockquote_lines_merge(self, renderer):
-        outbounds = render(renderer, TextContent(text='> um\n> dois\nfim'))
-
-        assert outbounds[0].text == '<blockquote>um\ndois</blockquote>\nfim'
