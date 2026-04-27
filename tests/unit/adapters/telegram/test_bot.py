@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import pytest
 from telegram.error import TelegramError
 
@@ -51,7 +53,7 @@ def _patch_registry(mocker, commands):
     )
 
 
-def _make_bot(mocker, *, nsfw_chat_ids: frozenset[int] = frozenset()) -> TelegramBot:
+def _make_bot(mocker, *, nsfw_chat_ids: frozenset[int] = frozenset()):
     mocker.patch('bot.adapters.telegram.bot.Application.builder')
     bot = TelegramBot(token=FAKE_TOKEN, bot_username='resenhazord_bot', nsfw_chat_ids=nsfw_chat_ids)
     bot._app = mocker.MagicMock()
@@ -168,10 +170,9 @@ class TestPublishCommandMenu:
 
         await bot._publish_command_menu()
 
-        assert bot._app.bot.set_my_commands.call_count == 3
-        nsfw_calls = [
-            call for call in bot._app.bot.set_my_commands.call_args_list if 'scope' in call.kwargs
-        ]
+        set_commands = cast('Any', bot._app.bot.set_my_commands)
+        assert set_commands.call_count == 3
+        nsfw_calls = [call for call in set_commands.call_args_list if 'scope' in call.kwargs]
         assert len(nsfw_calls) == 2
         published_names = {c.command for c in nsfw_calls[0].args[0]}
         assert published_names == {'oi', 'hentai'}
