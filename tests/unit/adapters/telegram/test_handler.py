@@ -6,6 +6,7 @@ import pytest
 from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
+from bot.adapters.telegram.agent_router import TelegramAgentRouter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
 from bot.domain.commands.base import CommandScope, Platform
 from bot.domain.exceptions import BotError
@@ -71,7 +72,7 @@ class TestHandle:
         await handler.handle(port, make_update('/d20'))
 
         port.send_typing.assert_called_once_with(DEFAULT_CHAT_ID)
-        port.react.assert_called_once_with(DEFAULT_CHAT_ID, 1, handler.ACK_REACTION)
+        port.react.assert_called_once_with(DEFAULT_CHAT_ID, 1, TelegramAgentRouter.ACK_REACTION)
         assert any(
             call.args[0].kind == TelegramKind.TEXT and call.args[0].text == 'pong'
             for call in port.send.call_args_list
@@ -183,7 +184,7 @@ class TestHandle:
         await handler.handle(port, make_update('/crash'))
 
         sent = port.send.call_args.args[0]
-        assert sent.text == handler.GENERIC_ERROR_MESSAGE
+        assert sent.text == TelegramAgentRouter.GENERIC_ERROR_MESSAGE
 
     @pytest.mark.anyio
     async def test_empty_messages_replies_empty(self, handler, port, mocker):
@@ -193,7 +194,7 @@ class TestHandle:
         await handler.handle(port, make_update('/silent'))
 
         sent = port.send.call_args.args[0]
-        assert sent.text == handler.EMPTY_REPLY_MESSAGE
+        assert sent.text == TelegramAgentRouter.EMPTY_REPLY_MESSAGE
 
     @pytest.mark.anyio
     async def test_non_command_update_in_group_ignored(self, handler, port, mocker):
@@ -212,7 +213,7 @@ class TestHandle:
         executor = mocker.MagicMock()
         executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',d20'))
         mocker.patch(
-            'bot.adapters.telegram.handler.AgentExecutor',
+            'bot.adapters.telegram.agent_router.AgentExecutor',
             return_value=executor,
         )
 
@@ -246,7 +247,7 @@ class TestDmAgentMode:
         executor = mocker.MagicMock()
         executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',d20'))
         mocker.patch(
-            'bot.adapters.telegram.handler.AgentExecutor',
+            'bot.adapters.telegram.agent_router.AgentExecutor',
             return_value=executor,
         )
 
@@ -273,7 +274,7 @@ class TestDmAgentMode:
         executor = mocker.MagicMock()
         executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',foo'))
         mocker.patch(
-            'bot.adapters.telegram.handler.AgentExecutor',
+            'bot.adapters.telegram.agent_router.AgentExecutor',
             return_value=executor,
         )
 
@@ -317,7 +318,7 @@ class TestDmAgentMode:
         executor = mocker.MagicMock()
         executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',d20'))
         mocker.patch(
-            'bot.adapters.telegram.handler.AgentExecutor',
+            'bot.adapters.telegram.agent_router.AgentExecutor',
             return_value=executor,
         )
 

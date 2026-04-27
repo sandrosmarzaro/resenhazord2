@@ -4,13 +4,11 @@ import structlog
 from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
+from bot.adapters.telegram.agent_router import TelegramAgentRouter
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.adapters.telegram.typing_loop import TypingLoop
-from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
-from bot.application.message_preprocess import preprocess_for_telegram
 from bot.domain.commands.base import Command, CommandScope, Platform
-from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound, TelegramPort
 
@@ -23,9 +21,6 @@ class TelegramUpdateHandler:
     UNKNOWN_COMMAND_MESSAGE: ClassVar[str] = 'Comando nao reconhecido.'
     GROUP_ONLY_MESSAGE: ClassVar[str] = 'Esse comando so funciona em grupos.'
     NSFW_ONLY_MESSAGE: ClassVar[str] = 'Este comando so pode ser usado em canais NSFW.'
-    GENERIC_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
-    EMPTY_REPLY_MESSAGE: ClassVar[str] = 'Sem resposta do bot.'
-    ACK_REACTION: ClassVar[str] = '\U0001f44d'
 
     def __init__(
         self,
@@ -36,6 +31,7 @@ class TelegramUpdateHandler:
         self._bot_username = bot_username.lower()
         self._nsfw_chat_ids = nsfw_chat_ids
         self._renderer = renderer or TelegramResponseRenderer()
+        self._router = TelegramAgentRouter(self._renderer)
         self._name_map: dict[str, str] = {}
 
     def register_name(self, telegram_name: str, registry_text: str) -> None:
@@ -49,13 +45,8 @@ class TelegramUpdateHandler:
             return
 
         command_name = self._extract_command_name(message)
-
         if command_name is None:
-            is_dm = chat.type == ChatType.PRIVATE
-            is_agent = is_dm or self._is_agent_mention(message)
-            if is_agent:
-                await self._handle_agent_mention(port, message, chat, user)
-                return
+            await self._maybe_route_agent(port, message, chat, user)
             return
 
         text = self._build_command_text(command_name, message)
@@ -64,18 +55,35 @@ class TelegramUpdateHandler:
             await self._reply_text(port, chat.id, self.UNKNOWN_COMMAND_MESSAGE)
             return
 
-        if strategy.config.group_only and chat.type not in self.GROUP_CHAT_TYPES:
-            await self._reply_text(port, chat.id, self.GROUP_ONLY_MESSAGE)
-            return
-
-        if strategy.config.scope == CommandScope.NSFW and chat.id not in self._nsfw_chat_ids:
-            await self._reply_text(port, chat.id, self.NSFW_ONLY_MESSAGE)
+        block = self._strategy_block_message(strategy, chat)
+        if block is not None:
+            await self._reply_text(port, chat.id, block)
             return
 
         data = self._build_command_data(message, chat, user, text)
-        await self._safe_react(port, chat.id, message.message_id)
+        await TelegramAgentRouter.safe_react(port, chat.id, message.message_id)
         async with TypingLoop.keep_typing(port, chat.id):
-            await self._run_and_reply(port, strategy, data, chat.id, command_name)
+            await self._router.run_and_reply(port, strategy, data, chat.id, command_name)
+
+    async def _maybe_route_agent(
+        self,
+        port: TelegramPort,
+        message: Message,
+        chat: Chat,
+        user: User,
+    ) -> None:
+        is_dm = chat.type == ChatType.PRIVATE
+        if not (is_dm or TelegramAgentRouter.is_agent_mention(message, self._bot_username)):
+            return
+        data = self._build_command_data(message, chat, user, message.text or '')
+        await self._router.route(port, message, chat, data)
+
+    def _strategy_block_message(self, strategy: Command, chat: Chat) -> str | None:
+        if strategy.config.group_only and chat.type not in self.GROUP_CHAT_TYPES:
+            return self.GROUP_ONLY_MESSAGE
+        if strategy.config.scope == CommandScope.NSFW and chat.id not in self._nsfw_chat_ids:
+            return self.NSFW_ONLY_MESSAGE
+        return None
 
     def _extract_command_name(self, message: Message) -> str | None:
         entity = self._find_command_entity(message.entities)
@@ -121,77 +129,6 @@ class TelegramUpdateHandler:
             platform=Platform.TELEGRAM,
         )
 
-    def _is_agent_mention(self, message: Message) -> bool:
-        """Check if message mentions @bot_username."""
-        if not message.text or not self._bot_username:
-            return False
-        return f'@{self._bot_username}' in message.text.lower()
-
-    async def _handle_agent_mention(
-        self,
-        port: TelegramPort,
-        message: Message,
-        chat: Chat,
-        user: User,
-    ) -> None:
-        """Handle agent mention for Telegram."""
-        data = self._build_command_data(message, chat, user, message.text or '')
-
-        await self._safe_react(port, chat.id, message.message_id)
-        async with TypingLoop.keep_typing(port, chat.id):
-            try:
-                executor = AgentExecutor(CommandRegistry.instance())
-                result = await executor.run(data)
-            except Exception:
-                logger.exception('telegram_agent_error')
-                await self._reply_text(port, chat.id, self.GENERIC_ERROR_MESSAGE)
-                return
-
-            strategy = CommandRegistry.instance().get_strategy(result.text)
-            if strategy is None:
-                await self._reply_text(port, chat.id, self.UNKNOWN_COMMAND_MESSAGE)
-                return
-
-            await self._run_and_reply(port, strategy, result, chat.id, result.text)
-
-    async def _run_and_reply(
-        self,
-        port: TelegramPort,
-        strategy: Command,
-        data: CommandData,
-        chat_id: int,
-        command_name: str,
-    ) -> None:
-        try:
-            messages = await strategy.run(data)
-        except BotError as error:
-            await self._reply_text(port, chat_id, error.user_message)
-            return
-        except Exception:
-            logger.exception('telegram_command_error', command=command_name)
-            await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)
-            return
-
-        if not messages:
-            await self._reply_text(port, chat_id, self.EMPTY_REPLY_MESSAGE)
-            return
-
-        messages = await preprocess_for_telegram(messages)
-        for outbound in self._renderer.render_many(messages, chat_id):
-            try:
-                await port.send(outbound)
-            except Exception:
-                logger.exception('telegram_send_failed', command=command_name)
-                await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)
-                return
-
     @staticmethod
     async def _reply_text(port: TelegramPort, chat_id: int, text: str) -> None:
         await port.send(TelegramOutbound(kind=TelegramKind.TEXT, chat_id=chat_id, text=text))
-
-    @classmethod
-    async def _safe_react(cls, port: TelegramPort, chat_id: int, message_id: int) -> None:
-        try:
-            await port.react(chat_id, message_id, cls.ACK_REACTION)
-        except Exception:
-            logger.exception('telegram_react_failed', chat_id=chat_id, message_id=message_id)
