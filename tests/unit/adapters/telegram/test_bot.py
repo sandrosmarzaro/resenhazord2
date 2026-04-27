@@ -44,6 +44,21 @@ class FakeCommand(Command):
         return []
 
 
+def _patch_registry(mocker, commands):
+    mocker.patch(
+        'bot.adapters.telegram.bot.CommandRegistry.instance',
+        return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
+    )
+
+
+def _make_bot(mocker, *, nsfw_chat_ids: frozenset[int] = frozenset()) -> TelegramBot:
+    mocker.patch('bot.adapters.telegram.bot.Application.builder')
+    bot = TelegramBot(token=FAKE_TOKEN, bot_username='resenhazord_bot', nsfw_chat_ids=nsfw_chat_ids)
+    bot._app = mocker.MagicMock()
+    bot._app.bot = mocker.AsyncMock()
+    return bot
+
+
 class TestNormalizeName:
     def test_lowercase_ascii(self):
         assert TelegramBot._normalize_name('Hello') == 'hello'
@@ -59,9 +74,7 @@ class TestNormalizeName:
         assert TelegramBot._normalize_name('hi!@#') == 'hi'
 
     def test_caps_length(self):
-        long_name = 'a' * 50
-
-        result = TelegramBot._normalize_name(long_name)
+        result = TelegramBot._normalize_name('a' * 50)
 
         assert len(result) == TelegramBot.NAME_MAX_LENGTH
 
@@ -91,13 +104,7 @@ class TestIsMenuEligible:
 class TestPublishCommandMenu:
     @pytest.fixture
     def bot(self, mocker):
-        mocker.patch('bot.adapters.telegram.bot.Application.builder')
-        instance = TelegramBot(
-            token=FAKE_TOKEN, bot_username='resenhazord_bot', nsfw_chat_ids=frozenset()
-        )
-        instance._app = mocker.MagicMock()
-        instance._app.bot = mocker.AsyncMock()
-        return instance
+        return _make_bot(mocker)
 
     @pytest.fixture
     def commands(self):
@@ -109,10 +116,7 @@ class TestPublishCommandMenu:
 
     @pytest.mark.anyio
     async def test_publishes_only_public_by_default(self, bot, commands, mocker):
-        mocker.patch(
-            'bot.adapters.telegram.bot.CommandRegistry.instance',
-            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
-        )
+        _patch_registry(mocker, commands)
 
         await bot._publish_command_menu()
 
@@ -130,10 +134,7 @@ class TestPublishCommandMenu:
                 description='gera sticker',
             ),
         ]
-        mocker.patch(
-            'bot.adapters.telegram.bot.CommandRegistry.instance',
-            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
-        )
+        _patch_registry(mocker, commands)
 
         await bot._publish_command_menu()
 
@@ -143,13 +144,8 @@ class TestPublishCommandMenu:
 
     @pytest.mark.anyio
     async def test_skips_alias_that_normalizes_to_existing_name(self, bot, mocker):
-        commands = [
-            FakeCommand('oi', platforms=[Platform.TELEGRAM], aliases=['Oi', 'hi']),
-        ]
-        mocker.patch(
-            'bot.adapters.telegram.bot.CommandRegistry.instance',
-            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
-        )
+        commands = [FakeCommand('oi', platforms=[Platform.TELEGRAM], aliases=['Oi', 'hi'])]
+        _patch_registry(mocker, commands)
 
         await bot._publish_command_menu()
 
@@ -158,10 +154,7 @@ class TestPublishCommandMenu:
 
     @pytest.mark.anyio
     async def test_api_failure_is_logged_and_swallowed(self, bot, commands, mocker):
-        mocker.patch(
-            'bot.adapters.telegram.bot.CommandRegistry.instance',
-            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
-        )
+        _patch_registry(mocker, commands)
         bot._app.bot.set_my_commands.side_effect = TelegramError('rate limited')
 
         await bot._publish_command_menu()
@@ -170,16 +163,8 @@ class TestPublishCommandMenu:
 
     @pytest.mark.anyio
     async def test_publishes_nsfw_per_chat(self, commands, mocker):
-        mocker.patch('bot.adapters.telegram.bot.Application.builder')
-        bot = TelegramBot(
-            token=FAKE_TOKEN, bot_username='resenhazord_bot', nsfw_chat_ids=frozenset({42, 99})
-        )
-        bot._app = mocker.MagicMock()
-        bot._app.bot = mocker.AsyncMock()
-        mocker.patch(
-            'bot.adapters.telegram.bot.CommandRegistry.instance',
-            return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
-        )
+        bot = _make_bot(mocker, nsfw_chat_ids=frozenset({42, 99}))
+        _patch_registry(mocker, commands)
 
         await bot._publish_command_menu()
 
