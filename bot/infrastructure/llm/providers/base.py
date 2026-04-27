@@ -1,5 +1,3 @@
-"""LLM provider implementations with OpenAI-compatible tool calling."""
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -82,69 +80,3 @@ class LLMProvider(ABC):
         if tool_calls:
             return tool_calls[0]['function']
         return None
-
-
-class GitHubProvider(LLMProvider):
-    BASE_URL: ClassVar[str] = 'https://models.github.ai/inference'
-
-    def __init__(self, token: str) -> None:
-        self._token = token
-
-    @property
-    def provider_name(self) -> str:
-        return 'github'
-
-    @property
-    def model_id(self) -> str:
-        return 'gpt-4o'
-
-    def _headers(self) -> dict[str, str]:
-        return {
-            'Accept': 'application/vnd.github+json',
-            'Authorization': f'Bearer {self._token}',
-            'X-GitHub-Api-Version': '2022-11-28',
-            'Content-Type': 'application/json',
-        }
-
-
-class MistralProvider(LLMProvider):
-    BASE_URL: ClassVar[str] = 'https://api.mistral.ai/v1'
-
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
-
-    @property
-    def provider_name(self) -> str:
-        return 'mistral'
-
-    @property
-    def model_id(self) -> str:
-        return 'mistral-small-latest'
-
-    def _headers(self) -> dict[str, str]:
-        return {
-            'Authorization': f'Bearer {self._api_key}',
-            'Content-Type': 'application/json',
-        }
-
-
-class GroqProvider(LLMProvider):
-    BASE_URL: ClassVar[str] = 'https://api.groq.com/openai/v1'
-    SUPPORTS_TOOLS: ClassVar[bool] = False
-
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
-
-    @property
-    def provider_name(self) -> str:
-        return 'groq'
-
-    @property
-    def model_id(self) -> str:
-        return 'llama-3.3-70b-versatile'
-
-    def _headers(self) -> dict[str, str]:
-        return {
-            'Authorization': f'Bearer {self._api_key}',
-            'Content-Type': 'application/json',
-        }

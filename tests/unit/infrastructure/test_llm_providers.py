@@ -4,10 +4,8 @@ import httpx
 import pytest
 
 from bot.infrastructure.llm.provider_chain import ProviderChain
-from bot.infrastructure.llm.providers import (
-    GitHubProvider,
-    LLMResponse,
-)
+from bot.infrastructure.llm.providers.base import LLMResponse
+from bot.infrastructure.llm.providers.github import GitHubProvider
 
 
 class TestGitHubProvider:

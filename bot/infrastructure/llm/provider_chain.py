@@ -9,13 +9,10 @@ from typing import ClassVar
 import httpx
 import structlog
 
-from bot.infrastructure.llm.providers import (
-    GitHubProvider,
-    GroqProvider,
-    LLMProvider,
-    LLMResponse,
-    MistralProvider,
-)
+from bot.infrastructure.llm.providers.base import LLMProvider, LLMResponse
+from bot.infrastructure.llm.providers.github import GitHubProvider
+from bot.infrastructure.llm.providers.groq import GroqProvider
+from bot.infrastructure.llm.providers.mistral import MistralProvider
 
 logger = structlog.get_logger()
 
