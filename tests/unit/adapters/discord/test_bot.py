@@ -9,39 +9,40 @@ if TYPE_CHECKING:
     from discord import app_commands
 
 from bot.adapters.discord.bot import DiscordBot
+from bot.adapters.discord.slash_register import DiscordSlashRegistrar
 from bot.domain.commands.base import ArgType, Command, CommandConfig, OptionDef, Platform
 from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
 
 
 class TestNormalizeName:
     def test_strips_diacritics(self):
-        assert DiscordBot._normalize_name('horóscopo') == 'horoscopo'
+        assert DiscordSlashRegistrar._normalize_name('horóscopo') == 'horoscopo'
 
     def test_strips_accented_letters(self):
-        assert DiscordBot._normalize_name('pokémon') == 'pokemon'
+        assert DiscordSlashRegistrar._normalize_name('pokémon') == 'pokemon'
 
     def test_spaces_become_hyphens(self):
-        assert DiscordBot._normalize_name('rule 34') == 'rule-34'
+        assert DiscordSlashRegistrar._normalize_name('rule 34') == 'rule-34'
 
     def test_strips_cedilla(self):
-        assert DiscordBot._normalize_name('áudio') == 'audio'
+        assert DiscordSlashRegistrar._normalize_name('áudio') == 'audio'
 
     def test_truncates_to_max_length(self):
         long_name = 'a' * 50
-        result = DiscordBot._normalize_name(long_name)
-        assert len(result) == DiscordBot.DISCORD_NAME_MAX_LENGTH
+        result = DiscordSlashRegistrar._normalize_name(long_name)
+        assert len(result) == DiscordSlashRegistrar.NAME_MAX_LENGTH
 
     def test_plain_ascii_unchanged(self):
-        assert DiscordBot._normalize_name('d20') == 'd20'
+        assert DiscordSlashRegistrar._normalize_name('d20') == 'd20'
 
     def test_removes_invalid_chars(self):
-        assert DiscordBot._normalize_name('hello!world') == 'helloworld'
+        assert DiscordSlashRegistrar._normalize_name('hello!world') == 'helloworld'
 
 
 class TestBuildSignature:
     def test_minimal_config_has_only_interaction(self):
         config = CommandConfig(name='test')
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         assert list(sig.parameters.keys()) == ['interaction']
 
@@ -50,7 +51,7 @@ class TestBuildSignature:
             name='test',
             options=[OptionDef(name='type', values=['a', 'b'])],
         )
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         assert 'type' in sig.parameters
         param = sig.parameters['type']
@@ -59,7 +60,7 @@ class TestBuildSignature:
 
     def test_whatsapp_flags_skipped(self):
         config = CommandConfig(name='test', flags=['dm', 'show', 'detail'])
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         assert 'dm' not in sig.parameters
         assert 'show' not in sig.parameters
@@ -67,7 +68,7 @@ class TestBuildSignature:
 
     def test_flag_is_bool_optional(self):
         config = CommandConfig(name='test', flags=['detail'])
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         param = sig.parameters['detail']
         assert param.default is None
@@ -75,7 +76,7 @@ class TestBuildSignature:
 
     def test_required_args_has_no_default(self):
         config = CommandConfig(name='test', args=ArgType.REQUIRED)
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         assert 'args' in sig.parameters
         param = sig.parameters['args']
@@ -84,7 +85,7 @@ class TestBuildSignature:
 
     def test_optional_args_has_none_default(self):
         config = CommandConfig(name='test', args=ArgType.OPTIONAL)
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         param = sig.parameters['args']
         assert param.default is None
@@ -92,7 +93,7 @@ class TestBuildSignature:
 
     def test_no_args_field_when_none(self):
         config = CommandConfig(name='test', args=ArgType.NONE)
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         assert 'args' not in sig.parameters
 
@@ -101,7 +102,7 @@ class TestBuildSignature:
             name='test',
             options=[OptionDef(name='lang', pattern=r'[A-Za-z]{2}-[A-Za-z]{2}')],
         )
-        sig = DiscordBot._build_signature(config)
+        sig = DiscordSlashRegistrar._build_signature(config)
 
         assert 'lang' in sig.parameters
         param = sig.parameters['lang']
@@ -128,7 +129,7 @@ class TestRegisterCommands:
             mocker, CommandConfig(name='jackpot', platforms=[Platform.WHATSAPP, Platform.DISCORD])
         )
 
-        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry = mocker.patch('bot.adapters.discord.slash_register.CommandRegistry')
         mock_registry.instance.return_value.get_all.return_value = [
             discord_cmd,
             whatsapp_only_cmd,
@@ -150,7 +151,7 @@ class TestRegisterCommands:
             ),
         )
 
-        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry = mocker.patch('bot.adapters.discord.slash_register.CommandRegistry')
         mock_registry.instance.return_value.get_all.return_value = [cmd]
         bot = DiscordBot('123456789')
         bot.register_commands()
@@ -169,7 +170,7 @@ class TestRegisterCommands:
             ),
         )
 
-        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry = mocker.patch('bot.adapters.discord.slash_register.CommandRegistry')
         mock_registry.instance.return_value.get_all.return_value = [cmd]
         bot = DiscordBot('123456789')
         bot.register_commands()
@@ -268,10 +269,8 @@ class TestDuplicateAliases:
 
     def test_duplicate_aliases_are_skipped(self):
         """Aliases that normalize to same name should be detected."""
-        from bot.adapters.discord.bot import DiscordBot
-
         aliases = ['rule 34', 'rule_34', 'rule-34', 'rule34']
-        normalized = [DiscordBot._normalize_name(a) for a in aliases]
+        normalized = [DiscordSlashRegistrar._normalize_name(a) for a in aliases]
 
         assert len(set(normalized)) == 3
 
@@ -289,7 +288,7 @@ class TestGlobalSlashCommands:
             mocker,
             CommandConfig(name='d20', platforms=[Platform.WHATSAPP, Platform.DISCORD]),
         )
-        mock_registry = mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mock_registry = mocker.patch('bot.adapters.discord.slash_register.CommandRegistry')
         mock_registry.instance.return_value.get_all.return_value = [cmd]
         bot = DiscordBot('123456789')
         bot.register_commands()
@@ -318,7 +317,7 @@ class TestDmAgentMode:
 
     @pytest.mark.anyio
     async def test_dm_message_runs_agent_and_executes_command(self, mocker):
-        mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mocker.patch('bot.adapters.discord.agent_router.CommandRegistry')
         bot = DiscordBot('123456789')
 
         msg = self._make_message(mocker, 'me mande o g4 do Brasileirão', guild_id=None)
@@ -326,18 +325,18 @@ class TestDmAgentMode:
 
         executor_mock = mocker.MagicMock()
         executor_mock.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',table br g4'))
-        mocker.patch('bot.adapters.discord.bot.AgentExecutor', return_value=executor_mock)
+        mocker.patch('bot.adapters.discord.agent_router.AgentExecutor', return_value=executor_mock)
 
         strategy_mock = mocker.MagicMock()
         strategy_mock.run = mocker.AsyncMock(return_value=[])
         mocker.patch(
-            'bot.adapters.discord.bot.CommandRegistry.instance',
+            'bot.adapters.discord.agent_router.CommandRegistry.instance',
             return_value=mocker.MagicMock(
                 get_strategy=mocker.MagicMock(return_value=strategy_mock)
             ),
         )
 
-        await bot._handle_dm_message(msg)
+        await bot._router.handle_dm(msg)
 
         executor_mock.run.assert_called_once()
         call_data = executor_mock.run.call_args.args[0]
@@ -350,7 +349,7 @@ class TestDmAgentMode:
 
     @pytest.mark.anyio
     async def test_dm_unknown_command_replies_not_recognized(self, mocker):
-        mocker.patch('bot.adapters.discord.bot.CommandRegistry')
+        mocker.patch('bot.adapters.discord.agent_router.CommandRegistry')
         bot = DiscordBot('123456789')
 
         msg = self._make_message(mocker, 'foo bar baz', guild_id=None)
@@ -358,13 +357,13 @@ class TestDmAgentMode:
 
         executor_mock = mocker.AsyncMock()
         executor_mock.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=',foo'))
-        mocker.patch('bot.adapters.discord.bot.AgentExecutor', return_value=executor_mock)
+        mocker.patch('bot.adapters.discord.agent_router.AgentExecutor', return_value=executor_mock)
         mocker.patch(
-            'bot.adapters.discord.bot.CommandRegistry.instance',
+            'bot.adapters.discord.agent_router.CommandRegistry.instance',
             return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=None)),
         )
 
-        await bot._handle_dm_message(msg)
+        await bot._router.handle_dm(msg)
 
         msg.reply.assert_called()
         reply_text = msg.reply.call_args[0][0]
