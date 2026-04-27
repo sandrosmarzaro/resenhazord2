@@ -9,7 +9,7 @@ import structlog
 from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import CommandScope
+from bot.domain.commands.base import Command, CommandScope
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -28,6 +28,8 @@ class CommandHandler:
         r'\b(mande|me\s+manda|me\s+envie|envie)\s+(um?|uma)\b',
         re.IGNORECASE,
     )
+    _CLARIFY_PREFIX: ClassVar[str] = ',clarify:'
+    _SUGGEST_PREFIX: ClassVar[str] = ',suggest:'
 
     def __init__(
         self,
@@ -48,41 +50,15 @@ class CommandHandler:
             if jid
         )
 
-    def _is_agent_mention(self, data: CommandData) -> bool:
-        """Check if message is agent-mode: @resenhazord mention, DM, or 'send me a...' pattern."""
-        text_lower = (data.text or '').lower()
-        for mentioned in data.mentioned_jids or ():
-            if mentioned.split('@')[0] in self._bot_numeric:
-                return True
-        if AgentExecutor.BOT_MENTION_TAG in text_lower:
-            return True
-        if not data.is_group:
-            return True
-        return bool(self._SEND_ME_PATTERN.search(text_lower))
-
-    async def _run_agent(self, data: CommandData) -> CommandData:
-        """Run the LLM agent to map natural language to command."""
-        try:
-            if self._agent_executor is None:
-                self._agent_executor = AgentExecutor(self._registry)
-            return await self._agent_executor.run(data)
-        except (httpx.HTTPError, RuntimeError, ValueError):
-            logger.warning('agent_execution_failed', text=data.text)
-            return data
-
-    # C901 suppressed: dispatch fan-out (registry match, agent path, DM
-    # fallback, ack callback, cooldown branch) — splitting scatters branches.
-    async def handle(  # noqa: C901
+    async def handle(
         self,
         data: CommandData,
         *,
         on_match: Callable[[], Awaitable[None]] | None = None,
     ) -> list[BotMessage] | None:
-        """Returns messages if a command matched, None if no match."""
         logger.debug('handle_raw', text=repr(data.text))
 
-        is_agent = self._is_agent_mention(data)
-        if is_agent:
+        if self._is_agent_mention(data):
             logger.info('agent_mention_detected', text=data.text)
             data = await self._run_agent(data)
 
@@ -99,13 +75,19 @@ class CommandHandler:
             text=data.text,
         )
         if command is None:
-            # Agent mode returns None (no response); regular mode returns None (no command matched)
-            # Future: agent fallback could differ (e.g., "command not found" message)
             return None
 
         if on_match:
             await on_match()
 
+        return await self._dispatch(command, data, repeat)
+
+    async def _dispatch(
+        self,
+        command: Command,
+        data: CommandData,
+        repeat: int,
+    ) -> list[BotMessage] | None:
         scope = command.config.scope
         if scope == CommandScope.DISABLED:
             return [Reply.to(data).text(self._DISABLED_MSG)]
@@ -117,7 +99,14 @@ class CommandHandler:
             repeat = 1
 
         logger.debug('executing_command', batch=repeat if repeat > 1 else None)
+        return await self._run_command(command, data, repeat)
 
+    @staticmethod
+    async def _run_command(
+        command: Command,
+        data: CommandData,
+        repeat: int,
+    ) -> list[BotMessage]:
         try:
             messages: list[BotMessage] = []
             for _ in range(repeat):
@@ -127,8 +116,27 @@ class CommandHandler:
         except Exception:
             logger.exception('command_execution_failed')
             raise
-        else:
-            return messages
+        return messages
+
+    def _is_agent_mention(self, data: CommandData) -> bool:
+        text_lower = (data.text or '').lower()
+        for mentioned in data.mentioned_jids or ():
+            if mentioned.split('@')[0] in self._bot_numeric:
+                return True
+        if AgentExecutor.BOT_MENTION_TAG in text_lower:
+            return True
+        if not data.is_group:
+            return True
+        return bool(self._SEND_ME_PATTERN.search(text_lower))
+
+    async def _run_agent(self, data: CommandData) -> CommandData:
+        try:
+            if self._agent_executor is None:
+                self._agent_executor = AgentExecutor(self._registry)
+            return await self._agent_executor.run(data)
+        except (httpx.HTTPError, RuntimeError, ValueError):
+            logger.warning('agent_execution_failed', text=data.text)
+            return data
 
     @classmethod
     def _parse_batch(cls, data: CommandData) -> tuple[int, CommandData]:
@@ -139,13 +147,11 @@ class CommandHandler:
         stripped_text = data.text[: match.start()]
         return max(count, 1), replace(data, text=stripped_text)
 
-    def _parse_builtin_prefix(self, data: CommandData) -> list[BotMessage] | None:
-        """Parse ,clarify: and ,suggest: prefixes."""
+    @classmethod
+    def _parse_builtin_prefix(cls, data: CommandData) -> list[BotMessage] | None:
         text = data.text or ''
-        if text.startswith(',clarify:'):
-            question = text[len(',clarify:') :].strip()
-            return [Reply.to(data).text(question)]
-        if text.startswith(',suggest:'):
-            suggestion = text[len(',suggest:') :].strip()
-            return [Reply.to(data).text(suggestion)]
+        if text.startswith(cls._CLARIFY_PREFIX):
+            return [Reply.to(data).text(text[len(cls._CLARIFY_PREFIX) :].strip())]
+        if text.startswith(cls._SUGGEST_PREFIX):
+            return [Reply.to(data).text(text[len(cls._SUGGEST_PREFIX) :].strip())]
         return None
