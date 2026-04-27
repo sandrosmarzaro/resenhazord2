@@ -2,6 +2,7 @@ import pytest
 
 from bot.data.football import LEAGUES
 from bot.data.football_zones import LEAGUE_ZONES
+from bot.domain.commands.base import Platform
 from bot.domain.commands.football_standings import FootballStandingsCommand
 from bot.domain.models.football import TmStandingRow
 from bot.domain.models.message import TextContent
@@ -73,11 +74,9 @@ class TestConfig:
 
         assert command.config.category == Category.INFORMATION
 
-    def test_platforms(self, command):
-        from bot.domain.commands.base import Platform
-
-        assert Platform.WHATSAPP in command.config.platforms
-        assert Platform.DISCORD in command.config.platforms
+    @pytest.mark.parametrize('platform', [Platform.WHATSAPP, Platform.DISCORD])
+    def test_supports_platform(self, command, platform):
+        assert Platform.supports(command.config.platforms, platform)
 
 
 class TestDefaultLiga:

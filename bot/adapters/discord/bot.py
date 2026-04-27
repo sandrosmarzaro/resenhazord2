@@ -1,35 +1,35 @@
 import asyncio
-import inspect
-import re
-import unicodedata
-from typing import Any, ClassVar, cast
+from collections.abc import Callable, Coroutine
+from typing import Any, ClassVar
 
 import aiohttp
 import discord
 import structlog
 from discord import app_commands
 
-from bot.adapters.discord.adapter import DiscordInteractionAdapter
+from bot.adapters.discord.agent_router import DiscordAgentRouter
 from bot.adapters.discord.handler import DiscordInteractionHandler
-from bot.application.command_registry import CommandRegistry
-from bot.domain.commands.base import ArgType, Command, CommandConfig, Flag, Platform
+from bot.adapters.discord.renderer import DiscordResponseRenderer
+from bot.adapters.discord.slash_register import DiscordSlashRegistrar
 
 logger = structlog.get_logger()
 
+OnMessageCallback = Callable[[discord.Message], Coroutine[Any, Any, None]]
+
 
 class DiscordBot:
-    DISCORD_NAME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9_-]')
-    DISCORD_NAME_MAX_LENGTH: ClassVar[int] = 32
-    DISCORD_DESC_MAX_LENGTH: ClassVar[int] = 100
-    WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({Flag.DM, Flag.SHOW})
     MAX_SYNC_RETRIES: ClassVar[int] = 5
     SYNC_RETRY_DELAY_SECS: ClassVar[float] = 3.0
 
     def __init__(self, guild_id: str) -> None:
         self._guild = discord.Object(id=int(guild_id))
-        self._client = discord.Client(intents=discord.Intents(guilds=True))
+        intents = discord.Intents(guilds=True, messages=True, message_content=True)
+        self._client = discord.Client(intents=intents)
         self._tree = app_commands.CommandTree(self._client)
         self._handler = DiscordInteractionHandler()
+        self._renderer = DiscordResponseRenderer()
+        self._router = DiscordAgentRouter(self._renderer)
+        self._registrar = DiscordSlashRegistrar(self._tree, self._handler)
         self._setup_events()
 
     @property
@@ -37,147 +37,75 @@ class DiscordBot:
         return self._client
 
     def register_commands(self) -> None:
-        for command in CommandRegistry.instance().get_all():
-            if Platform.DISCORD not in command.config.platforms:
-                continue
-            self._register_slash_command(command)
-            for alias in command.config.aliases:
-                self._register_alias(command, alias)
-            logger.info('discord_command_registered', name=command.config.name)
-
-    def _register_slash_command(self, command: Command) -> None:
-        config = command.config
-        discord_name = self._normalize_name(config.name)
-        self._handler.register_name(discord_name, f',{config.name}')
-        self._do_register(discord_name, command)
-
-    def _register_alias(self, command: Command, alias: str) -> None:
-        discord_name = self._normalize_name(alias)
-        self._handler.register_name(discord_name, f',{alias}')
-        self._do_register(discord_name, command)
-
-    def _do_register(self, discord_name: str, command: Command) -> None:
-        config = command.config
-        description = command.menu_description[: self.DISCORD_DESC_MAX_LENGTH]
-
-        callback = self._make_callback()
-        cast('Any', callback).__signature__ = self._build_signature(config)
-
-        slash_cmd = app_commands.Command(
-            name=discord_name,
-            description=description,
-            callback=callback,  # type: ignore[arg-type]
-        )
-
-        for opt in config.options:
-            if opt.name not in slash_cmd._params:
-                continue
-            if opt.values:
-                slash_cmd._params[opt.name].choices = [
-                    app_commands.Choice(name=v, value=v) for v in opt.values
-                ]
-            if opt.description:
-                slash_cmd._params[opt.name].description = opt.description
-
-        if 'args' in slash_cmd._params and config.args_label:
-            slash_cmd._params['args'].description = config.args_label
-
-        self._tree.add_command(slash_cmd, guild=self._guild)
-
-    def _make_callback(self):
-        handler = self._handler
-
-        async def callback(interaction: discord.Interaction, **kwargs) -> None:
-            port = DiscordInteractionAdapter(interaction)
-            await handler.handle(port, interaction, **kwargs)
-
-        return callback
-
-    @classmethod
-    def _build_signature(cls, config: CommandConfig) -> inspect.Signature:
-        params: list[inspect.Parameter] = [
-            inspect.Parameter(
-                'interaction',
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                annotation=discord.Interaction,
-            ),
-        ]
-
-        params.extend(
-            inspect.Parameter(
-                opt.name,
-                inspect.Parameter.KEYWORD_ONLY,
-                default=None,
-                annotation=str | None,
-            )
-            for opt in config.options
-            if opt.values or opt.pattern
-        )
-
-        for flag in config.flags:
-            if flag in cls.WHATSAPP_ONLY_FLAGS:
-                continue
-            params.append(
-                inspect.Parameter(
-                    flag,
-                    inspect.Parameter.KEYWORD_ONLY,
-                    default=None,
-                    annotation=bool | None,
-                )
-            )
-
-        if config.args != ArgType.NONE:
-            default = inspect.Parameter.empty if config.args == ArgType.REQUIRED else None
-            annotation = str if config.args == ArgType.REQUIRED else (str | None)
-            params.append(
-                inspect.Parameter(
-                    'args',
-                    inspect.Parameter.KEYWORD_ONLY,
-                    default=default,
-                    annotation=annotation,
-                )
-            )
-
-        return inspect.Signature(params)
-
-    @classmethod
-    def _normalize_name(cls, name: str) -> str:
-        normalized = unicodedata.normalize('NFD', name.lower())
-        ascii_only = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
-        cleaned = cls.DISCORD_NAME_PATTERN.sub('', ascii_only.replace(' ', '-'))
-        return cleaned[: cls.DISCORD_NAME_MAX_LENGTH]
+        self._registrar.register_all()
 
     def _setup_events(self) -> None:
         client = self._client
-        tree = self._tree
         guild = self._guild
 
-        @client.event
+        client.event(self._make_on_ready())
+        client.event(self._make_on_message(client, guild))
+
+    def _make_on_ready(self) -> Callable[[], Coroutine[Any, Any, None]]:
+        client = self._client
+        guild = self._guild
+        tree = self._tree
+
         async def on_ready() -> None:
-            for attempt in range(1, self.MAX_SYNC_RETRIES + 1):
-                try:
-                    synced = await tree.sync(guild=guild)
-                except aiohttp.ClientConnectorError:
-                    if attempt == self.MAX_SYNC_RETRIES:
-                        logger.exception(
-                            'discord_sync_failed',
-                            guild_id=guild.id,
-                            attempts=attempt,
-                        )
-                        return
-                    delay = self.SYNC_RETRY_DELAY_SECS * attempt
-                    logger.warning(
-                        'discord_sync_retry',
-                        guild_id=guild.id,
-                        attempt=attempt,
-                        retry_in=delay,
-                    )
-                    await asyncio.sleep(delay)
-                else:
-                    logger.info(
-                        'discord_connected',
-                        tag=str(client.user),
-                        guild_id=guild.id,
-                        synced_commands=[c.name for c in synced],
-                    )
+            await self._sync_with_retries(client, tree, guild)
+
+        return on_ready
+
+    def _make_on_message(self, client: discord.Client, guild: discord.Object) -> OnMessageCallback:
+        router = self._router
+
+        async def on_message(message: discord.Message) -> None:
+            if message.author == client.user or not message.content:
+                return
+            if message.guild is None:
+                await router.handle_dm(message)
+                return
+            if message.guild.id != guild.id:
+                return
+            if not self._mentions_bot(client, message):
+                return
+            await router.handle_mention(message)
+
+        return on_message
+
+    @staticmethod
+    def _mentions_bot(client: discord.Client, message: discord.Message) -> bool:
+        app_user = client.user
+        if app_user is None:
+            return False
+        bot_mention = f'<@{app_user.id}>'
+        return bot_mention in message.content or f'@{app_user.name}' in message.content
+
+    async def _sync_with_retries(
+        self,
+        client: discord.Client,
+        tree: app_commands.CommandTree,
+        guild: discord.Object,
+    ) -> None:
+        for attempt in range(1, self.MAX_SYNC_RETRIES + 1):
+            try:
+                synced = await tree.sync()
+            except aiohttp.ClientConnectorError:
+                if attempt == self.MAX_SYNC_RETRIES:
+                    logger.exception('discord_sync_failed', guild_id=guild.id, attempts=attempt)
                     return
+                delay = self.SYNC_RETRY_DELAY_SECS * attempt
+                logger.warning(
+                    'discord_sync_retry',
+                    guild_id=guild.id,
+                    attempt=attempt,
+                    retry_in=delay,
+                )
+                await asyncio.sleep(delay)
+                continue
+            logger.info(
+                'discord_connected',
+                tag=str(client.user),
+                synced_commands=[c.name for c in synced],
+            )
+            return

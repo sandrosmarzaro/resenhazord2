@@ -147,9 +147,95 @@ class TestBatch:
 
     @pytest.mark.anyio
     async def test_no_batch_suffix_runs_once(self, handler):
-        data = GroupCommandDataFactory.build(text=', pub')
+        data = GroupCommandDataFactory.build(text=',pub')
+
+        result = await handler.handle(data)
+
+        assert result is not None
+
+
+class TestAgentDetection:
+    @pytest.mark.anyio
+    async def test_agent_trigger_in_dm(self, handler):
+        """Test that any message in DM triggers agent mode."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text='me mande um yugioh',
+            jid='test@s.whatsapp.net',
+            sender_jid='test@s.whatsapp.net',
+            is_group=False,
+        )
+
+        is_agent = handler._is_agent_mention(data)
+
+        assert is_agent is True
+
+    @pytest.mark.anyio
+    async def test_agent_trigger_with_send_me_pattern(self, handler):
+        """Test that 'mande um' pattern triggers agent in group."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text='me mande um pacotinho de yugioh',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        is_agent = handler._is_agent_mention(data)
+
+        assert is_agent is True
+
+    @pytest.mark.anyio
+    async def test_no_agent_for_plain_command_in_group(self, handler):
+        """Test that plain comma command in group doesn't trigger agent."""
+        data = GroupCommandDataFactory.build(text=',pub')
+
+        is_agent = handler._is_agent_mention(data)
+
+        assert is_agent is False
+
+
+class TestSuggestHandler:
+    """Tests for ,suggest: handler in command handler."""
+
+    @pytest.mark.anyio
+    async def test_suggest_returns_conversational_message(self, handler):
+        """Test that ,suggest: returns the conversational message."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',suggest:Não sei te dizer a data exata, '
+            'mas posso te mandar um time aleatório! Use ,time',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            mentioned_jids=['bot_jid@s.whatsapp.net'],
+            is_group=True,
+        )
 
         result = await handler.handle(data)
 
         assert result is not None
         assert len(result) == 1
+        assert 'Não sei' in result[0].content.text
+        assert 'time' in result[0].content.text
+
+    @pytest.mark.anyio
+    async def test_clarify_returns_question(self, handler):
+        """Test that ,clarify: returns the question."""
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',clarify:Você quer ver a tabela de qual competição?',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            mentioned_jids=['bot_jid@s.whatsapp.net'],
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert len(result) == 1
+        assert 'tabela' in result[0].content.text

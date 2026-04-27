@@ -21,7 +21,7 @@ class YugiohCommand(CardBoosterCommand):
             name='ygo',
             flags=['booster', Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.ALL],
         )
 
     @property

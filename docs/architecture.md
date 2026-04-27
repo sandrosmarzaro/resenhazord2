@@ -1,135 +1,288 @@
 # Architecture
 
+## Project Structure
+
+```
+resenhazord2/
+  bot/                           Python core — all business logic
+    adapters/
+      whatsapp/                  Thin Python-side port (WhatsAppPort)
+      discord/                   discord.py slash-command adapter
+      telegram/                  python-telegram-bot polling adapter
+      http/                      FastAPI app + WebSocket handler
+    application/
+      command_handler.py         Dispatches a parsed command
+      command_registry.py        Singleton list of registered Command instances
+      register_commands.py       Wires every command into the registry at startup
+    data/                        Lookup tables, emoji maps, static datasets
+    domain/
+      builders/reply.py          Fluent Reply.to(data).text(...) API
+      commands/                  46 command implementations (base.py + subclasses)
+      models/                    CommandData, BotMessage, content types
+      parsers/command_parser.py  Regex + tokenizer generated from CommandConfig
+      services/                  Shared business logic used by commands
+    infrastructure/
+      logging.py                 structlog + stdlib unified config
+      sentry.py                  sentry_sdk.init with FastApiIntegration
+      http_client.py             Singleton httpx client with retries
+    ports/                       Protocols the domain depends on (DiscordPort, TelegramPort, ...)
+    main.py                      FastAPI lifespan: init Sentry, structlog, Discord task
+    settings.py                  pydantic-settings from .env
+  gateway/                       Bun + TypeScript — WhatsApp adapter only
+    src/
+      adapters/BaileysAdapter.ts Implements WhatsAppPort against a Baileys WASocket
+      cache/                     Layered GroupMetadata cache (Memory + Redis)
+      infra/Sentry.ts            @sentry/bun initialization
+      parsers/CommandParser.ts   Mirror of Python parser for early filtering
+      ports/WhatsAppPort.ts      TS interface the Python side calls via WebSocket
+  docs/
+  tests/                         pytest + anyio
+```
+
 ## Message Flow
 
-1. Baileys socket receives a message → `messages.upsert` event
-2. `MessageUpsertEvent` filters messages (only specific group JIDs)
-3. `CommandHandler.run(message)` extracts text and finds a matching command
-4. `CommandFactory.getStrategy(text)` iterates registered commands, matching via regex
-5. The matched `Command.run(data)` executes and returns `Message[]`
-6. Messages are sent back via the WhatsApp adapter
+Three inbound platforms, one command pipeline.
+
+### WhatsApp (via Gateway)
+
+1. Baileys socket receives a message → `messages.upsert` event.
+2. The TS gateway filters against allowed group JIDs.
+3. If media is attached, gateway downloads it proactively.
+4. Gateway forwards `{CommandData JSON, optional binary frame}` over WebSocket to the
+   Python `WebSocketHandler`.
+5. Python's `CommandHandler.handle_parsed(data)` routes the payload.
+
+### Discord
+
+1. `DiscordBot` (discord.py) receives an interaction for a registered slash command.
+2. `DiscordInteractionAdapter` maps the interaction into a platform-agnostic
+   `CommandData` (mirroring the WhatsApp shape).
+3. `DiscordInteractionHandler` rewrites the Discord command name into the comma
+   form (`/d20` → `',d20'`) and calls the same `CommandHandler`.
+
+### Telegram
+
+1. `TelegramBot` (python-telegram-bot) polls the Bot API; each registered
+   `CommandHandler` routes a `/name` update to `TelegramUpdateHandler`.
+2. The handler strips any `@botname` suffix, rewrites the slash into the comma
+   form (`/d20 2d6` → `',d20 2d6'`), and builds a `CommandData` with
+   `platform=Platform.TELEGRAM`.
+3. `keep_typing` wraps dispatch in an anyio task group that refreshes
+   `sendChatAction` every 4 s, so long commands don't leave a stale bubble.
+4. `TelegramResponseRenderer` turns each `BotMessage` into one or more
+   `TelegramOutbound` values; `TelegramBotAdapter` dispatches them to
+   `send_message` / `send_photo` / `send_video` / etc.
+5. NSFW-scoped commands are refused outside the `telegram_nsfw_chat_ids`
+   allowlist and also published via `BotCommandScopeChat` to those chats only.
+
+### Shared pipeline
+
+```
+CommandData ──▶ CommandRegistry.get_strategy(text) ──▶ Command.run(data)
+                                                       ├─ checks group_only
+                                                       ├─ parser.parse(text)
+                                                       ├─ execute(data, parsed)
+                                                       └─ _apply_flags (dm, show)
+                                                          │
+                                                          ▼
+                                                    list[BotMessage]
+                                                          │
+                              ┌───────────────────────────┼──────────────────────────┐
+                              ▼                           ▼                          ▼
+                 WebSocketHandler → gateway        DiscordRenderer        TelegramResponseRenderer
+                   → Baileys                       → discord.py           → python-telegram-bot
+```
 
 ## Command System
 
-Every command extends the abstract `Command` class (`bot/domain/commands/base.py`):
+Every command extends `Command` (`bot/domain/commands/base.py`):
 
-- `config: CommandConfig` — declarative config for matching and parsing
-- `menu_description: str` — description shown in the `,menu` command
-- `execute(data: CommandData, parsed: ParsedCommand) -> list[BotMessage]` — command logic
+- `config: CommandConfig` — declarative parsing + platform config.
+- `menu_description: str` — shown by the `,menu` command.
+- `execute(data, parsed) -> list[BotMessage]` — command logic.
 
-The base `Command.run()` is a template method that:
+`Command.run()` is a template method:
 
-1. Checks `group_only` and returns an error if used in a private chat
-2. Parses the message text via `CommandParser` into a `ParsedCommand`
-3. Calls the subclass `execute()` method
-4. Applies `dm` and `show` flags centrally (commands don't handle these)
+1. Checks `group_only` and short-circuits with a friendly error for private chats.
+2. Parses the message text via `CommandParser` into a `ParsedCommand`.
+3. Calls subclass `execute()`.
+4. Applies `dm` and `show` flags centrally (commands don't handle these themselves).
 
-`CommandParser` (`bot/domain/parsers/command_parser.py`) auto-generates a regex from the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in names/flags/options are replaced with `.` in the regex.
+`CommandParser` (`bot/domain/parsers/command_parser.py`) auto-generates a regex from
+the config for `matches()`, and tokenizes the text for `parse()`. Diacritics in
+names / flags / options are replaced with `.` so `,pokémon` and `,pokemon` both match.
 
-`CommandRegistry` (`bot/application/command_registry.py`) is a singleton that holds all command instances and selects the first match.
+`CommandRegistry` (`bot/application/command_registry.py`) is a singleton list of
+registered `Command` instances and selects the first match.
 
-The TS gateway mirrors the parser (`gateway/src/parsers/CommandParser.ts`) for initial command matching before forwarding to Python.
+The TS gateway mirrors the parser (`gateway/src/parsers/CommandParser.ts`) for
+early filtering before forwarding to Python.
 
 ## Ports & Adapters
 
-`WhatsAppPort` (`gateway/src/ports/WhatsAppPort.ts`) abstracts WhatsApp operations behind an interface (sendMessage, groupMetadata, groupParticipantsUpdate, onWhatsApp, updateMediaMessage, etc.).
+Python ports live under `bot/ports/` and `bot/adapters/whatsapp/port.py`:
 
-`BaileysAdapter` (`gateway/src/adapters/BaileysAdapter.ts`) implements `WhatsAppPort` by wrapping the Baileys `WASocket`.
+- **`WhatsAppPort`** — operations the WhatsApp gateway exposes: `send_message`,
+  `group_metadata`, `group_participants_update`, `on_whatsapp`,
+  `update_profile_picture`, `download_media`, etc.
+- **`DiscordPort`** — operations a live Discord interaction exposes:
+  `send_message`, `defer`, `send_followup`, `is_deferred`.
+- **`TelegramPort`** — `send(TelegramOutbound)` and `send_typing(chat_id)`.
+  `TelegramOutbound` is a tagged dataclass (`kind`, `chat_id`, plus
+  text/buffer/url/filename) so the renderer owns content-type dispatch and the
+  adapter stays thin.
 
-`Resenhazord2.adapter` (static, public) is the entry point; `socket` is private. On reconnection, a new adapter is created.
+Adapters:
 
-Commands that need WhatsApp operations receive `WhatsAppPort` via constructor injection. Python commands access WhatsApp via `self._whatsapp` (the `WhatsAppWsClient` that delegates to TS over WebSocket).
+- **`WhatsAppWsClient`** (`bot/adapters/whatsapp/ws_client.py`) implements
+  `WhatsAppPort` by round-tripping each call over WebSocket to the TS gateway,
+  which forwards to Baileys through `BaileysAdapter`.
+- **`DiscordInteractionAdapter`** (`bot/adapters/discord/adapter.py`) wraps a
+  `discord.Interaction` and exposes `DiscordPort`.
+- **`TelegramBotAdapter`** (`bot/adapters/telegram/adapter.py`) wraps
+  `telegram.Bot` and dispatches each `TelegramOutbound.kind` to the matching
+  `send_*` call, wrapping buffers in `InputFile(BytesIO(...))`.
+
+Commands that need WhatsApp operations accept `WhatsAppPort` in the `Command`
+constructor and read it via `self.whatsapp`. `CommandRegistry.set_whatsapp(port)`
+injects the port into every registered command once the WebSocket connects.
 
 ## Media Download
 
-Media is downloaded proactively by the TS gateway when a message arrives. The bytes are sent as a binary WebSocket frame before the command JSON. Python commands access media via `self._get_media(data)` which returns the proactive buffer or falls back to a `wa_call download_media` round-trip.
+Media is downloaded **proactively by the TS gateway** when a WhatsApp message
+arrives; the bytes are sent as a binary WebSocket frame before the command JSON.
+Python commands access media via `self._get_media(data)` which returns the
+proactive buffer, falling back to `whatsapp.download_media(...)` over WebSocket
+if the buffer is absent.
 
 ## Reply Builder
 
-`Reply` (`bot/domain/builders/reply.py`) provides a fluent API for building `BotMessage` objects:
+`Reply` (`bot/domain/builders/reply.py`) is a fluent builder for `BotMessage`:
 
 ```python
-Reply.to(data).text('hello')
-Reply.to(data).image(url, caption)
+from bot.domain.builders.reply import Reply
+
+Reply.to(data).text('olá')
+Reply.to(data).image(url, caption='legenda')
+Reply.to(data).video_buffer(buffer, gif_playback=True)
 ```
 
-`Reply.to(data)` captures the `CommandData` context. Terminal methods return a `Message`:
+`Reply.to(data)` captures `jid`, `quoted_message_id`, and `expiration` from the
+`CommandData`. Terminal methods return a `BotMessage`:
 
-- `text(text)` — plain text
-- `textWith(text, mentions)` — text with mentions
-- `image(url, caption?)` — image from URL (viewOnce: true)
-- `imageBuffer(buffer, caption?)` — image from buffer (viewOnce: true)
-- `video(url, caption?)` — video from URL (viewOnce: true)
-- `audio(url)` — audio from URL
-- `sticker(buffer)` — sticker from buffer
-- `raw(content)` — arbitrary content
+- `text(text)` / `text_with(text, mentions)`
+- `image(url, caption=None)` / `image_buffer(data, caption=None)`
+- `video(url, caption=None)` / `video_buffer(data, caption=None, *, gif_playback=False)`
+- `audio(url, mimetype='audio/mp4')` / `audio_buffer(data, mimetype='audio/mp4')`
+- `sticker(data, pack='', author='')`
+- `raw(content)` for arbitrary payloads
 
-Automatically sets `jid`, `quoted`, and `ephemeralExpiration` from the `CommandData`. Media methods default to `viewOnce: true` (base class handles the `show` flag to override this).
+Media methods default to `view_once=True`. The base `Command._apply_flags` flips
+`view_once` to `False` when the user passes the `show` flag.
 
 ## CommandConfig
 
-| Field         | Type           | Description                                                                          |
-| ------------- | -------------- | ------------------------------------------------------------------------------------ |
-| `name`        | `string`       | Primary command name. Diacritics auto-handled (e.g., `'pokémon'` matches `,pokemon`) |
-| `aliases`     | `string[]?`    | Alternative names (e.g., `['série']` for FilmeSerieCommand)                          |
-| `flags`       | `string[]?`    | Boolean on/off toggles. `dm` and `show` are handled by the base class                |
-| `options`     | `OptionDef[]?` | Named parameters that select one value from a set or match a pattern                 |
-| `args`        | `ArgType?`     | `None` (default), `Required`, or `Optional` — free-text after command                |
-| `argsPattern` | `RegExp?`      | Validation regex for args (e.g., `/^(?:@\d+(?:\s+@\d+)*)?$/`)                        |
-| `groupOnly`   | `boolean?`     | Restricts command to group chats (handled by base class)                             |
+```python
+@dataclass(frozen=True)
+class CommandConfig:
+    name: str
+    aliases: list[str] = []
+    flags: list[str] = []
+    options: list[OptionDef] = []
+    args: ArgType = ArgType.NONE            # NONE | REQUIRED | OPTIONAL
+    args_pattern: str | None = None         # validation regex for free-text args
+    args_label: str | None = None
+    scope: CommandScope = CommandScope.PUBLIC
+    group_only: bool = False
+    category: Category | None = None
+    platforms: list[Platform] = [Platform.WHATSAPP]   # WHATSAPP, DISCORD, TELEGRAM
+```
 
-**Flags** = boolean toggles (present or absent): `,pokemon team`, `,musica free`
-**Options** = select one value from alternatives: `,img hd flux-pro`, `,biblia pt nvi`
+| Concept | Shape | Example |
+|---|---|---|
+| **Flag** | boolean toggle (present / absent) | `,pokemon team`, `,musica free` |
+| **Option** | select one value from a set or match a pattern | `,img hd flux-pro`, `,biblia pt nvi` |
+| **Args** | free-text after the command | `,google jair messias bolsonaro` |
 
-Use `parsed.flags.has('flag')` for flags, `parsed.options.get('name')` for options, and `parsed.rest` for free-text args.
+Inside `execute`, use `parsed.flags.has('flag')`, `parsed.options.get('name')`,
+and `parsed.rest`. `dm` and `show` flags are handled by the base class and never
+appear in subclass code.
 
-**Base class auto-handles:**
+**Base class auto-behavior:**
 
-- `groupOnly` — returns error message for private chats
-- `dm` flag — redirects response to sender's DM
-- `show` flag — sets `viewOnce: false` (commands set `viewOnce: true` by default)
+- `group_only` — returns an error for private chats.
+- `dm` flag — redirects response to the sender's DM.
+- `show` flag — flips `view_once` off (commands default to `view_once=True`).
+
+**Platform filter** — a command only becomes a Discord slash command when
+`Platform.DISCORD` is in `config.platforms`. Same rule for Telegram via
+`Platform.TELEGRAM`. WhatsApp-only flags (`dm`, `show`) are stripped from both
+interfaces automatically.
 
 ## Adding a New Command
 
-1. Create `bot/domain/commands/foo.py` extending `Command`
-2. Define `config: CommandConfig` with appropriate name, flags, options, args
-3. Implement `execute(data, parsed)` — use `parsed.flags`, `parsed.options`, `parsed.rest`
-4. Use `Reply.to(data)` to build responses (media methods default to `view_once=True`)
-5. If the command needs WhatsApp operations, accept `WhatsAppPort` in constructor
-6. Register it in `bot/application/register_commands.py`
-7. Create `tests/unit/commands/test_foo.py`
+1. Create `bot/domain/commands/foo.py` extending `Command`.
+2. Define `config: CommandConfig` with `name`, optional `aliases`, `flags`,
+   `options`, `args`, and `platforms`.
+3. Implement `execute(data, parsed)` using `parsed.flags`, `parsed.options`,
+   `parsed.rest`.
+4. Build responses via `Reply.to(data)` (media defaults to `view_once=True`).
+5. If the command needs WhatsApp operations, read `self.whatsapp` — it's injected
+   by `CommandRegistry.set_whatsapp` at startup.
+6. Register in `bot/application/register_commands.py`.
+7. Write `tests/unit/commands/test_foo.py` using `GroupCommandDataFactory` /
+   `PrivateCommandDataFactory` and the shared `mocker`-based fixtures. See
+   [.claude/rules/testing.md](../.claude/rules/testing.md).
 
 ## Key Types
 
-- `CommandData` (`bot/domain/models/command_data.py`) — platform-agnostic command data with text, jid, media info, etc.
-- `BotMessage` (`bot/domain/models/message.py`) — response message with content and metadata
-- `CommandConfig` (`bot/domain/commands/base.py`) — declarative config: name, aliases, flags, options, args, group_only
-- `ParsedCommand` (`bot/domain/commands/base.py`) — parser output: command_name, flags (`set`), options (`dict`), rest (`str`)
+- **`CommandData`** (`bot/domain/models/command_data.py`) — platform-agnostic
+  command payload: text, jid, participant, media fields, `is_group`, etc.
+- **`BotMessage`** (`bot/domain/models/message.py`) — response with content,
+  `quoted_message_id`, `expiration`.
+- **`CommandConfig`** — declarative config (above).
+- **`ParsedCommand`** — parser output: `command_name`, `flags: set[str]`,
+  `options: dict[str, str]`, `rest: str`.
 
 ## Error Handling
 
-Commands can raise `BotError` subclasses (`bot/domain/exceptions.py`) to send user-facing error messages:
+Commands raise `BotError` subclasses from `bot/domain/exceptions.py`:
 
-- `CommandError` — general command execution errors
-- `MediaNotFoundError` — no media attached when expected
-- `ValidationError` — invalid input
-- `ExternalServiceError` — external API failures
-- `DownloadError` — yt-dlp/download failures
+- `CommandError` — general execution error.
+- `MediaNotFoundError` — expected media is missing.
+- `ValidationError` — invalid user input.
+- `ExternalServiceError` — external API failure.
+- `DownloadError` — yt-dlp or download pipeline failure.
 
-The `WebSocketHandler` catches `BotError` and converts `error.user_message` into a reply. Unexpected exceptions are logged and sent as error JSON.
+`WebSocketHandler` (WhatsApp), `DiscordInteractionHandler` (Discord), and
+`TelegramUpdateHandler` (Telegram) all catch `BotError` and convert
+`error.user_message` into a friendly reply. Unknown exceptions are logged via
+`logger.exception(...)` and surfaced as generic errors.
 
-## Group Metadata Cache
+## Group Metadata Cache (Gateway)
 
-`gateway/src/cache/` implements a layered cache for `GroupMetadata` using the decorator pattern:
+`gateway/src/cache/` implements a layered cache for `GroupMetadata` using the
+decorator pattern. Python consumes it transparently through `WhatsAppPort`.
 
-- `CachePort<V>` (`gateway/src/cache/CachePort.ts`) — generic interface: `get(key): Promise<V | undefined>`, `set(key, value): Promise<void>`
-- `MemoryGroupMetadataCache` — `Map`-backed, always available, no TTL
-- `RedisGroupMetadataCache` — wraps `@upstash/redis`; TTL = 3600 s; `Redis` injected via constructor
-- `FallbackGroupMetadataCache` — decorator: `get` tries primary → falls back on miss or error; `set` writes fallback first (reliable), then primary (errors swallowed)
-- `gateway/src/cache/index.ts` — factory singleton: if `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, returns `FallbackGroupMetadataCache(Redis, Memory)`; otherwise `MemoryGroupMetadataCache`
+- `CachePort<V>` — generic `get`/`set` interface.
+- `MemoryGroupMetadataCache` — `Map`-backed, always available, no TTL.
+- `RedisGroupMetadataCache` — wraps `@upstash/redis`; 3600 s TTL; `Redis`
+  injected via constructor.
+- `FallbackGroupMetadataCache` — decorator: `get` tries primary → falls back on
+  miss or error; `set` writes fallback first (reliable), then primary (errors
+  swallowed).
+- `gateway/src/cache/index.ts` — factory: if `UPSTASH_REDIS_REST_URL` +
+  `UPSTASH_REDIS_REST_TOKEN` are set, returns `FallbackGroupMetadataCache(Redis,
+  Memory)`; otherwise `MemoryGroupMetadataCache`.
 
 ## Singletons
 
-`CommandFactory`, `MongoDBConnection`, `AxiosClient` all use the singleton pattern. `CommandFactory` has `reset()` for reconnection (new adapter → new factory instance).
+Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`.
+TypeScript: `CommandFactory`, `MongoDBConnection`, `AxiosClient`.
 
-**Always use existing singletons** — never instantiate `axios`, `new MongoClient()`, or similar clients directly. Use `AxiosClient.get()` / `AxiosClient.post()` / `AxiosClient.getBuffer()` for all HTTP requests. These singletons provide centralized retry logic, timeout defaults, and Sentry breadcrumbs.
+**Always use existing singletons.** Never instantiate `httpx.AsyncClient`,
+`axios`, or `new MongoClient()` directly. Singletons centralize retry logic,
+timeout defaults, and Sentry breadcrumbs.
+
+`CommandFactory` (TS) has `reset()` for reconnection: a new Baileys adapter
+creates a new factory instance.

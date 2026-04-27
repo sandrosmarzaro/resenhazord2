@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from bot.adapters.discord.handler import DiscordInteractionHandler
+from bot.application.message_preprocess import preprocess_messages
 from bot.domain.commands.base import ArgType, Command, CommandConfig, CommandScope, OptionDef
 from bot.domain.exceptions import BotError
 from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
@@ -86,9 +87,10 @@ class TestHandle:
 
         await handler.handle(port, interaction)
 
-        port.send_followup.assert_called_once_with(
-            'Aqui esta sua rolada: 7 🎲', embed=None, file=None
-        )
+        port.send_followup.assert_called_once()
+        call_args = port.send_followup.call_args
+        assert call_args[1]['embed'] is not None
+        assert 'Aqui esta sua rolada: 7 🎲' in call_args[1]['embed'].description
 
     @pytest.mark.anyio
     async def test_image_command_sends_embed(self, handler, port, mocker):
@@ -103,7 +105,9 @@ class TestHandle:
         )
         mock_response = mocker.MagicMock()
         mock_response.content = b'image-bytes'
-        mocker.patch('bot.adapters.discord.handler.HttpClient.get', return_value=mock_response)
+        mocker.patch(
+            'bot.application.message_preprocess.HttpClient.get', return_value=mock_response
+        )
 
         await handler.handle(port, interaction)
 
@@ -435,14 +439,14 @@ class TestPreprocessMessages:
         mock_response = mocker.MagicMock()
         mock_response.content = b'audio-bytes'
         mocker.patch(
-            'bot.adapters.discord.handler.HttpClient.get',
+            'bot.application.message_preprocess.HttpClient.get',
             return_value=mock_response,
         )
         messages = [
             BotMessage(jid=self.JID, content=AudioContent(url='https://tts.example.com/audio'))
         ]
 
-        result = await DiscordInteractionHandler._preprocess_messages(messages)
+        result = await preprocess_messages(messages)
 
         assert len(result) == 1
         assert isinstance(result[0].content, AudioBufferContent)
@@ -454,7 +458,7 @@ class TestPreprocessMessages:
         mock_response = mocker.MagicMock()
         mock_response.content = b'image-bytes'
         mocker.patch(
-            'bot.adapters.discord.handler.HttpClient.get',
+            'bot.application.message_preprocess.HttpClient.get',
             return_value=mock_response,
         )
         messages = [
@@ -464,7 +468,7 @@ class TestPreprocessMessages:
             )
         ]
 
-        result = await DiscordInteractionHandler._preprocess_messages(messages)
+        result = await preprocess_messages(messages)
 
         assert len(result) == 1
         assert isinstance(result[0].content, ImageBufferContent)
@@ -476,14 +480,14 @@ class TestPreprocessMessages:
         mock_response = mocker.MagicMock()
         mock_response.content = b'image-bytes'
         mocker.patch(
-            'bot.adapters.discord.handler.HttpClient.get',
+            'bot.application.message_preprocess.HttpClient.get',
             return_value=mock_response,
         )
         messages = [
             BotMessage(jid=self.JID, content=ImageContent(url='https://example.com/img.jpg'))
         ]
 
-        result = await DiscordInteractionHandler._preprocess_messages(messages)
+        result = await preprocess_messages(messages)
 
         assert len(result) == 1
         assert isinstance(result[0].content, ImageBufferContent)
@@ -491,20 +495,20 @@ class TestPreprocessMessages:
 
     @pytest.mark.anyio
     async def test_text_content_passes_through(self, mocker):
-        mocker.patch('bot.adapters.discord.handler.HttpClient.get')
+        mocker.patch('bot.application.message_preprocess.HttpClient.get')
         messages = [BotMessage(jid=self.JID, content=TextContent(text='hello'))]
 
-        result = await DiscordInteractionHandler._preprocess_messages(messages)
+        result = await preprocess_messages(messages)
 
         assert result == messages
 
     @pytest.mark.anyio
     async def test_audio_download_failure_falls_back_to_original(self, mocker):
         mocker.patch(
-            'bot.adapters.discord.handler.HttpClient.get',
+            'bot.application.message_preprocess.HttpClient.get',
             side_effect=httpx.ConnectError('network error'),
         )
         original = BotMessage(jid=self.JID, content=AudioContent(url='https://broken.com/audio'))
-        result = await DiscordInteractionHandler._preprocess_messages([original])
+        result = await preprocess_messages([original])
 
         assert result[0] is original

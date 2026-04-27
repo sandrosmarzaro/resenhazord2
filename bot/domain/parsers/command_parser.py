@@ -1,19 +1,20 @@
-"""Port of src/parsers/CommandParser.ts to Python.
-
-Builds a regex from CommandConfig for matching, and tokenizes text for parsing.
-"""
+"""Tokenises command text against a CommandConfig regex into a ParsedCommand."""
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
+
+from bot.domain.parsers.command_parser_regex import CommandParserRegex
 
 if TYPE_CHECKING:
-    from bot.domain.commands.base import CommandConfig, ParsedCommand
+    from bot.domain.commands.base import CommandConfig, OptionDef, ParsedCommand
 
 
 class CommandParser:
+    LEADING_COMMA: ClassVar[re.Pattern[str]] = re.compile(r'^\s*,\s*')
+
     def __init__(self, config: 'CommandConfig') -> None:
         self._config = config
-        self._regex = self._build_regex()
+        self._regex = CommandParserRegex.build(config)
 
     def matches(self, text: str) -> bool:
         return self._regex.search(text) is not None
@@ -21,36 +22,17 @@ class CommandParser:
     def parse(self, text: str) -> 'ParsedCommand':
         from bot.domain.commands.base import ParsedCommand
 
-        remaining = re.sub(r'^\s*,\s*', '', text)
-
-        command_name = ''
-        names = sorted([self._config.name, *self._config.aliases], key=len, reverse=True)
-        for name in names:
-            name_pattern = re.sub(r'\s+', r'\\s*', self._replace_diacritics(name))
-            match = re.match(name_pattern, remaining, re.IGNORECASE)
-            if match:
-                command_name = name
-                remaining = remaining[match.end() :].strip()
-                break
+        remaining = self.LEADING_COMMA.sub('', text)
+        command_name, remaining = self._consume_command_name(remaining)
 
         flags: set[str] = set()
         options: dict[str, str] = {}
         rest_parts: list[str] = []
 
         tokens = [t for t in remaining.split() if t]
-
-        for token in tokens:
-            opt = self._try_match_option(token, options)
-            if opt:
-                options[opt[0]] = opt[1]
-                continue
-
-            flag = self._try_match_flag(token, flags)
-            if flag:
-                flags.add(flag)
-                continue
-
-            rest_parts.append(token)
+        index = 0
+        while index < len(tokens):
+            index = self._consume_token(tokens, index, options, flags, rest_parts)
 
         return ParsedCommand(
             command_name=command_name,
@@ -59,81 +41,84 @@ class CommandParser:
             rest=' '.join(rest_parts),
         )
 
+    def _consume_command_name(self, text: str) -> tuple[str, str]:
+        for name in CommandParserRegex.sorted_names(self._config):
+            pattern = CommandParserRegex.name_pattern(name)
+            match = re.match(pattern, text, re.IGNORECASE)
+            if not match:
+                continue
+            return name, text[match.end() :].strip()
+        return '', text
+
+    def _consume_token(
+        self,
+        tokens: list[str],
+        index: int,
+        options: dict[str, str],
+        flags: set[str],
+        rest_parts: list[str],
+    ) -> int:
+        token = tokens[index]
+        opt = self._try_match_option(token, options)
+        if opt:
+            options[opt[0]] = opt[1]
+            return index + 1
+
+        positional = self._try_positional_option(tokens, index, options)
+        if positional:
+            options[token] = positional
+            return index + 2
+
+        flag = self._try_match_flag(token, flags)
+        if flag:
+            flags.add(flag)
+            return index + 1
+
+        rest_parts.append(token)
+        return index + 1
+
+    def _try_positional_option(
+        self,
+        tokens: list[str],
+        index: int,
+        options: dict[str, str],
+    ) -> str | None:
+        if index + 1 >= len(tokens):
+            return None
+        value = self._try_match_option_as_value(tokens[index + 1])
+        if value is None or value in options:
+            return None
+        return value
+
+    def _try_match_option_as_value(self, token: str) -> str | None:
+        for opt in self._config.options:
+            for value in opt.values:
+                if re.match(f'^{CommandParserRegex.escape(value)}$', token, re.IGNORECASE):
+                    return value
+        return None
+
     def _try_match_option(self, token: str, matched: dict[str, str]) -> tuple[str, str] | None:
         for opt in self._config.options:
             if opt.name in matched:
                 continue
-            if opt.values:
-                for v in opt.values:
-                    pattern = self._replace_diacritics(v)
-                    if re.match(f'^{pattern}$', token, re.IGNORECASE):
-                        return (opt.name, v)
-            if opt.pattern and re.match(f'^{opt.pattern}$', token, re.IGNORECASE):
-                return (opt.name, token)
+            value = self._match_option_value(opt, token)
+            if value is not None:
+                return opt.name, value
+        return None
+
+    @staticmethod
+    def _match_option_value(opt: 'OptionDef', token: str) -> str | None:
+        for value in opt.values:
+            if re.match(f'^{CommandParserRegex.escape(value)}$', token, re.IGNORECASE):
+                return value
+        if opt.pattern and re.match(f'^{opt.pattern}$', token, re.IGNORECASE):
+            return token
         return None
 
     def _try_match_flag(self, token: str, matched: set[str]) -> str | None:
-        for f in self._config.flags:
-            if f in matched:
+        for flag in self._config.flags:
+            if flag in matched:
                 continue
-            pattern = self._replace_diacritics(f)
-            if re.match(f'^{pattern}$', token, re.IGNORECASE):
-                return f
+            if re.match(f'^{CommandParserRegex.escape(flag)}$', token, re.IGNORECASE):
+                return flag
         return None
-
-    def _build_regex(self) -> re.Pattern[str]:
-        from bot.domain.commands.base import ArgType
-
-        parts: list[str] = []
-
-        parts.append(r'^\s*,\s*')
-
-        names = sorted([self._config.name, *self._config.aliases], key=len, reverse=True)
-        name_patterns = [re.sub(r'\s+', r'\\s*', self._replace_diacritics(n)) for n in names]
-        if len(name_patterns) == 1:
-            parts.append(name_patterns[0])
-        else:
-            parts.append(f'(?:{"|".join(name_patterns)})')
-
-        # All options and flags are accepted in any order
-        token_alternatives: list[str] = []
-        for opt in self._config.options:
-            if opt.values:
-                sorted_values = sorted(opt.values, key=len, reverse=True)
-                val_patterns = [self._replace_diacritics(v) for v in sorted_values]
-                token_alternatives.append(f'(?:{"|".join(val_patterns)})')
-            elif opt.pattern:
-                token_alternatives.append(f'(?:{opt.pattern})')
-        token_alternatives.extend(self._replace_diacritics(flag) for flag in self._config.flags)
-
-        if token_alternatives:
-            token_pat = '|'.join(token_alternatives)
-            parts.append(f'(?:\\s+(?:{token_pat}))*')
-
-        args = self._config.args
-        if args == ArgType.NONE:
-            parts.append(r'\s*$')
-        elif args == ArgType.REQUIRED:
-            if self._config.args_pattern:
-                src = self._strip_anchors(self._config.args_pattern)
-                parts.append(f'\\s*{src}\\s*$')
-            else:
-                parts.append(r'\s+.+')
-        elif args == ArgType.OPTIONAL:
-            if self._config.args_pattern:
-                src = self._strip_anchors(self._config.args_pattern)
-                parts.append(f'\\s*{src}\\s*$')
-            else:
-                parts.append(r'(?:\s+.*)?$')
-
-        return re.compile(''.join(parts), re.IGNORECASE)
-
-    @staticmethod
-    def _replace_diacritics(s: str) -> str:
-        # Escape ASCII regex metacharacters, then replace non-ASCII with '.'
-        escaped = re.sub(r'[.*+?^${}()|[\]\\]', r'\\\g<0>', s)
-        return re.sub(r'[^\x00-\x7f]', '.', escaped)
-
-    @staticmethod
-    def _strip_anchors(pattern: str) -> str:
-        return pattern.removeprefix('^').removesuffix('$')

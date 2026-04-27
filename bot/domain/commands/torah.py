@@ -40,7 +40,7 @@ class TorahCommand(Command):
             args_label='livro capítulo:versículo',
             flags=[Flag.DM, Flag.SHOW],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.ALL],
         )
 
     @property

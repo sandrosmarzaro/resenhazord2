@@ -54,6 +54,7 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
 
@@ -63,6 +64,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
         settings = Settings()
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
+    ProviderChain.configure(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
 
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)

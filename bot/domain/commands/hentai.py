@@ -28,7 +28,7 @@ class HentaiCommand(Command):
             name='hentai',
             flags=[Flag.DM, Flag.SHOW, 'hitomi', 'nhentai'],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.ALL],
         )
 
     @property

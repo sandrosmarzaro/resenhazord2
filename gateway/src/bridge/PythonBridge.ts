@@ -20,6 +20,10 @@ interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
+interface ConversationMentionShape {
+  conversationMessage?: { contextInfo?: { mentionedJid?: string[] } };
+}
+
 export default class PythonBridge {
   private ws: WebSocket | null = null;
   private pending = new Map<string, PendingRequest>();
@@ -92,7 +96,11 @@ export default class PythonBridge {
     data: CommandData,
     onAck?: () => void | Promise<void>,
   ): Promise<Message[] | null> {
-    if (!this.isConnected) return null;
+    logger.info({ event: 'send_command_called', isConnected: this.isConnected, text: data.text });
+    if (!this.isConnected) {
+      logger.warn({ event: 'send_command_skipped_not_connected' });
+      return null;
+    }
 
     const id = crypto.randomUUID();
     const messageId = data.key.id ?? null;
@@ -126,7 +134,11 @@ export default class PythonBridge {
         participant: data.key.participant ?? null,
         is_group: data.key.remoteJid?.includes('g.us') ?? false,
         expiration: data.expiration ?? null,
-        mentioned_jids: data.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [],
+        mentioned_jids:
+          data.message?.extendedTextMessage?.contextInfo?.mentionedJid ??
+          (data.message as ConversationMentionShape | null | undefined)?.conversationMessage
+            ?.contextInfo?.mentionedJid ??
+          [],
         quoted_message_id: data.message?.extendedTextMessage?.contextInfo?.stanzaId ?? null,
         quoted_text: (() => {
           const quoted = data.message?.extendedTextMessage?.contextInfo?.quotedMessage;
