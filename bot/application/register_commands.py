@@ -54,6 +54,7 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
 
@@ -63,12 +64,6 @@ def register_all_commands(settings: Settings | None = None) -> None:
         settings = Settings()
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
-
-    # Lazy import: provider_chain pulls in httpx and reads settings at module
-    # load — importing here keeps cold-start cheap and avoids circular bootstrap
-    # during test setup. PLC0415 suppression for this file lives in ruff.toml.
-    from bot.infrastructure.llm.provider_chain import ProviderChain
-
     ProviderChain.configure(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
 
     registry = CommandRegistry.instance()
