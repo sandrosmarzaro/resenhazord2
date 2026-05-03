@@ -14,19 +14,18 @@ class TypingLoop:
     @asynccontextmanager
     async def keep_typing(cls, port: TelegramPort, chat_id: int) -> AsyncIterator[None]:
         await port.send_typing(chat_id)
+        stop = anyio.Event()
+
+        async def _send_loop() -> None:
+            while not stop.is_set():
+                with anyio.move_on_after(cls.REFRESH_SECONDS):
+                    await stop.wait()
+                if not stop.is_set():
+                    await port.send_typing(chat_id)
+
         async with anyio.create_task_group() as tg:
-            stop = anyio.Event()
-            tg.start_soon(cls._run_loop, port, chat_id, stop)
+            tg.start_soon(_send_loop)
             try:
                 yield
             finally:
                 stop.set()
-
-    @classmethod
-    async def _run_loop(cls, port: TelegramPort, chat_id: int, stop: anyio.Event) -> None:
-        while not stop.is_set():
-            with anyio.move_on_after(cls.REFRESH_SECONDS):
-                await stop.wait()
-            if stop.is_set():
-                return
-            await port.send_typing(chat_id)
