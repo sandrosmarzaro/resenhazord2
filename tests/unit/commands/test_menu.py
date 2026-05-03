@@ -202,12 +202,13 @@ class TestDmFlag:
     @pytest.mark.anyio
     async def test_dm_flag_changes_jid(self, command):
         data = GroupCommandDataFactory.build(
-            text=',menu dm grupo',
+            text=',menu dm',
             participant='5511999990000@s.whatsapp.net',
         )
 
         messages = await command.run(data)
 
+        # DM flag should reply to participant, not group jid
         assert messages[0].jid == '5511999990000@s.whatsapp.net'
 
 

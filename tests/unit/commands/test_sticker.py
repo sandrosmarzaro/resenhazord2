@@ -35,6 +35,9 @@ class TestMatches:
             (', stic -99%', True),
             (', stic crop -25%', True),
             (', stic -50% Anime | Sandro', True),
+            (', stic 93', True),
+            (', stic quality 93', True),
+            (', stic crop 50', True),
             ('stic', False),
             ('hello', False),
         ],
@@ -323,6 +326,20 @@ class TestQualityReduction:
 
     def test_parse_quality_token(self, command):
         assert command._parse_quality_reduction('-42%') == 42
+
+    @pytest.mark.parametrize(
+        ('token', 'expected'),
+        [
+            ('93%', 93),
+            ('93', 93),
+            ('50%', 50),
+            ('50', 50),
+            ('-25%', 25),
+            ('-25', 25),
+        ],
+    )
+    def test_parse_quality_with_and_without_percent(self, command, token, expected):
+        assert command._parse_quality_reduction(token) == expected
 
 
 class TestParsePackAuthor:

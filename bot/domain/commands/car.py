@@ -39,7 +39,7 @@ class CarCommand(Command):
             aliases=['car'],
             flags=[Flag.SHOW, Flag.DM, 'wiki'],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

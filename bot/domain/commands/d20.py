@@ -14,7 +14,7 @@ class D20Command(Command):
         return CommandConfig(
             name='d20',
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

@@ -18,7 +18,7 @@ class OiCommand(Command):
             name='oi',
             aliases=['hi'],
             category=Category.OTHER,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

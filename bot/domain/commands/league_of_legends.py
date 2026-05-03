@@ -31,7 +31,7 @@ class LeagueOfLegendsCommand(Command):
             name='lol',
             flags=[Flag.SHOW, Flag.DM, 'build'],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property
