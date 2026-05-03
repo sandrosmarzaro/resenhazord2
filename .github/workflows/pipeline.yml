@@ -37,7 +37,7 @@ jobs:
       - run: uv run basedpyright
 
   # Stage 2: Tests (after lint passes)
-  test-ts:
+test-ts:
     name: TS tests
     runs-on: ubuntu-latest
     needs: lint-ts
@@ -55,6 +55,11 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: typescript
           files: gateway/coverage/lcov.info
+      - name: Upload TypeScript coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-coverage
+          path: gateway/coverage/lcov.info
 
   test-py:
     name: Python tests
@@ -71,12 +76,41 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
           files: coverage.xml
+      - name: Upload Python coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: coverage.xml
+
+  # Stage 2.5: SonarCloud Analysis
+  sonarqube:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [test-py, test-ts]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Download Python coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: python-coverage
+      - name: Download TypeScript coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: typescript-coverage
+          path: gateway/coverage
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   # Stage 3: Build Docker images (after all tests pass)
   build:
     name: Build and push Docker images
     runs-on: ubuntu-latest
-    needs: [test-ts, test-py]
+    needs: [test-ts, test-py, sonarqube]
     permissions:
       packages: write
       contents: read
