@@ -11,36 +11,40 @@ class ClassificationZone:
     emoji: str
 
 
+CHAMPIONS_LEAGUE = 'Champions League'
+EUROPA_LEAGUE = 'Europa League'
+CONFERENCE_LEAGUE = 'Conference League'
+
 LEAGUE_ZONES: dict[str, list[ClassificationZone]] = {
     'pl': [
-        ClassificationZone('Champions League', 1, 4, '🟢'),
-        ClassificationZone('Europa League', 5, 5, '🟡'),
-        ClassificationZone('Conference League', 6, 6, '🟠'),
+        ClassificationZone(CHAMPIONS_LEAGUE, 1, 4, '🟢'),
+        ClassificationZone(EUROPA_LEAGUE, 5, 5, '🟡'),
+        ClassificationZone(CONFERENCE_LEAGUE, 6, 6, '🟠'),
         ClassificationZone('Rebaixamento', 18, 20, '🔴'),
     ],
     'la': [
-        ClassificationZone('Champions League', 1, 4, '🟢'),
-        ClassificationZone('Europa League', 5, 6, '🟡'),
-        ClassificationZone('Conference League', 7, 7, '🟠'),
+        ClassificationZone(CHAMPIONS_LEAGUE, 1, 4, '🟢'),
+        ClassificationZone(EUROPA_LEAGUE, 5, 6, '🟡'),
+        ClassificationZone(CONFERENCE_LEAGUE, 7, 7, '🟠'),
         ClassificationZone('Rebaixamento', 18, 20, '🔴'),
     ],
     'bl': [
-        ClassificationZone('Champions League', 1, 4, '🟢'),
-        ClassificationZone('Europa League', 5, 6, '🟡'),
-        ClassificationZone('Conference League', 7, 7, '🟠'),
+        ClassificationZone(CHAMPIONS_LEAGUE, 1, 4, '🟢'),
+        ClassificationZone(EUROPA_LEAGUE, 5, 6, '🟡'),
+        ClassificationZone(CONFERENCE_LEAGUE, 7, 7, '🟠'),
         ClassificationZone('Rebaixamento', 16, 18, '🔴'),
     ],
     'sa': [
-        ClassificationZone('Champions League', 1, 4, '🟢'),
-        ClassificationZone('Europa League', 5, 6, '🟡'),
-        ClassificationZone('Conference League', 7, 7, '🟠'),
+        ClassificationZone(CHAMPIONS_LEAGUE, 1, 4, '🟢'),
+        ClassificationZone(EUROPA_LEAGUE, 5, 6, '🟡'),
+        ClassificationZone(CONFERENCE_LEAGUE, 7, 7, '🟠'),
         ClassificationZone('Rebaixamento', 18, 20, '🔴'),
     ],
     'l1': [
-        ClassificationZone('Champions League', 1, 3, '🟢'),
+        ClassificationZone(CHAMPIONS_LEAGUE, 1, 3, '🟢'),
         ClassificationZone('Champions League Playoff', 4, 4, '🟡'),
-        ClassificationZone('Europa League', 5, 5, '🟡'),
-        ClassificationZone('Conference League', 6, 6, '🟠'),
+        ClassificationZone(EUROPA_LEAGUE, 5, 5, '🟡'),
+        ClassificationZone(CONFERENCE_LEAGUE, 6, 6, '🟠'),
         ClassificationZone('Rebaixamento', 15, 18, '🔴'),
     ],
     'br': [
