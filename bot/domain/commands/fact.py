@@ -14,7 +14,7 @@ class FactCommand(Command):
             aliases=['fact'],
             flags=['hoje'],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.ALL],
         )
 
     @property

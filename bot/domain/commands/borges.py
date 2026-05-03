@@ -12,7 +12,9 @@ class BorgesCommand(Command):
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
-            name='borges', category=Category.OTHER, platforms=[Platform.WHATSAPP, Platform.DISCORD]
+            name='borges',
+            category=Category.OTHER,
+            platforms=[Platform.ALL],
         )
 
     @property

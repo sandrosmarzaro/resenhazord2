@@ -21,7 +21,7 @@ logger = structlog.get_logger()
 class StickerCommand(Command):
     MEDIA_TYPES = frozenset(('image', 'video', 'sticker'))
     STICKER_TYPES: ClassVar[list[str]] = ['crop', 'full', 'circle', 'rounded']
-    QUALITY_PATTERN = r'-[1-9]\d?%'
+    QUALITY_PATTERN = r'-?\d{1,2}%?'
 
     @property
     def config(self) -> CommandConfig:
@@ -74,7 +74,8 @@ class StickerCommand(Command):
     def _parse_quality_reduction(token: str | None) -> int:
         if not token:
             return 0
-        return int(token.strip('-%'))
+        token = token.strip().removeprefix('-').rstrip('%')
+        return int(token)
 
     @staticmethod
     def _parse_pack_author(args: str) -> tuple[str, str]:

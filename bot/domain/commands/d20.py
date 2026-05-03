@@ -12,7 +12,9 @@ class D20Command(Command):
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
-            name='d20', category=Category.RANDOM, platforms=[Platform.WHATSAPP, Platform.DISCORD]
+            name='d20',
+            category=Category.RANDOM,
+            platforms=[Platform.ALL],
         )
 
     @property

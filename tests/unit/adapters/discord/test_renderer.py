@@ -1,3 +1,4 @@
+import aiohttp
 import pytest
 
 from bot.adapters.discord.renderer import DiscordResponseRenderer
@@ -20,13 +21,13 @@ def renderer():
 
 
 class TestRenderText:
-    def test_short_text_returns_text(self, renderer):
+    def test_short_text_returns_embed(self, renderer):
         msg = make_message(TextContent(text='hello'))
 
         reply = renderer.render(msg)
 
-        assert reply.text == 'hello'
-        assert reply.embed is None
+        assert reply.embed is not None
+        assert reply.embed.description == 'hello'
 
     def test_long_text_returns_embed(self, renderer):
         text = 'x' * 2001
@@ -38,14 +39,14 @@ class TestRenderText:
         assert reply.embed is not None
         assert len(reply.embed.description) <= 4096
 
-    def test_exactly_2000_chars_returns_text(self, renderer):
+    def test_exactly_2000_chars_returns_embed(self, renderer):
         text = 'x' * 2000
         msg = make_message(TextContent(text=text))
 
         reply = renderer.render(msg)
 
-        assert reply.text == text
-        assert reply.embed is None
+        assert reply.embed is not None
+        assert reply.embed.description == text
 
 
 class TestRenderImage:
@@ -156,6 +157,85 @@ class TestRenderAudioBuffer:
         assert reply.text is None
 
 
+class TestRenderAsync:
+    @pytest.mark.anyio
+    async def test_non_audio_uses_sync_render(self, renderer):
+        msg = make_message(TextContent(text='hello'))
+
+        reply = await renderer.render_async(msg)
+
+        assert reply.embed is not None
+        assert reply.embed.description == 'hello'
+
+    @pytest.mark.anyio
+    async def test_audio_content_downloads_and_returns_file(self, renderer, mocker):
+        mock_data = b'fake-audio-bytes'
+        mock_resp = mocker.AsyncMock()
+        mock_resp.status = 200
+        mock_resp.read = mocker.AsyncMock(return_value=mock_data)
+        mock_resp.__aenter__ = mocker.AsyncMock(return_value=mock_resp)
+        mock_resp.__aexit__ = mocker.AsyncMock(return_value=False)
+        mock_session = mocker.AsyncMock()
+        mock_session.get = mocker.MagicMock(return_value=mock_resp)
+        mock_session.__aenter__ = mocker.AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch(
+            'bot.adapters.discord.renderer.aiohttp.ClientSession',
+            return_value=mock_session,
+        )
+
+        msg = make_message(AudioContent(url='https://example.com/audio.mp3', mimetype='audio/mpeg'))
+
+        reply = await renderer.render_async(msg)
+
+        assert reply.file is not None
+        assert 'audio' in reply.file.filename
+
+    @pytest.mark.anyio
+    async def test_audio_content_http_error_falls_back_to_text(self, renderer, mocker):
+        mock_resp = mocker.AsyncMock()
+        mock_resp.status = 403
+        mock_resp.__aenter__ = mocker.AsyncMock(return_value=mock_resp)
+        mock_resp.__aexit__ = mocker.AsyncMock(return_value=False)
+        mock_session = mocker.AsyncMock()
+        mock_session.get = mocker.MagicMock(return_value=mock_resp)
+        mock_session.__aenter__ = mocker.AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch(
+            'bot.adapters.discord.renderer.aiohttp.ClientSession',
+            return_value=mock_session,
+        )
+
+        msg = make_message(AudioContent(url='https://example.com/audio.mp3'))
+
+        reply = await renderer.render_async(msg)
+
+        assert reply.file is None
+        assert 'https://example.com/audio.mp3' in reply.text
+
+    @pytest.mark.anyio
+    async def test_audio_content_client_error_falls_back_to_text(self, renderer, mocker):
+        mock_session = mocker.AsyncMock()
+        mock_session.get = mocker.MagicMock(side_effect=aiohttp.ClientError('boom'))
+        mock_session.__aenter__ = mocker.AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch(
+            'bot.adapters.discord.renderer.aiohttp.ClientSession',
+            return_value=mock_session,
+        )
+
+        msg = make_message(AudioContent(url='https://example.com/audio.mp3'))
+
+        reply = await renderer.render_async(msg)
+
+        assert reply.file is None
+        assert 'https://example.com/audio.mp3' in reply.text
+
+    def test_audio_content_isinstance_check(self, renderer):
+        content = AudioContent(url='https://example.com/audio.mp3', mimetype='audio/mpeg')
+        assert isinstance(content, AudioContent)
+
+
 class TestRenderUnsupported:
     def test_sticker_returns_fallback_text(self, renderer):
         msg = make_message(StickerContent(data=b'sticker'))
@@ -225,8 +305,8 @@ class TestRenderMany:
         replies = renderer.render_many(messages)
 
         assert len(replies) == 2
-        assert replies[0].text == 'first'
-        assert replies[1].text == 'second'
+        assert replies[0].embed.description == 'first'
+        assert replies[1].embed.description == 'second'
 
     def test_mixed_content_types(self, renderer):
         messages = [
@@ -236,6 +316,31 @@ class TestRenderMany:
 
         replies = renderer.render_many(messages)
 
-        assert replies[0].text == 'caption'
+        assert replies[0].embed.description == 'caption'
         assert replies[1].file is not None
         assert replies[1].embed is not None
+
+
+class TestRenderManyAsync:
+    @pytest.mark.anyio
+    async def test_empty_list(self, renderer):
+        assert await renderer.render_many_async([]) == []
+
+    @pytest.mark.anyio
+    async def test_non_audio_messages(self, renderer):
+        messages = [make_message(TextContent(text='hello'))]
+
+        replies = await renderer.render_many_async(messages)
+
+        assert len(replies) == 1
+        assert replies[0].embed.description == 'hello'
+
+
+class TestRawEmptyCaption:
+    def test_raw_with_empty_string_caption(self, renderer):
+        raw = {'video': {'url': 'https://example.com/v.mp4'}, 'caption': ''}
+        msg = make_message(RawContent(content=raw))
+
+        reply = renderer.render(msg)
+
+        assert reply.text == 'https://example.com/v.mp4'

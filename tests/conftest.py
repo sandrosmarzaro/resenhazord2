@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from bot.application.command_registry import CommandRegistry
 from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.mongodb import MongoDBConnection
 
 
@@ -32,10 +33,12 @@ def _reset_singletons():
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
+    ProviderChain.reset()
     yield
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
+    ProviderChain.reset()
 
 
 @pytest.fixture

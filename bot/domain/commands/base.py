@@ -23,6 +23,12 @@ class Flag(StrEnum):
 class Platform(StrEnum):
     WHATSAPP = 'whatsapp'
     DISCORD = 'discord'
+    TELEGRAM = 'telegram'
+    ALL = 'all'
+
+    @classmethod
+    def supports(cls, declared: list['Platform'], target: 'Platform | str') -> bool:
+        return cls.ALL in declared or target in declared
 
 
 class Category(StrEnum):
@@ -94,6 +100,9 @@ class Command(ABC):
 
     def matches(self, text: str) -> bool:
         return self.parser.matches(text)
+
+    def parse(self, text: str) -> ParsedCommand:
+        return self.parser.parse(text)
 
     async def run(self, data: CommandData) -> list[BotMessage]:
         if self.config.group_only and not data.is_group:

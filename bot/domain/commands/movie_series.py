@@ -45,7 +45,7 @@ class MovieSeriesCommand(Command):
             ],
             flags=[Flag.SHOW, Flag.DM, 'tmdb'],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.ALL],
         )
 
     @property

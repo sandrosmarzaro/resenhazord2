@@ -44,7 +44,7 @@ class GameCommand(Command):
             flags=[Flag.SHOW, Flag.DM],
             options=[OptionDef(name='source', values=['rawg', 'igdb'])],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD],
+            platforms=[Platform.ALL],
         )
 
     @property

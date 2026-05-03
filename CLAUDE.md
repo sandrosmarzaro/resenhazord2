@@ -1,245 +1,158 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code
+in this repository.
 
 ## Project Overview
 
-Resenhazord2 is a WhatsApp chatbot with Python as the primary language:
+Resenhazord2 is a **platform-agnostic chatbot**. Python owns the business logic;
+platform adapters translate native messages into a unified command surface.
 
-- **Root** — Python (FastAPI + uvicorn) — all commands, business logic, services
-- **`gateway/`** — TypeScript (Bun + Baileys) — WhatsApp adapter, media handling, WebSocket bridge
-- **`bot/adapters/discord/`** — Discord bot (discord.py) — slash commands for Drive guild
+- **Python core** (FastAPI + uvicorn) — all 46 commands, services, business logic,
+  Discord adapter. Located at repo root under `bot/`.
+- **`gateway/`** (Bun + Baileys, TypeScript) — WhatsApp adapter. Receives messages,
+  proactively downloads media, forwards command data + binary frames to Python
+  over WebSocket.
+- **`bot/adapters/discord/`** (discord.py) — Discord adapter. Slash commands route
+  through the same `CommandRegistry` as WhatsApp.
+- **Telegram** — planned adapter; not yet implemented.
 
-Commands are prefixed with `,` (comma). The gateway receives WhatsApp messages, proactively downloads any attached media, and forwards everything to the Python engine via WebSocket. All command logic lives in Python.
+WhatsApp (and Telegram when it arrives) use a comma-prefix (e.g., `,menu`). Discord
+uses native slash commands. Both map to the same command handlers through
+`CommandRegistry`. See [docs/architecture.md](docs/architecture.md) for the full
+flow, project tree, and adapter structure.
 
-## MCP Tools
+## Rules index
 
-Use the **context7** MCP (`mcp__context7__resolve-library-id` + `mcp__context7__query-docs`) to fetch up-to-date documentation for any library (e.g., `@whiskeysockets/baileys`, `vitest`, `@upstash/redis`).
+File-scoped standards that Claude applies based on the file being edited:
 
-## Planning
+- [.claude/rules/python.md](.claude/rules/python.md) — scope: `*.py`
+- [.claude/rules/typescript.md](.claude/rules/typescript.md) — scope: `*.ts`
+- [.claude/rules/git.md](.claude/rules/git.md) — scope: `git *` commands, `.github/**`
+- [.claude/rules/testing.md](.claude/rules/testing.md) — scope: `test_*.py`, `*.spec.ts`
 
-- When asked to plan: output only the plan. No code until told to proceed.
-- When given a plan: follow it exactly. Flag real problems and wait for confirmation.
-- For non-trivial features (3+ steps or architectural decisions): interview about
-  implementation, UX, and tradeoffs before writing code. Always suggest and list
-  alternative approaches (prefer free/freemium options) with pros and cons for each.
-- Never attempt multi-file refactors in one response. Break into phases of max 5 files.
-  Complete, verify, get approval, then continue.
+Cross-cutting conventions (design, logging, API integration, security, response
+formatting) live below in this file because they do not filter cleanly by
+extension.
+
+## Code Philosophy
+
+### Object Calisthenics
+
+- Reduce nested blocks; early-return instead of `else`.
+- Wrap primitives only for complex domain concepts (JID, CommandName, MediaBuffer).
+  Don't wrap a plain `int` just to wrap it.
+- First-class collections (`Attachments`, not `list[Attachment]`) when the
+  collection has behavior.
+- Law of Demeter — at most one dot per chain. `foo.bar.baz()` is a smell.
+- No abbreviations (`resp` → `response`, `msg` → `message`).
+- Small entities: **≤ 3 public methods / class** (behavior surface), **≤ 7
+  attributes / class** (data shape), **≤ 150 LOC / class**, **≤ 4 parameters
+  per function**.
+- No getters/setters. Tell, don't ask.
+
+### Clean Code — SOLID, DRY, KISS, YAGNI
+
+- **Senior-review standard**: "what would a perfectionist reject?" If the
+  architecture is flawed, state is duplicated, or patterns are inconsistent:
+  propose and implement the structural fix.
+- **No magic numbers** — named constants, `ClassVar`, or `bot/data/` tables.
+- **Trust internal code.** Validate only at system boundaries (user input,
+  external APIs). Don't add fallbacks, retries, or `try/except` for scenarios
+  that can't happen.
+- **Tolerate duplication until the third occurrence.** Extract only when the
+  shape is stable. Premature abstractions are more expensive than DRY violations.
+
+### TDD
+
+- Write tests **BEFORE or alongside** implementation — never after.
+- Run the test suite after every meaningful change, not just at the end.
+- Test the **public API only**; private helpers are tested through the public
+  surface that uses them.
+- **One logical assertion focus per test.** Multiple asserts are fine when they
+  verify one behavior.
+- Full test patterns and anti-patterns in [.claude/rules/testing.md](.claude/rules/testing.md).
 
 ## Common Commands
 
-### Gateway (TypeScript)
+Prefer Claude slash commands and task runners over memorizing script names.
 
-```bash
-cd gateway
-bun start              # Run the bot
-bun test               # Run tests (vitest in watch mode)
-bun test:run           # Run tests once
-bun test:unit          # Run only unit tests
-bun vitest run tests/unit/commands/FooCommand.test.ts  # Run a single test file
-bun lint               # ESLint check
-bun lint:fix           # ESLint auto-fix
-bun typecheck          # TypeScript type checking (tsc --noEmit)
-bun format             # Prettier format
-bun format:check       # Prettier check
-```
+| Area | Entry point |
+|---|---|
+| Full test suite (Python + Gateway) | `/test` |
+| Local CI (act) | `/ci` |
+| Python quality gate | `/check-py` — ruff + format:check + basedpyright |
+| Gateway quality gate | `/check-ts` — eslint + tsc + prettier |
+| Browse rules/ | `/rules` |
+| Python tasks | `uv run task --list` |
+| Gateway scripts | `cd gateway && bun run` |
+| Docker | `docker compose build && docker compose up -d` |
 
-### Python (from root)
+Individual task definitions live in `pyproject.toml` under `[tool.taskipy.tasks]`
+and `gateway/package.json` under `"scripts"`.
 
-```bash
-uv run pytest -v       # Run tests
-uv run ruff check .    # Lint
-uv run ruff format .   # Format
-uv run basedpyright    # Type check
-```
-
-### Docker (from root)
-
-```bash
-docker compose build   # Build both services
-docker compose up -d   # Start both services
-```
-
-**Git hooks** (all managed by pre-commit, run on pre-push):
-- **Python**: ruff lint+fix, ruff format, gitleaks secret scanning, large file check, merge conflict check
-- **Gateway**: eslint, tsc --noEmit, prettier check
-
-### Claude Commands
-
-Custom slash commands in `.claude/commands/`:
-
-| Command | Description |
-|---------|-------------|
-| `/test` | Run full test suite (Python + Gateway in parallel) |
-| `/ci` | Run GitHub Actions CI checks locally via `act` |
-
-```bash
-# Run specific CI job
-act pull_request -W .github/workflows/check.yml -j lint-py
-```
+**Git hooks** (pre-commit, pre-push): ruff lint + format, gitleaks secret scan,
+large-file check, merge-conflict check, eslint, `tsc --noEmit`, prettier check.
 
 ## Architecture
 
-The gateway receives WhatsApp messages via Baileys, downloads media proactively, and sends command data + binary frames over WebSocket to Python. Python matches commands via `CommandRegistry`, executes them, and returns `BotMessage[]` responses. Commands raise `BotError` subclasses for user-facing errors, caught centrally by the WebSocket handler.
+Full message flow, ports & adapters, project tree, command system, cache layers,
+singletons: [docs/architecture.md](docs/architecture.md).
 
-Discord bot (`bot/adapters/discord/`) uses discord.py with slash commands, sharing the same command registry as WhatsApp.
+## Git
 
-See [docs/architecture.md](docs/architecture.md) for full details (message flow, command system, ports & adapters, reply builder, CommandConfig, key types, error handling, caches, singletons).
+Branching strategy and release flow: [docs/git-flow.md](docs/git-flow.md).
+Commit mechanics (atomicity, staging, message format):
+[.claude/rules/git.md](.claude/rules/git.md).
 
-## Code Conventions
+## Logging
 
-### Size Limits
+Gateway uses `@sentry/bun` + structured logs. Python uses `sentry-sdk` +
+`structlog`. Full guide (init, capture patterns, breadcrumbs, scoped context,
+CLI querying, test mocks): [docs/logging.md](docs/logging.md).
 
-| Rule | Limit | Rationale |
-|------|-------|-----------|
-| **Lines per class** | 150 max | Prevents god classes; extract to smaller cohesive units |
-| **Attributes per class** | 7 max | Above 7, extract to sub-classes or data models in `bot/data/` |
-| **Parameters per function/method** | 4 max | Use dataclasses/dicts or split into fewer cohesive params |
+## Testing framework summary
 
-When a class exceeds these limits:
-- Split into smaller focused classes in the same module
-- Extract related data to `bot/data/` files
-- Create sub-classes for distinct behaviors
-
-### General
-
-- **Runtime**: Python 3.13+ for the bot, Bun (not Node.js) for gateway
-- **Modules**: ES modules with `.js` extensions in imports (even for `.ts` files)
-- **File & identifier naming**: PascalCase for TS classes (e.g., `OiCommand.ts`), snake_case for Python (e.g., `command_parser.py`). **Use English for all Python file names, class names, functions, and variables** — the codebase is read by contributors in English. User-facing trigger strings (`CommandConfig.name`, `aliases`), reply text, and `menu_description` stay in pt-br (the product's voice, not a code-naming choice). Proper-noun acronyms (FIPE, IBGE) are kept as-is.
-- **Exports**: Default exports for TS class files, named exports for data files
-- **Data files**: Large lookup tables, emoji maps, and static datasets belong in `bot/data/`. Do not define big mappings inline in service or command files.
-- **No module-level variables**: Avoid `const FOO = ...` at module scope in service/command files. Use `private static readonly` class attributes for constants that belong to a class.
-- **Formatting**: Prettier for TS (single quotes, semicolons, 2-space indent, 100 char width), Ruff for Python (single quotes, 100 char width)
-- **No `__init__.py`**: Do not create `__init__.py` files — Python 3.3+ uses namespace packages (PEP 420); they are useless
-- **Comments**: Default to no comments. Only comment when the *why* is non-obvious. No robotic comment blocks narrating what the code does.
-
-### Python Code Quality
-
-Follow PEP 8 and these principles: **DRY**, **SOLID**, **KISS**, **YAGNI**.
-
-- **Senior dev standard** — before finishing any change, ask: "What would a senior
-  perfectionist reject in code review?" Fix that. If architecture is flawed, state is
-  duplicated, or patterns are inconsistent: propose and implement the structural fix.
-- **No magic numbers** — use named constants to describe every numeric literal. Place
-  constants as class attributes (`MAX_PAGE = 50`) or in `bot/data/` files, never
-  as bare numbers in logic. Use `from http import HTTPStatus` for HTTP status
-  comparisons — never compare against bare integer literals
-- **Early returns** — prefer returning early to reduce nesting. Avoid deeply nested
-  if-elif-else blocks; flatten with guard clauses
-- **Dict mapping over if-elif chains** — when dispatching on a value (e.g., file
-  extension, content type), use a dict lookup instead of multi-branch conditionals.
-  Exception: 2-branch if-else is fine
-- **No suppressing lint/format warnings** — do not add `# noqa`, `# type: ignore`, or
-  `# fmt: off` without strong justification. Only suppress for genuinely unavoidable
-  cases (e.g., `# noqa: S311` for non-crypto `random` usage). Ask the user before
-  adding a new suppression
-- **No module-level variables** — never define bare `FOO = ...` at module scope in
-  command, service, adapter, or handler files. Use class attributes (with `ClassVar`
-  for mutable types) for constants that belong to a class, or place shared data in
-  `bot/data/` modules. The only exception is `logger = structlog.get_logger()`
-- **Data files** — all dicts, lists, sets, and lookup tables (even small ones) belong in
-  `bot/data/` as named exports. Import them in the command file. Never define
-  inline data structures in command or service files
-- **Polymorphic behavior** — prefer `to_dict()` / `__str__()` methods on data classes
-  over isinstance chains. Keep serialization logic close to the data it describes
-
-## Context Management
-
-- Before any structural refactor on a file >300 LOC: first remove all dead props, unused
-  exports, unused imports, and debug logs. Commit the cleanup separately. Dead code burns
-  context that triggers compaction faster.
-- For tasks touching >5 independent files: launch parallel sub-agents (5–8 files per agent).
-  Each gets its own context window. Sequential processing of 20 files guarantees context
-  decay by file 12.
-- After 10+ messages: re-read any file before editing it. Auto-compaction may have
-  destroyed your memory of its contents.
-- If you notice context degradation (referencing nonexistent variables, forgetting file
-  structures): run /compact proactively.
-- Each file read is capped at 2,000 lines. For files over 500 LOC: use `offset` and
-  `limit` to read in chunks. Plan for chunked reads proactively.
-- Tool results over 50K chars get truncated to a 2KB preview. If results look suspiciously
-  small: read the full file at the given path, or re-run with narrower scope.
-
-## Edit Safety
-
-- Before every file edit: re-read the file. After editing: read it again. The Edit tool
-  fails silently on stale `old_string` matches.
-- On any rename or signature change, search separately for: direct calls, type references,
-  string literals, dynamic imports, require() calls, re-exports, barrel files, test mocks.
-  Assume grep missed something.
-- Never delete a file without verifying nothing references it.
-- When adding fields to object literals in config blocks, prefer multi-line formatting if
-  the single-line form would exceed 100 chars.
-
-## Self-Correction
-
-- After any correction: log the pattern to `gotchas.md` at the repo root. Convert
-  mistakes into rules. Review past lessons at session start.
-- If a fix doesn't work after two attempts: stop. Read the entire relevant section
-  top-down. State where your mental model was wrong before trying again.
-- When asked to test your own output: adopt a new-user persona and walk through as if
-  you've never seen the project.
-
-## Commit Conventions
-
-See [docs/git-flow.md](docs/git-flow.md) for full details (conventional commits, atomic commits, protected main workflow).
-
-## Testing
-
-### Gateway (TypeScript)
-
-- **Framework**: Vitest with globals enabled
-- **Fixtures**: `gateway/tests/fixtures/index.js` provides `GroupCommandData` and `PrivateCommandData` factories (using Fishery)
-- **Setup**: `gateway/tests/setup.ts` mocks external dependencies (pino, mongodb, @sentry/bun)
-- **WhatsApp mock**: `createMockWhatsAppPort()` from `gateway/tests/fixtures/factories/MockWhatsAppPort.ts`
-
-### Python
-
-- **Framework**: pytest with anyio for async tests (`@pytest.mark.anyio`)
-- **Mocking**: Use `pytest-mock`'s `mocker` fixture exclusively — never `from unittest.mock import ...`
-- **HTTP mocking**: Use `respx` with `respx_mock` fixture for HTTP calls (MockRouter pattern)
-- **Factories**: `GroupCommandDataFactory` and `PrivateCommandDataFactory` from `tests/factories/command_data.py`
-- **Shared fixtures** in `tests/conftest.py`:
-  - `mock_whatsapp` — AsyncMock with WhatsApp port defaults
-  - `mock_mongodb_collection(name)` — factory that returns a mocked collection
-  - `mock_subprocess(target, calls=[...])` — factory for mocking `asyncio.create_subprocess_exec`
-- **Pattern**: AAA (Arrange-Act-Assert) with blank lines between sections
-- **Organization**: Group tests by behavior in classes (e.g., `TestCreate`, `TestDelete`, `TestErrors`)
-- **No docstrings** in test files — test names and code should be self-documenting
-- **Config**: `pyproject.toml` under `[tool.pytest.ini_options]` and `pytest.toml`
-
-## Sentry
-
-Gateway uses `@sentry/bun` for error tracking. Python uses `sentry-sdk` with FastAPI integration. See [docs/sentry.md](docs/sentry.md) for setup, structured logs, error capture, breadcrumbs, CLI queries, and test mocks.
-
-## Verification & Communication
-
-### After every change
-
-- After editing TS: run `cd gateway && bun format`, then `bun typecheck` (distinguish
-  pre-existing vs newly introduced errors), then `bun test:run` (verify all previously
-  passing tests still pass)
-- After editing Python: run `uv run ruff check . && uv run ruff format --check .`
-
-### Communication
-
-- When told "yes", "do it", or "push": execute. Don't repeat the plan.
-- When pointed to existing code as reference: study it and match its patterns exactly.
-  Working code is a better spec than a verbal description.
-- Work from raw error data. Don't guess. If a bug report has no output, ask for it.
+- **Gateway**: Vitest with globals enabled. Fixtures in
+  `gateway/tests/fixtures/index.js` (`GroupCommandData`, `PrivateCommandData`).
+  `createMockWhatsAppPort()` for WhatsApp-aware commands.
+- **Python**: pytest + anyio (`@pytest.mark.anyio`). Factories in
+  `tests/factories/`. Shared fixtures in `tests/conftest.py`: `mock_whatsapp`,
+  `mock_mongodb_collection`, `mock_subprocess`.
+- Full anti-patterns and authoritative rules:
+  [.claude/rules/testing.md](.claude/rules/testing.md).
 
 ## Response Formatting
 
-Conventions for bot response text and image captions (title formatting, stats layout, quote blocks, spacing, errors). See [docs/response-conventions.md](docs/response-conventions.md) for full details.
+Bot output conventions (titles, stats layout, quote blocks, spacing, errors):
+[docs/response-conventions.md](docs/response-conventions.md).
 
 ## External API Integration
 
-Guidelines for integrating external APIs (test first, pre-download buffers, disable retries for slow APIs, test asset URLs with headers, verify fallbacks independently). See [docs/api-integration.md](docs/api-integration.md) for full details.
+Test real endpoints first; pre-download buffers; disable retries for slow APIs;
+verify fallbacks independently; test asset URLs with the exact headers the CDN
+expects. Full guide: [docs/api-integration.md](docs/api-integration.md).
 
 ## Security
 
-CommandParser regex safety and argsPattern ReDoS prevention. See [docs/security.md](docs/security.md) for details.
+CommandParser regex safety + `argsPattern` ReDoS prevention:
+[docs/security.md](docs/security.md).
+
+## Tooling preference — CLI over MCP
+
+Prefer CLI tools over MCP servers when both exist. `gh`, `sentry-cli`, `uv`,
+`bun`, `docker`, and `curl` cover this project's needs with zero MCP startup
+cost. Install an MCP only when no CLI equivalent exists.
+
+For library docs: prefer reading the dependency's source in the repo + WebFetch
+the project's official docs URL over a docs-MCP.
+
+This project disables user-scoped `context7` and `github` MCPs via
+`.claude/settings.json` (`disabledMcpjsonServers`). They remain active in other
+projects.
 
 ## Environment
 
-Requires a `.env` file at the repo root (see `.env.example`) with keys for: WhatsApp JIDs, Gemini API, MongoDB URI, TMDB, and other service credentials. Symlinked into `gateway/.env` for local development.
+`.env` at the repo root (see `.env.example`) holds WhatsApp JIDs, Gemini API
+keys, MongoDB URI, TMDB tokens, Sentry DSNs, and Discord bot token. Symlinked
+into `gateway/.env` for local development.

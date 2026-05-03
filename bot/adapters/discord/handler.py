@@ -1,17 +1,12 @@
 import discord
-import httpx
 import structlog
 
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.application.command_registry import CommandRegistry
-from bot.data.browser_headers import BROWSER_HEADERS
+from bot.application.message_preprocess import preprocess_messages
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, Platform
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
-from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
-from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
-from bot.domain.models.message import BotMessage
-from bot.infrastructure.http_client import HttpClient
 from bot.ports.discord_port import DiscordPort
 
 logger = structlog.get_logger()
@@ -76,38 +71,10 @@ class DiscordInteractionHandler:
             await port.send_followup('Sem resposta do bot.')
             return
 
-        messages = await self._preprocess_messages(messages)
-        replies = self._renderer.render_many(messages)
+        messages = await preprocess_messages(messages)
+        replies = await self._renderer.render_many_async(messages)
         for reply in replies:
             await port.send_followup(reply.text, embed=reply.embed, file=reply.file)
-
-    @staticmethod
-    async def _preprocess_messages(messages: list[BotMessage]) -> list[BotMessage]:
-        result: list[BotMessage] = []
-        for message in messages:
-            content = message.content
-            if isinstance(content, AudioContent):
-                try:
-                    response = await HttpClient.get(content.url, follow_redirects=True)
-                    new_content = AudioBufferContent(
-                        data=response.content, mimetype='audio/mpeg', type='audio_mp3'
-                    )
-                    result.append(BotMessage(jid=message.jid, content=new_content))
-                    continue
-                except httpx.HTTPError:
-                    logger.warning('discord_audio_download_failed', url=content.url)
-            elif isinstance(content, ImageContent):
-                try:
-                    response = await HttpClient.get(
-                        content.url, follow_redirects=True, headers=BROWSER_HEADERS
-                    )
-                    new_content = ImageBufferContent(data=response.content, caption=content.caption)
-                    result.append(BotMessage(jid=message.jid, content=new_content))
-                    continue
-                except httpx.HTTPError:
-                    logger.warning('discord_image_download_failed', url=content.url)
-            result.append(message)
-        return result
 
     def _build_command_text(self, command_name: str, kwargs: dict) -> str:
         registry_prefix = self._name_map.get(command_name, f'{self.COMMAND_PREFIX}{command_name}')

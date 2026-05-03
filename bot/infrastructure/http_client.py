@@ -30,12 +30,12 @@ class HttpClient:
 
     @classmethod
     async def get(cls, url: str, **kwargs) -> httpx.Response:
-        headers = {**_correlation_headers(), **kwargs.pop('headers', {})}
+        headers = {**_correlation_headers(), **(kwargs.pop('headers', None) or {})}
         return await cls.client().get(url, headers=headers, **kwargs)
 
     @classmethod
     async def post(cls, url: str, **kwargs) -> httpx.Response:
-        headers = {**_correlation_headers(), **kwargs.pop('headers', {})}
+        headers = {**_correlation_headers(), **(kwargs.pop('headers', None) or {})}
         return await cls.client().post(url, headers=headers, **kwargs)
 
     @classmethod

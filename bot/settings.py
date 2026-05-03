@@ -20,11 +20,15 @@ class Settings(BaseSettings):
     debug: bool = False
 
     resenhazord2_jid: str = ''
+    resenhazord2_lid: str = ''
     resenha_jid: str = ''
     discord_token: str = ''
     discord_server_guild_id: str = ''
     discord_drive_guild_id: str = ''
     discord_app_id: str = ''
+    telegram_token: str = ''
+    telegram_bot_username: str = ''
+    telegram_nsfw_chat_ids: str = ''
 
     nhentai_mirror_url: str = 'https://nhentai.to'
 
@@ -40,5 +44,10 @@ class Settings(BaseSettings):
 
     # OP.GG MCP
     opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
+
+    # LLM Providers (fallback order: github, mistral, groq, google)
+    github_token: str = ''
+    mistral_api_key: str = ''
+    groq_api_key: str = ''
 
     model_config = {'env_file': '.env', 'extra': 'ignore'}

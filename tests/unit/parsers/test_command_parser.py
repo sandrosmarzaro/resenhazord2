@@ -343,3 +343,22 @@ class TestCommandWithMultipleOptions:
         result = self.parser.parse(',bíblia')
         assert len(result.options) == 0
         assert result.rest == ''
+
+
+class TestDuplicateOptionFlag:
+    def setup_method(self):
+        self.parser = CommandParser(
+            CommandConfig(
+                name='test',
+                options=[OptionDef(name='type', values=['a', 'b'])],
+                flags=['show', 'dm'],
+            )
+        )
+
+    def test_duplicate_option_uses_first(self):
+        result = self.parser.parse(',test a a extra')
+        assert result.options.get('type') == 'a'
+
+    def test_duplicate_flag_uses_first(self):
+        result = self.parser.parse(',test show show')
+        assert 'show' in result.flags
