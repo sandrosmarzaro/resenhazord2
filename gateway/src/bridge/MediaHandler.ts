@@ -37,10 +37,17 @@ export default class MediaHandler {
     const msg = data.message as AnyMsg | undefined;
     if (!msg) return null;
 
+    return this.findDirectMedia(msg) ?? this.findQuotedMedia(msg);
+  }
+
+  private findDirectMedia(msg: AnyMsg): MediaInfo | null {
     for (const type of MEDIA_TYPES) {
       if (msg[type]) return { type: TYPE_MAP[type], source: 'direct' };
     }
+    return null;
+  }
 
+  private findQuotedMedia(msg: AnyMsg): MediaInfo | null {
     const quoted = (msg.extendedTextMessage?.contextInfo as AnyMsg | undefined)?.quotedMessage as
       | AnyMsg
       | undefined;
@@ -55,6 +62,14 @@ export default class MediaHandler {
       };
     }
 
+    return (
+      this.findQuotedDirectMedia(quoted) ??
+      this.findViewOnceWrapperMedia(quoted) ??
+      this.findViewOnceFlagMedia(quoted)
+    );
+  }
+
+  private findQuotedDirectMedia(quoted: AnyMsg): MediaInfo | null {
     for (const type of MEDIA_TYPES) {
       const media = quoted[type];
       if (media) {
@@ -65,7 +80,10 @@ export default class MediaHandler {
         };
       }
     }
+    return null;
+  }
 
+  private findViewOnceWrapperMedia(quoted: AnyMsg): MediaInfo | null {
     for (const wrapper of VIEW_ONCE_WRAPPERS) {
       const inner = (quoted[wrapper] as AnyMsg | undefined)?.message as AnyMsg | undefined;
       if (!inner) continue;
@@ -80,7 +98,10 @@ export default class MediaHandler {
         }
       }
     }
+    return null;
+  }
 
+  private findViewOnceFlagMedia(quoted: AnyMsg): MediaInfo | null {
     for (const type of MEDIA_TYPES) {
       const media = quoted[type];
       if (media?.viewOnce) {
@@ -91,7 +112,6 @@ export default class MediaHandler {
         };
       }
     }
-
     return null;
   }
 
@@ -117,15 +137,11 @@ export default class MediaHandler {
         }
       }
 
-      message = generateWAMessageFromContent(
-        stored.key.remoteJid!,
-        actualMessage as proto.IMessage,
-        {
-          userJid: stored.key.remoteJid?.includes('@g.us')
-            ? stored.key.participant!
-            : stored.key.remoteJid!,
-        },
-      );
+      message = generateWAMessageFromContent(stored.key.remoteJid!, actualMessage, {
+        userJid: stored.key.remoteJid?.includes('@g.us')
+          ? stored.key.participant!
+          : stored.key.remoteJid!,
+      });
     }
 
     const download = downloadMediaMessage(
@@ -142,6 +158,6 @@ export default class MediaHandler {
       setTimeout(() => reject(new Error('Media download timed out')), DOWNLOAD_TIMEOUT_MS),
     );
 
-    return (await Promise.race([download, timeout])) as Buffer;
+    return await Promise.race([download, timeout]);
   }
 }
