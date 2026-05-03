@@ -2,6 +2,10 @@ import discord
 import pytest
 
 from bot.adapters.discord.agent_router import DiscordAgentRouter
+from bot.adapters.discord.renderer import DiscordReply
+from bot.domain.models.command_data import CommandData
+from bot.domain.models.contents.text_content import TextContent
+from bot.domain.models.message import BotMessage
 
 
 @pytest.fixture
@@ -78,3 +82,110 @@ class TestHandleDm:
 
         msg.reply.assert_called()
         assert 'reconhecido' in msg.reply.call_args[0][0]
+
+
+class TestHandleMention:
+    @pytest.mark.anyio
+    async def test_mention_dispatches_with_group_flag(self, mocker, message):
+        executor_mock = _stub_executor(mocker, text=',d20')
+        _stub_strategy(mocker, run_returns=[])
+        msg = message('<@bot> roll', guild_id=456)
+
+        router = DiscordAgentRouter()
+        await router.handle_mention(msg)
+
+        executor_call_data = executor_mock.run.call_args.args[0]
+        assert executor_call_data.is_group is True
+
+
+class TestDispatchException:
+    @pytest.mark.anyio
+    async def test_generic_exception_replies_error(self, mocker, message):
+        executor_mock = mocker.MagicMock()
+        executor_mock.run = mocker.AsyncMock(side_effect=RuntimeError('boom'))
+        mocker.patch('bot.adapters.discord.agent_router.AgentExecutor', return_value=executor_mock)
+        mocker.patch(
+            'bot.adapters.discord.agent_router.CommandRegistry.instance',
+            return_value=mocker.MagicMock(),
+        )
+        msg = message('test')
+
+        router = DiscordAgentRouter()
+        await router._dispatch(msg, mocker.MagicMock())
+
+        msg.reply.assert_called()
+        assert 'Erro' in msg.reply.call_args[0][0]
+
+
+class TestRunPipeline:
+    @pytest.mark.anyio
+    async def test_renders_and_sends_non_empty_messages(self, mocker, message):
+        _stub_executor(mocker, text=',pub')
+        bot_msg = BotMessage(jid='test', content=TextContent(text='hello'))
+        _stub_strategy(mocker, run_returns=[bot_msg])
+
+        renderer_mock = mocker.MagicMock()
+        renderer_mock.render_async = mocker.AsyncMock(
+            return_value=DiscordReply(text='hello', embed=None, file=None)
+        )
+        msg = message('test')
+        data = CommandData(text=',pub', jid='1', sender_jid='2', is_group=False, platform='discord')
+
+        router = DiscordAgentRouter(renderer=renderer_mock)
+        await router._run_pipeline(msg, data)
+
+        renderer_mock.render_async.assert_called_once_with(bot_msg)
+
+
+class TestSendReply:
+    @pytest.mark.anyio
+    async def test_text_only_reply(self, mocker, message):
+        msg = message('test')
+        router = DiscordAgentRouter()
+
+        await router._send_reply(msg, DiscordReply(text='hello', embed=None, file=None))
+
+        msg.reply.assert_called_once_with('hello')
+
+    @pytest.mark.anyio
+    async def test_empty_text_uses_placeholder(self, mocker, message):
+        msg = message('test')
+        router = DiscordAgentRouter()
+
+        await router._send_reply(msg, DiscordReply(text=None, embed=mocker.MagicMock(), file=None))
+
+        sent_text = msg.reply.call_args[0][0]
+        assert sent_text == DiscordAgentRouter.EMPTY_TEXT_PLACEHOLDER
+
+    @pytest.mark.anyio
+    async def test_reply_with_file(self, mocker, message):
+        msg = message('test')
+        file_mock = mocker.MagicMock()
+        router = DiscordAgentRouter()
+
+        await router._send_reply(msg, DiscordReply(text='see attached', embed=None, file=file_mock))
+
+        kwargs = msg.reply.call_args[1]
+        assert kwargs['file'] is file_mock
+
+    @pytest.mark.anyio
+    async def test_reply_with_embed(self, mocker, message):
+        msg = message('test')
+        embed_mock = mocker.MagicMock()
+        router = DiscordAgentRouter()
+
+        await router._send_reply(msg, DiscordReply(text=None, embed=embed_mock, file=None))
+
+        kwargs = msg.reply.call_args[1]
+        assert kwargs['embed'] is embed_mock
+
+
+class TestGroupData:
+    def test_group_data_sets_is_group_true(self, message):
+        msg = message('hello', guild_id=123)
+
+        data = DiscordAgentRouter._group_data(msg)
+
+        assert data.is_group is True
+        assert data.platform == 'discord'
+        assert str(msg.channel.id) == data.jid
