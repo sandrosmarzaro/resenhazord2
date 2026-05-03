@@ -1,14 +1,8 @@
 {
-  "enabledPlugins": {
-    "context7@claude-plugins-official": false,
-    "github@claude-plugins-official": false,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "sentry@claude-plugins-official": false
-  },
-  "disabledMcpjsonServers": ["context7", "github"],
+  "disabledMcpjsonServers": [
+    "context7",
+    "github"
+  ],
   "hooks": {
     "PostToolUse": [
       {
@@ -59,5 +53,12 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true
   }
 }

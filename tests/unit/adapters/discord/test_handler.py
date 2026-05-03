@@ -87,9 +87,10 @@ class TestHandle:
 
         await handler.handle(port, interaction)
 
-        port.send_followup.assert_called_once_with(
-            'Aqui esta sua rolada: 7 🎲', embed=None, file=None
-        )
+        port.send_followup.assert_called_once()
+        call_args = port.send_followup.call_args
+        assert call_args[1]['embed'] is not None
+        assert 'Aqui esta sua rolada: 7 🎲' in call_args[1]['embed'].description
 
     @pytest.mark.anyio
     async def test_image_command_sends_embed(self, handler, port, mocker):

@@ -28,7 +28,7 @@ class PuppyCommand(Command):
             flags=[Flag.SHOW, Flag.DM],
             options=[OptionDef(name='tipo', values=['dog', 'cat'])],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

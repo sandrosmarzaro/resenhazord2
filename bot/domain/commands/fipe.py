@@ -23,7 +23,7 @@ class FipeCommand(Command):
         return CommandConfig(
             name='fipe',
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property

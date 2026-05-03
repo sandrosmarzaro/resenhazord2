@@ -70,3 +70,52 @@ class TestCommandRegistry:
         assert len(all_cmds) == 2
         assert cmd1 in all_cmds
         assert cmd2 in all_cmds
+
+
+class TestGetByName:
+    def test_returns_command_for_canonical_name(self):
+        registry = CommandRegistry.instance()
+        cmd = FakeCommand()
+        registry.register(cmd)
+
+        assert registry.get_by_name('fake') is cmd
+
+    def test_lookup_is_case_insensitive(self):
+        registry = CommandRegistry.instance()
+        cmd = FakeCommand()
+        registry.register(cmd)
+
+        assert registry.get_by_name('FAKE') is cmd
+
+    def test_returns_none_for_unknown_name(self):
+        registry = CommandRegistry.instance()
+        registry.register(FakeCommand())
+
+        assert registry.get_by_name('missing') is None
+
+
+class TestStrategyFastPath:
+    def test_leading_token_lookup_returns_match_via_index(self, mocker):
+        registry = CommandRegistry.instance()
+        fake = FakeCommand()
+        another = AnotherCommand()
+        registry.register(fake)
+        registry.register(another)
+        spy = mocker.spy(another, 'matches')
+
+        assert registry.get_strategy(',fake') is fake
+        spy.assert_not_called()
+
+
+class TestMultiWordAliasMatching:
+    def test_rule_34_aliases_match_with_and_without_space(self):
+        from bot.application.register_commands import register_all_commands
+        from bot.settings import Settings
+
+        register_all_commands(Settings())
+        registry = CommandRegistry.instance()
+
+        cmd = registry.get_by_name('rule 34')
+        assert cmd is not None
+        assert cmd.matches(',rule34') is True
+        assert cmd.matches(',rule 34') is True

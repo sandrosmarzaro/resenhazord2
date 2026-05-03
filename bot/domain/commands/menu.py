@@ -36,7 +36,7 @@ class MenuCommand(Command):
             options=[OptionDef(name='section', values=['grupo', 'bíblia'])],
             flags=[Flag.DM],
             category=Category.OTHER,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property
@@ -57,7 +57,7 @@ class MenuCommand(Command):
             category = cmd.config.category
             if not category:
                 continue
-            if platform and platform not in cmd.config.platforms:
+            if platform and not Platform.supports(cmd.config.platforms, platform):
                 continue
             grouped.setdefault(category, []).append(cmd)
 

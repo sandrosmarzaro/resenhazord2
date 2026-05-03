@@ -19,7 +19,7 @@ class JackpotCommand(Command):
             name='jackpot',
             aliases=['slot', 'caçaníqueis', 'tigrinho'],
             category=Category.RANDOM,
-            platforms=[Platform.WHATSAPP, Platform.DISCORD, Platform.TELEGRAM],
+            platforms=[Platform.ALL],
         )
 
     @property
