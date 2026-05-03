@@ -3,7 +3,6 @@ gateway/node_modules/
 gateway/auth_session/
 gateway/src/auth/session/*
 !gateway/src/auth/session/.gitkeep
-gateway/src/auth/google_secret.json
 gateway/coverage/
 gateway/.wwebjs_cache/
 
