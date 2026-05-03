@@ -1,6 +1,6 @@
 import re
 
-SPEC_TOKEN = re.compile(r'^\d+\.\d|^\d+[pP]$|\d+cv$', re.IGNORECASE)
+SPEC_TOKEN = re.compile(r'^\d+\.\d|^\d+p$|\d+cv$', re.IGNORECASE)
 
 SPEC_WORD_BASE: set[str] = {
     'flex',
