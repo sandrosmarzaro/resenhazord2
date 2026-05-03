@@ -76,7 +76,7 @@ export default class MediaHandler {
         return {
           type: TYPE_MAP[type],
           source: 'quoted',
-          caption: (media.caption as string | undefined) ?? undefined,
+          caption: typeof media.caption === 'string' ? media.caption : undefined,
         };
       }
     }
@@ -93,7 +93,7 @@ export default class MediaHandler {
           return {
             type: TYPE_MAP[type],
             source: 'view_once',
-            caption: (media.caption as string | undefined) ?? undefined,
+            caption: typeof media.caption === 'string' ? media.caption : undefined,
           };
         }
       }
@@ -108,7 +108,7 @@ export default class MediaHandler {
         return {
           type: TYPE_MAP[type],
           source: 'view_once',
-          caption: (media.caption as string | undefined) ?? undefined,
+          caption: typeof media.caption === 'string' ? media.caption : undefined,
         };
       }
     }

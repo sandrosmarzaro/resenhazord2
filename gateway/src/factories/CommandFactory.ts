@@ -5,7 +5,10 @@ export default class CommandFactory {
   private readonly strategies: Command[] = [];
 
   static getInstance(): CommandFactory {
-    return (this.instance ??= new CommandFactory());
+    if (!this.instance) {
+      this.instance = new CommandFactory();
+    }
+    return this.instance;
   }
 
   static reset(): void {

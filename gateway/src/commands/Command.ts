@@ -29,7 +29,10 @@ export default abstract class Command {
   private _parser?: CommandParser;
 
   private get parser(): CommandParser {
-    return (this._parser ??= new CommandParser(this.config));
+    if (!this._parser) {
+      this._parser = new CommandParser(this.config);
+    }
+    return this._parser;
   }
 
   matches(text: string): boolean {
