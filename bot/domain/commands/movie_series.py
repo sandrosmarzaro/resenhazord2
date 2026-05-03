@@ -57,25 +57,9 @@ class MovieSeriesCommand(Command):
         pop_str = parsed.options.get('pop', '')
         top_str = parsed.options.get('top', '')
 
-        rank_limit = 0
-        if pop_str:
-            mode = 'popular'
-            pop_n = pop_str[3:]
-            if pop_n:
-                rank_limit = int(pop_n)
-                max_page = max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
-            else:
-                max_page = self.MAX_PAGE
-        elif top_str:
-            rank_limit = int(top_str[3:])
-            mode = 'top_rated'
-            max_page = max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
-        else:
-            mode = 'popular'
-            max_page = self.MAX_PAGE
+        mode, max_page, rank_limit = self._resolve_query(pop_str, top_str)
 
         url = f'https://api.themoviedb.org/3/{media_type}/{mode}'
-
         page = random.randint(1, max_page)  # noqa: S311
         response = await HttpClient.get(
             url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR', 'page': page}
@@ -90,29 +74,10 @@ class MovieSeriesCommand(Command):
         item = random.choice(results)  # noqa: S311
         poster_url = f'https://image.tmdb.org/t/p/{self.POSTER_SIZE}{item["poster_path"]}'
 
-        genres_url = f'https://api.themoviedb.org/3/genre/{media_type}/list'
-        genres_resp = await HttpClient.get(
-            genres_url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR'}
-        )
-        genres_resp.raise_for_status()
-        genres = {g['id']: g['name'] for g in genres_resp.json()['genres']}
-        genres_names = ', '.join(genres.get(gid, '?') for gid in item.get('genre_ids', []))
+        genres_names = await self._fetch_genres(media_type, item.get('genre_ids', []))
+        year, name = self._extract_year_and_name(media_type, item)
 
-        if media_type == 'movie':
-            year = (item.get('release_date') or '')[:4]
-            name = item.get('title', '')
-        else:
-            year = (item.get('first_air_date') or '')[:4]
-            name = item.get('name', '')
-
-        ratings: dict[str, str] = {}
-        if 'tmdb' not in parsed.flags and self._omdb_api_key:
-            with contextlib.suppress(Exception):
-                ratings = await self._fetch_omdb_ratings(media_type, item['id'])
-
-        if not ratings and (tmdb_avg := item.get('vote_average')):
-            ratings = {'tmdb': str(tmdb_avg)}
-
+        ratings = await self._resolve_ratings(parsed, media_type, item)
         caption = self._build_caption(
             name=name,
             year=year,
@@ -120,8 +85,52 @@ class MovieSeriesCommand(Command):
             overview=item.get('overview', ''),
             ratings=ratings,
         )
-
         return [Reply.to(data).image(poster_url, caption)]
+
+    def _resolve_query(self, pop_str: str, top_str: str) -> tuple[str, int, int]:
+        if pop_str:
+            mode = 'popular'
+            pop_n = pop_str[3:]
+            rank_limit = int(pop_n) if pop_n else 0
+            max_page = (
+                max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+                if rank_limit
+                else self.MAX_PAGE
+            )
+        elif top_str:
+            rank_limit = int(top_str[3:])
+            mode = 'top_rated'
+            max_page = max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+        else:
+            mode = 'popular'
+            rank_limit = 0
+            max_page = self.MAX_PAGE
+        return mode, max_page, rank_limit
+
+    async def _fetch_genres(self, media_type: str, genre_ids: list[int]) -> str:
+        genres_url = f'https://api.themoviedb.org/3/genre/{media_type}/list'
+        genres_resp = await HttpClient.get(
+            genres_url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR'}
+        )
+        genres_resp.raise_for_status()
+        genres = {g['id']: g['name'] for g in genres_resp.json()['genres']}
+        return ', '.join(genres.get(gid, '?') for gid in genre_ids)
+
+    @staticmethod
+    def _extract_year_and_name(media_type: str, item: dict) -> tuple[str, str]:
+        if media_type == 'movie':
+            return (item.get('release_date') or '')[:4], item.get('title', '')
+        return (item.get('first_air_date') or '')[:4], item.get('name', '')
+
+    async def _resolve_ratings(
+        self, parsed: ParsedCommand, media_type: str, item: dict
+    ) -> dict[str, str]:
+        if 'tmdb' not in parsed.flags and self._omdb_api_key:
+            with contextlib.suppress(Exception):
+                return await self._fetch_omdb_ratings(media_type, item['id'])
+        if tmdb_avg := item.get('vote_average'):
+            return {'tmdb': str(tmdb_avg)}
+        return {}
 
     async def _fetch_omdb_ratings(self, media_type: str, tmdb_id: int) -> dict[str, str]:
         ext_url = f'https://api.themoviedb.org/3/{media_type}/{tmdb_id}/external_ids'

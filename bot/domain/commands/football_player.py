@@ -60,92 +60,102 @@ class FootballPlayerCommand(Command):
         league = LEAGUES.get(liga_code) if liga_code else None
         top_str = parsed.options.get('top', '')
 
-        default_max = (
-            TransfermarktService.LEAGUE_MAX_PAGES  # top 100 per-league
-            if league
-            else TransfermarktService.GLOBAL_MAX_PAGES  # top 1000 globally
-        )
-
-        if top_str:
-            try:
-                top_n = int(top_str[3:])
-            except ValueError:
-                top_n = 0
-            if top_n > 0:
-                max_page = max(
-                    1,
-                    min(
-                        (top_n + TransfermarktService.PLAYERS_PER_PAGE - 1)
-                        // TransfermarktService.PLAYERS_PER_PAGE,
-                        default_max,
-                    ),
-                )
-            else:
-                max_page = default_max
-        else:
-            max_page = default_max
-
+        max_page = self._resolve_max_page(top_str, league)
         page = random.randint(1, max_page)  # noqa: S311
         players = await TransfermarktService.fetch_page(page, league)
 
         if top_str and players and page == max_page:
-            try:
-                top_n = int(top_str[3:])
-            except ValueError:
-                top_n = 0
-            items_on_last_page = top_n - (max_page - 1) * TransfermarktService.PLAYERS_PER_PAGE
-            players = players[:items_on_last_page]
+            players = self._trim_last_page(players, top_str, max_page)
 
         if not players:
             return [Reply.to(data).text('Nenhum jogador encontrado. Tente novamente! ⚽')]
 
         player = random.choice(players)  # noqa: S311
-
-        details: dict[str, str] = {}
-        if player.profile_url:
-            try:
-                details = await TransfermarktService.fetch_player_profile(player.profile_url)
-            except Exception:  # noqa: BLE001
-                logger.warning('player_profile_fetch_failed', url=player.profile_url)
-
+        details = await self._fetch_details(player.profile_url)
         caption = self._build_caption(player, league, details)
         buffer = await HttpClient.get_buffer(player.photo_url, headers=TransfermarktService.HEADERS)
         return [Reply.to(data).image_buffer(buffer, caption)]
+
+    def _resolve_max_page(self, top_str: str, league: LeagueInfo | None) -> int:
+        default_max = (
+            TransfermarktService.LEAGUE_MAX_PAGES
+            if league
+            else TransfermarktService.GLOBAL_MAX_PAGES
+        )
+        if not top_str:
+            return default_max
+        try:
+            top_n = int(top_str[3:])
+        except ValueError:
+            return default_max
+        if top_n <= 0:
+            return default_max
+        pages_for_top = (
+            top_n + TransfermarktService.PLAYERS_PER_PAGE - 1
+        ) // TransfermarktService.PLAYERS_PER_PAGE
+        return max(1, min(pages_for_top, default_max))
+
+    @staticmethod
+    def _trim_last_page(players: list[TmPlayer], top_str: str, max_page: int) -> list[TmPlayer]:
+        try:
+            top_n = int(top_str[3:])
+        except ValueError:
+            return players
+        items_on_last_page = top_n - (max_page - 1) * TransfermarktService.PLAYERS_PER_PAGE
+        return players[:items_on_last_page]
+
+    @staticmethod
+    async def _fetch_details(profile_url: str) -> dict[str, str]:
+        if not profile_url:
+            return {}
+        try:
+            return await TransfermarktService.fetch_player_profile(profile_url)
+        except Exception:  # noqa: BLE001
+            logger.warning('player_profile_fetch_failed', url=profile_url)
+            return {}
 
     @classmethod
     def _build_caption(
         cls, player: TmPlayer, league: LeagueInfo | None, details: dict[str, str]
     ) -> str:
         club_flag = league.flag if league else ''
-
         foot = next((details[k] for k in cls._FOOT_KEYS if k in details), '').capitalize()
         height = next((details[k] for k in cls._HEIGHT_KEYS if k in details), '')
         other_pos = next((details[k] for k in cls._OTHER_POS_KEYS if k in details), '')
         born_country = next((details[k] for k in cls._BORN_COUNTRY_KEYS if k in details), '')
         born_city = next((details[k] for k in cls._BORN_CITY_KEYS if k in details), '')
 
-        lines = [
+        lines: list[str] = [
             f'*{player.name}* — {player.position}',
             '',
             f'🎂 {player.age} anos   {player.nationality_flag_emoji} {player.nationality}',
         ]
-        if born_city or born_country:
-            born_flag = nationality_flag(born_country) if born_country else ''
-            parts = (
-                [born_city, born_country]
-                if born_country and born_country != born_city
-                else [born_city or born_country]
-            )
-            display = ', '.join(p for p in parts if p)
-            prefix = born_flag or '📍'
-            lines.append(f'{prefix} {display}'.strip())
+        lines.extend(cls._birth_line(born_city, born_country))
         lines.append(f'🏟️ {player.club} {club_flag}')
-        if height or foot:
-            info = f'📏 {height}' if height else ''
-            if foot:
-                info += f'   👟 {foot}' if info else f'👟 {foot}'
-            lines.append(info)
+        lines.extend(cls._physical_line(height, foot))
         if other_pos:
             lines.append(f'🔄 {other_pos}')
         lines.extend(['', f'💰 {player.market_value}'])
         return '\n'.join(lines)
+
+    @classmethod
+    def _birth_line(cls, born_city: str, born_country: str) -> list[str]:
+        if not born_city and not born_country:
+            return []
+        born_flag = nationality_flag(born_country) if born_country else ''
+        parts = (
+            [born_city, born_country]
+            if born_country and born_country != born_city
+            else [born_city or born_country]
+        )
+        display = ', '.join(p for p in parts if p)
+        prefix = born_flag or '📍'
+        return [f'{prefix} {display}'.strip()]
+
+    @staticmethod
+    def _physical_line(height: str, foot: str) -> list[str]:
+        if not height and not foot:
+            return []
+        if height and foot:
+            return [f'📏 {height}   👟 {foot}']
+        return [f'📏 {height}' if height else f'👟 {foot}']
