@@ -29,10 +29,10 @@
     "prepare": "echo 'hooks managed by pre-commit'"
   },
   "dependencies": {
-    "@sentry/bun": "^10.42.0",
-    "@upstash/redis": "^1.36.3",
+    "@sentry/bun": "^10.51.0",
+    "@upstash/redis": "^1.37.0",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
-    "axios": "^1.13.5",
+    "axios": "^1.16.0",
     "axios-retry": "^4.5.0",
     "dotenv": "^16.6.1",
     "mongodb": "^6.21.0",
@@ -42,15 +42,26 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.3.0",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.5",
     "axios-mock-adapter": "^2.1.0",
-    "eslint": "^10.0.2",
+    "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "fishery": "^2.4.0",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.3",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.1",
-    "vitest": "^4.0.18"
+    "typescript-eslint": "^8.59.1",
+    "vitest": "^4.1.5"
+  },
+  "overrides": {
+    "protobufjs": "^7.5.5",
+    "music-metadata": "^11.12.2",
+    "file-type": "^21.3.1",
+    "brace-expansion": "^5.0.5",
+    "flatted": "^3.4.0",
+    "picomatch": "^4.0.4",
+    "postcss": "^8.5.10",
+    "uuid": "^14.0.0",
+    "vite": "^7.3.2"
   }
 }
