@@ -129,6 +129,86 @@ class TestTranslateNormalisation:
         assert result.media_source == 'https://example.com/image.jpg'
 
 
+class TestComposeCommandText:
+    @pytest.mark.anyio
+    async def test_invalid_json_falls_back_to_empty_args(self, translator):
+        data = _data('@resenhazord teste')
+
+        result = translator.translate(data, 'test', 'not valid json')
+
+        assert result.text == ',test'
+
+    @pytest.mark.anyio
+    async def test_non_string_option_values_cast_to_str(self, translator):
+        data = _data('@resenhazord teste')
+
+        result = translator.translate(data, 'test', '{"count": 42}')
+
+        assert '42' in result.text
+
+    @pytest.mark.anyio
+    async def test_strips_surrounding_quotes(self, translator):
+        data = _data('@resenhazord teste')
+
+        result = translator.translate(data, 'test', '{"args": "\'hello\'""}')
+
+        assert not result.text.startswith('"')
+        assert not result.text.endswith('"')
+
+
+class TestDmRedirectNoComma:
+    @pytest.mark.anyio
+    async def test_dm_keyword_with_no_comma_prefix_still_redirects(self, translator):
+        data = _data(
+            '@resenhazord ver placar privado',
+            jid='test@g.us',
+            sender_jid='user@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = translator.translate(data, 'placar', '{"now": true}')
+
+        assert result.jid == 'user@s.whatsapp.net'
+
+
+class TestResolveCommandName:
+    @pytest.mark.anyio
+    async def test_alias_resolves_to_canonical_name(self, mocker):
+        registry = mocker.MagicMock()
+        canonical = mocker.MagicMock()
+        canonical.config.name = 'placar'
+        registry.get_by_name.return_value = canonical
+
+        translator = AgentResponseTranslator(registry)
+        data = _data('test')
+
+        result = translator.translate(data, 'score', '{}')
+
+        assert result.text.startswith(',placar')
+
+    @pytest.mark.anyio
+    async def test_non_comma_text_not_resolved(self, mocker):
+        registry = mocker.MagicMock()
+        translator = AgentResponseTranslator(registry)
+
+        result = translator._resolve_command_name('plain text')
+
+        registry.get_by_name.assert_not_called()
+        assert result == 'plain text'
+
+    @pytest.mark.anyio
+    async def test_unknown_alias_keeps_original(self, mocker):
+        registry = mocker.MagicMock()
+        registry.get_by_name.return_value = None
+
+        translator = AgentResponseTranslator(registry)
+        data = _data('test')
+
+        result = translator.translate(data, 'unknown', '{}')
+
+        assert result.text == ',unknown'
+
+
 def _data(
     text: str,
     *,
