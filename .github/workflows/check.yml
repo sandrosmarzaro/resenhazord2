@@ -54,11 +54,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: typescript
           files: gateway/coverage/lcov.info
-      - name: Upload TypeScript coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: typescript-coverage
-          path: gateway/coverage/lcov.info
 
   test-py:
     name: Python tests
@@ -75,11 +70,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
           files: coverage.xml
-      - name: Upload Python coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-coverage
-          path: coverage.xml
 
   sonarqube:
     name: SonarCloud Analysis
@@ -89,15 +79,11 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Download Python coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: python-coverage
-      - name: Download TypeScript coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: typescript-coverage
-          path: gateway/coverage
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+      - run: uv sync --frozen
+      - run: uv run pytest --cov=bot --cov-report=xml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      - run: cd gateway && bun install --frozen-lockfile && bun test:coverage
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
