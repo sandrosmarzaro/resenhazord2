@@ -40,6 +40,7 @@ while true; do
     healthy)   log "Healthy. Deploy complete."; exit 0 ;;
     unhealthy) log "ERROR: Container unhealthy."; docker logs --tail 50 "$CONTAINER_NAME"; exit 1 ;;
     not_found) log "ERROR: Container not found."; exit 1 ;;
+    *)         log "ERROR: Unexpected status: $status"; exit 1 ;;
   esac
   if (( elapsed >= HEALTH_TIMEOUT )); then
     log "ERROR: Timed out after ${HEALTH_TIMEOUT}s. Status: $status"
