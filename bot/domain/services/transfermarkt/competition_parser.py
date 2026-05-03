@@ -41,8 +41,8 @@ class CompetitionParser(ParseHelpers):
         country_flag = cls._get_country_flag(comp_code, country)
         return comp_name, comp_code, country, country_flag
 
-    @staticmethod
-    def _get_country_flag(comp_code: str, country_name: str) -> str:
+    @classmethod
+    def _get_country_flag(cls, comp_code: str, country_name: str) -> str:
         if comp_code:
             code = comp_code.split('/', maxsplit=1)[0]
             override = COMPETITION_CODE_OVERRIDES.get(code)
@@ -52,13 +52,18 @@ class CompetitionParser(ParseHelpers):
             flag = nationality_flag(country_name)
             if flag:
                 return flag
-        if comp_code:
-            code = comp_code.split('/', maxsplit=1)[0]
-            for length in (3, 2):
-                if len(code) >= length:
-                    flag = COUNTRY_CODE_TO_FLAG.get(code[:length])
-                    if flag:
-                        return flag
+        return cls._flag_from_comp_code(comp_code)
+
+    @staticmethod
+    def _flag_from_comp_code(comp_code: str) -> str:
+        if not comp_code:
+            return ''
+        code = comp_code.split('/', maxsplit=1)[0]
+        for length in (3, 2):
+            if len(code) >= length:
+                flag = COUNTRY_CODE_TO_FLAG.get(code[:length])
+                if flag:
+                    return flag
         return ''
 
     @classmethod
