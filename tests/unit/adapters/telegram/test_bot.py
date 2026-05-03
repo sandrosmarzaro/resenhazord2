@@ -11,10 +11,12 @@ FAKE_TOKEN = 'x' * 10
 
 
 def _patch_registry(mocker, commands):
+    registry = mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands))
     mocker.patch(
         'bot.adapters.telegram.bot.CommandRegistry.instance',
-        return_value=mocker.MagicMock(get_all=mocker.MagicMock(return_value=commands)),
+        return_value=registry,
     )
+    return registry
 
 
 def _make_bot(mocker, *, nsfw_chat_ids: frozenset[int] = frozenset()):
@@ -60,6 +62,141 @@ class TestIsMenuEligible:
     def test_accepts_nsfw_when_in_scope(self):
         cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=CommandScope.NSFW)
         assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC, CommandScope.NSFW}) is True
+
+
+class TestStartStop:
+    @pytest.mark.anyio
+    async def test_start_registers_handlers_and_polls(self, mocker):
+        bot = _make_bot(mocker)
+        bot._app.initialize = mocker.AsyncMock()
+        bot._app.start = mocker.AsyncMock()
+        updater_mock = mocker.MagicMock()
+        updater_mock.start_polling = mocker.AsyncMock()
+        bot._app.updater = updater_mock
+        bot._publish_command_menu = mocker.AsyncMock()
+        _patch_registry(mocker, [FakeCommand('oi', platforms=[Platform.TELEGRAM])])
+
+        await bot.start()
+
+        cast('Any', bot._app.initialize).assert_called_once()
+        cast('Any', bot._app.start).assert_called_once()
+        cast('Any', updater_mock.start_polling).assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_start_without_updater_skips_polling(self, mocker):
+        bot = _make_bot(mocker)
+        bot._app.initialize = mocker.AsyncMock()
+        bot._app.start = mocker.AsyncMock()
+        bot._app.updater = None
+        bot._publish_command_menu = mocker.AsyncMock()
+        _patch_registry(mocker, [])
+
+        await bot.start()
+
+        cast('Any', bot._app.initialize).assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_stop_shuts_down_app(self, mocker):
+        bot = _make_bot(mocker)
+        bot._app.stop = mocker.AsyncMock()
+        bot._app.shutdown = mocker.AsyncMock()
+        updater_mock = mocker.MagicMock()
+        updater_mock.stop = mocker.AsyncMock()
+        bot._app.updater = updater_mock
+
+        await bot.stop()
+
+        cast('Any', updater_mock.stop).assert_called_once()
+        cast('Any', bot._app.stop).assert_called_once()
+        cast('Any', bot._app.shutdown).assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_stop_without_updater(self, mocker):
+        bot = _make_bot(mocker)
+        bot._app.stop = mocker.AsyncMock()
+        bot._app.shutdown = mocker.AsyncMock()
+        bot._app.updater = None
+
+        await bot.stop()
+
+        cast('Any', bot._app.stop).assert_called_once()
+
+
+class TestRegisterHandlers:
+    @pytest.mark.anyio
+    async def test_registers_telegram_commands(self, mocker):
+        commands = [
+            FakeCommand('oi', platforms=[Platform.TELEGRAM]),
+            FakeCommand('skip', platforms=[Platform.DISCORD]),
+        ]
+        _patch_registry(mocker, commands)
+        bot = _make_bot(mocker)
+
+        bot._register_handlers()
+
+        add_handler_calls = cast('Any', bot._app.add_handler).call_args_list
+        command_handlers = [c for c in add_handler_calls if c.args[0]]
+        assert len(command_handlers) >= 2
+
+    @pytest.mark.anyio
+    async def test_registers_aliases(self, mocker):
+        commands = [FakeCommand('oi', platforms=[Platform.TELEGRAM], aliases=['ola', 'hi'])]
+        _patch_registry(mocker, commands)
+        bot = _make_bot(mocker)
+
+        bot._register_handlers()
+
+        assert bot._handler._name_map.get('ola') == ',ola'
+        assert bot._handler._name_map.get('hi') == ',hi'
+
+    @pytest.mark.anyio
+    async def test_registers_start_alias_when_menu_exists(self, mocker):
+        menu_cmd = FakeCommand('menu', platforms=[Platform.TELEGRAM])
+        registry = _patch_registry(mocker, [menu_cmd])
+        registry.get_by_name.return_value = menu_cmd
+        bot = _make_bot(mocker)
+
+        bot._register_handlers()
+
+        assert bot._handler._name_map.get('start') == ',menu'
+
+    @pytest.mark.anyio
+    async def test_skips_start_alias_when_menu_not_telegram(self, mocker):
+        menu_cmd = FakeCommand('menu', platforms=[Platform.DISCORD])
+        registry = _patch_registry(mocker, [menu_cmd])
+        registry.get_by_name.return_value = menu_cmd
+        bot = _make_bot(mocker)
+
+        bot._register_handlers()
+
+        assert 'start' not in bot._handler._name_map
+
+    @pytest.mark.anyio
+    async def test_skips_start_alias_when_no_menu_command(self, mocker):
+        registry = _patch_registry(mocker, [])
+        registry.get_by_name.return_value = None
+        bot = _make_bot(mocker)
+
+        bot._register_handlers()
+
+        assert 'start' not in bot._handler._name_map
+
+
+class TestMakeCallback:
+    @pytest.mark.anyio
+    async def test_callback_delegates_to_handler(self, mocker):
+        bot = _make_bot(mocker)
+        _patch_registry(mocker, [])
+        handle_mock = mocker.patch.object(bot._handler, 'handle', mocker.AsyncMock())
+
+        callback = bot._make_callback()
+        fake_update = mocker.MagicMock()
+        fake_context = mocker.MagicMock()
+        fake_context.bot = mocker.MagicMock()
+
+        await callback(fake_update, fake_context)
+
+        handle_mock.assert_called_once()
 
 
 class TestPublishCommandMenu:
