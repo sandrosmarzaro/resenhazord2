@@ -157,7 +157,6 @@ class TestBatch:
 class TestAgentDetection:
     @pytest.mark.anyio
     async def test_agent_trigger_in_dm(self, handler):
-        """Test that any message in DM triggers agent mode."""
         from bot.domain.models.command_data import CommandData
 
         data = CommandData(
@@ -173,7 +172,6 @@ class TestAgentDetection:
 
     @pytest.mark.anyio
     async def test_agent_trigger_with_send_me_pattern(self, handler):
-        """Test that 'mande um' pattern triggers agent in group."""
         from bot.domain.models.command_data import CommandData
 
         data = CommandData(
@@ -189,12 +187,136 @@ class TestAgentDetection:
 
     @pytest.mark.anyio
     async def test_no_agent_for_plain_command_in_group(self, handler):
-        """Test that plain comma command in group doesn't trigger agent."""
         data = GroupCommandDataFactory.build(text=',pub')
 
         is_agent = handler._is_agent_mention(data)
 
         assert is_agent is False
+
+    def test_agent_trigger_by_bot_mention_tag(self, handler):
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text='@resenhazord ver placar',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        assert handler._is_agent_mention(data) is True
+
+    def test_agent_trigger_by_mentioned_jid(self, handler, mocker):
+        from bot.domain.models.command_data import CommandData
+
+        mocker.patch(
+            'bot.application.command_handler.Settings',
+            return_value=mocker.MagicMock(
+                resenhazord2_jid='555@s.whatsapp.net',
+                resenha_jid='',
+                resenhazord2_lid='',
+            ),
+        )
+        handler_with_jid = CommandHandler(registry=handler._registry, dev_list=handler._dev_list)
+
+        data = CommandData(
+            text='hello',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            mentioned_jids=['555@s.whatsapp.net'],
+            is_group=True,
+        )
+
+        assert handler_with_jid._is_agent_mention(data) is True
+
+
+class TestRunAgent:
+    @pytest.mark.anyio
+    async def test_run_agent_returns_translated_data(self, handler, mocker):
+        from bot.domain.models.command_data import CommandData
+
+        translated = CommandData(
+            text=',placar now',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+        executor_mock = mocker.MagicMock()
+        executor_mock.run = mocker.AsyncMock(return_value=translated)
+        mocker.patch(
+            'bot.application.command_handler.AgentExecutor',
+            return_value=executor_mock,
+        )
+
+        data = CommandData(
+            text='@resenhazord ver placar',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler._run_agent(data)
+
+        assert result.text == ',placar now'
+
+    @pytest.mark.anyio
+    async def test_run_agent_http_error_falls_back(self, handler, mocker):
+        import httpx
+
+        from bot.domain.models.command_data import CommandData
+
+        mocker.patch(
+            'bot.application.command_handler.AgentExecutor',
+        ).return_value.run = mocker.AsyncMock(side_effect=httpx.HTTPError('timeout'))
+
+        data = CommandData(
+            text='@resenhazord ver placar',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler._run_agent(data)
+
+        assert result is data
+
+    @pytest.mark.anyio
+    async def test_run_agent_runtime_error_falls_back(self, handler, mocker):
+        from bot.domain.models.command_data import CommandData
+
+        mocker.patch(
+            'bot.application.command_handler.AgentExecutor',
+        ).return_value.run = mocker.AsyncMock(side_effect=RuntimeError('fail'))
+
+        data = CommandData(
+            text='@resenhazord ver placar',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler._run_agent(data)
+
+        assert result is data
+
+
+class TestRunCommand:
+    @pytest.mark.anyio
+    async def test_bot_error_reraises(self, handler, mocker):
+        from bot.domain.exceptions import BotError
+
+        cmd = mocker.MagicMock()
+        cmd.run = mocker.AsyncMock(side_effect=BotError('custom'))
+
+        with pytest.raises(BotError, match='custom'):
+            await CommandHandler._run_command(cmd, mocker.MagicMock(), 1)
+
+    @pytest.mark.anyio
+    async def test_generic_exception_reraises(self, handler, mocker):
+        cmd = mocker.MagicMock()
+        cmd.run = mocker.AsyncMock(side_effect=RuntimeError('boom'))
+
+        with pytest.raises(RuntimeError, match='boom'):
+            await CommandHandler._run_command(cmd, mocker.MagicMock(), 1)
 
 
 class TestSuggestHandler:
