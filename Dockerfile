@@ -42,9 +42,8 @@ RUN apk add --no-cache \
     libffi \
     libsodium \
     ttf-dejavu \
-    font-noto-emoji
-
-RUN addgroup -S nonroot && adduser -S -G nonroot nonroot
+    font-noto-emoji \
+    && addgroup -S nonroot && adduser -S -G nonroot nonroot
 
 COPY --from=builder /app /app
 
