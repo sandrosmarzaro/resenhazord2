@@ -7,25 +7,30 @@ export interface MongoDBAuthResult {
   saveCreds: () => Promise<void>;
 }
 
+function safeId(id: string): string {
+  if (typeof id !== 'string') throw new TypeError('id must be a string');
+  return id;
+}
+
 export const useMongoDBAuthState = async (collection: Collection): Promise<MongoDBAuthResult> => {
   const col = collection as unknown as Collection<{ _id: string; data: string }>;
 
   const writeData = async (data: unknown, id: string) => {
     await col.replaceOne(
-      { _id: id },
+      { _id: safeId(id) },
       { data: JSON.stringify(data, BufferJSON.replacer) } as { _id: string; data: string },
       { upsert: true },
     );
   };
 
   const readData = async (id: string) => {
-    const doc = await col.findOne({ _id: id });
+    const doc = await col.findOne({ _id: safeId(id) });
     if (!doc) return null;
     return JSON.parse(doc.data, BufferJSON.reviver);
   };
 
   const removeData = async (id: string) => {
-    await col.deleteOne({ _id: id });
+    await col.deleteOne({ _id: safeId(id) });
   };
 
   const creds = (await readData('creds')) || initAuthCreds();

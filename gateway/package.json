@@ -37,7 +37,7 @@
     "dotenv": "^16.6.1",
     "mongodb": "^6.21.0",
     "node-webpmux": "^3.2.1",
-    "pino": "^9.14.0",
+    "pino": "^10.1.1",
     "pino-pretty": "^11.3.0"
   },
   "devDependencies": {
@@ -55,8 +55,8 @@
   },
   "overrides": {
     "protobufjs": "^7.5.5",
-    "music-metadata": "^11.12.2",
-    "file-type": "^21.3.1",
+    "music-metadata": "^11.12.3",
+    "file-type": "^21.3.3",
     "brace-expansion": "^5.0.5",
     "flatted": "^3.4.0",
     "picomatch": "^4.0.4",
