@@ -1,6 +1,8 @@
 import pytest
 from telegram.constants import ChatType
 
+from bot.adapters.telegram.agent_router import TelegramAgentRouter
+from bot.domain.exceptions import BotError
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from tests.unit.adapters.telegram.conftest import (
@@ -58,3 +60,133 @@ class TestGroupAgentMention:
 
         executor.run.assert_called_once()
         port.send.assert_called()
+
+
+class TestIsAgentMention:
+    def test_detects_mention_in_text(self, mocker):
+        msg = mocker.MagicMock()
+        msg.text = 'hello @resenhazord_bot'
+        assert TelegramAgentRouter.is_agent_mention(msg, 'resenhazord_bot') is True
+
+    def test_case_insensitive_mention(self, mocker):
+        msg = mocker.MagicMock()
+        msg.text = 'hello @RESENHAZORD_BOT'
+        assert TelegramAgentRouter.is_agent_mention(msg, 'resenhazord_bot') is True
+
+    def test_no_mention_returns_false(self, mocker):
+        msg = mocker.MagicMock()
+        msg.text = 'hello world'
+        assert TelegramAgentRouter.is_agent_mention(msg, 'resenhazord_bot') is False
+
+    def test_empty_text_returns_false(self, mocker):
+        msg = mocker.MagicMock()
+        msg.text = None
+        assert TelegramAgentRouter.is_agent_mention(msg, 'resenhazord_bot') is False
+
+    def test_empty_bot_username_returns_false(self, mocker):
+        msg = mocker.MagicMock()
+        msg.text = 'hello @bot'
+        assert TelegramAgentRouter.is_agent_mention(msg, '') is False
+
+
+class TestSafeReact:
+    @pytest.mark.anyio
+    async def test_reacts_successfully(self, port):
+        await TelegramAgentRouter.safe_react(port, 123, 456)
+
+        port.react.assert_called_once_with(123, 456, '\U0001f44d')
+
+    @pytest.mark.anyio
+    async def test_react_failure_is_swallowed(self, port):
+        port.react.side_effect = Exception('react failed')
+
+        await TelegramAgentRouter.safe_react(port, 123, 456)
+
+        port.react.assert_called_once()
+
+
+class TestRunAndReply:
+    @pytest.mark.anyio
+    async def test_bot_error_sends_user_message(self, mocker, port):
+        renderer = mocker.MagicMock()
+        renderer.render_many.return_value = []
+        router = TelegramAgentRouter(renderer)
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(side_effect=BotError('custom error'))
+
+        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+
+        sent = port.send.call_args.args[0]
+        assert sent.text == 'custom error'
+
+    @pytest.mark.anyio
+    async def test_generic_error_sends_generic_message(self, mocker, port):
+        renderer = mocker.MagicMock()
+        router = TelegramAgentRouter(renderer)
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(side_effect=RuntimeError('boom'))
+
+        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+
+        sent = port.send.call_args.args[0]
+        assert sent.text == TelegramAgentRouter.GENERIC_ERROR_MESSAGE
+
+    @pytest.mark.anyio
+    async def test_empty_messages_sends_empty_reply(self, mocker, port):
+        renderer = mocker.MagicMock()
+        router = TelegramAgentRouter(renderer)
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(return_value=[])
+
+        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+
+        sent = port.send.call_args.args[0]
+        assert sent.text == TelegramAgentRouter.EMPTY_REPLY_MESSAGE
+
+    @pytest.mark.anyio
+    async def test_successful_run_sends_messages(self, mocker, port):
+        renderer = mocker.MagicMock()
+        outbound = mocker.MagicMock()
+        renderer.render_many.return_value = [outbound]
+        router = TelegramAgentRouter(renderer)
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(return_value=[_ok_message()])
+        mocker.patch(
+            'bot.adapters.telegram.agent_router.preprocess_for_telegram',
+            mocker.AsyncMock(return_value=[_ok_message()]),
+        )
+
+        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+
+        port.send.assert_called()
+
+
+class TestSendMessages:
+    @pytest.mark.anyio
+    async def test_send_failure_sends_error_and_returns(self, mocker, port):
+        renderer = mocker.MagicMock()
+        outbound = mocker.MagicMock()
+        renderer.render_many.return_value = [outbound]
+        router = TelegramAgentRouter(renderer)
+        call_count = 0
+
+        class SendFailedError(Exception):
+            pass
+
+        send_error = SendFailedError('send failed')
+
+        def _send_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise send_error
+
+        port.send.side_effect = _send_side_effect
+        mocker.patch(
+            'bot.adapters.telegram.agent_router.preprocess_for_telegram',
+            mocker.AsyncMock(return_value=[mocker.MagicMock()]),
+        )
+
+        await router._send_messages(port, [mocker.MagicMock()], 123, 'cmd')
+
+        assert call_count == 2
