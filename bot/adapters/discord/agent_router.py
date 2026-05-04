@@ -8,6 +8,7 @@ from bot.adapters.discord.renderer import DiscordReply, DiscordResponseRenderer
 from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Platform
+from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.models.command_data import CommandData
 
 logger = structlog.get_logger()
@@ -18,8 +19,8 @@ class DiscordAgentRouter:
     EMPTY_REPLY: ClassVar[str] = 'Sem resposta do comando.'
     GENERIC_ERROR: ClassVar[str] = 'Erro ao processar comando.'
     EMPTY_TEXT_PLACEHOLDER: ClassVar[str] = '\u200b'
-    _CLARIFY_PREFIX: ClassVar[str] = ',clarify:'
-    _SUGGEST_PREFIX: ClassVar[str] = ',suggest:'
+    _CLARIFY_PREFIX: ClassVar[str] = CLARIFY_PREFIX
+    _SUGGEST_PREFIX: ClassVar[str] = SUGGEST_PREFIX
 
     def __init__(self, renderer: DiscordResponseRenderer | None = None) -> None:
         self._renderer = renderer or DiscordResponseRenderer()
@@ -43,10 +44,16 @@ class DiscordAgentRouter:
         result = await executor.run(data)
 
         if result.text.startswith(self._CLARIFY_PREFIX):
-            await message.reply(result.text[len(self._CLARIFY_PREFIX) :].strip())
+            await message.reply(
+                result.text[len(self._CLARIFY_PREFIX) :].strip(),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
             return
         if result.text.startswith(self._SUGGEST_PREFIX):
-            await message.reply(result.text[len(self._SUGGEST_PREFIX) :].strip())
+            await message.reply(
+                result.text[len(self._SUGGEST_PREFIX) :].strip(),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
             return
 
         strategy = CommandRegistry.instance().get_strategy(result.text)
@@ -71,7 +78,11 @@ class DiscordAgentRouter:
             kwargs['file'] = reply.file
         if reply.embed is not None:
             kwargs['embed'] = reply.embed
-        await message.reply(reply.text or self.EMPTY_TEXT_PLACEHOLDER, **kwargs)
+        await message.reply(
+            reply.text or self.EMPTY_TEXT_PLACEHOLDER,
+            allowed_mentions=discord.AllowedMentions.none(),
+            **kwargs,
+        )
 
     @staticmethod
     def _dm_data(message: discord.Message) -> CommandData:

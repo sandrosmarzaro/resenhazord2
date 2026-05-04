@@ -9,6 +9,7 @@ from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.application.message_preprocess import preprocess_for_telegram
 from bot.domain.commands.base import Command
+from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound, TelegramPort
@@ -21,8 +22,8 @@ class TelegramAgentRouter:
     GENERIC_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
     EMPTY_REPLY_MESSAGE: ClassVar[str] = 'Sem resposta do bot.'
     ACK_REACTION: ClassVar[str] = '\U0001f44d'
-    _CLARIFY_PREFIX: ClassVar[str] = ',clarify:'
-    _SUGGEST_PREFIX: ClassVar[str] = ',suggest:'
+    _CLARIFY_PREFIX: ClassVar[str] = CLARIFY_PREFIX
+    _SUGGEST_PREFIX: ClassVar[str] = SUGGEST_PREFIX
 
     def __init__(self, renderer: TelegramResponseRenderer) -> None:
         self._renderer = renderer
