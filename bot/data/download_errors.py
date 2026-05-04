@@ -1,3 +1,5 @@
+FILE_TOO_LARGE_MESSAGE = 'Vídeo muito grande pra baixar 📦'
+
 YTDLP_ERROR_MESSAGES: dict[str, str] = {
     'There is no video in this post': 'Esse post não tem vídeo 📸',
     'Video unavailable': 'Esse vídeo não está disponível 😔',
@@ -5,10 +7,8 @@ YTDLP_ERROR_MESSAGES: dict[str, str] = {
     'Sign in to confirm your age': 'Esse vídeo tem restrição de idade 🔞',
     'HTTP Error 403': 'Acesso ao vídeo foi bloqueado 🚫',
     'Forbidden': 'Acesso ao vídeo foi bloqueado 🚫',
-    'exceeds': 'Vídeo muito grande pra baixar 📦',
-    'File is larger': 'Vídeo muito grande pra baixar 📦',
+    'exceeds': FILE_TOO_LARGE_MESSAGE,
+    'File is larger': FILE_TOO_LARGE_MESSAGE,
 }
-
-FILE_TOO_LARGE_MESSAGE = 'Vídeo muito grande pra baixar 📦'
 
 FALLBACK_MESSAGE = 'Não consegui baixar esse vídeo 😅'

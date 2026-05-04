@@ -6,7 +6,9 @@ export default class MongoDBConnection {
 
   static async getClient(): Promise<MongoClient> {
     if (!this.client) {
-      this.client = new MongoClient(process.env.MONGODB_URI!);
+      const uri = process.env.MONGODB_URI;
+      if (!uri) throw new Error('MONGODB_URI environment variable is required');
+      this.client = new MongoClient(uri);
       await this.client.connect();
     }
     return this.client;

@@ -5,6 +5,7 @@ from bot.infrastructure.mongodb import MongoDBConnection
 logger = structlog.get_logger()
 
 COLLECTION_NAME = 'groups_mentions'
+GROUP_NAME_FIELD = 'groups.name'
 
 
 class ExitMentionList:
@@ -17,7 +18,7 @@ class ExitMentionList:
     ) -> dict:
         try:
             col = MongoDBConnection.collection(COLLECTION_NAME)
-            has_group = await col.find_one({'_id': chat_jid, 'groups.name': group_name})
+            has_group = await col.find_one({'_id': chat_jid, GROUP_NAME_FIELD: group_name})
             if not has_group:
                 return {
                     'ok': False,
@@ -26,13 +27,13 @@ class ExitMentionList:
 
             if not indices:
                 await col.update_one(
-                    {'_id': chat_jid, 'groups.name': group_name},
+                    {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
                     {'$pull': {'groups.$.participants': sender_jid}},
                 )
                 return {'ok': True, 'group_name': group_name, 'self_only': True}
 
             group_doc = await col.find_one(
-                {'_id': chat_jid, 'groups.name': group_name},
+                {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
                 projection={'groups.$': 1},
             )
             if not group_doc:
@@ -51,7 +52,7 @@ class ExitMentionList:
                 }
 
             await col.update_one(
-                {'_id': chat_jid, 'groups.name': group_name},
+                {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
                 {'$pull': {'groups.$.participants': {'$in': to_remove}}},
             )
         except Exception:

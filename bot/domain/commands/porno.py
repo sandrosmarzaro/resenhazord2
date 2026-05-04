@@ -110,9 +110,12 @@ class PornoCommand(Command):
 
         low_match = re.search(r"setVideoUrlLow\('([^']+)'\)", page_html)
         high_match = re.search(r"setVideoUrlHigh\('([^']+)'\)", page_html)
-        video_url = (
-            low_match.group(1) if low_match else (high_match.group(1) if high_match else None)
-        )
+        if low_match:
+            video_url = low_match.group(1)
+        elif high_match:
+            video_url = high_match.group(1)
+        else:
+            video_url = None
 
         if not video_url:
             msg = 'Não foi possível extrair URL do vídeo'

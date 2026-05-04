@@ -93,7 +93,9 @@ class AnimalCommand(Command):
 
     @classmethod
     def _extract_fact(cls, extract: str) -> str:
-        sentences = re.findall(r'[^.!?]*[.!?]+', extract) or [extract]
+        sentences = re.findall(r'[^.!?]*[.!?]+', extract)
+        if not sentences:
+            return extract.strip()
         fact = ''.join(sentences[:2]).strip()
         if len(fact) > cls.MAX_FACT_LENGTH:
             return sentences[0].strip()

@@ -63,7 +63,10 @@ export default class CommandHandler {
       expiration: await GetGroupExpiration.run(data),
     } as CommandData;
 
-    await TypingIndicator.start(commandData.key.remoteJid!);
+    const jid = commandData.key.remoteJid;
+    if (!jid) return;
+
+    await TypingIndicator.start(jid);
 
     Sentry.addBreadcrumb({
       category: 'command',
@@ -84,12 +87,12 @@ export default class CommandHandler {
         Sentry.captureException(error);
       });
       await Resenhazord2.adapter!.sendMessage(
-        commandData.key.remoteJid!,
+        jid,
         { text: CommandHandler.ERROR_TEXT },
         { quoted: commandData, ephemeralExpiration: commandData.expiration },
       );
     } finally {
-      await TypingIndicator.stop(commandData.key.remoteJid!);
+      await TypingIndicator.stop(jid);
     }
   }
 

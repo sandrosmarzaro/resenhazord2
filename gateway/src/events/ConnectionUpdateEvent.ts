@@ -17,7 +17,7 @@ export default class ConnectionUpdateEvent {
   ]);
 
   static reconnectAttempts = 0;
-  static maxReconnectAttempts = 5;
+  static readonly maxReconnectAttempts = 5;
   static isReconnecting = false;
   static reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -29,51 +29,7 @@ export default class ConnectionUpdateEvent {
     }
 
     if (connection === 'close') {
-      if (this.reconnectTimer) {
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = null;
-      }
-
-      const error = lastDisconnect?.error;
-      const statusCode = error && isBoom(error) ? error.output?.statusCode : null;
-
-      Sentry.addBreadcrumb({
-        category: 'whatsapp.connection',
-        message: `Connection closed. Status: ${statusCode ?? 'unknown'}`,
-        level: 'warning',
-        data: { statusCode, error: error?.message },
-      });
-      logger.warn({
-        event: 'connection_closed',
-        statusCode: statusCode ?? 'unknown',
-        error: error?.message ?? 'Unknown error',
-        reconnectAttempts: this.reconnectAttempts,
-      });
-
-      if (statusCode === DisconnectReason.loggedOut) {
-        logger.warn({ event: 'logged_out' });
-        Sentry.captureMessage('Bot logged out', 'warning');
-        this.reset();
-        return;
-      }
-
-      if (statusCode === DisconnectReason.badSession) {
-        logger.warn({ event: 'bad_session' });
-        this.reset();
-        return;
-      }
-
-      const shouldReconnect =
-        !statusCode ||
-        statusCode === ConnectionUpdateEvent.DISCONNECT_REASON_METHOD_NOT_ALLOWED ||
-        ConnectionUpdateEvent.RECONNECTABLE_REASONS.has(statusCode);
-
-      if (shouldReconnect) {
-        await this.scheduleReconnect();
-      } else {
-        logger.warn({ event: 'reconnect_skipped', statusCode });
-        this.reset();
-      }
+      await ConnectionUpdateEvent.handleClose(lastDisconnect);
     } else if (connection === 'connecting') {
       logger.debug({ event: 'connecting' });
     } else if (connection === 'open') {
@@ -83,7 +39,57 @@ export default class ConnectionUpdateEvent {
         message: `Status: ${connection}`,
         level: 'info',
       });
-      this.reset();
+      ConnectionUpdateEvent.reset();
+    }
+  }
+
+  private static async handleClose(
+    lastDisconnect: BaileysEventMap['connection.update']['lastDisconnect'],
+  ): Promise<void> {
+    if (ConnectionUpdateEvent.reconnectTimer) {
+      clearTimeout(ConnectionUpdateEvent.reconnectTimer);
+      ConnectionUpdateEvent.reconnectTimer = null;
+    }
+
+    const error = lastDisconnect?.error;
+    const statusCode = error && isBoom(error) ? error.output?.statusCode : null;
+
+    Sentry.addBreadcrumb({
+      category: 'whatsapp.connection',
+      message: `Connection closed. Status: ${statusCode ?? 'unknown'}`,
+      level: 'warning',
+      data: { statusCode, error: error?.message },
+    });
+    logger.warn({
+      event: 'connection_closed',
+      statusCode: statusCode ?? 'unknown',
+      error: error?.message ?? 'Unknown error',
+      reconnectAttempts: ConnectionUpdateEvent.reconnectAttempts,
+    });
+
+    if (statusCode === DisconnectReason.loggedOut) {
+      logger.warn({ event: 'logged_out' });
+      Sentry.captureMessage('Bot logged out', 'warning');
+      ConnectionUpdateEvent.reset();
+      return;
+    }
+
+    if (statusCode === DisconnectReason.badSession) {
+      logger.warn({ event: 'bad_session' });
+      ConnectionUpdateEvent.reset();
+      return;
+    }
+
+    const shouldReconnect =
+      !statusCode ||
+      statusCode === ConnectionUpdateEvent.DISCONNECT_REASON_METHOD_NOT_ALLOWED ||
+      ConnectionUpdateEvent.RECONNECTABLE_REASONS.has(statusCode);
+
+    if (shouldReconnect) {
+      await ConnectionUpdateEvent.scheduleReconnect();
+    } else {
+      logger.warn({ event: 'reconnect_skipped', statusCode });
+      ConnectionUpdateEvent.reset();
     }
   }
 

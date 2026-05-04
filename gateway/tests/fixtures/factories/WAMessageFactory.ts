@@ -76,17 +76,20 @@ export const WAMessageFactory = Factory.define<WAMessage, WAMessageTransientPara
         },
       };
     } else {
-      const quotedMessage = hasQuotedStickerMessage
-        ? {
-            stickerMessage: {
-              url: 'https://example.com/sticker.webp',
-              mimetype: 'image/webp',
-              isAnimated: quotedStickerIsAnimated,
-            },
-          }
-        : hasQuotedMessage
-          ? { conversation: 'quoted message' }
-          : undefined;
+      let quotedMessage;
+      if (hasQuotedStickerMessage) {
+        quotedMessage = {
+          stickerMessage: {
+            url: 'https://example.com/sticker.webp',
+            mimetype: 'image/webp',
+            isAnimated: quotedStickerIsAnimated,
+          },
+        };
+      } else if (hasQuotedMessage) {
+        quotedMessage = { conversation: 'quoted message' };
+      } else {
+        quotedMessage = undefined;
+      }
 
       message.message = {
         extendedTextMessage: {

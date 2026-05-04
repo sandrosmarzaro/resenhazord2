@@ -74,16 +74,17 @@ class TeamCaptionBuilder:
         sports_team: SportsDBTeam | None,
         league: LeagueInfo | None = None,
     ) -> str:
-        country = (
-            sports_team.country if sports_team else (league.country if league else club.country)
-        )
+        if sports_team:
+            country = sports_team.country
+        elif league:
+            country = league.country
+        else:
+            country = club.country
         founded = sports_team.founded if sports_team else ''
         name = sports_team.name if sports_team else club.name
         title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
         flag = league.flag if league else '🌍'
-        head = f'\n{flag} {country}' if country else f'\n{flag}'
-        if founded:
-            head += f'   📅 {founded}'
+        head = TeamCaptionBuilder._head_line(flag, country, founded)
         lines = [title, head]
         if sports_team and sports_team.stadium:
             lines.append(f'🏟️ {sports_team.stadium}')

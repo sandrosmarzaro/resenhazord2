@@ -19,6 +19,8 @@ export default class PythonForwarder {
   ): Promise<void> {
     logger.info({ event: 'forwarding_to_python', text, textPreview: text?.slice(0, 50) });
     const commandData = await PythonForwarder.buildCommandData(data, text);
+    const jid = commandData.key.remoteJid;
+    if (!jid) return;
 
     let acked = false;
     const messages = await PythonForwarder.requestPython(data, commandData, () => {
@@ -27,7 +29,7 @@ export default class PythonForwarder {
     if (messages === null) return;
 
     if (!messages) {
-      if (acked) await TypingIndicator.stop(commandData.key.remoteJid!);
+      if (acked) await TypingIndicator.stop(jid);
       return;
     }
 
@@ -39,7 +41,7 @@ export default class PythonForwarder {
       PythonForwarder.captureException(error, commandData, text);
       await PythonForwarder.replyError(commandData);
     } finally {
-      if (acked) await TypingIndicator.stop(commandData.key.remoteJid!);
+      if (acked) await TypingIndicator.stop(jid);
     }
   }
 
@@ -60,7 +62,7 @@ export default class PythonForwarder {
       return await Resenhazord2.bridge.sendCommand(commandData, async () => {
         markAcked();
         await ReactMessage.run(raw);
-        await TypingIndicator.start(commandData.key.remoteJid!);
+        if (commandData.key.remoteJid) await TypingIndicator.start(commandData.key.remoteJid);
       });
     } catch (error) {
       PythonForwarder.captureException(error, commandData, commandData.text);
@@ -87,8 +89,9 @@ export default class PythonForwarder {
   }
 
   private static async replyError(commandData: CommandData): Promise<void> {
+    if (!commandData.key.remoteJid) return;
     await Resenhazord2.adapter!.sendMessage(
-      commandData.key.remoteJid!,
+      commandData.key.remoteJid,
       { text: PythonForwarder.ERROR_TEXT },
       { quoted: commandData, ephemeralExpiration: commandData.expiration },
     );

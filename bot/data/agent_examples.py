@@ -6,13 +6,20 @@ map natural language requests to the correct bot commands.
 Language: pt-br (matches user voice and menu_description)
 """
 
+_SCORE_NOW = ',score --now'
+_MENU = ',menu'
+_CARRO = ',carro'
+_STIC = ',stic'
+_MUSICA_ROCK = ',música rock'
+_AUDIO_LANG_ZH = ',áudio lang zh'
+
 AGENT_EXAMPLES = [
     # Score command
-    ('mostrar placar dos jogos', ',score --now'),
-    ('placar football agora', ',score --now'),
+    ('mostrar placar dos jogos', _SCORE_NOW),
+    ('placar football agora', _SCORE_NOW),
     ('jogos encerrados', ',score --past'),
     ('próximos jogos', ',score --next'),
-    ('ver placar ao vivo', ',score --now'),
+    ('ver placar ao vivo', _SCORE_NOW),
     ('Resultados dos jogos', ',score --past --now'),
     # Football team
     ('time completo do flamengo', ',time flamengo'),
@@ -24,18 +31,18 @@ AGENT_EXAMPLES = [
     ('tabela do brasileiro', ',tabela br'),
     ('classificação champions', ',tabela bl'),
     # Menu
-    ('lista de comandos', ',menu'),
-    ('o que você pode fazer', ',menu'),
-    ('comandos disponíveis', ',menu'),
+    ('lista de comandos', _MENU),
+    ('o que você pode fazer', _MENU),
+    ('comandos disponíveis', _MENU),
     # Random - dados
     ('jogar dado', ',d20'),
     ('rolar dados', ',d20 2d6'),
     ('sortear número', ',d20'),
     # Random - cars
-    ('me mande um carro', ',carro'),
-    ('foto de carro', ',carro'),
-    ('carro aleatório', ',carro'),
-    ('mostra um carro', ',carro'),
+    ('me mande um carro', _CARRO),
+    ('foto de carro', _CARRO),
+    ('carro aleatório', _CARRO),
+    ('mostra um carro', _CARRO),
     # Random - animals
     ('animal aleatório', ',animal'),
     ('foto de cachorro', ',puppy'),
@@ -69,9 +76,9 @@ AGENT_EXAMPLES = [
     ('jogador aleatório', ',jogador'),
     ('moeda conversão', ',moeda'),
     # Sticker
-    ('transformar em sticker', ',stic'),
-    ('fazer figurinha', ',stic'),
-    ('tornar figurinha', ',stic'),
+    ('transformar em sticker', _STIC),
+    ('fazer figurinha', _STIC),
+    ('tornar figurinha', _STIC),
     ('figurinha centralizada', ',stic type crop'),
     ('sticker centralizado', ',stic type crop'),
     ('figurinha com bordas arredondadas', ',stic type rounded'),
@@ -82,9 +89,9 @@ AGENT_EXAMPLES = [
     ('oi', ',oi'),
     ('me mande um oi', ',oi'),
     # Music genres
-    ('tocar música rock', ',música rock'),
+    ('tocar música rock', _MUSICA_ROCK),
     ('música funk', ',música funk'),
-    ('rock', ',música rock'),
+    ('rock', _MUSICA_ROCK),
     ('pagode', ',música pagode'),
     ('sertanejo', ',música sertanejo'),
     ('mpb', ',música mpb'),
@@ -93,16 +100,16 @@ AGENT_EXAMPLES = [
     ('rock pauleira', ',música rock'),
     ('toque um metal pauleira', ',música metal'),
     # Audio / TTS - only for voice, text-to-speech, language learning
-    ('mande um áudio em mandarim', ',áudio lang zh'),
+    ('mande um áudio em mandarim', _AUDIO_LANG_ZH),
     ('áudio em japonês', ',áudio lang ja'),
     ('fala em inglês', ',áudio lang en'),
-    ('áudio chino', ',áudio lang zh'),
-    ('leia让我说中文', ',áudio lang zh'),
+    ('áudio chino', _AUDIO_LANG_ZH),
+    ('leia让我说中文', _AUDIO_LANG_ZH),
     # Info
     ('jogo do bicho', ',bicho'),
     ('fase da lua', ',lua'),
     # Unknown - use menu
-    ('não sei', ',menu'),
+    ('não sei', _MENU),
 ]
 
 SYSTEM_PROMPT_TEMPLATE = """Você é um assistente que mapeia pedidos

@@ -339,7 +339,7 @@ class TestFetchLiveMatchesUrl:
     @pytest.mark.anyio
     @pytest.mark.skip(reason='Client uses asyncio.gather which is incompatible with trio')
     async def test_fetch_live_matches_uses_br_yesterday_and_today_dates(self):
-        async def mock_get(url, **kwargs):
+        def mock_get(url, **kwargs):
             mock_response = AsyncMock()
             mock_response.text = '<div class="live-block"></div>'
             mock_response.raise_for_status = lambda: None
@@ -367,7 +367,7 @@ class TestFetchLiveMatchesUrl:
         </div>
         """
 
-        async def mock_get(url, **kwargs):
+        def mock_get(url, **kwargs):
             mock_response = AsyncMock()
             mock_response.text = shared_html
             mock_response.raise_for_status = lambda: None

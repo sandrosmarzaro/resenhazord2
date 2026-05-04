@@ -24,5 +24,5 @@ export default async function injectStickerExif(
   const img = new WebPImage();
   await img.load(webpBuffer);
   img.exif = buildExifPayload(pack, author);
-  return (await img.save(null)) as Buffer;
+  return await img.save(null);
 }

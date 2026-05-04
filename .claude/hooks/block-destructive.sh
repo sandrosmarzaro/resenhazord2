@@ -7,7 +7,7 @@ INPUT=$(cat)
 
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-if [ -z "$COMMAND" ]; then
+if [[ -z $COMMAND ]]; then
   exit 0
 fi
 
@@ -52,7 +52,7 @@ for arg in targets:
 print('allow')
 " 2>/dev/null || echo "allow")
 
-  if [ "$DECISION" = "deny" ]; then
+  if [[ $DECISION == "deny" ]]; then
     echo '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Blocked rm targeting path outside ~/projects/. If intentional, run manually."}}'
   else
     echo '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}'

@@ -10,12 +10,14 @@ from bot.infrastructure.http_client import HttpClient
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.mongodb import MongoDBConnection
 
+TEST_BOT_JID = '5500000000000@s.whatsapp.net'
+
 
 class TestSettings(BaseModel):
     tmdb_api_key: str = 'test-tmdb-key'
     omdb_api_key: str = 'test-omdb-key'
     jamendo_client_id: str = 'test-client-id'
-    bot_jid: str = '5500000000000@s.whatsapp.net'
+    bot_jid: str = TEST_BOT_JID
 
 
 @pytest.fixture
@@ -129,7 +131,7 @@ def generic_image_route(respx_mock):
 
 def make_group_participants(
     *jids: str,
-    bot_jid: str = '5500000000000@s.whatsapp.net',
+    bot_jid: str = TEST_BOT_JID,
     bot_admin: bool = True,
     owner: str | None = None,
     owner_admin: bool = False,
@@ -210,4 +212,4 @@ def nhentai_cover_route(respx_mock):
 def ban_command_instance(mock_whatsapp):
     from bot.domain.commands.ban import BanCommand
 
-    return BanCommand(bot_jid='5500000000000@s.whatsapp.net', whatsapp=mock_whatsapp)
+    return BanCommand(bot_jid=TEST_BOT_JID, whatsapp=mock_whatsapp)

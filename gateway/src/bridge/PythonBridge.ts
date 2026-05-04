@@ -26,10 +26,10 @@ interface ConversationMentionShape {
 
 export default class PythonBridge {
   private ws: WebSocket | null = null;
-  private pending = new Map<string, PendingRequest>();
-  private pendingBinary = new Map<string, Buffer[]>();
-  private ackCallbacks = new Map<string, () => void | Promise<void>>();
-  private messageStore = new Map<string, WAMessage>();
+  private readonly pending = new Map<string, PendingRequest>();
+  private readonly pendingBinary = new Map<string, Buffer[]>();
+  private readonly ackCallbacks = new Map<string, () => void | Promise<void>>();
+  private readonly messageStore = new Map<string, WAMessage>();
   private reconnectDelay = 1000;
   private readonly maxReconnectDelay = 30000;
   private readonly url: string;

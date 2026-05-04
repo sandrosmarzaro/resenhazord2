@@ -8,9 +8,8 @@ RUN bun install --frozen-lockfile
 
 FROM oven/bun:1.3.9-alpine
 
-RUN apk add --no-cache ca-certificates
-
-RUN addgroup -S nonroot && adduser -S -G nonroot nonroot
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S nonroot && adduser -S -G nonroot nonroot
 
 WORKDIR /app
 COPY --chown=nonroot:nonroot --from=builder /app/node_modules ./node_modules
