@@ -18,6 +18,8 @@ class DiscordAgentRouter:
     EMPTY_REPLY: ClassVar[str] = 'Sem resposta do comando.'
     GENERIC_ERROR: ClassVar[str] = 'Erro ao processar comando.'
     EMPTY_TEXT_PLACEHOLDER: ClassVar[str] = '\u200b'
+    _CLARIFY_PREFIX: ClassVar[str] = ',clarify:'
+    _SUGGEST_PREFIX: ClassVar[str] = ',suggest:'
 
     def __init__(self, renderer: DiscordResponseRenderer | None = None) -> None:
         self._renderer = renderer or DiscordResponseRenderer()
@@ -39,6 +41,13 @@ class DiscordAgentRouter:
     async def _run_pipeline(self, message: discord.Message, data: CommandData) -> None:
         executor = AgentExecutor(CommandRegistry.instance())
         result = await executor.run(data)
+
+        if result.text.startswith(self._CLARIFY_PREFIX):
+            await message.reply(result.text[len(self._CLARIFY_PREFIX) :].strip())
+            return
+        if result.text.startswith(self._SUGGEST_PREFIX):
+            await message.reply(result.text[len(self._SUGGEST_PREFIX) :].strip())
+            return
 
         strategy = CommandRegistry.instance().get_strategy(result.text)
         if strategy is None:

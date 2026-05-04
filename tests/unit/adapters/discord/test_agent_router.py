@@ -53,6 +53,33 @@ def _stub_no_strategy(mocker):
     )
 
 
+class TestBuiltinPrefix:
+    @pytest.mark.anyio
+    async def test_clarify_prefix_replies_message(self, mocker, message):
+        _stub_executor(mocker, text=',clarify:IA indisponível. Use ,menu')
+        _stub_no_strategy(mocker)
+        msg = message('oi')
+
+        router = DiscordAgentRouter()
+        await router.handle_dm(msg)
+
+        msg.reply.assert_called()
+        assert 'IA indisponível' in msg.reply.call_args[0][0]
+        assert ',menu' in msg.reply.call_args[0][0]
+
+    @pytest.mark.anyio
+    async def test_suggest_prefix_replies_suggestion(self, mocker, message):
+        _stub_executor(mocker, text=',suggest:Tente usar ,time')
+        _stub_no_strategy(mocker)
+        msg = message('oi')
+
+        router = DiscordAgentRouter()
+        await router.handle_dm(msg)
+
+        msg.reply.assert_called()
+        assert 'Tente' in msg.reply.call_args[0][0]
+
+
 class TestHandleDm:
     @pytest.mark.anyio
     async def test_runs_agent_then_strategy(self, mocker, message):
