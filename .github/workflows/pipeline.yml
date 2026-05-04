@@ -163,5 +163,5 @@ jobs:
           GIT_COMMITTER_NAME: semantic-release
           GIT_COMMITTER_EMAIL: semantic-release@users.noreply.github.com
         run: |
-          uvx python-semantic-release@10 version
-          uvx python-semantic-release@10 publish
+          uvx python-semantic-release@10 -c semantic-release.toml version
+          uvx python-semantic-release@10 -c semantic-release.toml publish
