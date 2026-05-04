@@ -150,6 +150,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          fetch-tags: true
           persist-credentials: true
           token: ${{ secrets.RELEASE_TOKEN }}
 
@@ -159,6 +160,8 @@ jobs:
       - name: Run Semantic Release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GIT_COMMITTER_NAME: semantic-release
+          GIT_COMMITTER_EMAIL: semantic-release@users.noreply.github.com
         run: |
-          uvx python-semantic-release version
-          uvx python-semantic-release publish
+          uvx python-semantic-release@10 version
+          uvx python-semantic-release@10 publish
