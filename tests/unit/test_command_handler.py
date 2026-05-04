@@ -341,3 +341,71 @@ class TestSuggestHandler:
         assert result is not None
         assert len(result) == 1
         assert 'tabela' in result[0].content.text
+
+    @pytest.mark.anyio
+    async def test_clarify_empty_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',clarify:',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT
+
+    @pytest.mark.anyio
+    async def test_clarify_whitespace_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',clarify:   ',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT
+
+    @pytest.mark.anyio
+    async def test_suggest_empty_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',suggest:',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT
+
+    @pytest.mark.anyio
+    async def test_suggest_whitespace_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',suggest:   ',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT
