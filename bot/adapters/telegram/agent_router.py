@@ -21,6 +21,8 @@ class TelegramAgentRouter:
     GENERIC_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
     EMPTY_REPLY_MESSAGE: ClassVar[str] = 'Sem resposta do bot.'
     ACK_REACTION: ClassVar[str] = '\U0001f44d'
+    _CLARIFY_PREFIX: ClassVar[str] = ',clarify:'
+    _SUGGEST_PREFIX: ClassVar[str] = ',suggest:'
 
     def __init__(self, renderer: TelegramResponseRenderer) -> None:
         self._renderer = renderer
@@ -36,6 +38,14 @@ class TelegramAgentRouter:
         async with TypingLoop.keep_typing(port, chat.id):
             result = await self._run_agent(port, chat.id, data)
             if result is None:
+                return
+            if result.text.startswith(self._CLARIFY_PREFIX):
+                clarify_text = result.text[len(self._CLARIFY_PREFIX) :].strip()
+                await self._reply_text(port, chat.id, clarify_text)
+                return
+            if result.text.startswith(self._SUGGEST_PREFIX):
+                suggest_text = result.text[len(self._SUGGEST_PREFIX) :].strip()
+                await self._reply_text(port, chat.id, suggest_text)
                 return
             strategy = CommandRegistry.instance().get_strategy(result.text)
             if strategy is None:
