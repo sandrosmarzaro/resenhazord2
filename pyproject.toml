@@ -49,5 +49,5 @@ lint = "ruff check ."
 format = "ruff format ."
 "format:check" = "ruff format --check ."
 typecheck = "basedpyright"
-log = "docker compose logs -f --no-color --tail=0 >> docker.log"
+log = "docker compose up --build -d && docker compose logs -f --no-color --tail=0 2>&1 | tee -a docker.log"
 
