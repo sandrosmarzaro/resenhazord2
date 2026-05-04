@@ -20,11 +20,11 @@ if echo "$TOOL_RESPONSE" | grep -q "Output too large"; then
   exit 0
 fi
 
-if [ "$TOOL_NAME" = "Grep" ]; then
+if [[ $TOOL_NAME == "Grep" ]]; then
   RESULT_COUNT=$(echo "$TOOL_RESPONSE" | grep -c "^" 2>/dev/null || echo "0")
   PATTERN=$(echo "$INPUT" | jq -r '.tool_input.pattern // empty')
 
-  if [ "$RESULT_COUNT" -lt 5 ] && [ -n "$PATTERN" ]; then
+  if [[ $RESULT_COUNT -lt 5 ]] && [[ -n $PATTERN ]]; then
     echo "{\"additionalContext\": \"Low result count (${RESULT_COUNT}) for pattern '${PATTERN}'. If this seems too few, results may have been truncated. Consider re-running with narrower directory scope.\"}"
     exit 0
   fi

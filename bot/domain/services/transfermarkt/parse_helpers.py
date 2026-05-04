@@ -94,28 +94,40 @@ class ParseHelpers:
             text = td.get_text(strip=True)
             if not text:
                 continue
-            m = cls._FOREIGNERS_RE.search(text)
-            if m:
-                foreigners_count = m.group(1)
-                foreigners_pct = m.group(2)
-                continue
-            clean = text.replace(',', '.')
-            try:
-                val = float(clean)
-                if ('.' in clean or ',' in text) and cls._AGE_MIN <= val <= cls._AGE_MAX:
-                    if not avg_age:
-                        avg_age = text
-                else:
-                    try:
-                        int(text)
-                        integers.append(text)
-                    except ValueError:
-                        pass
-            except ValueError:
-                pass
+            foreigners_count, foreigners_pct, avg_age, integers = cls._parse_squad_cell(
+                text, foreigners_count, foreigners_pct, avg_age, integers
+            )
 
         squad_size = integers[0] if integers else ''
         if not foreigners_count and len(integers) > 1:
             foreigners_count = integers[1]
 
         return squad_size, avg_age, foreigners_count, foreigners_pct
+
+    @classmethod
+    def _parse_squad_cell(
+        cls,
+        text: str,
+        foreigners_count: str,
+        foreigners_pct: str,
+        avg_age: str,
+        integers: list[str],
+    ) -> tuple[str, str, str, list[str]]:
+        m = cls._FOREIGNERS_RE.search(text)
+        if m:
+            return m.group(1), m.group(2), avg_age, integers
+        clean = text.replace(',', '.')
+        try:
+            val = float(clean)
+        except ValueError:
+            return foreigners_count, foreigners_pct, avg_age, integers
+        if ('.' in clean or ',' in text) and cls._AGE_MIN <= val <= cls._AGE_MAX:
+            if not avg_age:
+                return foreigners_count, foreigners_pct, text, integers
+            return foreigners_count, foreigners_pct, avg_age, integers
+        try:
+            int(text)
+            integers.append(text)
+        except ValueError:
+            pass
+        return foreigners_count, foreigners_pct, avg_age, integers

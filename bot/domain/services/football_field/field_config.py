@@ -2,7 +2,6 @@
 
 import contextlib
 from dataclasses import dataclass, field
-from typing import cast
 
 from PIL import ImageFont
 
@@ -102,7 +101,8 @@ def load_font(paths: tuple[str, ...] | list[str], size: int) -> ImageFont.FreeTy
     for path in paths:
         with contextlib.suppress(OSError):
             return ImageFont.truetype(path, size)
-    return cast('ImageFont.FreeTypeFont', ImageFont.load_default(size=size))
+    fallback: ImageFont.FreeTypeFont = ImageFont.load_default()  # type: ignore[assignment]
+    return fallback
 
 
 def load_font_optional(

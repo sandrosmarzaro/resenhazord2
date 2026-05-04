@@ -29,6 +29,7 @@ function createGroupMessage(text: string): WAMessage {
 }
 
 function mockBridge(sendCommand: Mock): void {
+  // @ts-expect-error -- overriding readonly for test
   Resenhazord2.bridge = { isConnected: true, sendCommand } as never;
 }
 

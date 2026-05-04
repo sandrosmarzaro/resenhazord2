@@ -15,7 +15,7 @@ logger = structlog.get_logger()
 
 class AgentResponseTranslator:
     DM_KEYWORDS: ClassVar[re.Pattern[str]] = re.compile(
-        r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(me\s*)?dm|send\s*(me\s*)?privately)\b',
+        r'\b(privado|pv|dm|direct|mp|message\s*privately|send\s*(?:me\s*)?(?:dm|privately))\b',
         re.IGNORECASE,
     )
     LONG_FLAG_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'(\s)--(\w+)')

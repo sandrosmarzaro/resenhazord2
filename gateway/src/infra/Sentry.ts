@@ -1,10 +1,10 @@
-import * as Sentry from '@sentry/bun';
+import { init, consoleLoggingIntegration } from '@sentry/bun';
 
-Sentry.init({
+init({
   dsn: process.env.SENTRY_DSN,
-  integrations: [Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] })],
+  integrations: [consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] })],
   tracesSampleRate: 0.1,
   enableLogs: true,
 });
 
-export { Sentry };
+export * as Sentry from '@sentry/bun';

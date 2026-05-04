@@ -7,7 +7,7 @@
 INPUT=$(cat)
 
 STOP_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
-if [ "$STOP_ACTIVE" = "true" ]; then
+if [[ $STOP_ACTIVE == "true" ]]; then
   exit 0
 fi
 
@@ -16,60 +16,60 @@ CHECKS_RUN=0
 
 # --- Gateway (TypeScript) ---
 GATEWAY_DIR="$CLAUDE_PROJECT_DIR/gateway"
-if [ -f "$GATEWAY_DIR/tsconfig.json" ]; then
+if [[ -f $GATEWAY_DIR/tsconfig.json ]]; then
   CHECKS_RUN=$((CHECKS_RUN + 1))
   TSC_OUTPUT=$(cd "$GATEWAY_DIR" && bun typecheck 2>&1)
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     ERRORS="${ERRORS}TS TYPE CHECK FAILED:\n$(echo "$TSC_OUTPUT" | head -30)\n\n"
   fi
 fi
 
-if [ -f "$GATEWAY_DIR/eslint.config.mjs" ] || [ -f "$GATEWAY_DIR/eslint.config.js" ] || [ -f "$GATEWAY_DIR/eslint.config.ts" ] || [ -f "$GATEWAY_DIR/.eslintrc.json" ]; then
+if [[ -f $GATEWAY_DIR/eslint.config.mjs || -f $GATEWAY_DIR/eslint.config.js || -f $GATEWAY_DIR/eslint.config.ts || -f $GATEWAY_DIR/.eslintrc.json ]]; then
   CHECKS_RUN=$((CHECKS_RUN + 1))
   LINT_OUTPUT=$(cd "$GATEWAY_DIR" && bun lint 2>&1)
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     ERRORS="${ERRORS}TS LINT FAILED:\n$(echo "$LINT_OUTPUT" | head -30)\n\n"
   fi
 fi
 
-if [ -f "$GATEWAY_DIR/package.json" ] && grep -q '"prettier"' "$GATEWAY_DIR/package.json"; then
+if [[ -f $GATEWAY_DIR/package.json ]] && grep -q '"prettier"' "$GATEWAY_DIR/package.json"; then
   CHECKS_RUN=$((CHECKS_RUN + 1))
   FORMAT_OUTPUT=$(cd "$GATEWAY_DIR" && bun run format:check 2>&1)
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     ERRORS="${ERRORS}TS FORMAT (PRETTIER) FAILED:\n$(echo "$FORMAT_OUTPUT" | head -30)\n\n"
   fi
 fi
 
 # --- Python (root) ---
-if [ -f "$CLAUDE_PROJECT_DIR/pyproject.toml" ]; then
+if [[ -f $CLAUDE_PROJECT_DIR/pyproject.toml ]]; then
   CHECKS_RUN=$((CHECKS_RUN + 1))
   RUFF_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run ruff check . 2>&1)
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     ERRORS="${ERRORS}RUFF FAILED:\n$(echo "$RUFF_OUTPUT" | head -30)\n\n"
   fi
 
   CHECKS_RUN=$((CHECKS_RUN + 1))
   RUFF_FORMAT_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run ruff format --check . 2>&1)
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     ERRORS="${ERRORS}RUFF FORMAT FAILED:\n$(echo "$RUFF_FORMAT_OUTPUT" | head -30)\n\n"
   fi
 
   CHECKS_RUN=$((CHECKS_RUN + 1))
   PYRIGHT_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run basedpyright 2>&1)
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     ERRORS="${ERRORS}BASEDPYRIGHT FAILED:\n$(echo "$PYRIGHT_OUTPUT" | head -30)\n\n"
   fi
 fi
 
 
 # --- Report ---
-if [ -n "$ERRORS" ]; then
+if [[ -n $ERRORS ]]; then
   SUMMARY="Verification failed ($CHECKS_RUN checks ran). Fix these errors before completing:\n\n${ERRORS}"
   echo "{\"decision\": \"block\", \"reason\": \"${SUMMARY}\"}"
   exit 2
 fi
 
-if [ $CHECKS_RUN -eq 0 ]; then
+if [[ $CHECKS_RUN -eq 0 ]]; then
   echo "{\"additionalContext\": \"No type-checker, linter, or test suite detected. Task completion is unverified. State this to the user.\"}"
 fi
 

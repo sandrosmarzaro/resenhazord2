@@ -5,20 +5,21 @@ from bot.infrastructure.mongodb import MongoDBConnection
 logger = structlog.get_logger()
 
 COLLECTION_NAME = 'groups_mentions'
+GROUP_NAME_FIELD = 'groups.name'
 
 
 class RenameMentionList:
     async def execute(self, chat_jid: str, old_name: str, new_name: str) -> dict:
         try:
             col = MongoDBConnection.collection(COLLECTION_NAME)
-            has_old = await col.find_one({'_id': chat_jid, 'groups.name': old_name})
+            has_old = await col.find_one({'_id': chat_jid, GROUP_NAME_FIELD: old_name})
             if not has_old:
                 return {
                     'ok': False,
                     'message': f'Não existe um grupo com o nome *{old_name}* 😔',
                 }
 
-            has_new = await col.find_one({'_id': chat_jid, 'groups.name': new_name})
+            has_new = await col.find_one({'_id': chat_jid, GROUP_NAME_FIELD: new_name})
             if has_new:
                 return {
                     'ok': False,
@@ -26,7 +27,7 @@ class RenameMentionList:
                 }
 
             await col.update_one(
-                {'_id': chat_jid, 'groups.name': old_name},
+                {'_id': chat_jid, GROUP_NAME_FIELD: old_name},
                 {'$set': {'groups.$.name': new_name}},
             )
         except Exception:

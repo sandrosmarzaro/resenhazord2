@@ -17,7 +17,7 @@ export default class Resenhazord2 {
   static auth_state: MongoDBAuthResult | null = null;
   private static socket: WASocket | null = null;
   static adapter: WhatsAppPort | null = null;
-  static bridge: PythonBridge = new PythonBridge();
+  static readonly bridge: PythonBridge = new PythonBridge();
   static isConnecting = false;
 
   static async connectToWhatsApp(): Promise<void> {
@@ -65,7 +65,7 @@ export default class Resenhazord2 {
     } catch (error) {
       logger.warn({ event: 'group_metadata_cache_update_failed', error: String(error) });
     }
-    await GroupParticipantsUpdateEvent.run(data);
+    GroupParticipantsUpdateEvent.run(data);
   }
 
   static async handlerEvents(): Promise<void> {

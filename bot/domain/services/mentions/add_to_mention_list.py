@@ -5,6 +5,7 @@ from bot.infrastructure.mongodb import MongoDBConnection
 logger = structlog.get_logger()
 
 COLLECTION_NAME = 'groups_mentions'
+GROUP_NAME_FIELD = 'groups.name'
 
 
 class AddToMentionList:
@@ -17,7 +18,7 @@ class AddToMentionList:
     ) -> dict:
         try:
             col = MongoDBConnection.collection(COLLECTION_NAME)
-            has_group = await col.find_one({'_id': chat_jid, 'groups.name': group_name})
+            has_group = await col.find_one({'_id': chat_jid, GROUP_NAME_FIELD: group_name})
             if not has_group:
                 return {
                     'ok': False,
@@ -26,13 +27,13 @@ class AddToMentionList:
 
             if not participants:
                 await col.update_one(
-                    {'_id': chat_jid, 'groups.name': group_name},
+                    {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
                     {'$addToSet': {'groups.$.participants': sender_jid}},
                 )
                 return {'ok': True, 'group_name': group_name, 'self_only': True}
 
             await col.update_one(
-                {'_id': chat_jid, 'groups.name': group_name},
+                {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
                 {'$addToSet': {'groups.$.participants': {'$each': participants}}},
             )
         except Exception:

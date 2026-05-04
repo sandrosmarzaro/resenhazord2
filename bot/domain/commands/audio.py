@@ -23,7 +23,7 @@ class AudioCommand(Command):
     MAX_CHUNK_LENGTH = 200
     DEFAULT_LANGUAGE = 'pt-br'
     SPLIT_PUNCTUATION = '.!?;:'
-    SPACE_AND_PUNCT_RE = re.compile(r'[\s\uFEFF\xA0!"#$%&\'()*+,\-./:;<=>?@\[\]^_`{|}~.!?;:]')
+    SPACE_AND_PUNCT_RE = re.compile(r'[\s\uFEFF\xA0!"#$%&\'()*+,\-./:;<=>?@\[\]^_`{|}~]')
 
     @property
     def config(self) -> CommandConfig:

@@ -10,6 +10,8 @@ from bot.domain.services.group_mentions import GroupMentionsService
 
 SubHandler = Callable[[CommandData, str], Awaitable[list[BotMessage]]]
 
+_MISSING_NAME = 'Cadê o nome do grupo? 🤔'
+
 
 class GroupMentionsCommand(Command):
     RESERVED_KEYWORDS: frozenset[str] = frozenset(
@@ -66,7 +68,7 @@ class GroupMentionsCommand(Command):
     async def _handle_create(self, data: CommandData, rest: str) -> list[BotMessage]:
         group_name = self.MENTION_PATTERN.sub('', rest)
         if not group_name:
-            return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
+            return [Reply.to(data).text(_MISSING_NAME)]
         error = self._validate_group_name(data, group_name)
         if error:
             return [error]
@@ -96,7 +98,7 @@ class GroupMentionsCommand(Command):
 
     async def _handle_delete(self, data: CommandData, rest: str) -> list[BotMessage]:
         if not rest:
-            return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
+            return [Reply.to(data).text(_MISSING_NAME)]
         result = await self._service.delete(data.jid, rest)
         if not result['ok']:
             return [Reply.to(data).text(result['message'])]
@@ -124,7 +126,7 @@ class GroupMentionsCommand(Command):
     async def _handle_add(self, data: CommandData, rest: str) -> list[BotMessage]:
         group_name = self.MENTION_PATTERN.sub('', rest)
         if not group_name:
-            return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
+            return [Reply.to(data).text(_MISSING_NAME)]
 
         result = await self._service.add(data.jid, group_name, data.sender_jid, data.mentioned_jids)
         if not result['ok']:
@@ -139,7 +141,7 @@ class GroupMentionsCommand(Command):
         parts = rest.split()
         group_name = parts[0] if parts else ''
         if not group_name:
-            return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
+            return [Reply.to(data).text(_MISSING_NAME)]
         indices = [int(p) for p in parts[1:] if p.isdigit()]
 
         result = await self._service.exit(data.jid, group_name, data.sender_jid, indices)
@@ -155,7 +157,7 @@ class GroupMentionsCommand(Command):
         parts = rest.split(maxsplit=1)
         group_name = parts[0] if parts else ''
         if not group_name:
-            return [Reply.to(data).text('Cadê o nome do grupo? 🤔')]
+            return [Reply.to(data).text(_MISSING_NAME)]
         text = parts[1] if len(parts) > 1 else ''
 
         result = await self._service.mention(data.jid, group_name)

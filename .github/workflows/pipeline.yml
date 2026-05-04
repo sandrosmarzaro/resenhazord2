@@ -19,7 +19,7 @@ jobs:
         working-directory: gateway
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
       - run: bun install --frozen-lockfile
       - run: bun typecheck
       - run: bun lint
@@ -30,14 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run basedpyright
 
   # Stage 2: Tests (after lint passes)
-  test-ts:
+test-ts:
     name: TS tests
     runs-on: ubuntu-latest
     needs: lint-ts
@@ -46,11 +46,11 @@ jobs:
         working-directory: gateway
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
       - run: bun install --frozen-lockfile
       - run: bun test:coverage
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: typescript
@@ -62,11 +62,11 @@ jobs:
     needs: lint-py
     steps:
       - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
       - run: uv sync --frozen
       - run: uv run pytest -v --cov=bot --cov-report=xml
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
@@ -125,7 +125,7 @@ jobs:
       VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
     steps:
       - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.10.0
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
 
@@ -153,7 +153,7 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Set up Python
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
 
       - name: Run Semantic Release
         env:

@@ -204,4 +204,4 @@ class TestProviderChainNon429:
         result = await chain.complete('test', [])
 
         assert result.provider == 'mistral'
-        assert chain._states[0].cooldown_until == 0.0
+        assert chain._states[0].cooldown_until == 0

@@ -161,7 +161,7 @@ class TestStickerCreatorVideo:
         def write_fake_output(*args, **_kwargs):
             Path(args[-1]).write_bytes(webp_bytes)
 
-        async def fake_exec(*args, **_kwargs):
+        def fake_exec(*args, **_kwargs):
             write_fake_output(*args)
             return mock_proc
 
@@ -194,7 +194,7 @@ class TestStickerCreatorVideo:
         def write_fake_output(*args, **_kwargs):
             Path(args[-1]).write_bytes(webp_bytes)
 
-        async def fake_run(*args, **_kwargs):
+        def fake_run(*args, **_kwargs):
             write_fake_output(*args)
             return mock_proc
 
