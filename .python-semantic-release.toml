@@ -1,12 +1,11 @@
-branch = "main"
-
-version_variable = "pyproject.toml:version"
+[semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+build_command = "uv build"
 changelog_file = "CHANGELOG.md"
 
-build_command = "uv build"
+[semantic_release.branches.main]
+match = "(main|master)"
+prerelease = false
 
-[tool.semantic_release.branch]
-main = "main"
-
-[tool.semantic_release.hooks]
-build = "uv build"
+[semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
