@@ -1,6 +1,13 @@
+import httpx
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
+from bot.domain.constants import (
+    CLARIFY_PREFIX,
+    LLM_CLARIFY_MARKER,
+    LLM_SUGGEST_MARKER,
+    SUGGEST_PREFIX,
+)
 from bot.domain.models.command_data import CommandData
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.providers.base import LLMResponse
@@ -42,45 +49,6 @@ class TestPromptBuilding:
         assert 'Contexto da mensagem anterior' not in prompt
 
 
-class TestFallback:
-    @pytest.mark.anyio
-    async def test_provider_failure_returns_clarify_with_unavailable_message(self, executor):
-        data = _data('@resenhazord blah')
-
-        result = executor._fallback(data, executor._AGENT_UNAVAILABLE_MSG)
-
-        assert result.text.startswith(',clarify:')
-        assert 'IA indisponível' in result.text
-        assert ',menu' in result.text
-
-    @pytest.mark.anyio
-    async def test_unresolvable_content_returns_clarify_with_unresolvable_message(self, executor):
-        data = _data('@resenhazord blah')
-
-        result = executor._fallback(data, executor._AGENT_UNRESOLVABLE_MSG)
-
-        assert result.text.startswith(',clarify:')
-        assert ',menu' in result.text
-
-    @pytest.mark.anyio
-    async def test_preserves_media_fields_on_provider_failure(self, executor):
-        data = CommandData(
-            text='@resenhazord blah',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-            media_type='image',
-            media_source='https://example.com/image.jpg',
-            media_is_animated=False,
-            media_caption='test image',
-        )
-
-        result = executor._fallback(data, executor._AGENT_UNAVAILABLE_MSG)
-
-        assert result.media_type == 'image'
-        assert result.media_source == 'https://example.com/image.jpg'
-        assert result.media_caption == 'test image'
-
-
 class TestRunProviderFailure:
     @pytest.mark.anyio
     async def test_no_providers_returns_clarify_message(self, executor, mocker):
@@ -93,13 +61,12 @@ class TestRunProviderFailure:
 
         result = await executor.run(data)
 
-        assert result.text.startswith(',clarify:')
+        assert result.text.startswith(CLARIFY_PREFIX)
         assert 'IA indisponível' in result.text
+        assert 'menu' in result.text
 
     @pytest.mark.anyio
     async def test_http_error_returns_clarify_message(self, executor, mocker):
-        import httpx
-
         data = _data('@resenhazord ver placar')
         mock_chain = mocker.Mock()
         mock_chain.complete = mocker.AsyncMock(side_effect=httpx.HTTPError('timeout'))
@@ -107,7 +74,8 @@ class TestRunProviderFailure:
 
         result = await executor.run(data)
 
-        assert result.text.startswith(',clarify:')
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'IA indisponível' in result.text
 
     @pytest.mark.anyio
     async def test_unresolvable_content_returns_clarify_message(self, executor, mocker):
@@ -116,8 +84,47 @@ class TestRunProviderFailure:
 
         result = await executor.run(data)
 
-        assert result.text.startswith(',clarify:')
-        assert ',menu' in result.text
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_provider_failure_preserves_media(self, executor, mocker):
+        data = CommandData(
+            text='@resenhazord blah',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            media_type='image',
+            media_source='https://example.com/image.jpg',
+            media_is_animated=False,
+            media_caption='test image',
+        )
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(
+            side_effect=RuntimeError('No LLM providers configured'),
+        )
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+
+        result = await executor.run(data)
+
+        assert result.media_type == 'image'
+        assert result.media_source == 'https://example.com/image.jpg'
+        assert result.media_caption == 'test image'
+
+    @pytest.mark.anyio
+    async def test_unresolvable_preserves_media(self, executor, mocker):
+        data = CommandData(
+            text='@resenhazord blah',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            media_type='image',
+            media_source='https://example.com/image.jpg',
+        )
+        _stub_chain(mocker, content='random gibberish that matches nothing')
+
+        result = await executor.run(data)
+
+        assert result.media_type == 'image'
+        assert result.media_source == 'https://example.com/image.jpg'
 
 
 class TestRun:
@@ -134,25 +141,26 @@ class TestRun:
     async def test_suggest_prefix_routes_to_suggest_command(self, executor, mocker):
         data = _data('@resenhazord qual a fundação do flamengo')
         suggest_content = (
-            'SUGGEST: Não sei te dizer a data exata, '
+            f'{LLM_SUGGEST_MARKER}Não sei te dizer a data exata, '
             'mas posso te mandar um time aleatório! Use ,time'
         )
         _stub_chain(mocker, content=suggest_content)
 
         result = await executor.run(data)
 
-        assert result.text.startswith(',suggest:')
+        assert result.text.startswith(SUGGEST_PREFIX)
         assert 'Não sei' in result.text
         assert 'time' in result.text
 
     @pytest.mark.anyio
     async def test_clarify_prefix_routes_to_clarify_command(self, executor, mocker):
         data = _data('@resenhazord qual a tabela do brasileiro')
-        _stub_chain(mocker, content='CLARIFY: Você quer ver a tabela de qual competição?')
+        content = f'{LLM_CLARIFY_MARKER}Você quer ver a tabela de qual competição?'
+        _stub_chain(mocker, content=content)
 
         result = await executor.run(data)
 
-        assert result.text.startswith(',clarify:')
+        assert result.text.startswith(CLARIFY_PREFIX)
         assert 'tabela' in result.text.lower()
 
     @pytest.mark.anyio
@@ -166,7 +174,7 @@ class TestRun:
         )
         _stub_chain(
             mocker,
-            content='SUGGEST: Não posso fazer sticker dessa imagem, use ,carro!',
+            content=f'{LLM_SUGGEST_MARKER}Não posso fazer sticker dessa imagem, use ,carro!',
         )
 
         result = await executor.run(data)
