@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.1 (2026-05-04)
+
+### Bug Fixes
+
+- **ci**: Rewrite PSR config for v10 and pin version in pipeline
+  ([`02ba915`](https://github.com/sandrosmarzaro/resenhazord2/commit/02ba915c0d8748f40f9e59e14d99f356b983ed0e))
+
+
 ## v1.5.0 (2026-05-04)
 
 ### Bug Fixes
