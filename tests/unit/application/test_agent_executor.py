@@ -44,15 +44,26 @@ class TestPromptBuilding:
 
 class TestFallback:
     @pytest.mark.anyio
-    async def test_returns_empty_text(self, executor):
+    async def test_provider_failure_returns_clarify_with_unavailable_message(self, executor):
         data = _data('@resenhazord blah')
 
-        result = executor._fallback(data)
+        result = executor._fallback(data, executor._AGENT_UNAVAILABLE_MSG)
 
-        assert result.text == ''
+        assert result.text.startswith(',clarify:')
+        assert 'IA indisponível' in result.text
+        assert ',menu' in result.text
 
     @pytest.mark.anyio
-    async def test_preserves_media_fields(self, executor):
+    async def test_unresolvable_content_returns_clarify_with_unresolvable_message(self, executor):
+        data = _data('@resenhazord blah')
+
+        result = executor._fallback(data, executor._AGENT_UNRESOLVABLE_MSG)
+
+        assert result.text.startswith(',clarify:')
+        assert ',menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_preserves_media_fields_on_provider_failure(self, executor):
         data = CommandData(
             text='@resenhazord blah',
             jid='test@g.us',
@@ -63,11 +74,50 @@ class TestFallback:
             media_caption='test image',
         )
 
-        result = executor._fallback(data)
+        result = executor._fallback(data, executor._AGENT_UNAVAILABLE_MSG)
 
         assert result.media_type == 'image'
         assert result.media_source == 'https://example.com/image.jpg'
         assert result.media_caption == 'test image'
+
+
+class TestRunProviderFailure:
+    @pytest.mark.anyio
+    async def test_no_providers_returns_clarify_message(self, executor, mocker):
+        data = _data('@resenhazord ver placar')
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(
+            side_effect=RuntimeError('No LLM providers configured'),
+        )
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+
+        result = await executor.run(data)
+
+        assert result.text.startswith(',clarify:')
+        assert 'IA indisponível' in result.text
+
+    @pytest.mark.anyio
+    async def test_http_error_returns_clarify_message(self, executor, mocker):
+        import httpx
+
+        data = _data('@resenhazord ver placar')
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(side_effect=httpx.HTTPError('timeout'))
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+
+        result = await executor.run(data)
+
+        assert result.text.startswith(',clarify:')
+
+    @pytest.mark.anyio
+    async def test_unresolvable_content_returns_clarify_message(self, executor, mocker):
+        data = _data('@resenhazord blah')
+        _stub_chain(mocker, content='random gibberish that matches nothing')
+
+        result = await executor.run(data)
+
+        assert result.text.startswith(',clarify:')
+        assert ',menu' in result.text
 
 
 class TestRun:

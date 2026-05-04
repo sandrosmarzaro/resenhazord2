@@ -24,6 +24,14 @@ class AgentExecutor:
     MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
     BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
+    _AGENT_UNAVAILABLE_MSG: ClassVar[str] = (
+        '🤖 IA indisponível no momento. Use comandos manuais digitando ,menu'
+    )
+    _AGENT_UNRESOLVABLE_MSG: ClassVar[str] = (
+        '🤖 Não consegui entender. Tente usar ,menu para ver os comandos disponíveis'
+    )
+    _CLARIFY_PREFIX: ClassVar[str] = ',clarify:'
+    _SUGGEST_PREFIX: ClassVar[str] = ',suggest:'
 
     def __init__(self, registry: CommandRegistry | None = None) -> None:
         self._registry = registry or CommandRegistry.instance()
@@ -44,7 +52,7 @@ class AgentExecutor:
             response = await ProviderChain.instance().complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError) as e:
             logger.warning('agent_provider_failed', error=str(e))
-            return self._fallback(data)
+            return self._fallback(data, self._AGENT_UNAVAILABLE_MSG)
 
         if response.tool_call:
             return self._translator.translate(
@@ -71,7 +79,7 @@ class AgentExecutor:
             return replace(data, text=f',suggest:{suggestion}')
 
         logger.warning('agent_no_tool_call', content=content, tool_call=response.tool_call)
-        return self._fallback(data)
+        return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
 
     def _build_prompt(self, user_input: str, context: str | None = None) -> str:
         filtered_input = user_input.replace(self.BOT_MENTION_TAG, '').strip()[
@@ -99,5 +107,5 @@ class AgentExecutor:
             user_context=user_block,
         )
 
-    def _fallback(self, data: CommandData) -> CommandData:
-        return replace(data, text='')
+    def _fallback(self, data: CommandData, message: str) -> CommandData:
+        return replace(data, text=f'{self._CLARIFY_PREFIX}{message}')
