@@ -39,6 +39,8 @@ dev = [
     "pytest-xdist>=3.5.0",
     "pytest-mock>=3.14.0",
     "ruff>=0.11.0",
+    "radon>=6.0",
+    "xenon>=0.9",
     "taskipy>=1.14.0",
 ]
 
@@ -49,6 +51,7 @@ lint = "ruff check ."
 format = "ruff format ."
 "format:check" = "ruff format --check ."
 typecheck = "basedpyright"
+complexity = "xenon --max-absolute B --max-average B bot/"
 log = "docker compose up --build -d && docker compose logs -f --no-color --tail=0 2>&1 | tee -a docker.log"
 logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 0 docker.log 2>/dev/null; echo 'docker.log truncated'"
 
