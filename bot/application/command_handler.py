@@ -3,13 +3,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from typing import ClassVar
 
-import httpx
 import structlog
 
 from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandScope
+from bot.domain.constants import AGENT_MENU_HINT, CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -28,8 +28,8 @@ class CommandHandler:
         r'\b(mande|me\s+manda|me\s+envie|envie)\s+(um?|uma)\b',
         re.IGNORECASE,
     )
-    _CLARIFY_PREFIX: ClassVar[str] = ',clarify:'
-    _SUGGEST_PREFIX: ClassVar[str] = ',suggest:'
+    _CLARIFY_PREFIX: ClassVar[str] = CLARIFY_PREFIX
+    _SUGGEST_PREFIX: ClassVar[str] = SUGGEST_PREFIX
 
     def __init__(
         self,
@@ -134,9 +134,9 @@ class CommandHandler:
             if self._agent_executor is None:
                 self._agent_executor = AgentExecutor(self._registry)
             return await self._agent_executor.run(data)
-        except (httpx.HTTPError, RuntimeError, ValueError):
-            logger.warning('agent_execution_failed', text=data.text)
-            return data
+        except ValueError:
+            logger.warning('agent_invalid_response', text=data.text)
+            return replace(data, text=f'{CLARIFY_PREFIX}Erro inesperado. {AGENT_MENU_HINT}')
 
     @classmethod
     def _parse_batch(cls, data: CommandData) -> tuple[int, CommandData]:
@@ -151,7 +151,9 @@ class CommandHandler:
     def _parse_builtin_prefix(cls, data: CommandData) -> list[BotMessage] | None:
         text = data.text or ''
         if text.startswith(cls._CLARIFY_PREFIX):
-            return [Reply.to(data).text(text[len(cls._CLARIFY_PREFIX) :].strip())]
+            message = text[len(cls._CLARIFY_PREFIX) :].strip() or AGENT_MENU_HINT
+            return [Reply.to(data).text(message)]
         if text.startswith(cls._SUGGEST_PREFIX):
-            return [Reply.to(data).text(text[len(cls._SUGGEST_PREFIX) :].strip())]
+            message = text[len(cls._SUGGEST_PREFIX) :].strip() or AGENT_MENU_HINT
+            return [Reply.to(data).text(message)]
         return None

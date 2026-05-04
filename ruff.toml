@@ -41,6 +41,9 @@ known-first-party = ["bot"]
     "C901",    # content type dispatch is inherently branchy
     "PLR0912",
 ]
+"bot/application/agent_executor.py" = [
+    "PLR0911", # run() dispatches LLM response types — early-return pattern
+]
 "bot/settings.py" = [
     "S104", # binding to 0.0.0.0 is intentional for container deployment
 ]

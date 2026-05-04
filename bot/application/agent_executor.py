@@ -9,6 +9,13 @@ import structlog
 from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
 from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
+from bot.domain.constants import (
+    AGENT_MENU_HINT,
+    CLARIFY_PREFIX,
+    LLM_CLARIFY_MARKER,
+    LLM_SUGGEST_MARKER,
+    SUGGEST_PREFIX,
+)
 from bot.domain.models.command_data import CommandData
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.tools import (
@@ -24,6 +31,8 @@ class AgentExecutor:
     MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
     BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
+    _AGENT_UNAVAILABLE_MSG: ClassVar[str] = f'🤖 IA indisponível no momento. {AGENT_MENU_HINT}'
+    _AGENT_UNRESOLVABLE_MSG: ClassVar[str] = f'🤖 Não consegui entender. {AGENT_MENU_HINT}'
 
     def __init__(self, registry: CommandRegistry | None = None) -> None:
         self._registry = registry or CommandRegistry.instance()
@@ -44,7 +53,7 @@ class AgentExecutor:
             response = await ProviderChain.instance().complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError) as e:
             logger.warning('agent_provider_failed', error=str(e))
-            return self._fallback(data)
+            return self._fallback(data, self._AGENT_UNAVAILABLE_MSG)
 
         if response.tool_call:
             return self._translator.translate(
@@ -60,18 +69,22 @@ class AgentExecutor:
         if content.startswith((',', '/')):
             return self._translator.translate(data, content.lstrip(',/').strip('\'"'), '')
 
-        if content.startswith('CLARIFY:'):
-            question = content[len('CLARIFY:') :].strip()
+        if content.startswith(LLM_CLARIFY_MARKER):
+            question = content[len(LLM_CLARIFY_MARKER) :].strip()
+            if not question:
+                return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
             logger.info('agent_asking_clarification', question=question)
-            return replace(data, text=f',clarify:{question}')
+            return replace(data, text=f'{CLARIFY_PREFIX}{question}')
 
-        if content.startswith('SUGGEST:'):
-            suggestion = content[len('SUGGEST:') :].strip()
+        if content.startswith(LLM_SUGGEST_MARKER):
+            suggestion = content[len(LLM_SUGGEST_MARKER) :].strip()
+            if not suggestion:
+                return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
             logger.info('agent_suggesting_command', suggestion=suggestion)
-            return replace(data, text=f',suggest:{suggestion}')
+            return replace(data, text=f'{SUGGEST_PREFIX}{suggestion}')
 
         logger.warning('agent_no_tool_call', content=content, tool_call=response.tool_call)
-        return self._fallback(data)
+        return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
 
     def _build_prompt(self, user_input: str, context: str | None = None) -> str:
         filtered_input = user_input.replace(self.BOT_MENTION_TAG, '').strip()[
@@ -99,5 +112,5 @@ class AgentExecutor:
             user_context=user_block,
         )
 
-    def _fallback(self, data: CommandData) -> CommandData:
-        return replace(data, text='')
+    def _fallback(self, data: CommandData, message: str) -> CommandData:
+        return replace(data, text=f'{CLARIFY_PREFIX}{message}')
