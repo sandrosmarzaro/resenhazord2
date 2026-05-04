@@ -84,6 +84,13 @@ When `develop` has accumulated enough changes to release:
 
    Why: semantic-release analyzes every commit between the previous release tag and `main` to compute the next version. A squash would collapse many Conventional Commits into one subject and produce the wrong bump (e.g. hiding a `feat` behind a `chore` title). The merge commit preserves every `feat` / `fix` / `BREAKING CHANGE`.
 4. `Pipeline` runs automatically on `main`: lint → test → build → deploy → semantic-release → new tag + `CHANGELOG.md`.
+5. **Back-merge `main` into `develop`** locally (no PR needed):
+
+   ```bash
+   git checkout develop && git pull
+   git merge --no-ff main -m "chore: back-merge main into develop"
+   git push origin develop
+   ```
 
 ## Hotfix workflow
 
@@ -94,15 +101,13 @@ For urgent production fixes that can't wait for the next release:
 3. Open PR targeting `main`
 4. Merge with **"Create a merge commit"** (same reason as release)
 5. Pipeline deploys and releases a patch version
-6. **Back-merge `main` into `develop`** so the fix is present on the integration branch:
+6. **Back-merge `main` into `develop`** locally (no PR needed):
 
-   ```
+   ```bash
    git checkout develop && git pull
-   git checkout -b chore/back-merge-main
-   git merge --no-ff main
+   git merge --no-ff main -m "chore: back-merge main into develop"
+   git push origin develop
    ```
-
-   Push and open a PR into `develop` (merge commit, not squash).
 
 ## Merge-strategy summary
 
@@ -111,4 +116,4 @@ For urgent production fixes that can't wait for the next release:
 | `develop` ← feature/fix/chore  | **Squash**               | Clean history; squash subject itself is a Conventional Commit       |
 | `main` ← `develop`             | **Merge commit (`--no-ff`)** | Preserves every Conventional Commit for semantic-release         |
 | `main` ← `hotfix/*`            | **Merge commit**         | Same reason                                                         |
-| `develop` ← `main` (back-merge)| **Merge commit**         | Preserves hotfix history on `develop`                               |
+| `develop` ← `main` (back-merge)| **Local merge, no PR**    | Avoids duplicate CI runs; commits already vetted on main            |
