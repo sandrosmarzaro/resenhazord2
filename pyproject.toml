@@ -42,6 +42,18 @@ dev = [
     "taskipy>=1.14.0",
 ]
 
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+build_command = "uv build"
+changelog_file = "CHANGELOG.md"
+
+[tool.semantic_release.branches.main]
+match = "(main|master)"
+prerelease = false
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+
 [tool.taskipy.tasks]
 test = "pytest"
 lint = "ruff check ."
