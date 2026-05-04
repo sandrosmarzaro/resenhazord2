@@ -182,6 +182,46 @@ class TestRun:
         assert result.media_type == 'image'
         assert result.media_source == 'https://example.com/image.jpg'
 
+    @pytest.mark.anyio
+    async def test_empty_clarify_marker_falls_back_to_unresolvable(self, executor, mocker):
+        data = _data('@resenhazord qual a tabela')
+        _stub_chain(mocker, content=LLM_CLARIFY_MARKER)
+
+        result = await executor.run(data)
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_whitespace_clarify_marker_falls_back_to_unresolvable(self, executor, mocker):
+        data = _data('@resenhazord qual a tabela')
+        _stub_chain(mocker, content=f'{LLM_CLARIFY_MARKER}   ')
+
+        result = await executor.run(data)
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_empty_suggest_marker_falls_back_to_unresolvable(self, executor, mocker):
+        data = _data('@resenhazord me manda')
+        _stub_chain(mocker, content=LLM_SUGGEST_MARKER)
+
+        result = await executor.run(data)
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_whitespace_suggest_marker_falls_back_to_unresolvable(self, executor, mocker):
+        data = _data('@resenhazord me manda')
+        _stub_chain(mocker, content=f'{LLM_SUGGEST_MARKER}   ')
+
+        result = await executor.run(data)
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
 
 def _data(text: str) -> CommandData:
     return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net')
