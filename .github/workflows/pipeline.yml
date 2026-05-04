@@ -37,7 +37,7 @@ jobs:
       - run: uv run basedpyright
 
   # Stage 2: Tests (after lint passes)
-test-ts:
+  test-ts:
     name: TS tests
     runs-on: ubuntu-latest
     needs: lint-ts
