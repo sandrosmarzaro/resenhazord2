@@ -41,31 +41,61 @@ class MealRecipesCommand(Command):
         response.raise_for_status()
         meal = response.json()['meals'][0]
 
-        area = AREA_PT.get(meal.get('strArea') or '', meal.get('strArea') or 'Sem País')
-        category = CATEGORY_PT.get(meal.get('strCategory') or '', meal.get('strCategory') or '')
+        title_pt = await Translator.to_pt(meal['strMeal'])
+        instructions_pt = await Translator.to_pt(meal['strInstructions'])
+        caption = self._build_caption(meal, title_pt, instructions_pt)
+        return [Reply.to(data).image(meal['strMealThumb'], caption)]
+
+    @classmethod
+    def _build_caption(cls, meal: dict, title: str, instructions: str) -> str:
+        area = cls._localize(meal.get('strArea') or '', AREA_PT, 'Sem País')
+        category = cls._localize(meal.get('strCategory') or '', CATEGORY_PT)
         tags = meal.get('strTags') or ''
+
         meta = f'🗺️ {area}   🍽️ {category}'
         if tags:
             meta += f'   🏷️ {tags}'
 
-        title_pt = await Translator.to_pt(meal['strMeal'])
-        instructions_pt = await Translator.to_pt(meal['strInstructions'])
+        ingredients = cls._build_ingredients(meal)
+        links = cls._build_links(meal)
 
-        caption = f'*{title_pt}*\n\n'
-        caption += f'{meta}\n'
-        caption += '\n🍲 Ingredientes:\n'
-        for i in range(1, self.MAX_INGREDIENTS + 1):
+        parts = [
+            f'*{title}*',
+            '',
+            meta,
+            '',
+            '🍲 Ingredientes:',
+            ingredients,
+            '',
+            '📝 Passo a passo:',
+            instructions,
+        ]
+        if links:
+            parts.append(links)
+        return '\n'.join(parts)
+
+    @classmethod
+    def _build_ingredients(cls, meal: dict) -> str:
+        lines: list[str] = []
+        for i in range(1, cls.MAX_INGREDIENTS + 1):
             ingredient = meal.get(f'strIngredient{i}')
             if not ingredient:
                 break
             measure = meal.get(f'strMeasure{i}') or ''
-            caption += f'- {ingredient} | {measure}\n'
-        caption += '\n📝 Passo a passo:\n'
-        caption += f'{instructions_pt}\n'
+            lines.append(f'- {ingredient} | {measure}')
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _localize(value: str, table: dict, fallback: str = '') -> str:
+        return table.get(value, value) or fallback
+
+    @staticmethod
+    def _build_links(meal: dict) -> str:
+        parts: list[str] = []
         youtube = meal.get('strYoutube')
         source = meal.get('strSource')
         if youtube:
-            caption += f'\n🎥 {youtube}'
+            parts.append(f'🎥 {youtube}')
         if source:
-            caption += f'\n🔗 {source}'
-        return [Reply.to(data).image(meal['strMealThumb'], caption)]
+            parts.append(f'🔗 {source}')
+        return '\n'.join(parts)
