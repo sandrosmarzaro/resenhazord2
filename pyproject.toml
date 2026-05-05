@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "resenhazord2-core"
 version = "0.1.0"
@@ -58,4 +62,7 @@ complexity = "xenon --max-absolute B --max-average B bot/"
 "check:ts" = "cd gateway && bun lint && bun typecheck && bun format:check"
 log = "docker compose up --build -d && docker compose logs -f --no-color --tail=0 2>&1 | tee -a docker.log"
 logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 0 docker.log 2>/dev/null; echo 'docker.log truncated'"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bot"]
 
