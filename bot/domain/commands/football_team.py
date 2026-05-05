@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+from collections.abc import Sequence
 
 import structlog
 
@@ -84,22 +85,22 @@ class FootballTeamCommand(Command):
     @staticmethod
     def _apply_top_filter(
         top_str: str,
-        clubs: list[TmClub],
+        clubs: Sequence[TmSquadStats],
         standings: dict[str, int],
-    ) -> list[TmClub]:
+    ) -> list[TmSquadStats]:
         if not top_str or not standings:
-            return clubs
+            return list(clubs)
         top_n = _parse_top_n(top_str)
         if top_n <= 0:
-            return clubs
+            return list(clubs)
         top_ids = {cid for cid, rank in standings.items() if rank <= top_n}
         filtered = [c for c in clubs if c.club_id in top_ids]
-        return filtered or clubs
+        return filtered or list(clubs)
 
     async def _reply_random_team(
         self,
         data: CommandData,
-        clubs: list[TmClub],
+        clubs: list[TmSquadStats],
         standings: dict[str, int],
         sports_teams: list[SportsDBTeam],
         league: LeagueInfo,

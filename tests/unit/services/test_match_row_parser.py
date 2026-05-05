@@ -28,6 +28,7 @@ class TestParseLiveTableRows:
         html = _make_html_table(_match_row('Flamengo', 'Palmeiras'))
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.find('table')
+        assert table is not None
 
         matches = MatchRowParser.parse_live_table_rows(table, ctx)
 
@@ -41,6 +42,7 @@ class TestParseLiveTableRows:
         html = _make_html_table('<tr><td class="verein-heim"><a>Home</a></td></tr>')
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.find('table')
+        assert table is not None
 
         matches = MatchRowParser.parse_live_table_rows(table, ctx)
 
@@ -50,5 +52,6 @@ class TestParseLiveTableRows:
         html = '<tr><td></td></tr>'
         soup = BeautifulSoup(html, 'html.parser')
         row = soup.find('tr')
+        assert row is not None
 
         assert MatchRowParser._extract_round(row) is None

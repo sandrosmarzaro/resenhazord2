@@ -175,5 +175,5 @@ class TestFindBestMatch:
         jaccard, ratio = TheSportsDBService._score_candidate(
             'Fluminense', tm_tokens, 'Fluminense', t_tokens
         )
-        assert jaccard == 1.0
-        assert ratio == 1.0
+        assert jaccard == pytest.approx(1.0)
+        assert ratio == pytest.approx(1.0)

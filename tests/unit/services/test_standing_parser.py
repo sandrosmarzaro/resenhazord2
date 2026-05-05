@@ -48,6 +48,7 @@ class TestParseTabelle:
         html = '<td>5</td>'
         soup = BeautifulSoup(html, 'html.parser')
         td = soup.find('td')
+        assert td is not None
 
         assert StandingParser._parse_rank(td) == 5
 
@@ -57,6 +58,7 @@ class TestParseTabelle:
         html = '<td>abc</td>'
         soup = BeautifulSoup(html, 'html.parser')
         td = soup.find('td')
+        assert td is not None
 
         assert StandingParser._parse_rank(td) is None
 
@@ -88,6 +90,7 @@ class TestExtractCenteredCells:
         )
         soup = BeautifulSoup(html, 'html.parser')
         row = soup.find('tr')
+        assert row is not None
 
         cells = StandingParser._extract_centered_cells(row)
 
