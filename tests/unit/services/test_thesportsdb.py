@@ -128,3 +128,52 @@ class TestSearchTeam:
         team = await TheSportsDBService.search_team('Nonexistent')
 
         assert team is None
+
+
+class TestFindBestMatch:
+    def test_returns_none_on_empty_list(self):
+        assert TheSportsDBService.find_best_match('Flamengo', []) is None
+
+    def test_returns_best_match_by_jaccard(self):
+        team_pal = SportsDBTeam(
+            name='Palmeiras',
+            country='Brazil',
+            founded='',
+            badge_url='',
+            team_id='1',
+            stadium='',
+            capacity='',
+        )
+        team_flu = SportsDBTeam(
+            name='Fluminense',
+            country='Brazil',
+            founded='',
+            badge_url='',
+            team_id='2',
+            stadium='',
+            capacity='',
+        )
+        result = TheSportsDBService.find_best_match('Fluminense', [team_pal, team_flu])
+        assert result is team_flu
+
+    def test_returns_none_when_no_good_match(self):
+        team = SportsDBTeam(
+            name='Completely Different FC',
+            country='Mars',
+            founded='',
+            badge_url='',
+            team_id='1',
+            stadium='',
+            capacity='',
+        )
+        result = TheSportsDBService.find_best_match('Fluminense', [team])
+        assert result is None
+
+    def test_score_candidate_returns_jaccard_and_ratio(self):
+        tm_tokens = {'fluminense'}
+        t_tokens = {'fluminense'}
+        jaccard, ratio = TheSportsDBService._score_candidate(
+            'Fluminense', tm_tokens, 'Fluminense', t_tokens
+        )
+        assert jaccard == pytest.approx(1.0)
+        assert ratio == pytest.approx(1.0)
