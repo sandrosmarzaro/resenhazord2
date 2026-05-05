@@ -74,24 +74,25 @@ class TeamCaptionBuilder:
         sports_team: SportsDBTeam | None,
         league: LeagueInfo | None = None,
     ) -> str:
-        if sports_team:
-            country = sports_team.country
-        elif league:
-            country = league.country
-        else:
-            country = club.country
+        country = TeamCaptionBuilder._resolve_country(club, sports_team, league)
         founded = sports_team.founded if sports_team else ''
         name = sports_team.name if sports_team else club.name
         title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
         flag = league.flag if league else '🌍'
         head = TeamCaptionBuilder._head_line(flag, country, founded)
         lines = [title, head]
-        if sports_team and sports_team.stadium:
-            lines.append(f'🏟️ {sports_team.stadium}')
-            if sports_team.capacity:
-                cap = TeamCaptionBuilder._format_capacity(sports_team.capacity)
-                lines.append(f'💺 {cap} lugares')
+        lines.extend(TeamCaptionBuilder._stadium_lines(sports_team))
         lines.append(f'🏆 #{club.rank}º mais valioso')
         if club.squad_value:
             lines.append(f'💰 {club.squad_value}')
         return '\n'.join(lines)
+
+    @staticmethod
+    def _resolve_country(
+        club: TmClub, sports_team: SportsDBTeam | None, league: LeagueInfo | None
+    ) -> str:
+        if sports_team:
+            return sports_team.country
+        if league:
+            return league.country
+        return club.country
