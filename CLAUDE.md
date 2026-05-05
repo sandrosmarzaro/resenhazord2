@@ -79,12 +79,12 @@ Prefer Claude slash commands and task runners over memorizing script names.
 
 | Area | Entry point |
 |---|---|
-| Full test suite (Python + Gateway) | `/test` |
-| Local CI (act) | `/ci` |
-| Python quality gate | `/check-py` — ruff + format:check + basedpyright |
-| Gateway quality gate | `/check-ts` — eslint + tsc + prettier |
-| Browse rules/ | `/rules` |
-| Python tasks | `uv run task --list` |
+| Python quality gate | `uv run task check:py` |
+| Gateway quality gate | `uv run task check:ts` |
+| Complexity gate | `uv run task complexity` |
+| Python tests | `uv run task test:py` |
+| Gateway tests | `uv run task test:ts` |
+| All tasks | `uv run task --list` |
 | Gateway scripts | `cd gateway && bun run` |
 | Docker | `docker compose build && docker compose up -d` |
 
@@ -92,7 +92,7 @@ Individual task definitions live in `pyproject.toml` under `[tool.taskipy.tasks]
 and `gateway/package.json` under `"scripts"`.
 
 **Git hooks** (pre-commit, pre-push): ruff lint + format, gitleaks secret scan,
-large-file check, merge-conflict check, eslint, `tsc --noEmit`, prettier check.
+large-file check, merge-conflict check, xenon complexity gate, eslint, `tsc --noEmit`, prettier check.
 
 ## Architecture
 
