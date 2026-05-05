@@ -20,19 +20,9 @@ class FullLineupBuilder:
         league = LEAGUES.get(league_code) if league_code else None
 
         if league:
-            all_players = await TransfermarktService.fetch_league_full_squad(league)
-            ordered = LineupBuilder.from_league_squad(all_players, formation)
+            ordered = await FullLineupBuilder._league_lineup(league, formation)
         else:
-            max_pages = TransfermarktService.POSITION_MAX_PAGES
-            if top_n > 0:
-                max_pages = max(
-                    1,
-                    min(
-                        (top_n + TransfermarktService.PLAYERS_PER_PAGE - 1)
-                        // TransfermarktService.PLAYERS_PER_PAGE,
-                        TransfermarktService.GLOBAL_MAX_PAGES,
-                    ),
-                )
+            max_pages = FullLineupBuilder._resolve_global_pages(top_n)
             ordered = await LineupBuilder.from_position_queries(formation, max_pages, top_n)
 
         photos_ordered, badge_images = await PlayerAssets.fetch(ordered)
@@ -51,3 +41,18 @@ class FullLineupBuilder:
         if total_value:
             caption += f'\n💰 {total_value}'
         return field_image, caption
+
+    @staticmethod
+    async def _league_lineup(league, formation):
+        all_players = await TransfermarktService.fetch_league_full_squad(league)
+        return LineupBuilder.from_league_squad(all_players, formation)
+
+    @staticmethod
+    def _resolve_global_pages(top_n: int) -> int:
+        max_pages = TransfermarktService.POSITION_MAX_PAGES
+        if top_n <= 0:
+            return max_pages
+        pages_for_top = (
+            top_n + TransfermarktService.PLAYERS_PER_PAGE - 1
+        ) // TransfermarktService.PLAYERS_PER_PAGE
+        return max(1, min(pages_for_top, TransfermarktService.GLOBAL_MAX_PAGES))
