@@ -18,7 +18,7 @@ from bot.domain.commands.base import (
     Platform,
 )
 from bot.domain.models.command_data import CommandData
-from bot.domain.models.football import SportsDBTeam, TmClub
+from bot.domain.models.football import SportsDBTeam, TmClub, TmSquadStats
 from bot.domain.models.message import BotMessage
 from bot.domain.services.full_lineup_builder import FullLineupBuilder
 from bot.domain.services.global_top_team import GlobalTopTeam
@@ -84,9 +84,9 @@ class FootballTeamCommand(Command):
     @staticmethod
     def _apply_top_filter(
         top_str: str,
-        clubs: list,
-        standings: dict,
-    ) -> list:
+        clubs: list[TmClub],
+        standings: dict[str, int],
+    ) -> list[TmClub]:
         if not top_str or not standings:
             return clubs
         top_n = _parse_top_n(top_str)
@@ -99,9 +99,9 @@ class FootballTeamCommand(Command):
     async def _reply_random_team(
         self,
         data: CommandData,
-        clubs: list,
-        standings: dict,
-        sports_teams: list,
+        clubs: list[TmClub],
+        standings: dict[str, int],
+        sports_teams: list[SportsDBTeam],
         league: LeagueInfo,
     ) -> list[BotMessage]:
         club = random.choice(clubs)  # noqa: S311
@@ -114,7 +114,9 @@ class FootballTeamCommand(Command):
         return [Reply.to(data).image_buffer(buffer, caption)]
 
     @staticmethod
-    async def _fetch_league_data(league: LeagueInfo) -> tuple:
+    async def _fetch_league_data(
+        league: LeagueInfo,
+    ) -> tuple[dict[str, TmSquadStats], dict[str, int], list[SportsDBTeam]]:
         return await asyncio.gather(
             TransfermarktService.fetch_squad_values(league),
             TransfermarktService.fetch_standings(league),

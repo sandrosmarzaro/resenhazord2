@@ -107,7 +107,7 @@ class StandingParser(RowParser):
         ]
 
     @classmethod
-    def _parse_standing_values(cls, cells: list[str], team: str) -> dict | None:
+    def _parse_standing_values(cls, cells: list[str], team: str) -> dict[str, int] | None:
         try:
             goals_for, goals_against = cls._parse_goals(cells[4])
             return {

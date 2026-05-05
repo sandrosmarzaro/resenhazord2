@@ -15,12 +15,11 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
-_FALLBACK_UNKNOWN = 'Desconhecido'
-
 
 class MyAnimeListCommand(Command):
     DEFAULT_MAX_PAGE: ClassVar[int] = 20
     ITEMS_PER_PAGE: ClassVar[int] = 25
+    _FALLBACK_UNKNOWN: ClassVar[str] = 'Desconhecido'
 
     _MEDIA_PROFILES: ClassVar[dict[str, dict]] = {
         'anime': {
@@ -56,7 +55,7 @@ class MyAnimeListCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         media_type = 'anime' if parsed.command_name == 'anime' else 'manga'
-        n, max_page = self._resolve_page_range(parsed)
+        top_n, max_page = self._resolve_page_range(parsed)
 
         page = random.randint(1, max_page)  # noqa: S311
         response = await HttpClient.get(
@@ -65,8 +64,8 @@ class MyAnimeListCommand(Command):
         response.raise_for_status()
         items = response.json()['data']
 
-        if n and page == max_page:
-            items = items[: n - (max_page - 1) * self.ITEMS_PER_PAGE]
+        if top_n and page == max_page:
+            items = items[: top_n - (max_page - 1) * self.ITEMS_PER_PAGE]
 
         item = random.choice(items)  # noqa: S311
         profile = self._MEDIA_PROFILES[media_type]
@@ -78,9 +77,9 @@ class MyAnimeListCommand(Command):
         top_str = parsed.options.get('top', '')
         if not top_str:
             return 0, self.DEFAULT_MAX_PAGE
-        n = int(top_str[3:])
-        max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
-        return n, max_page
+        top_n = int(top_str[3:])
+        max_page = max(1, (top_n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+        return top_n, max_page
 
     @classmethod
     def _build_caption(cls, item: dict, profile: dict) -> str:
@@ -109,10 +108,10 @@ class MyAnimeListCommand(Command):
             ]
         )
 
-    @staticmethod
-    def _join_names(item: dict, key: str) -> str:
+    @classmethod
+    def _join_names(cls, item: dict, key: str) -> str:
         names = ', '.join(entry['name'] for entry in item.get(key, []))
-        return names or _FALLBACK_UNKNOWN
+        return names or cls._FALLBACK_UNKNOWN
 
     @staticmethod
     def _extract_year(item: dict, date_key: str) -> int | None:

@@ -2,7 +2,7 @@
 
 import asyncio
 
-from bot.data.football import LEAGUES
+from bot.data.football import LEAGUES, LeagueInfo
 from bot.data.football_formations import Formation
 from bot.domain.services.football_field.build_field import build_football_field
 from bot.domain.services.lineup_builder import LineupBuilder
@@ -43,7 +43,7 @@ class FullLineupBuilder:
         return field_image, caption
 
     @staticmethod
-    async def _league_lineup(league, formation):
+    async def _league_lineup(league: LeagueInfo, formation: Formation) -> list:
         all_players = await TransfermarktService.fetch_league_full_squad(league)
         return LineupBuilder.from_league_squad(all_players, formation)
 
