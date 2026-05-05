@@ -12,7 +12,7 @@ from bot.domain.commands.base import (
     ParsedCommand,
     Platform,
 )
-from bot.domain.models.football import MatchStatus
+from bot.domain.models.football import MatchStatus, TmLiveMatch
 
 if TYPE_CHECKING:
     from bot.domain.models.command_data import CommandData
@@ -58,45 +58,63 @@ class ScoreCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         matches = await TransfermarktService.fetch_live_matches()
+        show_past, show_now, show_next = self._resolve_flags(parsed)
 
-        show_past = 'past' in parsed.flags
-        show_now = 'now' in parsed.flags
-        show_next = 'next' in parsed.flags
-        if not (show_past or show_now or show_next):
-            show_past = show_now = show_next = True
+        live = self._live_matches(matches) if show_now else []
+        upcoming = self._upcoming_matches(matches) if show_next else []
+        finished = self._finished_matches(matches) if show_past else []
 
-        live_all = [m for m in matches if m.status == MatchStatus.LIVE] if show_now else []
-        window_hours = ScoreCommand._upcoming_window_hours
-        upcoming_all = (
-            [
-                m
-                for m in matches
-                if m.status == MatchStatus.NOT_STARTED
-                and is_within_upcoming_window(m.match_time, window_hours)
-            ]
-            if show_next
-            else []
-        )
-        finished_all = [m for m in matches if m.status == MatchStatus.FINISHED] if show_past else []
+        cap = ScoreCommand._section_soft_cap
+        capped_live = _apply_soft_cap(live, cap)
+        capped_upcoming = _apply_soft_cap(upcoming, cap)
+        capped_finished = _apply_soft_cap(finished, cap)
 
-        soft_cap = ScoreCommand._section_soft_cap
-        live_matches = _apply_soft_cap(live_all, soft_cap)
-        upcoming_matches = _apply_soft_cap(upcoming_all, soft_cap)
-        finished_matches = _apply_soft_cap(finished_all, soft_cap)
-
-        if not live_matches and not upcoming_matches and not finished_matches:
+        if not any((capped_live, capped_upcoming, capped_finished)):
             return [Reply.to(data).text('Nenhum jogo ao vivo agora. ✨')]
 
-        lines: list[str] = []
-        if live_matches:
-            lines.extend(build_section('🔥 *Ao Vivo*\n', live_matches, format_live_row))
-        if upcoming_matches:
-            lines.extend(
-                build_section('📅 *Próximos Jogos*\n', upcoming_matches, format_upcoming_row)
-            )
-        if finished_matches:
-            lines.extend(build_section('✅ *Encerrados*\n', finished_matches, format_finished_row))
-
+        lines = self._build_sections(capped_live, capped_upcoming, capped_finished)
         message = Reply.to(data).text('\n'.join(lines))
         message.quoted_message_id = data.quoted_message_id
         return [message]
+
+    @staticmethod
+    def _resolve_flags(parsed: ParsedCommand) -> tuple[bool, bool, bool]:
+        show_past = 'past' in parsed.flags
+        show_now = 'now' in parsed.flags
+        show_next = 'next' in parsed.flags
+        if not any((show_past, show_now, show_next)):
+            show_past = show_now = show_next = True
+        return show_past, show_now, show_next
+
+    @staticmethod
+    def _live_matches(matches: list[TmLiveMatch]) -> list[TmLiveMatch]:
+        return [m for m in matches if m.status == MatchStatus.LIVE]
+
+    @staticmethod
+    def _upcoming_matches(matches: list[TmLiveMatch]) -> list[TmLiveMatch]:
+        window = ScoreCommand._upcoming_window_hours
+        return [
+            m
+            for m in matches
+            if m.status == MatchStatus.NOT_STARTED
+            and is_within_upcoming_window(m.match_time, window)
+        ]
+
+    @staticmethod
+    def _finished_matches(matches: list[TmLiveMatch]) -> list[TmLiveMatch]:
+        return [m for m in matches if m.status == MatchStatus.FINISHED]
+
+    @staticmethod
+    def _build_sections(
+        live: list[TmLiveMatch],
+        upcoming: list[TmLiveMatch],
+        finished: list[TmLiveMatch],
+    ) -> list[str]:
+        lines: list[str] = []
+        if live:
+            lines.extend(build_section('🔥 *Ao Vivo*\n', live, format_live_row))
+        if upcoming:
+            lines.extend(build_section('📅 *Próximos Jogos*\n', upcoming, format_upcoming_row))
+        if finished:
+            lines.extend(build_section('✅ *Encerrados*\n', finished, format_finished_row))
+        return lines
