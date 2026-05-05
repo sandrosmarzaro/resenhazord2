@@ -1,4 +1,5 @@
 import random
+from typing import ClassVar
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
@@ -14,10 +15,29 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
 
+_FALLBACK_UNKNOWN = 'Desconhecido'
+
 
 class MyAnimeListCommand(Command):
-    DEFAULT_MAX_PAGE = 20
-    ITEMS_PER_PAGE = 25
+    DEFAULT_MAX_PAGE: ClassVar[int] = 20
+    ITEMS_PER_PAGE: ClassVar[int] = 25
+
+    _MEDIA_PROFILES: ClassVar[dict[str, dict]] = {
+        'anime': {
+            'creator_key': 'studios',
+            'date_key': 'aired',
+            'size_key': 'episodes',
+            'creator_emoji': '🎙️',
+            'size_emoji': '🎥',
+        },
+        'manga': {
+            'creator_key': 'authors',
+            'date_key': 'published',
+            'size_key': 'chapters',
+            'creator_emoji': '🖋',
+            'size_emoji': '📚',
+        },
+    }
 
     @property
     def config(self) -> CommandConfig:
@@ -35,53 +55,65 @@ class MyAnimeListCommand(Command):
         return 'Receba um anime ou mangá aleatório. Use top<N> para limitar o ranking.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        base_url = 'https://api.jikan.moe/v4'
         media_type = 'anime' if parsed.command_name == 'anime' else 'manga'
-
-        top_str = parsed.options.get('top', '')
-        if top_str:
-            n = int(top_str[3:])
-            max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
-        else:
-            n = 0
-            max_page = self.DEFAULT_MAX_PAGE
+        n, max_page = self._resolve_page_range(parsed)
 
         page = random.randint(1, max_page)  # noqa: S311
-
-        response = await HttpClient.get(f'{base_url}/top/{media_type}', params={'page': page})
+        response = await HttpClient.get(
+            f'https://api.jikan.moe/v4/top/{media_type}', params={'page': page}
+        )
         response.raise_for_status()
         items = response.json()['data']
 
-        if top_str and page == max_page:
-            items_on_last_page = n - (max_page - 1) * self.ITEMS_PER_PAGE
-            items = items[:items_on_last_page]
+        if n and page == max_page:
+            items = items[: n - (max_page - 1) * self.ITEMS_PER_PAGE]
 
         item = random.choice(items)  # noqa: S311
-
+        profile = self._MEDIA_PROFILES[media_type]
+        caption = self._build_caption(item, profile)
         image = item['images']['webp']['large_image_url']
-        genres = ', '.join(g['name'] for g in item.get('genres', []))
-        themes = ', '.join(t['name'] for t in item.get('themes', []))
-        demos = ', '.join(d['name'] for d in item.get('demographics', []))
-
-        if media_type == 'anime':
-            creator_emoji = '🎙️'
-            creators = ', '.join(s['name'] for s in item.get('studios', []))
-            release_date = item.get('aired', {}).get('prop', {}).get('from', {}).get('year')
-            size = item.get('episodes')
-            size_emoji = '🎥'
-        else:
-            creator_emoji = '🖋'
-            creators = ', '.join(a['name'] for a in item.get('authors', []))
-            release_date = item.get('published', {}).get('prop', {}).get('from', {}).get('year')
-            size = item.get('chapters')
-            size_emoji = '📚'
-
-        caption = f'*{item["title"]}*\n\n'
-        caption += f'{size_emoji} {size or "?"}x \t📅 {release_date or "?"}\n'
-        caption += f'⭐️ {item.get("score") or "?"} \t🏆 #{item.get("rank") or "?"}\n'
-        caption += f'🧬 {genres or "Desconhecido"}\n'
-        caption += f'📜 {themes or "Desconhecido"}\n'
-        caption += f'📈 {demos or "Desconhecido"}\n'
-        caption += f'{creator_emoji} {creators or "Desconhecido"}'
-
         return [Reply.to(data).image(image, caption)]
+
+    def _resolve_page_range(self, parsed: ParsedCommand) -> tuple[int, int]:
+        top_str = parsed.options.get('top', '')
+        if not top_str:
+            return 0, self.DEFAULT_MAX_PAGE
+        n = int(top_str[3:])
+        max_page = max(1, (n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+        return n, max_page
+
+    @classmethod
+    def _build_caption(cls, item: dict, profile: dict) -> str:
+        creators = cls._join_names(item, profile['creator_key'])
+        genres = cls._join_names(item, 'genres')
+        themes = cls._join_names(item, 'themes')
+        demos = cls._join_names(item, 'demographics')
+        release_date = cls._extract_year(item, profile['date_key'])
+        size = item.get(profile['size_key'])
+
+        size_display = f'{size}x' if size else '?'
+        date_display = str(release_date) if release_date else '?'
+        score_display = str(item.get('score')) if item.get('score') else '?'
+        rank_display = str(item.get('rank')) if item.get('rank') else '?'
+
+        return '\n'.join(
+            [
+                f'*{item["title"]}*',
+                '',
+                f'{profile["size_emoji"]} {size_display} \t📅 {date_display}',
+                f'⭐️ {score_display} \t🏆 #{rank_display}',
+                f'🧬 {genres}',
+                f'📜 {themes}',
+                f'📈 {demos}',
+                f'{profile["creator_emoji"]} {creators}',
+            ]
+        )
+
+    @staticmethod
+    def _join_names(item: dict, key: str) -> str:
+        names = ', '.join(entry['name'] for entry in item.get(key, []))
+        return names or _FALLBACK_UNKNOWN
+
+    @staticmethod
+    def _extract_year(item: dict, date_key: str) -> int | None:
+        return item.get(date_key, {}).get('prop', {}).get('from', {}).get('year')
