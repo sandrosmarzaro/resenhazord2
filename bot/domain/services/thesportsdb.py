@@ -72,11 +72,7 @@ class TheSportsDBService:
             t_tokens = cls._name_tokens(t.name)
             if not t_tokens:
                 continue
-            union = len(tm_tokens | t_tokens)
-            jaccard = len(tm_tokens & t_tokens) / union if union else 0.0
-            if jaccard == 0 and cls._token_substring_hit(tm_tokens, t_tokens):
-                jaccard = cls._MATCH_MIN_JACCARD
-            ratio = difflib.SequenceMatcher(None, tm_name.lower(), t.name.lower()).ratio()
+            jaccard, ratio = cls._score_candidate(tm_name, tm_tokens, t.name, t_tokens)
             if jaccard > best_jaccard or (jaccard == best_jaccard and ratio > best_ratio):
                 best = t
                 best_jaccard = jaccard
@@ -84,6 +80,17 @@ class TheSportsDBService:
         if best_jaccard < cls._MATCH_MIN_JACCARD:
             return None
         return best
+
+    @classmethod
+    def _score_candidate(
+        cls, tm_name: str, tm_tokens: set[str], t_name: str, t_tokens: set[str]
+    ) -> tuple[float, float]:
+        union = len(tm_tokens | t_tokens)
+        jaccard = len(tm_tokens & t_tokens) / union if union else 0.0
+        if jaccard == 0 and cls._token_substring_hit(tm_tokens, t_tokens):
+            jaccard = cls._MATCH_MIN_JACCARD
+        ratio = difflib.SequenceMatcher(None, tm_name.lower(), t_name.lower()).ratio()
+        return jaccard, ratio
 
     @staticmethod
     def _name_tokens(name: str) -> set[str]:

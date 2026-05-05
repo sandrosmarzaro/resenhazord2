@@ -18,6 +18,29 @@ def _ok_message() -> BotMessage:
     return BotMessage(jid='1', content=TextContent(text='pong'))
 
 
+class TestBuiltinPrefix:
+    @pytest.mark.anyio
+    async def test_clarify_prefix_replies_message(self, handler, port, mocker):
+        stub_agent_executor(mocker, returns_text=',clarify:IA indisponível. Use ,menu')
+        patch_registry(mocker, strategy=None)
+
+        await handler.handle(port, make_update('oi'))
+
+        sent = port.send.call_args.args[0]
+        assert 'IA indisponível' in sent.text
+        assert ',menu' in sent.text
+
+    @pytest.mark.anyio
+    async def test_suggest_prefix_replies_suggestion(self, handler, port, mocker):
+        stub_agent_executor(mocker, returns_text=',suggest:Tente usar ,time')
+        patch_registry(mocker, strategy=None)
+
+        await handler.handle(port, make_update('oi'))
+
+        sent = port.send.call_args.args[0]
+        assert 'Tente' in sent.text
+
+
 class TestDmAgentMode:
     @pytest.mark.anyio
     async def test_dm_without_command_triggers_agent(self, handler, port, mocker):

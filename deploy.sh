@@ -9,6 +9,8 @@ HEALTH_INTERVAL=5
 
 log() { echo "[deploy] $(date '+%H:%M:%S') $*"; }
 
+export COMPOSE_BAKE=true
+
 # Guard: .env must exist before we do anything
 if [[ ! -f "$APP_DIR/.env" ]]; then
   log "ERROR: .env not found at $APP_DIR/.env. Aborting."

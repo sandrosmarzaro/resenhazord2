@@ -79,6 +79,7 @@ class TestWebSocketHandlerCommand:
                     'text': ',unknown',
                     'jid': 'group@g.us',
                     'sender_jid': 'user@s.whatsapp.net',
+                    'is_group': True,
                 },
             }
         )

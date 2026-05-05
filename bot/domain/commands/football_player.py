@@ -119,11 +119,11 @@ class FootballPlayerCommand(Command):
         cls, player: TmPlayer, league: LeagueInfo | None, details: dict[str, str]
     ) -> str:
         club_flag = league.flag if league else ''
-        foot = next((details[k] for k in cls._FOOT_KEYS if k in details), '').capitalize()
-        height = next((details[k] for k in cls._HEIGHT_KEYS if k in details), '')
-        other_pos = next((details[k] for k in cls._OTHER_POS_KEYS if k in details), '')
-        born_country = next((details[k] for k in cls._BORN_COUNTRY_KEYS if k in details), '')
-        born_city = next((details[k] for k in cls._BORN_CITY_KEYS if k in details), '')
+        foot = cls._lookup(details, cls._FOOT_KEYS).capitalize()
+        height = cls._lookup(details, cls._HEIGHT_KEYS)
+        other_pos = cls._lookup(details, cls._OTHER_POS_KEYS)
+        born_country = cls._lookup(details, cls._BORN_COUNTRY_KEYS)
+        born_city = cls._lookup(details, cls._BORN_CITY_KEYS)
 
         lines: list[str] = [
             f'*{player.name}* — {player.position}',
@@ -137,6 +137,10 @@ class FootballPlayerCommand(Command):
             lines.append(f'🔄 {other_pos}')
         lines.extend(['', f'💰 {player.market_value}'])
         return '\n'.join(lines)
+
+    @staticmethod
+    def _lookup(details: dict[str, str], keys: tuple[str, ...]) -> str:
+        return next((details[k] for k in keys if k in details), '')
 
     @classmethod
     def _birth_line(cls, born_city: str, born_country: str) -> list[str]:

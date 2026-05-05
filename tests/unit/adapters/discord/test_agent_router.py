@@ -53,6 +53,60 @@ def _stub_no_strategy(mocker):
     )
 
 
+class TestBuiltinPrefix:
+    @pytest.mark.anyio
+    async def test_clarify_prefix_replies_message(self, mocker, message):
+        _stub_executor(mocker, text=',clarify:IA indisponível. Use o menu')
+        _stub_no_strategy(mocker)
+        msg = message('oi')
+
+        router = DiscordAgentRouter()
+        await router.handle_dm(msg)
+
+        msg.reply.assert_called()
+        assert 'IA indisponível' in msg.reply.call_args[0][0]
+
+    @pytest.mark.anyio
+    async def test_suggest_prefix_replies_suggestion(self, mocker, message):
+        _stub_executor(mocker, text=',suggest:Tente usar ,time')
+        _stub_no_strategy(mocker)
+        msg = message('oi')
+
+        router = DiscordAgentRouter()
+        await router.handle_dm(msg)
+
+        msg.reply.assert_called()
+        assert 'Tente' in msg.reply.call_args[0][0]
+
+    @pytest.mark.anyio
+    async def test_clarify_prefix_suppresses_mentions(self, mocker, message):
+        _stub_executor(mocker, text=',clarify:check @everyone')
+        _stub_no_strategy(mocker)
+        msg = message('oi')
+
+        router = DiscordAgentRouter()
+        await router.handle_dm(msg)
+
+        allowed = msg.reply.call_args[1]['allowed_mentions']
+        assert allowed.everyone is False
+        assert allowed.users is False
+        assert allowed.roles is False
+
+    @pytest.mark.anyio
+    async def test_suggest_prefix_suppresses_mentions(self, mocker, message):
+        _stub_executor(mocker, text=',suggest:try @here')
+        _stub_no_strategy(mocker)
+        msg = message('oi')
+
+        router = DiscordAgentRouter()
+        await router.handle_dm(msg)
+
+        allowed = msg.reply.call_args[1]['allowed_mentions']
+        assert allowed.everyone is False
+        assert allowed.users is False
+        assert allowed.roles is False
+
+
 class TestHandleDm:
     @pytest.mark.anyio
     async def test_runs_agent_then_strategy(self, mocker, message):
@@ -139,13 +193,18 @@ class TestRunPipeline:
 
 class TestSendReply:
     @pytest.mark.anyio
-    async def test_text_only_reply(self, mocker, message):
+    async def test_text_only_reply_suppresses_mentions(self, mocker, message):
         msg = message('test')
         router = DiscordAgentRouter()
 
         await router._send_reply(msg, DiscordReply(text='hello', embed=None, file=None))
 
-        msg.reply.assert_called_once_with('hello')
+        msg.reply.assert_called_once()
+        assert msg.reply.call_args[0][0] == 'hello'
+        allowed = msg.reply.call_args[1]['allowed_mentions']
+        assert allowed.everyone is False
+        assert allowed.users is False
+        assert allowed.roles is False
 
     @pytest.mark.anyio
     async def test_empty_text_uses_placeholder(self, mocker, message):

@@ -434,3 +434,40 @@ class TestFormatHeadLine:
         result = TeamCaptionBuilder._head_line('🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', '')
 
         assert '📅' not in result
+
+
+class TestBuildBareCaption:
+    def test_uses_sports_team_name_when_available(self):
+        club = _make_tm_club()
+        sports_team = _make_sports_team()
+
+        caption = TeamCaptionBuilder.build_bare(club, sports_team, league=_LEAGUE)
+
+        assert 'Manchester City' in caption
+        assert _LEAGUE.name in caption
+
+    def test_uses_club_name_when_no_sports_team(self):
+        club = _make_tm_club()
+
+        caption = TeamCaptionBuilder.build_bare(club, None, league=_LEAGUE)
+
+        assert club.name in caption
+
+    def test_resolve_country_prefers_sports_team(self):
+        club = _make_tm_club()
+        sports_team = _make_sports_team()
+
+        result = TeamCaptionBuilder._resolve_country(club, sports_team, _LEAGUE)
+        assert result == 'England'
+
+    def test_resolve_country_falls_back_to_league(self):
+        club = _make_tm_club()
+
+        result = TeamCaptionBuilder._resolve_country(club, None, _LEAGUE)
+        assert result == _LEAGUE.country
+
+    def test_resolve_country_falls_back_to_club(self):
+        club = _make_tm_club()
+
+        result = TeamCaptionBuilder._resolve_country(club, None, None)
+        assert result == club.country

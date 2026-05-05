@@ -24,6 +24,9 @@ ignore = [
     "INP001", # implicit namespace packages — intentional, Python 3.3+ namespace packages used
 ]
 
+[lint.mccabe]
+max-complexity = 10
+
 [lint.isort]
 known-first-party = ["bot"]
 
@@ -31,15 +34,12 @@ known-first-party = ["bot"]
 "bot/domain/parsers/command_parser.py" = [
     "TC004",   # TYPE_CHECKING imports needed to break circular dependency with commands.base
     "PLC0415", # local imports needed to break circular dependency
-    "C901",    # parser dispatch is inherently branchy
-    "PLR0912",
 ]
 "bot/domain/parsers/command_parser_regex.py" = [
     "PLC0415", # ArgType lazy import breaks circular dependency with commands.base
 ]
-"bot/domain/models/message.py" = [
-    "C901",    # content type dispatch is inherently branchy
-    "PLR0912",
+"bot/application/agent_executor.py" = [
+    "PLR0911", # run() dispatches LLM response types — early-return pattern
 ]
 "bot/settings.py" = [
     "S104", # binding to 0.0.0.0 is intentional for container deployment

@@ -39,15 +39,23 @@ dev = [
     "pytest-xdist>=3.5.0",
     "pytest-mock>=3.14.0",
     "ruff>=0.11.0",
+    "radon>=6.0",
+    "xenon>=0.9",
     "taskipy>=1.14.0",
 ]
 
 [tool.taskipy.tasks]
 test = "pytest"
+"test:py" = "pytest -v"
+"test:ts" = "cd gateway && bun run test:run"
 lint = "ruff check ."
 "lint:fix" = "ruff check . --fix"
 format = "ruff format ."
 "format:check" = "ruff format --check ."
 typecheck = "basedpyright"
-log = "docker compose logs -f --no-color --tail=0 >> docker.log"
+complexity = "xenon --max-absolute B --max-average B bot/"
+"check:py" = "task lint && task format:check && task typecheck && task complexity"
+"check:ts" = "cd gateway && bun lint && bun typecheck && bun format:check"
+log = "docker compose up --build -d && docker compose logs -f --no-color --tail=0 2>&1 | tee -a docker.log"
+logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 0 docker.log 2>/dev/null; echo 'docker.log truncated'"
 

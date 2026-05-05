@@ -39,11 +39,12 @@ class NhentaiScraper:
         return res.json().get('result', [])
 
     def _parse(self, data: dict) -> HentaiGallery:
-        artists = [t['name'] for t in data['tags'] if t['type'] == 'artist']
-        groups = [t['name'] for t in data['tags'] if t['type'] == 'group']
-        tags = [t['name'] for t in data['tags'] if t['type'] == 'tag']
-        lang_tag = next((t for t in data['tags'] if t['type'] == 'language'), None)
-        type_tag = next((t for t in data['tags'] if t['type'] == 'category'), None)
+        tags = data['tags']
+        artists = self._filter_tags(tags, 'artist')
+        groups = self._filter_tags(tags, 'group')
+        tag_names = self._filter_tags(tags, 'tag')
+        lang_tag = self._find_tag(tags, 'language')
+        type_tag = self._find_tag(tags, 'category')
 
         cover_ext = self.EXT_MAP.get(data['images']['cover']['t'], 'jpg')
         cover_url = f'https://t.nhentai.net/galleries/{data["media_id"]}/thumb.{cover_ext}'
@@ -56,7 +57,7 @@ class NhentaiScraper:
             japanese_title=data['title'].get('japanese'),
             artists=artists,
             groups=groups,
-            tags=tags,
+            tags=tag_names,
             gallery_type=type_tag['name'] if type_tag else 'manga',
             language=lang_tag['name'] if lang_tag else 'unknown',
             pages=data.get('num_pages', 0),
@@ -64,3 +65,11 @@ class NhentaiScraper:
             cover_url=cover_url,
             url=f'{self._mirror_url}/g/{data["id"]}/',
         )
+
+    @staticmethod
+    def _filter_tags(tags: list[dict], tag_type: str) -> list[str]:
+        return [t['name'] for t in tags if t['type'] == tag_type]
+
+    @staticmethod
+    def _find_tag(tags: list[dict], tag_type: str) -> dict | None:
+        return next((t for t in tags if t['type'] == tag_type), None)

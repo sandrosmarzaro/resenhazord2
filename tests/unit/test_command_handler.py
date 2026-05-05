@@ -259,14 +259,16 @@ class TestRunAgent:
         assert result.text == ',placar now'
 
     @pytest.mark.anyio
-    async def test_run_agent_http_error_falls_back(self, handler, mocker):
-        import httpx
-
+    async def test_run_agent_value_error_returns_clarify_fallback(self, handler, mocker):
+        from bot.domain.constants import CLARIFY_PREFIX
         from bot.domain.models.command_data import CommandData
 
+        executor_mock = mocker.MagicMock()
+        executor_mock.run = mocker.AsyncMock(side_effect=ValueError('invalid response'))
         mocker.patch(
             'bot.application.command_handler.AgentExecutor',
-        ).return_value.run = mocker.AsyncMock(side_effect=httpx.HTTPError('timeout'))
+            return_value=executor_mock,
+        )
 
         data = CommandData(
             text='@resenhazord ver placar',
@@ -277,26 +279,8 @@ class TestRunAgent:
 
         result = await handler._run_agent(data)
 
-        assert result is data
-
-    @pytest.mark.anyio
-    async def test_run_agent_runtime_error_falls_back(self, handler, mocker):
-        from bot.domain.models.command_data import CommandData
-
-        mocker.patch(
-            'bot.application.command_handler.AgentExecutor',
-        ).return_value.run = mocker.AsyncMock(side_effect=RuntimeError('fail'))
-
-        data = CommandData(
-            text='@resenhazord ver placar',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-            is_group=True,
-        )
-
-        result = await handler._run_agent(data)
-
-        assert result is data
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'inesperado' in result.text.lower() or 'menu' in result.text.lower()
 
 
 class TestRunCommand:
@@ -320,11 +304,8 @@ class TestRunCommand:
 
 
 class TestSuggestHandler:
-    """Tests for ,suggest: handler in command handler."""
-
     @pytest.mark.anyio
     async def test_suggest_returns_conversational_message(self, handler):
-        """Test that ,suggest: returns the conversational message."""
         from bot.domain.models.command_data import CommandData
 
         data = CommandData(
@@ -345,7 +326,6 @@ class TestSuggestHandler:
 
     @pytest.mark.anyio
     async def test_clarify_returns_question(self, handler):
-        """Test that ,clarify: returns the question."""
         from bot.domain.models.command_data import CommandData
 
         data = CommandData(
@@ -361,3 +341,71 @@ class TestSuggestHandler:
         assert result is not None
         assert len(result) == 1
         assert 'tabela' in result[0].content.text
+
+    @pytest.mark.anyio
+    async def test_clarify_empty_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',clarify:',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT
+
+    @pytest.mark.anyio
+    async def test_clarify_whitespace_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',clarify:   ',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT
+
+    @pytest.mark.anyio
+    async def test_suggest_empty_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',suggest:',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT
+
+    @pytest.mark.anyio
+    async def test_suggest_whitespace_text_falls_back_to_menu_hint(self, handler):
+        from bot.domain.constants import AGENT_MENU_HINT
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',suggest:   ',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            is_group=True,
+        )
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert result[0].content.text == AGENT_MENU_HINT

@@ -454,3 +454,60 @@ class TestFlagOverridesAreDeduplicated:
         assert COMPETITION_CODE_OVERRIDES['CNAT'] == nationality_flag('Inglaterra')
         assert COMPETITION_CODE_OVERRIDES['KR1'] == nationality_flag('Croácia')
         assert COMPETITION_CODE_OVERRIDES['RLB3'] == nationality_flag('Alemanha')
+
+
+class TestResolveFlags:
+    def test_no_flags_defaults_to_all_true(self, command):
+        from bot.domain.commands.base import ParsedCommand
+
+        parsed = ParsedCommand(command_name='placar', flags=set(), options={}, rest='')
+        show_past, show_now, show_next = command._resolve_flags(parsed)
+        assert show_past is True
+        assert show_now is True
+        assert show_next is True
+
+    def test_past_flag_only(self, command):
+        from bot.domain.commands.base import ParsedCommand
+
+        parsed = ParsedCommand(command_name='placar', flags={'past'}, options={}, rest='')
+        show_past, show_now, show_next = command._resolve_flags(parsed)
+        assert show_past is True
+        assert show_now is False
+        assert show_next is False
+
+    def test_all_flags_set(self, command):
+        from bot.domain.commands.base import ParsedCommand
+
+        parsed = ParsedCommand(
+            command_name='placar',
+            flags={'past', 'now', 'next'},
+            options={},
+            rest='',
+        )
+        show_past, show_now, show_next = command._resolve_flags(parsed)
+        assert show_past is True
+        assert show_now is True
+        assert show_next is True
+
+
+class TestFilterMatches:
+    def test_finished_matches_filters_by_status(self, command):
+        finished = command._finished_matches(
+            [
+                _make_match('A', 'B', 1, 0, status=MatchStatus.FINISHED),
+                _make_match('C', 'D', 2, 2, status=MatchStatus.LIVE),
+            ]
+        )
+        assert len(finished) == 1
+        assert finished[0].status == MatchStatus.FINISHED
+
+    def test_finished_matches_empty_when_none(self, command):
+        assert command._finished_matches([]) == []
+
+    def test_build_sections_includes_finished(self, command):
+        matches = [_make_match('A', 'B', 1, 0, status=MatchStatus.FINISHED)]
+        sections = command._build_sections([], [], matches)
+        assert any('Encerrados' in line for line in sections)
+
+    def test_build_sections_empty_when_no_matches(self, command):
+        assert command._build_sections([], [], []) == []

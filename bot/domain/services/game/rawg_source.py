@@ -32,9 +32,13 @@ class RawgSource(GameSource):
             raise ExternalServiceError(msg)
 
         game = random.choice(games)  # noqa: S311
+        return self._parse_game(game)
+
+    @staticmethod
+    def _parse_game(game: dict) -> GameInfo:
         year = (game.get('released') or '?')[:4]
-        genres = ', '.join(g['name'] for g in game.get('genres') or []) or '—'
-        platforms = ', '.join(p['platform']['name'] for p in game.get('platforms') or []) or '—'
+        genres = RawgSource._join_names(game.get('genres') or [], 'name', '—')
+        platforms = RawgSource._join_nested(game.get('platforms') or [], 'platform', 'name', '—')
         metacritic = game.get('metacritic')
         rating = f'{metacritic}/100' if metacritic else None
 
@@ -46,3 +50,13 @@ class RawgSource(GameSource):
             rating=rating,
             cover_url=game['background_image'],
         )
+
+    @staticmethod
+    def _join_names(items: list[dict], key: str, fallback: str) -> str:
+        result = ', '.join(item[key] for item in items)
+        return result or fallback
+
+    @staticmethod
+    def _join_nested(items: list[dict], outer_key: str, inner_key: str, fallback: str) -> str:
+        result = ', '.join(item[outer_key][inner_key] for item in items)
+        return result or fallback
