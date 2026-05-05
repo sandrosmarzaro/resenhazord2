@@ -4,7 +4,7 @@ import structlog
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.application.command_registry import CommandRegistry
 from bot.application.message_preprocess import preprocess_messages
-from bot.domain.commands.base import Command, CommandConfig, CommandScope, Platform
+from bot.domain.commands.base import Command, CommandConfig, CommandScope, OptionDef, Platform
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.ports.discord_port import DiscordPort
@@ -95,25 +95,30 @@ class DiscordInteractionHandler:
         for opt in config.options:
             value = kwargs.get(opt.name)
             if value is not None:
-                val_str = str(value)
-                if opt.pattern and not val_str.lower().startswith(opt.name.lower()):
-                    val_str = f'{opt.name}{val_str}'
-                parts.append(val_str)
+                parts.append(DiscordInteractionHandler._format_option(opt, value))
 
-        for flag in config.flags:
-            value = kwargs.get(flag)
-            if value is True:
-                parts.append(flag)
+        parts.extend(flag for flag in config.flags if kwargs.get(flag) is True)
 
-        if (
+        if DiscordInteractionHandler._has_free_args(kwargs, option_names, flag_names):
+            parts.append(str(kwargs['args']))
+
+        return parts
+
+    @staticmethod
+    def _format_option(opt: OptionDef, value) -> str:
+        val_str = str(value)
+        if opt.pattern and not val_str.lower().startswith(opt.name.lower()):
+            return f'{opt.name}{val_str}'
+        return val_str
+
+    @staticmethod
+    def _has_free_args(kwargs: dict, option_names: set[str], flag_names: set[str]) -> bool:
+        return (
             'args' in kwargs
             and kwargs['args'] is not None
             and 'args' not in option_names
             and 'args' not in flag_names
-        ):
-            parts.append(str(kwargs['args']))
-
-        return parts
+        )
 
     @staticmethod
     def _build_command_data(interaction: discord.Interaction, text: str) -> CommandData:

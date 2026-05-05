@@ -50,18 +50,10 @@ class AgentResponseTranslator:
         return replace(data, text=command_text, jid=target_jid)
 
     def _compose_command_text(self, command_name: str, arguments: str) -> str:
-        try:
-            args_dict = json.loads(arguments) if arguments else {}
-        except json.JSONDecodeError:
-            args_dict = {}
-
+        args_dict = self._parse_arguments(arguments)
         command_name = command_name.lstrip('-')
-        flags = [k.lstrip('-') for k, v in args_dict.items() if v is True]
-        options = {
-            k.lstrip('-'): v
-            for k, v in args_dict.items()
-            if v is not True and v is not False and k not in ('args', 'command')
-        }
+        flags = self._extract_flags(args_dict)
+        options = self._extract_options(args_dict)
         text_args = args_dict.get('args', '')
 
         parts = [f',{command_name}']
@@ -72,6 +64,27 @@ class AgentResponseTranslator:
             parts.append(text_args)
 
         return ' '.join(parts).strip('\'"')
+
+    @staticmethod
+    def _extract_flags(args_dict: dict) -> list[str]:
+        return [k.lstrip('-') for k, v in args_dict.items() if v is True]
+
+    @staticmethod
+    def _extract_options(args_dict: dict) -> dict:
+        return {
+            k.lstrip('-'): v
+            for k, v in args_dict.items()
+            if v is not True and v is not False and k not in ('args', 'command')
+        }
+
+    @staticmethod
+    def _parse_arguments(arguments: str) -> dict:
+        if not arguments:
+            return {}
+        try:
+            return json.loads(arguments)
+        except json.JSONDecodeError:
+            return {}
 
     def _apply_dm_redirect(
         self,

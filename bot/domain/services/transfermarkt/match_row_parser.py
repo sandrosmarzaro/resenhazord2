@@ -20,53 +20,54 @@ class MatchRowParser:
     @classmethod
     def parse_live_table_rows(cls, table: Tag, comp_ctx: CompetitionContext) -> list[TmLiveMatch]:
         matches: list[TmLiveMatch] = []
-
         for row in table.find_all('tr'):
             if not isinstance(row, Tag):
                 continue
-
-            home_cell = row.find('td', class_='verein-heim')
-            away_cell = row.find('td', class_='verein-gast')
-            result_cell = row.find('td', class_='ergebnis')
-            time_cell = row.find('td', class_='zeit')
-
-            if not (home_cell and away_cell and result_cell):
-                continue
-
-            home_team = MatchResultParser._extract_team_name(home_cell)
-            away_team = MatchResultParser._extract_team_name(away_cell)
-
-            result_link = result_cell.find('a')
-            if not result_link or not isinstance(result_link, Tag):
-                continue
-
-            match_id = MatchResultParser._extract_match_id(result_link)
-            home_score, away_score, status, match_time = MatchResultParser.parse_match_result(
-                result_link, result_cell, time_cell
-            )
-
-            round_span = row.find('span', class_=' Spieltag')
-            round_str = (
-                round_span.get_text(strip=True)
-                if round_span and isinstance(round_span, Tag)
-                else None
-            )
-
-            matches.append(
-                TmLiveMatch(
-                    competition_code=comp_ctx.code,
-                    competition_name=comp_ctx.name,
-                    country=comp_ctx.country,
-                    country_flag_emoji=comp_ctx.flag_emoji,
-                    home_team=home_team,
-                    away_team=away_team,
-                    home_score=home_score,
-                    away_score=away_score,
-                    match_time=match_time,
-                    status=status,
-                    match_id=match_id,
-                    round=round_str,
-                )
-            )
-
+            match = cls._parse_row(row, comp_ctx)
+            if match:
+                matches.append(match)
         return matches
+
+    @classmethod
+    def _parse_row(cls, row: Tag, comp_ctx: CompetitionContext) -> TmLiveMatch | None:
+        home_cell = row.find('td', class_='verein-heim')
+        away_cell = row.find('td', class_='verein-gast')
+        result_cell = row.find('td', class_='ergebnis')
+        time_cell = row.find('td', class_='zeit')
+
+        if not (home_cell and away_cell and result_cell):
+            return None
+
+        result_link = result_cell.find('a')
+        if not result_link or not isinstance(result_link, Tag):
+            return None
+
+        home_team = MatchResultParser._extract_team_name(home_cell)
+        away_team = MatchResultParser._extract_team_name(away_cell)
+        match_id = MatchResultParser._extract_match_id(result_link)
+        home_score, away_score, status, match_time = MatchResultParser.parse_match_result(
+            result_link, result_cell, time_cell
+        )
+
+        round_str = cls._extract_round(row)
+        return TmLiveMatch(
+            competition_code=comp_ctx.code,
+            competition_name=comp_ctx.name,
+            country=comp_ctx.country,
+            country_flag_emoji=comp_ctx.flag_emoji,
+            home_team=home_team,
+            away_team=away_team,
+            home_score=home_score,
+            away_score=away_score,
+            match_time=match_time,
+            status=status,
+            match_id=match_id,
+            round=round_str,
+        )
+
+    @staticmethod
+    def _extract_round(row: Tag) -> str | None:
+        round_span = row.find('span', class_=' Spieltag')
+        if round_span and isinstance(round_span, Tag):
+            return round_span.get_text(strip=True)
+        return None
