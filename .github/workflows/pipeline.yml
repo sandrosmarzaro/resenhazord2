@@ -10,10 +10,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Gate: skip the entire pipeline for semantic-release commits
+  # to avoid re-deploying on version-bump pushes that only touch CHANGELOG/pyproject.toml
+  gate:
+    name: Check pipeline eligibility
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Skip semantic-release commits
+        id: check
+        run: |
+          if [ "${{ github.event.head_commit.committer.username }}" = "semantic-release" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   # Stage 1: Lint, format, type check (parallel)
   lint-ts:
     name: TS lint and format check
     runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
     defaults:
       run:
         working-directory: gateway
@@ -28,6 +47,8 @@ jobs:
   lint-py:
     name: Python lint and type check
     runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
@@ -75,6 +96,8 @@ jobs:
   complexity-py:
     name: Python complexity gate
     runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
@@ -176,7 +199,7 @@ jobs:
     permissions:
       contents: write
     outputs:
-      released: ${{ steps.release.outputs.released }}
+      released: ${{ steps.check_release.outputs.released }}
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
     steps:
@@ -201,12 +224,20 @@ jobs:
           uvx python-semantic-release@10 -c semantic-release.toml version
           uvx python-semantic-release@10 -c semantic-release.toml publish
 
-  # Stage 7: Back-merge main into develop (after release)
+      - name: Check if release was created
+        id: check_release
+        run: |
+          if [ -n "${{ steps.release.outputs.version }}" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Stage 7: Back-merge main into develop (always, not only on new releases)
   backmerge:
     name: Back-merge main into develop
     runs-on: ubuntu-latest
     needs: release
-    if: needs.release.outputs.released == 'true'
     permissions:
       contents: write
     steps:
