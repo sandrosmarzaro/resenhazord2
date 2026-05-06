@@ -2,6 +2,122 @@
 
 <!-- version list -->
 
+## v1.5.2 (2026-05-05)
+
+### Bug Fixes
+
+- Resolve basedpyright and SonarQube issues
+  ([`260a060`](https://github.com/sandrosmarzaro/resenhazord2/commit/260a0605e4c5f211868d5acbd7ad096b64095b2e))
+
+- **agent**: Return user-friendly message when LLM providers unavailable
+  ([`8b3174f`](https://github.com/sandrosmarzaro/resenhazord2/commit/8b3174fe13238ec2a1d99f9fcd619209624871a6))
+
+- **build**: Configure hatchling backend to resolve flat-layout build error
+  ([`4810b51`](https://github.com/sandrosmarzaro/resenhazord2/commit/4810b5140e17d5a96b683b7f1a22a321d4314f9c))
+
+- **ci**: Move PSR config to pyproject.toml so v10 discovers it
+  ([`6149e5d`](https://github.com/sandrosmarzaro/resenhazord2/commit/6149e5d0eca677341a925414ad6690317c4751e8))
+
+- **ci**: Move PSR config to semantic-release.toml with -c flag
+  ([`5f6bdac`](https://github.com/sandrosmarzaro/resenhazord2/commit/5f6bdac54e2a551c8be24427fd1cb5fd90f3145d))
+
+- **discord**: Handle clarify and suggest builtin prefixes in agent router
+  ([`7314b3f`](https://github.com/sandrosmarzaro/resenhazord2/commit/7314b3f2d15b2cdd943dfb60cd006f2605093c2f))
+
+- **discord**: Suppress @everyone/@here pings in bot replies
+  ([`3788900`](https://github.com/sandrosmarzaro/resenhazord2/commit/3788900bea5b2901716aaad23a84eaea2987d4de))
+
+- **handler**: Return clarify fallback on ValueError instead of raw data
+  ([`885f861`](https://github.com/sandrosmarzaro/resenhazord2/commit/885f8611a708d37fafe0848a10baba9e96cb8df0))
+
+- **telegram**: Handle clarify and suggest builtin prefixes in agent router
+  ([`832b5df`](https://github.com/sandrosmarzaro/resenhazord2/commit/832b5df67dacc37e72ba950d114c7bd0c090cd7b))
+
+- **tests**: Add is_group flag to ws_handler no-match test
+  ([`1fc6119`](https://github.com/sandrosmarzaro/resenhazord2/commit/1fc6119befadd486cc48d4f5cd3154eb981011bf))
+
+### Chores
+
+- Replace slash commands with taskipy tasks, add complexity to pre-push hook
+  ([`0f972ce`](https://github.com/sandrosmarzaro/resenhazord2/commit/0f972ce7ce567c31c2a4daca92a47ccfe6f29b6a))
+
+- **deploy**: Export COMPOSE_BAKE=true for faster image builds
+  ([`af08d6a`](https://github.com/sandrosmarzaro/resenhazord2/commit/af08d6ad74c9ec7de71a999d9d4d0e77d3a88cde))
+
+- **deps**: Add radon and xenon for cyclomatic complexity gate
+  ([`bcdf46a`](https://github.com/sandrosmarzaro/resenhazord2/commit/bcdf46a46a006bb5a613edb7e12786ea658fe259))
+
+- **docker**: Enable COMPOSE_BAKE=true for faster builds
+  ([`cd560c9`](https://github.com/sandrosmarzaro/resenhazord2/commit/cd560c97ae88d2637efbf7511e3c47791aecfc9f))
+
+- **taskipy**: Add logrotate task to truncate docker.log
+  ([`88693bc`](https://github.com/sandrosmarzaro/resenhazord2/commit/88693bc00b73a17e016ff63e3fd4404309f031e4))
+
+- **taskipy**: Fix log task to show logs and save to file
+  ([`0c4b391`](https://github.com/sandrosmarzaro/resenhazord2/commit/0c4b3917217523ef6672d5ad86a954b3d653d5bc))
+
+### Continuous Integration
+
+- Remove C901/PLR0912 ignores, add complexity gate and explicit mccabe threshold
+  ([`2afaa9d`](https://github.com/sandrosmarzaro/resenhazord2/commit/2afaa9d9affc926876be19fda15c7c8837541c32))
+
+### Refactoring
+
+- Reduce CC to ≤10 for match_row_parser, standing_parser, agent_response, discord handler
+  ([`69eea4b`](https://github.com/sandrosmarzaro/resenhazord2/commit/69eea4b38825b03a15d6761c8f00166c47b2e58f))
+
+- **agent**: Extract shared prefix constants and fix inline literals
+  ([`9458bc1`](https://github.com/sandrosmarzaro/resenhazord2/commit/9458bc1f7eb9c29ffdde6ea83fa2675d2d1ac477))
+
+- **anime**: Extract methods to reduce execute CC from 19 to ≤10
+  ([`438ff8b`](https://github.com/sandrosmarzaro/resenhazord2/commit/438ff8b1393731230cc1efed5edb0d7e2f007923))
+
+- **caption**: Extract _resolve_country and reuse _stadium_lines to reduce build_bare CC from 11 to
+  ≤10
+  ([`f0e26a7`](https://github.com/sandrosmarzaro/resenhazord2/commit/f0e26a745f8ff606338af6d9a2e6972221003f93))
+
+- **football-player**: Extract _lookup method to reduce _build_caption CC from 13 to ≤10
+  ([`73ed087`](https://github.com/sandrosmarzaro/resenhazord2/commit/73ed0878a7d7740b02d9eb78ff6d302b9fc51ad2))
+
+- **football-team**: Extract methods to reduce _random_team CC from 15 to ≤10
+  ([`a69625c`](https://github.com/sandrosmarzaro/resenhazord2/commit/a69625ca129ca0b3280e1976f1f9118a1fb83a3f))
+
+- **lineup**: Extract _league_lineup and _resolve_global_pages to reduce build CC from 11 to ≤10
+  ([`727114f`](https://github.com/sandrosmarzaro/resenhazord2/commit/727114f03426754b474cfb3a2e23160a14b94f18))
+
+- **meal-recipes**: Extract methods to reduce _fetch_and_build CC from 12 to ≤10
+  ([`d34f450`](https://github.com/sandrosmarzaro/resenhazord2/commit/d34f450befbefa60692579b08d96642301e850b1))
+
+- **nhentai**: Extract _filter_tags and _find_tag to reduce _parse CC from 15 to ≤10
+  ([`b36979e`](https://github.com/sandrosmarzaro/resenhazord2/commit/b36979e7ea6dabddceda0193208ce27cd68a5144))
+
+- **rawg**: Extract _parse_game, _join_names, _join_nested to reduce fetch CC from 13 to ≤10
+  ([`50a1531`](https://github.com/sandrosmarzaro/resenhazord2/commit/50a153117735aa2e8bb0285cc6efa1f43a489182))
+
+- **score**: Extract methods to reduce execute CC from 20 to ≤10
+  ([`00b9fb9`](https://github.com/sandrosmarzaro/resenhazord2/commit/00b9fb999d5a9f3d23b0bdea38779deda05c4088))
+
+- **thesportsdb**: Extract _score_candidate to reduce find_best_match CC from 12 to ≤10
+  ([`9c98055`](https://github.com/sandrosmarzaro/resenhazord2/commit/9c98055ffa8de6eabaccc2163fb811f0c78609f1))
+
+### Testing
+
+- Add coverage for extracted methods, fix type annotations and module-level constant
+  ([`adbe0f1`](https://github.com/sandrosmarzaro/resenhazord2/commit/adbe0f1a21039b69b31374c2c34f6ef6a409f333))
+
+- **agent**: Cover empty clarify/suggest content guard
+  ([`10bd7b5`](https://github.com/sandrosmarzaro/resenhazord2/commit/10bd7b58a7f81aaf4f6ac0815f3cc6b0ce928701))
+
+- **agent**: Use shared constants, strengthen assertions, test through public API
+  ([`d9f034c`](https://github.com/sandrosmarzaro/resenhazord2/commit/d9f034c3af5ad3eca46e39b89bd29b68eb23acdf))
+
+- **constants**: Add smoke tests for shared prefix and marker constants
+  ([`d1665d4`](https://github.com/sandrosmarzaro/resenhazord2/commit/d1665d4e657703f12d1006bd114cd23d787bdaaf))
+
+- **handler**: Cover empty clarify/suggest prefix fallback
+  ([`429284c`](https://github.com/sandrosmarzaro/resenhazord2/commit/429284cf8914f8a872a50e1affbe50b8a8d85463))
+
+
 ## v1.5.1 (2026-05-04)
 
 ### Bug Fixes
