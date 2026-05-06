@@ -1,7 +1,7 @@
 [semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 build_command = """
-    uv lock --upgrade-package "$PACKAGE_NAME"
+    uv lock --upgrade-package resenhazord2-core
     git add uv.lock
     uv build
 """
