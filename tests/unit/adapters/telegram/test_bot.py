@@ -1,7 +1,8 @@
+import logging
 from typing import Any, cast
 
 import pytest
-from telegram.error import TelegramError
+from telegram.error import NetworkError, TelegramError
 
 from bot.adapters.telegram.bot import TelegramBot
 from bot.domain.commands.base import CommandScope, Platform
@@ -81,6 +82,37 @@ class TestStartStop:
         cast('Any', bot._app.initialize).assert_called_once()
         cast('Any', bot._app.start).assert_called_once()
         cast('Any', updater_mock.start_polling).assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_start_registers_error_handler(self, mocker):
+        bot = _make_bot(mocker)
+        bot._app.initialize = mocker.AsyncMock()
+        bot._app.start = mocker.AsyncMock()
+        bot._app.updater = None
+        bot._publish_command_menu = mocker.AsyncMock()
+        _patch_registry(mocker, [])
+
+        await bot.start()
+
+        cast('Any', bot._app.add_error_handler).assert_called_once_with(bot._handle_error)
+
+    @pytest.mark.anyio
+    async def test_start_suppresses_updater_logger(self, mocker):
+        updater_logger = logging.getLogger('telegram.ext.Updater')
+        original_level = updater_logger.level
+        bot = _make_bot(mocker)
+        bot._app.initialize = mocker.AsyncMock()
+        bot._app.start = mocker.AsyncMock()
+        bot._app.updater = None
+        bot._publish_command_menu = mocker.AsyncMock()
+        _patch_registry(mocker, [])
+
+        try:
+            await bot.start()
+
+            assert updater_logger.level == logging.CRITICAL
+        finally:
+            updater_logger.setLevel(original_level or logging.NOTSET)
 
     @pytest.mark.anyio
     async def test_start_without_updater_skips_polling(self, mocker):
@@ -272,3 +304,54 @@ class TestPublishCommandMenu:
         assert len(nsfw_calls) == 2
         published_names = {c.command for c in nsfw_calls[0].args[0]}
         assert published_names == {'oi', 'hentai'}
+
+
+class TestErrorHandler:
+    @pytest.mark.anyio
+    async def test_network_error_logged_as_warning(self, mocker):
+        bot = _make_bot(mocker)
+        mock_logger = mocker.patch('bot.adapters.telegram.bot.logger')
+        context = mocker.MagicMock()
+        context.error = NetworkError('[Errno -3] Try again')
+
+        await bot._handle_error(object(), context)
+
+        mock_logger.warning.assert_called_once_with(
+            'telegram_network_error',
+            error='[Errno -3] Try again',
+        )
+        mock_logger.exception.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_non_network_error_logged_and_captured(self, mocker):
+        bot = _make_bot(mocker)
+        mock_logger = mocker.patch('bot.adapters.telegram.bot.logger')
+        capture = mocker.patch('bot.adapters.telegram.bot.sentry_sdk.capture_exception')
+        context = mocker.MagicMock()
+        error = TelegramError('something broke')
+        context.error = error
+
+        await bot._handle_error(object(), context)
+
+        mock_logger.exception.assert_called_once_with(
+            'telegram_unexpected_error',
+            error='something broke',
+        )
+        capture.assert_called_once_with(error)
+
+    @pytest.mark.anyio
+    async def test_unexpected_exception_logged_and_captured(self, mocker):
+        bot = _make_bot(mocker)
+        mock_logger = mocker.patch('bot.adapters.telegram.bot.logger')
+        capture = mocker.patch('bot.adapters.telegram.bot.sentry_sdk.capture_exception')
+        context = mocker.MagicMock()
+        error = RuntimeError('oops')
+        context.error = error
+
+        await bot._handle_error(object(), context)
+
+        mock_logger.exception.assert_called_once_with(
+            'telegram_unexpected_error',
+            error='oops',
+        )
+        capture.assert_called_once_with(error)
