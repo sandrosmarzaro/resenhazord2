@@ -83,14 +83,8 @@ When `develop` has accumulated enough changes to release:
 3. **Merge with "Create a merge commit"** — not squash, not rebase. This is **mandatory**.
 
    Why: semantic-release analyzes every commit between the previous release tag and `main` to compute the next version. A squash would collapse many Conventional Commits into one subject and produce the wrong bump (e.g. hiding a `feat` behind a `chore` title). The merge commit preserves every `feat` / `fix` / `BREAKING CHANGE`.
-4. `Pipeline` runs automatically on `main`: lint → test → build → deploy → semantic-release → new tag + `CHANGELOG.md`.
-5. **Back-merge `main` into `develop`** locally (no PR needed):
-
-   ```bash
-   git checkout develop && git pull
-   git merge --no-ff main -m "chore: back-merge main into develop"
-   git push origin develop
-   ```
+4. `Pipeline` runs automatically on `main`: lint → test → build → deploy → register deployment → semantic-release → new tag + `CHANGELOG.md`.
+5. **Back-merge is automatic** — the `backmerge` job in `Pipeline` merges `main` into `develop` after a successful release. No manual step needed.
 
 ## Hotfix workflow
 
@@ -100,14 +94,7 @@ For urgent production fixes that can't wait for the next release:
 2. Fix, commit with Conventional Commits, push
 3. Open PR targeting `main`
 4. Merge with **"Create a merge commit"** (same reason as release)
-5. Pipeline deploys and releases a patch version
-6. **Back-merge `main` into `develop`** locally (no PR needed):
-
-   ```bash
-   git checkout develop && git pull
-   git merge --no-ff main -m "chore: back-merge main into develop"
-   git push origin develop
-   ```
+5. Pipeline deploys and releases a patch version. Back-merge to develop is automatic via the `backmerge` job.
 
 ## Merge-strategy summary
 
@@ -116,4 +103,4 @@ For urgent production fixes that can't wait for the next release:
 | `develop` ← feature/fix/chore  | **Squash**               | Clean history; squash subject itself is a Conventional Commit       |
 | `main` ← `develop`             | **Merge commit (`--no-ff`)** | Preserves every Conventional Commit for semantic-release         |
 | `main` ← `hotfix/*`            | **Merge commit**         | Same reason                                                         |
-| `develop` ← `main` (back-merge)| **Local merge, no PR**    | Avoids duplicate CI runs; commits already vetted on main            |
+| `develop` ← `main` (back-merge)| **CI automated `--no-ff`** | Pipeline `backmerge` job; no manual step needed                   |
