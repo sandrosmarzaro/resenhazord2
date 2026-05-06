@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.5.3 (2026-05-06)
+
+### Bug Fixes
+
+- **ci**: Fix PSR version bump, add automated back-merge and deployment registration
+  ([`342a399`](https://github.com/sandrosmarzaro/resenhazord2/commit/342a399e39b5425d060d8715aba52484c7bcf4f6))
+
+- **telegram**: Address review findings for error handler
+  ([`b599420`](https://github.com/sandrosmarzaro/resenhazord2/commit/b599420ecf51eb99531e58ed470eae5274f50c1b))
+
+- **telegram**: Handle NetworkError gracefully, suppress Updater logger spam
+  ([`423295b`](https://github.com/sandrosmarzaro/resenhazord2/commit/423295bb1105de01bff5cf39227d32922bbb2292))
+
+### Chores
+
+- Update uv.lock
+  ([`90fd05c`](https://github.com/sandrosmarzaro/resenhazord2/commit/90fd05c1c7a9d87001113e455b82f883f86bb0d6))
+
+
 ## v1.5.2 (2026-05-05)
 
 ### Bug Fixes
