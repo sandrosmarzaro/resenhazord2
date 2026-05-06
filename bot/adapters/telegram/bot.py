@@ -1,17 +1,21 @@
+import logging
 import re
 import unicodedata
 from collections.abc import Callable, Coroutine
 from typing import Any, ClassVar
 
+import sentry_sdk
 import structlog
 from telegram import BotCommand, BotCommandScopeChat, Update
-from telegram.error import TelegramError
+from telegram.error import NetworkError, RetryAfter, TelegramError
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandScope, Platform
+
+_UPDATER_LOGGER = logging.getLogger('telegram.ext.Updater')
 
 logger = structlog.get_logger()
 
@@ -41,8 +45,11 @@ class TelegramBot:
         )
         self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids)
         self._nsfw_chat_ids = nsfw_chat_ids
+        self._original_updater_level = _UPDATER_LOGGER.level
 
     async def start(self) -> None:
+        self._app.add_error_handler(self._handle_error)
+        _UPDATER_LOGGER.setLevel(logging.CRITICAL)
         self._register_handlers()
         await self._app.initialize()
         await self._app.start()
@@ -56,6 +63,7 @@ class TelegramBot:
             await self._app.updater.stop()
         await self._app.stop()
         await self._app.shutdown()
+        _UPDATER_LOGGER.setLevel(self._original_updater_level)
         logger.info('telegram_stopped')
 
     def _register_handlers(self) -> None:
@@ -90,6 +98,17 @@ class TelegramBot:
             await handler.handle(port, update)
 
         return callback
+
+    async def _handle_error(self, _update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        error = context.error
+        if error is None:
+            logger.warning('telegram_error_missing')
+            return
+        if isinstance(error, NetworkError | RetryAfter):
+            logger.warning('telegram_transient_error', error=str(error))
+            return
+        logger.exception('telegram_unexpected_error', error=str(error))
+        sentry_sdk.capture_exception(error)
 
     async def _publish_command_menu(self) -> None:
         public = self._bot_commands_for_scopes({self.PUBLIC_SCOPE})

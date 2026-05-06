@@ -1838,8 +1838,8 @@ wheels = [
 
 [[package]]
 name = "resenhazord2-core"
-version = "0.1.0"
-source = { virtual = "." }
+version = "1.5.2"
+source = { editable = "." }
 dependencies = [
     { name = "beanie" },
     { name = "beautifulsoup4" },
