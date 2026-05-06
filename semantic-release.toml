@@ -1,5 +1,5 @@
 [semantic_release]
-version_variables = ["pyproject.toml:project.version"]
+version_toml = ["pyproject.toml:project.version"]
 build_command = """
     uv lock --upgrade-package "$PACKAGE_NAME"
     git add uv.lock

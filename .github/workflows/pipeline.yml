@@ -21,7 +21,7 @@ jobs:
       - name: Skip semantic-release commits
         id: check
         run: |
-          if [ "${{ github.event.head_commit.committer.username }}" = "semantic-release" ]; then
+          if [ "${{ github.event.head_commit.committer.name }}" = "semantic-release" ]; then
             echo "should_run=false" >> "$GITHUB_OUTPUT"
           else
             echo "should_run=true" >> "$GITHUB_OUTPUT"
@@ -249,6 +249,8 @@ jobs:
 
       - name: Merge main into develop
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git merge --no-ff origin/main -m "chore: back-merge main into develop"
           git push origin develop
