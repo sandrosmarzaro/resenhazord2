@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.4 (2026-05-06)
+
+### Bug Fixes
+
+- **ci**: Skip pipeline on PSR commits, always back-merge, deduplicate deployments
+  ([`7968a67`](https://github.com/sandrosmarzaro/resenhazord2/commit/7968a67c63c146ef61a5bdc0ded548029e37cf7f))
+
+
 ## v1.5.3 (2026-05-06)
 
 ### Bug Fixes
