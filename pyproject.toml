@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "resenhazord2-core"
-version = "1.5.5"
+version = "1.5.6"
 description = "Python core for Resenhazord2 WhatsApp bot"
 requires-python = ">=3.13"
 dependencies = [
