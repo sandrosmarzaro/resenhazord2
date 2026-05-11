@@ -202,7 +202,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_TOKEN }}
       - name: Merge main into develop
         run: |
           git config user.name "github-actions[bot]"
