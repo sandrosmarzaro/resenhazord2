@@ -5,34 +5,11 @@ on:
     branches:
       - main
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
-
 jobs:
-  # Gate: skip the entire pipeline for semantic-release commits
-  # to avoid re-deploying on version-bump pushes that only touch CHANGELOG/pyproject.toml
-  gate:
-    name: Check pipeline eligibility
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-    steps:
-      - name: Skip semantic-release commits
-        id: check
-        run: |
-          if [ "${{ github.event.head_commit.committer.name }}" = "semantic-release" ]; then
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          fi
-
   # Stage 1: Lint, format, type check (parallel)
   lint-ts:
     name: TS lint and format check
     runs-on: ubuntu-latest
-    needs: gate
-    if: needs.gate.outputs.should_run == 'true'
     defaults:
       run:
         working-directory: gateway
@@ -47,8 +24,6 @@ jobs:
   lint-py:
     name: Python lint and type check
     runs-on: ubuntu-latest
-    needs: gate
-    if: needs.gate.outputs.should_run == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
@@ -56,6 +31,15 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run basedpyright
+
+  complexity-py:
+    name: Python complexity gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+      - run: uv sync --frozen
+      - run: uv run task complexity
 
   # Stage 2: Tests (after lint passes)
   test-ts:
@@ -92,17 +76,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
           files: coverage.xml
-
-  complexity-py:
-    name: Python complexity gate
-    runs-on: ubuntu-latest
-    needs: gate
-    if: needs.gate.outputs.should_run == 'true'
-    steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
-      - run: uv sync --frozen
-      - run: uv run task complexity
 
   # Stage 3: Build Docker images (after all tests pass)
   build:
@@ -191,66 +164,17 @@ jobs:
               required_contexts: []
             })
 
-  # Stage 6: Release (after deploy)
-  release:
-    name: Semantic Release
+  # Stage 6: Tag release (after deploy)
+  tag:
+    name: Tag release
     runs-on: ubuntu-latest
     needs: deploy
     permissions:
       contents: write
-    outputs:
-      released: ${{ steps.check_release.outputs.released }}
-      version: ${{ steps.release.outputs.version }}
-      tag: ${{ steps.release.outputs.tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-          persist-credentials: true
-          token: ${{ secrets.RELEASE_TOKEN }}
-
-      - name: Set up Python
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
-
-      - name: Run Semantic Release
-        id: release
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          GIT_COMMITTER_NAME: semantic-release
-          GIT_COMMITTER_EMAIL: semantic-release@users.noreply.github.com
-        run: |
-          uvx python-semantic-release@10 -c semantic-release.toml version
-          uvx python-semantic-release@10 -c semantic-release.toml publish
-
-      - name: Check if release was created
-        id: check_release
-        run: |
-          if [ -n "${{ steps.release.outputs.version }}" ]; then
-            echo "released=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "released=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  # Stage 7: Back-merge main into develop (always, not only on new releases)
-  backmerge:
-    name: Back-merge main into develop
-    runs-on: ubuntu-latest
-    needs: release
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: develop
-          fetch-depth: 0
-          token: ${{ secrets.RELEASE_TOKEN }}
-
-      - name: Merge main into develop
+      - name: Create and push tag
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git merge --no-ff origin/main -m "chore: back-merge main into develop"
-          git push origin develop
+          VERSION=$(grep '^version = ' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
