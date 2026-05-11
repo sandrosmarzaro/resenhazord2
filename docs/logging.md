@@ -218,3 +218,40 @@ for entry in d.get('entries', []):
 ```
 
 Replace `<ISSUE_ID>` with the numeric ID or `shortId` (e.g., `RESENHAZORD2-9`).
+
+## Sentry CLI
+
+The project uses the new `sentry` CLI (not the older `sentry-cli`). Install and authenticate once:
+
+```bash
+npm install -g @sentry/cli
+sentry auth
+```
+
+### Query issues
+
+List unresolved issues in the project:
+
+```bash
+sentry issue list -p resenhazord2 -s unresolved
+```
+
+View a specific issue with full stack trace and breadcrumbs:
+
+```bash
+sentry issue view <ISSUE_ID>
+```
+
+Get AI root cause analysis:
+
+```bash
+sentry issue explain <ISSUE_ID>
+```
+
+### Common workflows
+
+1. **Debug a production error**: Grab the issue ID from alerts, run `sentry issue view <ID>`, focus on the stack trace and breadcrumbs to understand the flow leading to the error.
+
+2. **Monitor reconnection issues**: Check for Discord network errors (`ClientConnectorDNSError`, `TimeoutError`) or WhatsApp connection drops.
+
+3. **Track handled vs unhandled**: In the issue details, `handled=yes` means the error was caught and reported manually; `handled=no` means it was an uncaught exception.
