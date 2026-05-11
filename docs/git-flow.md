@@ -53,7 +53,7 @@ This project uses a **two-permanent-branch** flow. Direct pushes to either are b
 
 | Branch    | Purpose                                                            | Default | Auto-release |
 | --------- | ------------------------------------------------------------------ | ------- | ------------ |
-| `main`    | Production. `Pipeline` workflow runs deploy + semantic-release.    | No      | Yes          |
+| `main`    | Production. `Pipeline` workflow runs deploy + tag.                 | No      | Yes          |
 | `develop` | Integration. Accumulates PRs between releases.                     | Yes     | No           |
 
 ### Short-lived branches
@@ -72,19 +72,25 @@ This project uses a **two-permanent-branch** flow. Direct pushes to either are b
 5. Require CI green + 1 approval, then **squash merge**
 6. Delete branch after merge
 
-The squash-merge commit subject **must itself be a Conventional Commit** (`feat: …`, `fix(scope): …`, …) — semantic-release reads every commit that lands on `main` later and infers the version bump from these subjects.
+The squash-merge commit subject **must itself be a Conventional Commit** (`feat: …`, `fix(scope): …`, …) — commitizen reads every commit on `develop` and infers the version bump from these subjects.
 
 ## Release workflow (`develop` → `main`)
 
 When `develop` has accumulated enough changes to release:
 
-1. Open a PR **from `develop` into `main`** using the Release PR template (append `?template=release.md` to the PR URL, or pick it from the template dropdown).
-2. Confirm CI is green.
-3. **Merge with "Create a merge commit"** — not squash, not rebase. This is **mandatory**.
+1. **Bump version on develop:** `uv run task release` (runs `cz bump --changelog`)
 
-   Why: semantic-release analyzes every commit between the previous release tag and `main` to compute the next version. A squash would collapse many Conventional Commits into one subject and produce the wrong bump (e.g. hiding a `feat` behind a `chore` title). The merge commit preserves every `feat` / `fix` / `BREAKING CHANGE`.
-4. `Pipeline` runs automatically on `main`: lint → test → build → deploy → register deployment → semantic-release → new tag + `CHANGELOG.md`.
-5. **Back-merge is automatic** — the `backmerge` job in `Pipeline` merges `main` into `develop` after a successful release. No manual step needed.
+   This reads conventional commits since the last tag, bumps `pyproject.toml` version, and updates `CHANGELOG.md`. It deletes the local tag so the tag is created on `main` by CI later.
+2. Push to develop: `git push origin develop`
+3. Open a PR **from `develop` into `main`** using the Release PR template (append `?template=release.md` to the PR URL, or pick it from the template dropdown).
+4. Confirm CI is green.
+5. **Merge with "Create a merge commit"** — not squash, not rebase. This is **mandatory**.
+
+   Why: the merge commit must include every conventional commit so the version bump and CHANGELOG in the PR already reflect the correct changes. A squash would collapse history.
+6. `Pipeline` runs automatically on `main`: lint → test → build → deploy → register deployment → tag.
+
+   The `tag` job reads `project.version` from `pyproject.toml` and creates a `v$VERSION` tag on the merge commit.
+7. **No back-merge needed** — `develop` already contains the version bump and CHANGELOG update.
 
 ## Hotfix workflow
 
@@ -94,13 +100,12 @@ For urgent production fixes that can't wait for the next release:
 2. Fix, commit with Conventional Commits, push
 3. Open PR targeting `main`
 4. Merge with **"Create a merge commit"** (same reason as release)
-5. Pipeline deploys and releases a patch version. Back-merge to develop is automatic via the `backmerge` job.
+5. Pipeline deploys and tags. After the pipeline finishes, bump version on develop with `uv run task release` and push so `develop` stays in sync.
 
 ## Merge-strategy summary
 
 | Merge target                   | Strategy                 | Reason                                                              |
 | ------------------------------ | ------------------------ | ------------------------------------------------------------------- |
 | `develop` ← feature/fix/chore  | **Squash**               | Clean history; squash subject itself is a Conventional Commit       |
-| `main` ← `develop`             | **Merge commit (`--no-ff`)** | Preserves every Conventional Commit for semantic-release         |
+| `main` ← `develop`             | **Merge commit (`--no-ff`)** | Preserves every Conventional Commit for commitizen               |
 | `main` ← `hotfix/*`            | **Merge commit**         | Same reason                                                         |
-| `develop` ← `main` (back-merge)| **CI automated `--no-ff`** | Pipeline `backmerge` job; no manual step needed                   |
