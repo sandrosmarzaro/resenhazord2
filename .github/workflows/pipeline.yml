@@ -154,7 +154,7 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.repos.createDeployment({
+            const deployment = await github.rest.repos.createDeployment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: 'main',
@@ -162,7 +162,15 @@ jobs:
               description: 'Deploy to Oracle VPS',
               auto_merge: false,
               required_contexts: []
-            })
+            });
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: 'success',
+              environment: 'production',
+              description: 'Deployment completed successfully'
+            });
 
   # Stage 6: Tag release (after deploy)
   tag:
@@ -176,5 +184,29 @@ jobs:
       - name: Create and push tag
         run: |
           VERSION=$(grep '^version = ' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "v${VERSION}"; then
+            echo "Tag v${VERSION} already exists, skipping"
+          else
+            git tag "v$VERSION"
+            git push origin "v$VERSION"
+          fi
+
+  # Stage 7: Back-merge main into develop
+  back-merge:
+    name: Back-merge main into develop
+    runs-on: ubuntu-latest
+    needs: tag
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge main into develop
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout develop
+          git merge --no-ff origin/main -m "chore: back-merge main into develop"
+          git push origin develop
