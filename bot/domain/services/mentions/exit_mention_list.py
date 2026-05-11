@@ -1,11 +1,21 @@
 import structlog
 
+from bot.domain.jid import normalize_jid
 from bot.infrastructure.mongodb import MongoDBConnection
 
 logger = structlog.get_logger()
 
 COLLECTION_NAME = 'groups_mentions'
 GROUP_NAME_FIELD = 'groups.name'
+
+
+def _matching_participants(sender_jid: str, participants: list[str]) -> list[str]:
+    normalized_sender = normalize_jid(sender_jid)
+    return [p for p in participants if normalize_jid(p) == normalized_sender]
+
+
+def _participants_by_indices(participants: list[str], indices: list[int]) -> list[str]:
+    return [participants[i - 1] for i in indices if 0 < i <= len(participants)]
 
 
 class ExitMentionList:
@@ -18,32 +28,32 @@ class ExitMentionList:
     ) -> dict:
         try:
             col = MongoDBConnection.collection(COLLECTION_NAME)
-            has_group = await col.find_one({'_id': chat_jid, GROUP_NAME_FIELD: group_name})
-            if not has_group:
-                return {
-                    'ok': False,
-                    'message': f'Não existe um grupo com o nome *{group_name}* 😔',
-                }
-
-            if not indices:
-                await col.update_one(
-                    {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
-                    {'$pull': {'groups.$.participants': sender_jid}},
-                )
-                return {'ok': True, 'group_name': group_name, 'self_only': True}
-
             group_doc = await col.find_one(
                 {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
                 projection={'groups.$': 1},
             )
             if not group_doc:
-                return {'ok': False, 'message': 'Grupo não encontrado 😔'}
-            group_data = group_doc['groups'][0]
-            to_remove = [
-                group_data['participants'][i - 1]
-                for i in indices
-                if 0 < i <= len(group_data['participants'])
-            ]
+                return {
+                    'ok': False,
+                    'message': f'Não existe um grupo com o nome *{group_name}* 😔',
+                }
+            participants = group_doc['groups'][0]['participants']
+
+            if not indices:
+                stored_jids = _matching_participants(sender_jid, participants)
+                if not stored_jids:
+                    return {
+                        'ok': False,
+                        'message': f'Você não está no grupo *{group_name}* 😔',
+                    }
+
+                await col.update_one(
+                    {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
+                    {'$pull': {'groups.$.participants': {'$in': stored_jids}}},
+                )
+                return {'ok': True, 'group_name': group_name, 'self_only': True}
+
+            to_remove = _participants_by_indices(participants, indices)
 
             if not to_remove:
                 return {
