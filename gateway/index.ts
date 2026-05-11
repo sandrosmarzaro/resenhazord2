@@ -2,6 +2,7 @@ import { Sentry } from './src/infra/Sentry.js';
 import Resenhazord2 from './src/models/Resenhazord2.js';
 import MongoDBConnection from './src/infra/MongoDBConnection.js';
 import logger from './src/infra/Logger.js';
+import { handleUnhandledRejection } from './src/infra/handleUnhandledRejection.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -11,9 +12,7 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason) => {
-  Sentry.captureException(reason);
-});
+process.on('unhandledRejection', handleUnhandledRejection);
 
 const shutdown = async () => {
   logger.info({ event: 'shutdown' });
