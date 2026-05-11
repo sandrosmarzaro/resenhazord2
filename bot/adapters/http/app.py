@@ -23,6 +23,16 @@ def _parse_chat_ids(raw: str) -> frozenset[int]:
     return frozenset(int(part) for part in raw.split(',') if part.strip())
 
 
+async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
+    try:
+        await discord_bot.client.start(token)
+    except RuntimeError as exc:
+        if 'TCPTransport' in str(exc) and 'closed' in str(exc):
+            logger.exception('discord_connection_closed', error=str(exc))
+            return
+        raise
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     register_all_commands()
@@ -31,7 +41,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     if settings.discord_token and settings.discord_server_guild_id:
         discord_bot = DiscordBot(settings.discord_server_guild_id)
         discord_bot.register_commands()
-        discord_task = asyncio.create_task(discord_bot.client.start(settings.discord_token))
+        discord_task = asyncio.create_task(_run_discord_client(discord_bot, settings.discord_token))
     telegram_bot = None
     if settings.telegram_token:
         telegram_bot = TelegramBot(
