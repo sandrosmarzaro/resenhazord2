@@ -31,7 +31,7 @@
   "dependencies": {
     "@sentry/bun": "^10.51.0",
     "@upstash/redis": "^1.37.0",
-    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "@whiskeysockets/baileys": "^7.0.0-rc10",
     "axios": "^1.16.0",
     "axios-retry": "^4.5.0",
     "dotenv": "^16.6.1",
