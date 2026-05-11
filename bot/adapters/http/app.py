@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import aiohttp
 import structlog
 from fastapi import FastAPI
 
@@ -31,6 +32,9 @@ async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
             logger.exception('discord_connection_closed', error=str(exc))
             return
         raise
+    except (aiohttp.ClientConnectorError, TimeoutError) as exc:
+        logger.exception('discord_connection_closed', error=str(exc))
+        return
 
 
 @asynccontextmanager
