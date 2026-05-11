@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-05-11)
+
+### Feat
+
+- **jid**: add normalize_jid to strip device suffixes
+
+### Fix
+
+- **ci**: use correct commitizen version_files pattern
+- **mentions**: match stored jid by normalized form on exit
+- **mentions**: normalize jids on create and add
+- **gateway**: guard unhandled rejection handler against null/undefined
+- **gateway**: harden WebSocket 1006 abnormal closure handler
+- **discord**: capture connection errors gracefully
+- **gateway**: ignore WebSocket 1006 abnormal closure
+- **discord**: handle TCPTransport closed error gracefully
+
 ## v1.5.6 (2026-05-06)
 
 
