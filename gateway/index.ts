@@ -12,6 +12,11 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason) => {
+  const error = reason as Error & { code?: number };
+  if (error.code === 1006) {
+    logger.warn({ event: 'websocket_abnormal_closure', reason: error.message });
+    return;
+  }
   Sentry.captureException(reason);
 });
 
