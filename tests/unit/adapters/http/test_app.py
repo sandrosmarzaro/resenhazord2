@@ -20,8 +20,7 @@ class TestRunDiscordClient:
         await _run_discord_client(bot, 'fake-token')
 
         bot.client.start.assert_awaited_once_with('fake-token')
-        logger_mock.exception.assert_called_once()
-        assert 'discord_connection_closed' in str(logger_mock.exception.call_args)
+        logger_mock.exception.assert_called_once_with('discord_connection_closed', error=mocker.ANY)
 
     @pytest.mark.anyio
     async def test_re_raises_unexpected_runtimeerror(self, mocker):
@@ -44,8 +43,7 @@ class TestRunDiscordClient:
         await _run_discord_client(bot, 'fake-token')
 
         bot.client.start.assert_awaited_once_with('fake-token')
-        logger_mock.exception.assert_called_once()
-        assert 'discord_connection_closed' in str(logger_mock.exception.call_args)
+        logger_mock.exception.assert_called_once_with('discord_connection_closed', error=mocker.ANY)
 
     @pytest.mark.anyio
     async def test_captures_timeout_error(self, mocker):
@@ -56,5 +54,4 @@ class TestRunDiscordClient:
         await _run_discord_client(bot, 'fake-token')
 
         bot.client.start.assert_awaited_once_with('fake-token')
-        logger_mock.exception.assert_called_once()
-        assert 'discord_connection_closed' in str(logger_mock.exception.call_args)
+        logger_mock.exception.assert_called_once_with('discord_connection_closed', error=mocker.ANY)

@@ -54,4 +54,16 @@ describe('handleUnhandledRejection', () => {
     expect(logger.warn).not.toHaveBeenCalled();
     expect(Sentry.captureException).toHaveBeenCalledWith(error);
   });
+
+  it('sends undefined reason to Sentry without crashing', () => {
+    handleUnhandledRejection(undefined);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(Sentry.captureException).toHaveBeenCalledWith(undefined);
+  });
+
+  it('sends null reason to Sentry without crashing', () => {
+    handleUnhandledRejection(null);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(Sentry.captureException).toHaveBeenCalledWith(null);
+  });
 });
