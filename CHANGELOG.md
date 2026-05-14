@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.1 (2026-05-14)
+
+### Fix
+
+- **ci**: open PR instead of pushing directly to develop on back-merge
+- **command**: normalize group names to lowercase in grupo command
+- **ci**: use RELEASE_TOKEN for back-merge push
+
 ## v1.6.0 (2026-05-11)
 
 ### Feat

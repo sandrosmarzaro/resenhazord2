@@ -66,7 +66,7 @@ class GroupMentionsCommand(Command):
         return None
 
     async def _handle_create(self, data: CommandData, rest: str) -> list[BotMessage]:
-        group_name = self.MENTION_PATTERN.sub('', rest)
+        group_name = self.MENTION_PATTERN.sub('', rest).lower()
         if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
         error = self._validate_group_name(data, group_name)
@@ -84,7 +84,7 @@ class GroupMentionsCommand(Command):
         if not re.match(r'\S+\s+\S+', rest):
             return [Reply.to(data).text('Cadê os nomes dos grupos? 🤔')]
         parts = rest.split()
-        old_name, new_name = parts[0], parts[1]
+        old_name, new_name = parts[0].lower(), parts[1].lower()
         error = self._validate_group_name(data, new_name)
         if error:
             return [error]
@@ -97,34 +97,36 @@ class GroupMentionsCommand(Command):
         return [Reply.to(data).text(f'Grupo *{old}* renomeado para *{new}* com sucesso! 🎉')]
 
     async def _handle_delete(self, data: CommandData, rest: str) -> list[BotMessage]:
-        if not rest:
+        group_name = rest.lower()
+        if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
-        result = await self._service.delete(data.jid, rest)
+        result = await self._service.delete(data.jid, group_name)
         if not result['ok']:
             return [Reply.to(data).text(result['message'])]
         return [Reply.to(data).text(f'Grupo *{result["group_name"]}* deletado com sucesso! 🎉')]
 
     async def _handle_list(self, data: CommandData, rest: str) -> list[BotMessage]:
-        if not rest:
+        group_name = rest.lower()
+        if not group_name:
             result = await self._service.list_all(data.jid)
             if not result['ok']:
                 return [Reply.to(data).text(result['message'])]
             lines = [f'- _{g["name"]}_' for g in result['groups']]
             return [Reply.to(data).text('📜 *GRUPOS* 📜\n\n' + '\n'.join(lines))]
 
-        result = await self._service.list_one(data.jid, rest)
+        result = await self._service.list_one(data.jid, group_name)
         if not result['ok']:
             return [Reply.to(data).text(result['message'])]
         lines = [f'- {i + 1}: @{strip_jid(p)}' for i, p in enumerate(result['participants'])]
         return [
             Reply.to(data).text_with(
-                f'📜 *{rest.upper()}* 📜\n\n' + '\n'.join(lines),
+                f'📜 *{group_name.upper()}* 📜\n\n' + '\n'.join(lines),
                 result['participants'],
             )
         ]
 
     async def _handle_add(self, data: CommandData, rest: str) -> list[BotMessage]:
-        group_name = self.MENTION_PATTERN.sub('', rest)
+        group_name = self.MENTION_PATTERN.sub('', rest).lower()
         if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
 
@@ -139,7 +141,7 @@ class GroupMentionsCommand(Command):
 
     async def _handle_exit(self, data: CommandData, rest: str) -> list[BotMessage]:
         parts = rest.split()
-        group_name = parts[0] if parts else ''
+        group_name = parts[0].lower() if parts else ''
         if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
         indices = [int(p) for p in parts[1:] if p.isdigit()]
@@ -155,7 +157,7 @@ class GroupMentionsCommand(Command):
 
     async def _handle_mention(self, data: CommandData, rest: str) -> list[BotMessage]:
         parts = rest.split(maxsplit=1)
-        group_name = parts[0] if parts else ''
+        group_name = parts[0].lower() if parts else ''
         if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
         text = parts[1] if len(parts) > 1 else ''

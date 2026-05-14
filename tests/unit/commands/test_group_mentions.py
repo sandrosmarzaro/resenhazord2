@@ -346,6 +346,102 @@ class TestMention:
         assert 'Não existe' in messages[0].content.text
 
 
+class TestCaseInsensitive:
+    @pytest.mark.anyio
+    async def test_mention_lowercases_group_name(self, command, mock_service):
+        mock_service.mention.return_value = {'ok': True, 'participants': []}
+        data = GroupCommandDataFactory.build(text=',grupo DEVS', jid=CHAT_JID)
+
+        await command.run(data)
+
+        mock_service.mention.assert_called_once_with(CHAT_JID, 'devs')
+
+    @pytest.mark.anyio
+    async def test_create_lowercases_group_name(self, command, mock_service):
+        mock_service.create.return_value = {'ok': True, 'group_name': 'devs'}
+        data = GroupCommandDataFactory.build(
+            text=',grupo create DEVS',
+            jid=CHAT_JID,
+            sender_jid=SENDER_JID,
+        )
+
+        await command.run(data)
+
+        mock_service.create.assert_called_once_with(CHAT_JID, SENDER_JID, 'devs', [])
+
+    @pytest.mark.anyio
+    async def test_add_lowercases_group_name(self, command, mock_service):
+        mock_service.add.return_value = {
+            'ok': True,
+            'group_name': 'devs',
+            'self_only': True,
+        }
+        data = GroupCommandDataFactory.build(
+            text=',grupo add DEVS',
+            jid=CHAT_JID,
+            sender_jid=SENDER_JID,
+        )
+
+        await command.run(data)
+
+        mock_service.add.assert_called_once_with(CHAT_JID, 'devs', SENDER_JID, [])
+
+    @pytest.mark.anyio
+    async def test_delete_lowercases_group_name(self, command, mock_service):
+        mock_service.delete.return_value = {'ok': True, 'group_name': 'devs'}
+        data = GroupCommandDataFactory.build(text=',grupo delete DEVS', jid=CHAT_JID)
+
+        await command.run(data)
+
+        mock_service.delete.assert_called_once_with(CHAT_JID, 'devs')
+
+    @pytest.mark.anyio
+    async def test_list_one_lowercases_group_name(self, command, mock_service):
+        mock_service.list_one.return_value = {
+            'ok': True,
+            'name': 'devs',
+            'participants': [],
+        }
+        data = GroupCommandDataFactory.build(text=',grupo list DEVS', jid=CHAT_JID)
+
+        await command.run(data)
+
+        mock_service.list_one.assert_called_once_with(CHAT_JID, 'devs')
+
+    @pytest.mark.anyio
+    async def test_exit_lowercases_group_name(self, command, mock_service):
+        mock_service.exit.return_value = {
+            'ok': True,
+            'group_name': 'devs',
+            'self_only': True,
+        }
+        data = GroupCommandDataFactory.build(
+            text=',grupo exit DEVS',
+            jid=CHAT_JID,
+            sender_jid=SENDER_JID,
+        )
+
+        await command.run(data)
+
+        mock_service.exit.assert_called_once_with(CHAT_JID, 'devs', SENDER_JID, [])
+
+    @pytest.mark.anyio
+    async def test_rename_lowercases_group_names(self, command, mock_service):
+        mock_service.rename.return_value = {
+            'ok': True,
+            'old_name': 'devs',
+            'new_name': 'eng',
+        }
+        data = GroupCommandDataFactory.build(
+            text=',grupo rename DEVS ENG',
+            jid=CHAT_JID,
+        )
+
+        await command.run(data)
+
+        mock_service.rename.assert_called_once_with(CHAT_JID, 'devs', 'eng')
+
+
 class TestStripJid:
     @pytest.mark.parametrize(
         ('jid', 'expected'),
