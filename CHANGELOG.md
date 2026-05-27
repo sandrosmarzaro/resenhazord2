@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-05-27)
+
+### Feat
+
+- **gateway**: route messages from all chats
+
 ## v1.6.1 (2026-05-14)
 
 ### Fix
