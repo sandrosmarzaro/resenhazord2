@@ -82,6 +82,23 @@ class TestRun:
         assert 'https://tiktok.com/@user/video/123' in first_call_args
 
     @pytest.mark.anyio
+    async def test_limits_to_single_playlist_item(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://x.com/i/status/123')
+        mock_exec = mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'video-data', b'', 0),
+            ],
+        )
+
+        await command.run(data)
+
+        for call in mock_exec.call_args_list:
+            assert '--playlist-items' in call[0]
+            assert '1' in call[0]
+
+    @pytest.mark.anyio
     async def test_empty_title_defaults_to_video(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://example.com/v')
         mock_subprocess(
