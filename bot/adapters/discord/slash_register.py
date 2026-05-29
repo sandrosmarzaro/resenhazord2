@@ -78,7 +78,8 @@ class DiscordSlashRegistrar:
                 continue
             if opt.values:
                 params[opt.name].choices = [
-                    app_commands.Choice(name=v, value=v) for v in opt.values
+                    app_commands.Choice(name=v, value=str(v))  # zuban: ignore[arg-type]
+                    for v in opt.values
                 ]
             if opt.description:
                 params[opt.name].description = opt.description

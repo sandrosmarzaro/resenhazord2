@@ -88,7 +88,7 @@ class TorahCommand(Command):
     def _random_ref() -> str:
         book = random.choice(TORAH_BOOKS)
         chapter_idx = random.randrange(len(book['chapters']))
-        verse = random.randint(1, book['chapters'][chapter_idx])
+        verse = random.randint(1, int(book['chapters'][chapter_idx]))
         return f'{book["name"]}.{chapter_idx + 1}.{verse}'
 
     @staticmethod

@@ -95,7 +95,8 @@ class TelegramUpdateHandler:
     @staticmethod
     def _find_command_entity(entities: tuple[MessageEntity, ...]) -> MessageEntity | None:
         for entity in entities:
-            if entity.type == MessageEntityType.BOT_COMMAND and entity.offset == 0:
+            is_command = entity.type == MessageEntityType.BOT_COMMAND  # zuban: ignore[unreachable]
+            if is_command and entity.offset == 0:
                 return entity
         return None
 

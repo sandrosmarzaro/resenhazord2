@@ -1,6 +1,7 @@
 """Shared extraction helpers and constants for Transfermarkt HTML parsing."""
 
 import re
+from typing import Any
 
 from bs4 import Tag
 
@@ -49,7 +50,7 @@ class ParseHelpers:
         for td in reversed(row.find_all('td')):
             if not isinstance(td, Tag):
                 continue
-            classes = td.get('class') or []
+            classes: str | list[Any] = td.get('class') or []
             if isinstance(classes, list) and 'rechts' in classes:
                 text = td.get_text(strip=True)
                 if text and ('mi.' in text or 'mil.' in text or '€' in text):

@@ -6,6 +6,7 @@ Inspired by https://github.com/polarsource/polar/blob/main/server/polar/logging.
 import logging
 import logging.config
 import os
+from typing import Any
 
 import structlog
 
@@ -39,45 +40,44 @@ def configure_logging() -> None:
     else:
         renderer = structlog.dev.ConsoleRenderer()
 
-    logging.config.dictConfig(
-        {
-            'version': 1,
-            'disable_existing_loggers': False,
-            'filters': {
-                'health_check': {
-                    '()': HealthCheckFilter,
-                },
+    config: dict[str, Any] = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'filters': {
+            'health_check': {
+                '()': HealthCheckFilter,
             },
-            'formatters': {
-                'structlog': {
-                    '()': structlog.stdlib.ProcessorFormatter,
-                    'processors': [
-                        structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                        renderer,
-                    ],
-                    'foreign_pre_chain': _shared_processors,
-                },
+        },
+        'formatters': {
+            'structlog': {
+                '()': structlog.stdlib.ProcessorFormatter,
+                'processors': [
+                    structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                    renderer,
+                ],
+                'foreign_pre_chain': _shared_processors,
             },
-            'handlers': {
-                'default': {
-                    'class': 'logging.StreamHandler',
-                    'formatter': 'structlog',
-                    'filters': ['health_check'],
-                },
+        },
+        'handlers': {
+            'default': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'structlog',
+                'filters': ['health_check'],
             },
-            'loggers': {
-                '': {
-                    'handlers': ['default'],
-                    'level': log_level,
-                    'propagate': False,
-                },
-                **{
-                    name: {'handlers': [], 'propagate': True}
-                    for name in ['uvicorn', 'uvicorn.access', 'uvicorn.error']
-                },
+        },
+        'loggers': {
+            '': {
+                'handlers': ['default'],
+                'level': log_level,
+                'propagate': False,
             },
-        }
-    )
+            **{
+                name: {'handlers': [], 'propagate': True}
+                for name in ['uvicorn', 'uvicorn.access', 'uvicorn.error']
+            },
+        },
+    }
+    logging.config.dictConfig(config)
 
     structlog.configure(
         processors=[

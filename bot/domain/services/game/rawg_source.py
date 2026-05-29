@@ -1,4 +1,5 @@
 import random
+from typing import Any
 
 from bot.data.game_info import GameInfo
 from bot.domain.exceptions import ExternalServiceError
@@ -25,7 +26,7 @@ class RawgSource(GameSource):
                 'page': page,
             },
         )
-        results = res.json().get('results') or []
+        results: list[dict[str, Any]] = res.json().get('results') or []
         games = [g for g in results if g.get('background_image')]
         if not games:
             msg = 'No games with images found'

@@ -1,5 +1,6 @@
 import random
 import re
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -136,8 +137,8 @@ class CarCommand(Command):
             headers={'User-Agent': self.WIKI_UA},
         )
         wiki_data = wiki_res.json()
-        pages = (wiki_data.get('query') or {}).get('pages') or {}
-        first_page = next(iter(pages.values()), {})
+        pages: dict[str, Any] = (wiki_data.get('query') or {}).get('pages') or {}
+        first_page: dict[str, Any] = next(iter(pages.values()), {})
         page_title = first_page.get('title', '')
         raw_thumb = (first_page.get('thumbnail') or {}).get('source')
 
@@ -171,8 +172,8 @@ class CarCommand(Command):
             headers={'User-Agent': self.WIKI_UA},
         )
         commons_data = commons_res.json()
-        commons_pages = (commons_data.get('query') or {}).get('pages') or {}
-        first = next(iter(commons_pages.values()), {})
+        commons_pages: dict[str, Any] = (commons_data.get('query') or {}).get('pages') or {}
+        first: dict[str, Any] = next(iter(commons_pages.values()), {})
         return (first.get('thumbnail') or {}).get('source')
 
     async def _fetch_brand_logo(self, brand_name: str) -> str | None:
@@ -188,8 +189,8 @@ class CarCommand(Command):
             headers={'User-Agent': self.WIKI_UA},
         )
         data = res.json()
-        pages = (data.get('query') or {}).get('pages') or {}
-        first = next(iter(pages.values()), {})
+        pages: dict[str, Any] = (data.get('query') or {}).get('pages') or {}
+        first: dict[str, Any] = next(iter(pages.values()), {})
         return (first.get('thumbnail') or {}).get('source')
 
     @staticmethod

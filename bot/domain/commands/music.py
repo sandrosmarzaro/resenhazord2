@@ -1,4 +1,5 @@
 import random
+from typing import Any
 
 import structlog
 
@@ -66,7 +67,7 @@ class MusicCommand(Command):
             f'{self.DEEZER_CHART_URL}/{genre_id}/tracks',
             params={'limit': self.TRACK_LIMIT},
         )
-        tracks = res.json().get('data') or []
+        tracks: list[dict[str, Any]] = res.json().get('data') or []
         if not tracks:
             return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
 
@@ -100,7 +101,7 @@ class MusicCommand(Command):
                 'audioformat': 'mp32',
             },
         )
-        tracks = res.json().get('results') or []
+        tracks: list[dict[str, Any]] = res.json().get('results') or []
         if not tracks:
             return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
 
