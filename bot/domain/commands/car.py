@@ -48,12 +48,12 @@ class CarCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
-            brand = random.choice(FIPE_BRANDS)  # noqa: S311
+            brand = random.choice(FIPE_BRANDS)
             base = f'{self.FIPE_BASE}/{brand.fipe_code}'
 
             models_res = await HttpClient.get(f'{base}/modelos', timeout=self.FIPE_TIMEOUT)
             models_data = models_res.json()
-            model = random.choice(models_data['modelos'])  # noqa: S311
+            model = random.choice(models_data['modelos'])
 
             years_res = await HttpClient.get(
                 f'{base}/modelos/{model["codigo"]}/anos', timeout=self.FIPE_TIMEOUT

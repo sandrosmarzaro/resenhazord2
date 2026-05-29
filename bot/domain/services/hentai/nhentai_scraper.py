@@ -17,7 +17,7 @@ class NhentaiScraper:
         self._mirror_url = mirror_url
 
     async def fetch(self) -> HentaiGallery:
-        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
+        page = random.randint(1, self.MAX_PAGE)
         results = await self._fetch_page(page)
         if not results and page > 1:
             results = await self._fetch_page(1)
@@ -26,7 +26,7 @@ class NhentaiScraper:
             msg = 'nhentai returned no galleries'
             raise ExternalServiceError(msg)
 
-        return self._parse(random.choice(results))  # noqa: S311
+        return self._parse(random.choice(results))
 
     async def _fetch_page(self, page: int) -> list[dict]:
         res = await HttpClient.get(

@@ -70,7 +70,7 @@ class MusicCommand(Command):
         if not tracks:
             return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
 
-        track = random.choice(tracks)  # noqa: S311
+        track = random.choice(tracks)
         duration = self._format_duration(track['duration'])
         caption = (
             f'🎵 *{track["title"]}*\n'
@@ -104,7 +104,7 @@ class MusicCommand(Command):
         if not tracks:
             return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
 
-        track = random.choice(tracks)  # noqa: S311
+        track = random.choice(tracks)
         duration = self._format_duration(track['duration'])
         caption = (
             f'🎵 *{track["name"]}*\n'
@@ -132,7 +132,7 @@ class MusicCommand(Command):
         cleaned = rest.strip().lower()
         if cleaned and cleaned in MUSIC_GENRES:
             return cleaned
-        return random.choice(MUSIC_GENRES)  # noqa: S311
+        return random.choice(MUSIC_GENRES)
 
     @staticmethod
     def _format_duration(seconds: int) -> str:

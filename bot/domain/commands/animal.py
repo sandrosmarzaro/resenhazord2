@@ -42,7 +42,7 @@ class AnimalCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         animal_keys = list(ANIMAL_WIKIPEDIA_TITLES.keys())
-        animal_type = random.choice(animal_keys)  # noqa: S311
+        animal_type = random.choice(animal_keys)
         wiki_title = ANIMAL_WIKIPEDIA_TITLES[animal_type]
 
         try:

@@ -17,7 +17,7 @@ logger = structlog.get_logger()
 
 class HearthstoneCommand(CardBoosterCommand):
     API_URL = 'https://us.api.blizzard.com/hearthstone/cards?locale=pt_BR'
-    TOKEN_URL = 'https://oauth.battle.net/token'  # noqa: S105
+    TOKEN_URL = 'https://oauth.battle.net/token'
     BOLD_RE = re.compile(r'</?b>')
     ITALIC_RE = re.compile(r'</?i>')
 
@@ -60,7 +60,7 @@ class HearthstoneCommand(CardBoosterCommand):
         first.raise_for_status()
         page_count = first.json()['pageCount']
 
-        page = random.randint(1, page_count)  # noqa: S311
+        page = random.randint(1, page_count)
         response = await HttpClient.get(
             self.API_URL, headers=headers, params={'page': page, 'pageSize': 1}
         )
@@ -86,7 +86,7 @@ class HearthstoneCommand(CardBoosterCommand):
         first.raise_for_status()
         page_count = first.json()['pageCount']
 
-        pages = [random.randint(1, page_count) for _ in range(self.BOOSTER_CONFIG.count)]  # noqa: S311
+        pages = [random.randint(1, page_count) for _ in range(self.BOOSTER_CONFIG.count)]
         results: list[CardItem | None] = [None] * len(pages)
 
         async def _fetch(index: int, page: int) -> None:

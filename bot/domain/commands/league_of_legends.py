@@ -48,7 +48,7 @@ class LeagueOfLegendsCommand(Command):
             champs_resp.raise_for_status()
             champions = champs_resp.json()['data']
 
-            champion = random.choice(list(champions.values()))  # noqa: S311
+            champion = random.choice(list(champions.values()))
             splash_url = self.SPLASH_URL.format(champion_id=champion['id'])
 
             roles_line = '  '.join(

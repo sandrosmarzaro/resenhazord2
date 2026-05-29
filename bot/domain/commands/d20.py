@@ -22,5 +22,5 @@ class D20Command(Command):
         return 'Role um dado de vinte dimensões.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        d20 = random.randint(1, self.DICE_SIDES)  # noqa: S311
+        d20 = random.randint(1, self.DICE_SIDES)
         return [Reply.to(data).text(f'Aqui está sua rolada: {d20} 🎲')]

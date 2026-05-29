@@ -61,7 +61,7 @@ class MyAnimeListCommand(Command):
         pop_mode = 'pop' in parsed.options
         top_n, max_page = self._resolve_page_range(parsed)
 
-        page = random.randint(1, max_page)  # noqa: S311
+        page = random.randint(1, max_page)
         params: dict[str, str | int] = {'page': page}
         if pop_mode:
             params['filter'] = 'bypopularity'
@@ -73,7 +73,7 @@ class MyAnimeListCommand(Command):
         if top_n and page == max_page:
             items = items[: top_n - (max_page - 1) * self.ITEMS_PER_PAGE]
 
-        item = random.choice(items)  # noqa: S311
+        item = random.choice(items)
         profile = self._MEDIA_PROFILES[media_type]
         caption = self._build_caption(item, profile)
         image = item['images']['webp']['large_image_url']

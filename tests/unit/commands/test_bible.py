@@ -8,7 +8,7 @@ from tests.factories.command_data import GroupCommandDataFactory
 
 @pytest.fixture
 def command():
-    return BibleCommand(biblia_token='test-token')  # noqa: S106
+    return BibleCommand(biblia_token='test-token')
 
 
 def _verse_response(**overrides):

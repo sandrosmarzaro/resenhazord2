@@ -63,13 +63,13 @@ class AddCommand(Command):
 
     async def _add_random_phone(self, data: CommandData) -> list[BotMessage]:
         while True:
-            ddd = random.choice(DDD_LIST)  # noqa: S311
+            ddd = random.choice(DDD_LIST)
             prefix = '8' if ddd in EIGHT_DIGIT_PREFIXES else '9'
             phone = ddd + prefix
 
-            size = random.choice([self.MAX_PHONE_LENGTH - 1, self.MAX_PHONE_LENGTH])  # noqa: S311
+            size = random.choice([self.MAX_PHONE_LENGTH - 1, self.MAX_PHONE_LENGTH])
             while len(phone) < size:
-                phone += str(random.randint(0, 9))  # noqa: S311
+                phone += str(random.randint(0, 9))
 
             consult = await self.whatsapp.on_whatsapp([f'{self.COUNTRY_CODE}{phone}'])
             if consult and consult[0].get('exists'):

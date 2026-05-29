@@ -60,7 +60,7 @@ class MovieSeriesCommand(Command):
         mode, max_page, rank_limit = self._resolve_query(pop_str, top_str)
 
         url = f'https://api.themoviedb.org/3/{media_type}/{mode}'
-        page = random.randint(1, max_page)  # noqa: S311
+        page = random.randint(1, max_page)
         response = await HttpClient.get(
             url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR', 'page': page}
         )
@@ -71,7 +71,7 @@ class MovieSeriesCommand(Command):
             items_on_last_page = rank_limit - (max_page - 1) * self.ITEMS_PER_PAGE
             results = results[:items_on_last_page]
 
-        item = random.choice(results)  # noqa: S311
+        item = random.choice(results)
         poster_url = f'https://image.tmdb.org/t/p/{self.POSTER_SIZE}{item["poster_path"]}'
 
         genres_names = await self._fetch_genres(media_type, item.get('genre_ids', []))

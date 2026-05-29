@@ -40,7 +40,7 @@ class CountryFlagCommand(Command):
             response = await HttpClient.get(self.API_URL)
             response.raise_for_status()
             countries = response.json()
-            country = random.choice(countries)  # noqa: S311
+            country = random.choice(countries)
             detail = 'detail' in parsed.flags
             if detail:
                 country = await self._fetch_detail(country)

@@ -172,7 +172,7 @@ class TestFormatOptions:
         from bot.domain.commands.bible import BibleCommand
 
         registry = CommandRegistry.instance()
-        token = 'test'  # noqa: S105
+        token = 'test'
         registry.register(BibleCommand(biblia_token=token))
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
@@ -187,7 +187,7 @@ class TestFormatOptions:
         from bot.domain.commands.bible import BibleCommand
 
         registry = CommandRegistry.instance()
-        token = 'test'  # noqa: S105
+        token = 'test'
         registry.register(BibleCommand(biblia_token=token))
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
