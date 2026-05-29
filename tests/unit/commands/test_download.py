@@ -195,6 +195,58 @@ class TestErrors:
         assert 'bloqueado' in exc_info.value.user_message
 
     @pytest.mark.anyio
+    async def test_no_video_in_tweet(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://x.com/user/status/123')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'', b'ERROR: [twitter] 123: No video could be found in this tweet', 1),
+            ],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'não tem vídeo' in exc_info.value.user_message
+
+    @pytest.mark.anyio
+    async def test_unsupported_url(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://example.com/unknown')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'', b'ERROR: Unsupported URL: https://example.com/unknown', 1),
+            ],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'não é suportado' in exc_info.value.user_message
+
+    @pytest.mark.anyio
+    async def test_login_required(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/reel/abc')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (
+                    b'',
+                    b'ERROR: [Instagram] abc: login required',
+                    1,
+                ),
+            ],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'precisa de login' in exc_info.value.user_message
+
+    @pytest.mark.anyio
     async def test_subprocess_exception(self, command, mocker):
         data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
         mocker.patch(
