@@ -369,7 +369,7 @@ export default class PythonBridge {
       }),
       video_buffer: (cd, cap) => ({
         video: takeBuffer(),
-        viewOnce: cd.view_once as boolean,
+        viewOnce: false,
         gifPlayback: (cd.gif_playback as boolean) ?? false,
         caption: cap,
       }),
