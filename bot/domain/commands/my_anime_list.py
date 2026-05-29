@@ -66,9 +66,7 @@ class MyAnimeListCommand(Command):
         if pop_mode:
             params['filter'] = 'bypopularity'
 
-        response = await HttpClient.get(
-            f'https://api.jikan.moe/v4/top/{media_type}', params=params
-        )
+        response = await HttpClient.get(f'https://api.jikan.moe/v4/top/{media_type}', params=params)
         response.raise_for_status()
         items = response.json()['data']
 
