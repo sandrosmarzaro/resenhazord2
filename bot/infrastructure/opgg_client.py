@@ -29,13 +29,13 @@ def _error(message: str) -> OpggMcpError:
 
 
 class OpggClient:
-    _instance: Self | None = None
+    _instance: 'OpggClient | None' = None
+    _initialized: bool = False
 
     def __new__(cls) -> Self:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
+        return cls._instance  # type: ignore[return-value]
 
     def __init__(self) -> None:
         if self._initialized:

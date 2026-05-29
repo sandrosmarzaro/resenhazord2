@@ -54,7 +54,7 @@ class BanCommand(Command):
     ) -> list[BotMessage]:
         messages: list[BotMessage] = []
         while True:
-            target = random.choice(participants)  # noqa: S311
+            target = random.choice(participants)
             if target['id'] == self._bot_jid or target['id'] == owner:
                 continue
             try:

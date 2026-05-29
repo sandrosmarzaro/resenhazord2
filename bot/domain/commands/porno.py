@@ -39,7 +39,7 @@ class PornoCommand(Command):
         return await self._real_porn(data)
 
     async def _ia_porn(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        tag = random.choice(NSFW_TAGS)  # noqa: S311
+        tag = random.choice(NSFW_TAGS)
         response = await HttpClient.get(
             f'https://nsfwhub.onrender.com/nsfw?type={tag}',
             timeout=30.0,
@@ -78,7 +78,7 @@ class PornoCommand(Command):
 
     @classmethod
     async def _scrape_random_video(cls) -> dict[str, str]:
-        page = random.randint(1, cls.MAX_PAGE)  # noqa: S311
+        page = random.randint(1, cls.MAX_PAGE)
         listing_url = f'https://www.xvideos.com/new/{page}'
 
         listing_resp = await HttpClient.get(listing_url, timeout=30.0, headers=BROWSER_HEADERS)
@@ -95,7 +95,7 @@ class PornoCommand(Command):
             msg = 'Nenhum vídeo encontrado na listagem'
             raise ExternalServiceError(msg)
 
-        random_link = random.choice(links)  # noqa: S311
+        random_link = random.choice(links)
         video_page_url = f'https://www.xvideos.com{random_link}'
 
         video_resp = await HttpClient.get(video_page_url, timeout=30.0, headers=BROWSER_HEADERS)

@@ -31,7 +31,7 @@ MOCK_MINION = {
 @pytest.fixture
 def command():
     HearthstoneCommand._cached_token = None
-    return HearthstoneCommand(bnet_id='test-id', bnet_secret='test-secret')  # noqa: S106
+    return HearthstoneCommand(bnet_id='test-id', bnet_secret='test-secret')
 
 
 @pytest.fixture

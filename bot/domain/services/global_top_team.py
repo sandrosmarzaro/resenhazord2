@@ -13,7 +13,7 @@ class GlobalTopTeam:
         if top_n <= 0:
             return None
         top_clubs = await TransfermarktService.fetch_top_clubs(top_n)
-        return random.choice(top_clubs) if top_clubs else None  # noqa: S311
+        return random.choice(top_clubs) if top_clubs else None
 
     @staticmethod
     def find_league(club: TmClub) -> str | None:

@@ -35,7 +35,7 @@ class TestNameMatches:
 
 
 class TestFindCategory:
-    TOKEN = 't'  # noqa: S105
+    TOKEN = 't'
 
     def test_finds_matching_category(self):
         svc = DiscordService(token=self.TOKEN, guild_id='g')
@@ -57,7 +57,7 @@ class TestFindCategory:
 
 
 class TestFindChannel:
-    TOKEN = 't'  # noqa: S105
+    TOKEN = 't'
 
     def test_finds_matching_channel(self):
         svc = DiscordService(token=self.TOKEN, guild_id='g')

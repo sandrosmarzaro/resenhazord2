@@ -45,7 +45,7 @@ def _reset_igdb_token():
 def command():
     return GameCommand(
         twitch_client_id='test-client-id',
-        twitch_client_secret='test-secret',  # noqa: S106
+        twitch_client_secret='test-secret',
         rawg_api_key='test-rawg-key',
     )
 

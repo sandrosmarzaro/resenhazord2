@@ -37,7 +37,8 @@ dev = [
     "factory-boy>=3.3.0",
     "faker>=30.0.0",
     "fakeredis>=2.26.0",
-    "basedpyright>=1.24.0",
+    "zuban>=0.7.0",
+    "bandit[toml]>=1.8.0",
     "pre-commit>=4.0.0",
     "greenlet>=3.0.0",
     "pytest-xdist>=3.5.0",
@@ -57,13 +58,16 @@ lint = "ruff check ."
 "lint:fix" = "ruff check . --fix"
 format = "ruff format ."
 "format:check" = "ruff format --check ."
-typecheck = "basedpyright"
+typecheck = "zuban check"
 complexity = "xenon --max-absolute B --max-average B bot/"
 "check:py" = "task lint && task format:check && task typecheck && task complexity"
 "check:ts" = "cd gateway && bun lint && bun typecheck && bun format:check"
 release = "bash scripts/release.sh"
 log = "docker compose up --build -d && docker compose logs -f --no-color --tail=0 2>&1 | tee -a docker.log"
 logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 0 docker.log 2>/dev/null; echo 'docker.log truncated'"
+
+[tool.zuban]
+exclude = ["tests/"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"

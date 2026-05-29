@@ -27,7 +27,7 @@ class JackpotCommand(Command):
         return 'Jogue na máquina caça-níqueis de emojis.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        reels = random.choices(SLOT_SYMBOLS, k=self.REEL_COUNT)  # noqa: S311
+        reels = random.choices(SLOT_SYMBOLS, k=self.REEL_COUNT)
         result = self._evaluate(reels)
         text = (
             f'🎰 *JACKPOT* 🎰\n'

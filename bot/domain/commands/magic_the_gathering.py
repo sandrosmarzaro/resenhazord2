@@ -81,7 +81,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
 
     async def _fetch_single_card(self, total_pages: int) -> dict:
         for _ in range(self.MAX_RETRIES):
-            page = random.randint(1, total_pages)  # noqa: S311
+            page = random.randint(1, total_pages)
             response = await HttpClient.get(f'{self.API_URL}?pageSize={self.PAGE_SIZE}&page={page}')
             response.raise_for_status()
             cards = response.json()['cards']
@@ -92,7 +92,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
             if not candidates:
                 continue
 
-            card = random.choice(candidates)  # noqa: S311
+            card = random.choice(candidates)
 
             head_resp = await HttpClient.get(card['imageUrl'], follow_redirects=True)
             if 'card_back' not in str(head_resp.url):

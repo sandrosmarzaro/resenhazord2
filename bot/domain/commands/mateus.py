@@ -24,7 +24,7 @@ class MateusCommand(Command):
         return 'Descubra a probabilidade do Mateus nascer.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        raw = random.uniform(self.MIN_PROBABILITY, self.MAX_PROBABILITY)  # noqa: S311
+        raw = random.uniform(self.MIN_PROBABILITY, self.MAX_PROBABILITY)
         probability = f'{raw:.2f}'.replace('.', ',')
         template = next(t for threshold, t in PROBABILITY_TIERS if raw >= threshold)
         return [Reply.to(data).text(template.format(prob=probability))]

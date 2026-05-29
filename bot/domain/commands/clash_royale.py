@@ -45,7 +45,7 @@ class ClashRoyaleCommand(CardBoosterCommand):
             response = await HttpClient.get(self.CARDS_URL)
             response.raise_for_status()
             cards = response.json()
-            card = random.choice(cards)  # noqa: S311
+            card = random.choice(cards)
 
             image_url = f'{self.ASSETS_BASE}{card["key"]}.png'
             rarity_emoji = RARITY_EMOJIS.get(card['rarity'], '❓')

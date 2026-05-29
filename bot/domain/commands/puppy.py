@@ -59,7 +59,7 @@ class PuppyCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
-            tipo = parsed.options.get('tipo') or random.choice(['dog', 'cat'])  # noqa: S311
+            tipo = parsed.options.get('tipo') or random.choice(['dog', 'cat'])
             if tipo == 'dog':
                 return await self._fetch_dog(data)
             return await self._fetch_cat(data)
