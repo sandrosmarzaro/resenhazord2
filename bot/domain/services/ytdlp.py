@@ -10,6 +10,8 @@ class YtDlpService:
     async def download(cls, url: str) -> tuple[bytes, str]:
         title_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
+            '--playlist-items',
+            '1',
             '--print',
             'title',
             url,
@@ -21,6 +23,8 @@ class YtDlpService:
 
         video_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
+            '--playlist-items',
+            '1',
             '-f',
             'best[ext=mp4]/best',
             '--max-filesize',
