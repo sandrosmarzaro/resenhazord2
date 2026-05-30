@@ -168,3 +168,15 @@ class TestExecute:
         ]
         for sign in signs:
             assert command.matches(f', horóscopo {sign}'), f'{sign} should match'
+
+    @pytest.mark.anyio
+    async def test_accent_normalization_fallback_for_gemeos(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', horóscopo gemeos')
+        _mock_horoscope_apis(
+            respx_mock,
+            horoscope_json={'data': {**MOCK_RESPONSE['data'], 'sign': 'Gemini'}},
+        )
+
+        messages = await command.run(data)
+
+        assert 'Gêmeos' in messages[0].content.text

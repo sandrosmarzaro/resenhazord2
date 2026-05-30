@@ -102,3 +102,12 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
+
+    @pytest.mark.anyio
+    async def test_displays_reels_in_correct_order(self, command, mocker):
+        mocker.patch('bot.domain.commands.jackpot.random.choices', return_value=['🍒', '💎', '🍋'])
+        data = GroupCommandDataFactory.build(text=', jackpot')
+
+        messages = await command.run(data)
+
+        assert '🍒 │ 💎 │ 🍋' in messages[0].content.text
