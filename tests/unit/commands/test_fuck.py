@@ -148,4 +148,5 @@ class TestRun:
 
         await command.run(data)
 
-        assert route.calls.last.request.extensions.get('timeout', {}).get('read') == 30.0
+        timeout = route.calls.last.request.extensions.get('timeout', {})
+        assert timeout.get('read') == pytest.approx(30.0)
