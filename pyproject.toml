@@ -69,12 +69,6 @@ logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 
 mutate = "mutmut run"
 "mutate:results" = "mutmut results"
 
-[tool.mutmut]
-paths_to_mutate = ["bot/"]
-tests_dir = ["tests/"]
-also_copy = ["pytest.toml"]
-pytest_add_cli_args = ["-p", "no:xdist", "--no-cov", "--override-ini=addopts=", "--import-mode=importlib"]
-do_not_mutate = ["bot/infrastructure/*", "bot/adapters/*", "bot/main.py", "bot/settings.py", "bot/domain/services/discord.py"]
 
 [tool.zuban]
 exclude = ["tests/"]
