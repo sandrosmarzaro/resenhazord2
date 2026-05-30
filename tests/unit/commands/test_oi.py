@@ -68,3 +68,33 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
+
+    @pytest.mark.anyio
+    async def test_discord_uses_native_mention_format(self, command):
+        data = GroupCommandDataFactory.build(
+            text=', oi', platform='discord', sender_jid='123456789'
+        )
+
+        messages = await command.run(data)
+
+        assert '<@123456789>' in messages[0].content.text
+        assert 'Vai se foder' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_telegram_uses_push_name(self, command):
+        data = GroupCommandDataFactory.build(text=', oi', platform='telegram', push_name='João')
+
+        messages = await command.run(data)
+
+        assert 'João' in messages[0].content.text
+        assert 'Vai se foder' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_whatsapp_text_contains_sender_phone(self, command):
+        data = GroupCommandDataFactory.build(
+            text=', oi', participant='5531999887766@s.whatsapp.net'
+        )
+
+        messages = await command.run(data)
+
+        assert '5531999887766' in messages[0].content.text

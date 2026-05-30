@@ -90,3 +90,12 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].quoted_message_id == 'MSG_42'
+
+    @pytest.mark.anyio
+    async def test_randint_called_with_1_and_20(self, command, mocker):
+        mock_randint = mocker.patch('bot.domain.commands.d20.random.randint', return_value=10)
+        data = GroupCommandDataFactory.build(text=', d20')
+
+        await command.run(data)
+
+        mock_randint.assert_called_once_with(1, 20)

@@ -85,7 +85,7 @@ class TestRun:
 
         messages = await command.run(data)
 
-        assert '21/03/2026' in messages[0].content.text
+        assert '📅 21/03/2026\n' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_output_contains_illumination(self, command):
@@ -93,7 +93,10 @@ class TestRun:
 
         messages = await command.run(data)
 
-        assert 'Iluminação: ~' in messages[0].content.text
+        import re
+
+        text = messages[0].content.text
+        assert re.search(r'Iluminação: ~\d+%', text)
 
     @pytest.mark.anyio
     async def test_works_in_private_chat(self, command):
