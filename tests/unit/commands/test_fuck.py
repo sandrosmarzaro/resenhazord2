@@ -109,3 +109,43 @@ class TestRun:
 
         content = messages[0].content.content
         assert sender in content['mentions']
+
+    @pytest.mark.anyio
+    async def test_empty_mentioned_when_no_jids(self, command, respx_mock):
+        sender = '5511999990001@s.whatsapp.net'
+        data = GroupCommandDataFactory.build(
+            text=', fuck @123',
+            sender_jid=sender,
+            participant=sender,
+            mentioned_jids=[],
+        )
+
+        respx_mock.get(self.URL).mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/video.mp4'}}
+            )
+        )
+        messages = await command.run(data)
+
+        content = messages[0].content.content
+        assert '@' in content['caption']
+        assert '' in content['mentions']
+
+    @pytest.mark.anyio
+    async def test_api_called_with_timeout(self, command, respx_mock):
+        sender = '5511999990001@s.whatsapp.net'
+        data = GroupCommandDataFactory.build(
+            text=', fuck @123',
+            sender_jid=sender,
+            participant=sender,
+            mentioned_jids=['123@s.whatsapp.net'],
+        )
+        route = respx_mock.get(self.URL).mock(
+            return_value=httpx.Response(
+                200, json={'image': {'url': 'https://example.com/video.mp4'}}
+            )
+        )
+
+        await command.run(data)
+
+        assert route.calls.last.request.extensions.get('timeout', {}).get('read') == 30.0
