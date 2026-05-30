@@ -65,3 +65,16 @@ class TestRun:
         messages = await command.run(data)
 
         assert '1 nargas' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_uses_borges_collection(self, command, mock_collection, mocker):
+        mock_collection.find_one_and_update.return_value = {'nargas': 1}
+        data = GroupCommandDataFactory.build(text=',borges')
+        collection_spy = mocker.patch(
+            'bot.infrastructure.mongodb.MongoDBConnection.collection',
+            return_value=mock_collection,
+        )
+
+        await command.run(data)
+
+        collection_spy.assert_called_once_with('borges')

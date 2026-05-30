@@ -125,3 +125,15 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].expiration == 86400
+
+    @pytest.mark.anyio
+    async def test_randint_called_with_1_and_total_ayahs(self, command, respx_mock, mocker):
+        data = GroupCommandDataFactory.build(text=', alcorão')
+        mock_randint = mocker.patch('bot.domain.commands.quran.random.randint', return_value=42)
+        respx_mock.get(url__startswith='https://api.alquran.cloud/v1/ayah/').mock(
+            return_value=httpx.Response(200, json=MOCK_EDITIONS)
+        )
+
+        await command.run(data)
+
+        mock_randint.assert_called_once_with(1, 6236)
