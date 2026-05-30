@@ -88,3 +88,29 @@ jobs:
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
       - run: uv sync --frozen
       - run: uv run task complexity
+
+  mutation-py:
+    name: Python mutation testing
+    runs-on: ubuntu-latest
+    needs: test-py
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+      - run: uv sync --frozen
+      - name: Scope mutation to changed files
+        run: |
+          CHANGED=$(git diff --name-only origin/develop...HEAD -- 'bot/**.py' | tr '\n' ',')
+          if [ -z "$CHANGED" ]; then
+            echo "No Python files changed in bot/, skipping mutation testing"
+            echo "SKIP_MUTMUT=true" >> "$GITHUB_ENV"
+          else
+            sed -i "s|^paths_to_mutate = .*|paths_to_mutate = ${CHANGED%,}|" setup.cfg
+            echo "Mutating: $CHANGED"
+          fi
+      - run: uv run mutmut run
+        if: env.SKIP_MUTMUT != 'true'
+      - run: uv run mutmut results
+        if: env.SKIP_MUTMUT != 'true'
