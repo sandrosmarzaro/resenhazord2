@@ -63,11 +63,11 @@ class BeerCommand(Command):
             return [Reply.to(data).text('Erro ao buscar cerveja. Tente novamente mais tarde! 🍺')]
 
     async def _get_random_beer(self) -> dict:
-        page = random.randint(1, self.MAX_PAGE)  # noqa: S311
+        page = random.randint(1, self.MAX_PAGE)
         try:
             return await self._fetch_beer_from_page(page)
         except (ValueError, httpx.HTTPError):
-            retry_page = random.randint(1, self.RETRY_MAX_PAGE)  # noqa: S311
+            retry_page = random.randint(1, self.RETRY_MAX_PAGE)
             return await self._fetch_beer_from_page(retry_page)
 
     async def _fetch_beer_from_page(self, page: int) -> dict:
@@ -91,7 +91,7 @@ class BeerCommand(Command):
             msg = 'Nenhuma cerveja encontrada'
             raise ExternalServiceError(msg)
 
-        product = random.choice(products)  # noqa: S311
+        product = random.choice(products)
         return {
             'name': product['product_name'],
             'brand': product.get('brands', 'Desconhecida'),

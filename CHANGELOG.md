@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v1.8.0 (2026-06-05)
+
+### Feat
+
+- **command**: add pop ranking option to myanimelist command
+- **command**: add pop ranking option to myanimelist command
+
+### Fix
+
+- **ws**: cancel in-flight tasks on disconnect
+- **ws**: skip sends when client disconnected
+- use pytest.approx for float comparison (S1244)
+- resolve zuban type checker errors in bot/
+- **ci**: remove stale noqa S-directives and skip false-positive bandit rules
+- **ci**: use zuban>=0.7.0 to match available versions
+- **dl**: disable view-once for video_buffer on WhatsApp
+- **dl**: limit yt-dlp to single playlist item
+- **dl**: map unmapped yt-dlp error messages to user-friendly responses
+
+### Refactor
+
+- move mutmut config from pyproject.toml to setup.cfg
+- **command**: translate entire meal_recipes caption in single API call
+
 ## v1.7.0 (2026-05-27)
 
 ### Feat

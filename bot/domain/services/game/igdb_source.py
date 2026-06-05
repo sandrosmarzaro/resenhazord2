@@ -8,7 +8,7 @@ from bot.infrastructure.http_client import HttpClient
 
 
 class IgdbSource(GameSource):
-    TOKEN_URL = 'https://id.twitch.tv/oauth2/token'  # noqa: S105
+    TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
     GAMES_URL = 'https://api.igdb.com/v4/games'
     COVER_BASE = 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x'
     MAX_OFFSET = 2000
@@ -37,7 +37,7 @@ class IgdbSource(GameSource):
 
     async def fetch(self) -> GameInfo:
         token = await self._get_token()
-        offset = random.randint(0, self.MAX_OFFSET)  # noqa: S311
+        offset = random.randint(0, self.MAX_OFFSET)
         body = (
             'fields name,first_release_date,genres.name,'
             'platforms.name,total_rating,cover.image_id;'

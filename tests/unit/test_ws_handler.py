@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from starlette.websockets import WebSocketState
 
 from bot.adapters.http.ws_handler import WebSocketHandler
 from bot.application.command_handler import CommandHandler
@@ -28,6 +29,7 @@ class EchoCommand(Command):
 @pytest.fixture
 def mock_ws(mocker):
     ws = mocker.AsyncMock()
+    ws.client_state = WebSocketState.CONNECTED
     ws.send_json = mocker.AsyncMock()
     ws.send_bytes = mocker.AsyncMock()
     return ws
@@ -89,6 +91,29 @@ class TestWebSocketHandlerCommand:
         mock_ws.send_json.assert_called_once()
         call_args = mock_ws.send_json.call_args[0][0]
         assert call_args['type'] == 'no_match'
+
+
+class TestWebSocketHandlerDisconnected:
+    @pytest.mark.anyio
+    async def test_command_response_skipped_when_client_disconnected(self, mock_ws, handler):
+        mock_ws.client_state = WebSocketState.DISCONNECTED
+        msg = json.dumps(
+            {
+                'id': 'test-3',
+                'type': 'command',
+                'data': {
+                    'text': ',echo hello',
+                    'jid': 'group@g.us',
+                    'sender_jid': 'user@s.whatsapp.net',
+                    'is_group': True,
+                },
+            }
+        )
+
+        await handler.handle_message(msg)
+
+        mock_ws.send_json.assert_not_called()
+        mock_ws.send_bytes.assert_not_called()
 
 
 class TestWebSocketHandlerWaResult:

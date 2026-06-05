@@ -57,3 +57,12 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].expiration == 86400
+
+    @pytest.mark.anyio
+    async def test_exact_threshold_uses_correct_tier(self, command, mocker):
+        mocker.patch('bot.domain.commands.mateus.random.uniform', return_value=100.0)
+        data = GroupCommandDataFactory.build(text=', mateus')
+
+        messages = await command.run(data)
+
+        assert 'JÁ ESTÁ AQUI' in messages[0].content.text

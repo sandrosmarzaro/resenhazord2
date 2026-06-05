@@ -97,3 +97,18 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].expiration == 86400
+
+    @pytest.mark.anyio
+    async def test_translator_receives_fact_text(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', fato')
+        respx_mock.get(self.RANDOM_URL).mock(
+            return_value=httpx.Response(200, json={'text': 'Cats sleep 70%.'})
+        )
+        translate_route = respx_mock.get(
+            url__startswith='https://translate.googleapis.com/translate_a/single'
+        ).mock(return_value=httpx.Response(200, json=[[['Traduzido', 'original']]]))
+
+        await command.run(data)
+
+        request_url = str(translate_route.calls.last.request.url)
+        assert 'Cats' in request_url

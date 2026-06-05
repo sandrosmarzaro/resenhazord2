@@ -35,7 +35,7 @@ class HitomiScraper:
         data = res.content
 
         if total_ids > cls.PAGE_SIZE:
-            page_start = random.randint(0, total_ids - cls.PAGE_SIZE)  # noqa: S311
+            page_start = random.randint(0, total_ids - cls.PAGE_SIZE)
             byte_start = page_start * cls.INT_SIZE
             res = await HttpClient.get(
                 cls.NOZOMI_URL,
@@ -56,7 +56,7 @@ class HitomiScraper:
             msg = 'Hitomi returned empty gallery index'
             raise ExternalServiceError(msg)
 
-        gallery_id = random.choice(ids)  # noqa: S311
+        gallery_id = random.choice(ids)
         return await cls._retrieve_gallery(gallery_id, gallery_headers)
 
     @classmethod

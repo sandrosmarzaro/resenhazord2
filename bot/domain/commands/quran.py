@@ -32,7 +32,7 @@ class QuranCommand(Command):
         return 'Receba um versículo aleatório do Alcorão em árabe e português.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        ayah_number = random.randint(1, self.TOTAL_AYAHS)  # noqa: S311
+        ayah_number = random.randint(1, self.TOTAL_AYAHS)
         lang = parsed.options.get('lang')
         url = f'https://api.alquran.cloud/v1/ayah/{ayah_number}/editions/ar.alafasy,pt.elhayek'
         response = await HttpClient.get(url)

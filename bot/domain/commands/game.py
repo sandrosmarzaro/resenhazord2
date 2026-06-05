@@ -53,6 +53,7 @@ class GameCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         source_opt = parsed.options.get('source')
+        sources: list[GameSource]
         if source_opt == 'rawg':
             sources = [s for s in self._sources if isinstance(s, RawgSource)]
         elif source_opt == 'igdb':

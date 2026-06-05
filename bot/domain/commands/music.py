@@ -1,4 +1,5 @@
 import random
+from typing import Any
 
 import structlog
 
@@ -66,11 +67,11 @@ class MusicCommand(Command):
             f'{self.DEEZER_CHART_URL}/{genre_id}/tracks',
             params={'limit': self.TRACK_LIMIT},
         )
-        tracks = res.json().get('data') or []
+        tracks: list[dict[str, Any]] = res.json().get('data') or []
         if not tracks:
             return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
 
-        track = random.choice(tracks)  # noqa: S311
+        track = random.choice(tracks)
         duration = self._format_duration(track['duration'])
         caption = (
             f'🎵 *{track["title"]}*\n'
@@ -100,11 +101,11 @@ class MusicCommand(Command):
                 'audioformat': 'mp32',
             },
         )
-        tracks = res.json().get('results') or []
+        tracks: list[dict[str, Any]] = res.json().get('results') or []
         if not tracks:
             return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
 
-        track = random.choice(tracks)  # noqa: S311
+        track = random.choice(tracks)
         duration = self._format_duration(track['duration'])
         caption = (
             f'🎵 *{track["name"]}*\n'
@@ -132,7 +133,7 @@ class MusicCommand(Command):
         cleaned = rest.strip().lower()
         if cleaned and cleaned in MUSIC_GENRES:
             return cleaned
-        return random.choice(MUSIC_GENRES)  # noqa: S311
+        return random.choice(MUSIC_GENRES)
 
     @staticmethod
     def _format_duration(seconds: int) -> str:

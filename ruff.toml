@@ -12,10 +12,10 @@ quote-style = "single"
 select = ["ALL"]
 ignore = [
     "D",      # pydocstyle — no docstring enforcement
-    "ANN",    # flake8-annotations — basedpyright handles type checking
+    "ANN",    # flake8-annotations — zuban handles type checking
+    "S",      # flake8-bandit — bandit handles security checks directly
     "B008",   # function-call-in-default-argument (needed for FastAPI Depends)
     "Q",      # flake8-quotes (handled by formatter)
-    "S101",   # assert usage (needed in tests)
     "COM812", # trailing comma (conflicts with formatter)
     "ISC001", # single-line-implicit-string-concatenation (conflicts with formatter)
     "SLF001", # private member access (needed for cross-object access in adapters)
@@ -40,9 +40,6 @@ known-first-party = ["bot"]
 ]
 "bot/application/agent_executor.py" = [
     "PLR0911", # run() dispatches LLM response types — early-return pattern
-]
-"bot/settings.py" = [
-    "S104", # binding to 0.0.0.0 is intentional for container deployment
 ]
 "tests/**" = [
     "ANN",     # no annotation enforcement in tests

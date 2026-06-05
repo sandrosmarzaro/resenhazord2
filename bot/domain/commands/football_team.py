@@ -70,7 +70,7 @@ class FootballTeamCommand(Command):
         if top_str and not liga_code:
             return await self._global_top_team(data, _parse_top_n(top_str))
 
-        effective_liga = liga_code or random.choice(LEAGUE_CODES)  # noqa: S311
+        effective_liga = liga_code or random.choice(LEAGUE_CODES)
         league = LEAGUES[effective_liga]
         squad_values, standings, sports_teams = await self._fetch_league_data(league)
 
@@ -105,7 +105,7 @@ class FootballTeamCommand(Command):
         sports_teams: list[SportsDBTeam],
         league: LeagueInfo,
     ) -> list[BotMessage]:
-        club = random.choice(clubs)  # noqa: S311
+        club = random.choice(clubs)
         rank = standings.get(club.club_id)
         sports_team: SportsDBTeam | None = TheSportsDBService.find_best_match(
             club.name, sports_teams

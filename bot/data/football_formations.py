@@ -361,4 +361,4 @@ SCARCITY_ORDER: dict[str, int] = {
 
 
 def random_formation() -> Formation:
-    return random.choice(FORMATIONS)  # noqa: S311
+    return random.choice(FORMATIONS)

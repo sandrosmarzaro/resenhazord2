@@ -42,7 +42,7 @@ class PokemonCommand(CardBoosterCommand):
         return await self._run_single(data)
 
     async def _fetch_booster_items(self) -> list[CardItem]:
-        ids = [random.randint(1, self.MAX_POKEMON_ID) for _ in range(self.BOOSTER_CONFIG.count)]  # noqa: S311
+        ids = [random.randint(1, self.MAX_POKEMON_ID) for _ in range(self.BOOSTER_CONFIG.count)]
         items: list[CardItem] = []
         for pokemon_id in ids:
             response = await HttpClient.get(f'{self.BASE_URL}{pokemon_id}')
@@ -54,7 +54,7 @@ class PokemonCommand(CardBoosterCommand):
         return items
 
     async def _run_single(self, data: CommandData) -> list[BotMessage]:
-        pokemon_id = random.randint(1, self.MAX_POKEMON_ID)  # noqa: S311
+        pokemon_id = random.randint(1, self.MAX_POKEMON_ID)
         response = await HttpClient.get(f'{self.BASE_URL}{pokemon_id}')
         pokemon = response.json()
 

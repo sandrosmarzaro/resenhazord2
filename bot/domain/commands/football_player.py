@@ -61,7 +61,7 @@ class FootballPlayerCommand(Command):
         top_str = parsed.options.get('top', '')
 
         max_page = self._resolve_max_page(top_str, league)
-        page = random.randint(1, max_page)  # noqa: S311
+        page = random.randint(1, max_page)
         players = await TransfermarktService.fetch_page(page, league)
 
         if top_str and players and page == max_page:
@@ -70,7 +70,7 @@ class FootballPlayerCommand(Command):
         if not players:
             return [Reply.to(data).text('Nenhum jogador encontrado. Tente novamente! ⚽')]
 
-        player = random.choice(players)  # noqa: S311
+        player = random.choice(players)
         details = await self._fetch_details(player.profile_url)
         caption = self._build_caption(player, league, details)
         buffer = await HttpClient.get_buffer(player.photo_url, headers=TransfermarktService.HEADERS)

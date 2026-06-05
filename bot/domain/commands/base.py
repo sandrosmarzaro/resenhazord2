@@ -5,6 +5,9 @@ from enum import StrEnum
 from bot.adapters.whatsapp.port import WhatsAppPort
 from bot.domain.builders.reply import Reply
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.contents.audio_content import AudioContent
+from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
+from bot.domain.models.contents.video_content import VideoBufferContent, VideoContent
 from bot.domain.models.message import BotMessage
 from bot.domain.parsers.command_parser import CommandParser
 
@@ -136,6 +139,13 @@ class Command(ABC):
         for msg in messages:
             if Flag.DM in parsed.flags and data.participant:
                 msg.jid = data.participant
-            if Flag.SHOW in parsed.flags and hasattr(msg.content, 'view_once'):
-                msg.content.view_once = False  # type: ignore[union-attr]
+            _view_once_types = (
+                ImageContent,
+                ImageBufferContent,
+                VideoContent,
+                VideoBufferContent,
+                AudioContent,
+            )
+            if Flag.SHOW in parsed.flags and isinstance(msg.content, _view_once_types):
+                msg.content.view_once = False
         return messages

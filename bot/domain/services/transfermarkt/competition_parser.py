@@ -1,5 +1,7 @@
 """Competition info parsing for live matches."""
 
+from typing import Any
+
 from bs4 import Tag
 
 from bot.data.nationality_flags import nationality_flag
@@ -71,7 +73,7 @@ class CompetitionParser(ParseHelpers):
         for sibling in kategorie.find_next_siblings():
             if not isinstance(sibling, Tag):
                 continue
-            classes = sibling.get('class') or []
+            classes: str | list[Any] = sibling.get('class') or []
             if sibling.name == 'table' and 'livescore' in classes:
                 return sibling
             if sibling.name == 'div' and 'kategorie' in classes:

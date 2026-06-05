@@ -1,6 +1,5 @@
 import structlog
 
-from bot.data.meal_categories import AREA_PT, CATEGORY_PT
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
@@ -41,16 +40,17 @@ class MealRecipesCommand(Command):
         response.raise_for_status()
         meal = response.json()['meals'][0]
 
-        title_pt = await Translator.to_pt(meal['strMeal'])
-        instructions_pt = await Translator.to_pt(meal['strInstructions'])
-        caption = self._build_caption(meal, title_pt, instructions_pt)
-        return [Reply.to(data).image(meal['strMealThumb'], caption)]
+        caption_en = self._build_caption(meal)
+        caption_pt = await Translator.to_pt(caption_en)
+        return [Reply.to(data).image(meal['strMealThumb'], caption_pt)]
 
     @classmethod
-    def _build_caption(cls, meal: dict, title: str, instructions: str) -> str:
-        area = cls._localize(meal.get('strArea') or '', AREA_PT, 'Sem País')
-        category = cls._localize(meal.get('strCategory') or '', CATEGORY_PT)
+    def _build_caption(cls, meal: dict) -> str:
+        title = meal.get('strMeal') or ''
+        area = meal.get('strArea') or 'Unknown'
+        category = meal.get('strCategory') or ''
         tags = meal.get('strTags') or ''
+        instructions = meal.get('strInstructions') or ''
 
         meta = f'🗺️ {area}   🍽️ {category}'
         if tags:
@@ -64,10 +64,10 @@ class MealRecipesCommand(Command):
             '',
             meta,
             '',
-            '🍲 Ingredientes:',
+            '🍲 Ingredients:',
             ingredients,
             '',
-            '📝 Passo a passo:',
+            '📝 Step by step:',
             instructions,
         ]
         if links:
@@ -84,10 +84,6 @@ class MealRecipesCommand(Command):
             measure = meal.get(f'strMeasure{i}') or ''
             lines.append(f'- {ingredient} | {measure}')
         return '\n'.join(lines)
-
-    @staticmethod
-    def _localize(value: str, table: dict, fallback: str = '') -> str:
-        return table.get(value, value) or fallback
 
     @staticmethod
     def _build_links(meal: dict) -> str:

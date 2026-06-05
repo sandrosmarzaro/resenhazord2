@@ -11,6 +11,14 @@ repos:
       - id: ruff-format
         files: ^(bot|tests)/
 
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        args: ["-c", "bandit.toml", "-r"]
+        files: ^bot/
+        additional_dependencies: ["bandit[toml]"]
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.22.1
     hooks:
@@ -29,6 +37,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: zuban
+        name: python type check (zuban)
+        entry: uv run zuban check
+        language: system
+        files: ^bot/
+        pass_filenames: false
       - id: complexity-gate
         name: python complexity gate (xenon)
         entry: uv run task complexity

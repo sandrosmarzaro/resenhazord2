@@ -82,6 +82,23 @@ class TestRun:
         assert 'https://tiktok.com/@user/video/123' in first_call_args
 
     @pytest.mark.anyio
+    async def test_limits_to_single_playlist_item(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://x.com/i/status/123')
+        mock_exec = mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'video-data', b'', 0),
+            ],
+        )
+
+        await command.run(data)
+
+        for call in mock_exec.call_args_list:
+            assert '--playlist-items' in call[0]
+            assert '1' in call[0]
+
+    @pytest.mark.anyio
     async def test_empty_title_defaults_to_video(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(text=',dl https://example.com/v')
         mock_subprocess(
@@ -193,6 +210,58 @@ class TestErrors:
             await command.run(data)
 
         assert 'bloqueado' in exc_info.value.user_message
+
+    @pytest.mark.anyio
+    async def test_no_video_in_tweet(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://x.com/user/status/123')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'', b'ERROR: [twitter] 123: No video could be found in this tweet', 1),
+            ],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'não tem vídeo' in exc_info.value.user_message
+
+    @pytest.mark.anyio
+    async def test_unsupported_url(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://example.com/unknown')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'', b'ERROR: Unsupported URL: https://example.com/unknown', 1),
+            ],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'não é suportado' in exc_info.value.user_message
+
+    @pytest.mark.anyio
+    async def test_login_required(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/reel/abc')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (
+                    b'',
+                    b'ERROR: [Instagram] abc: login required',
+                    1,
+                ),
+            ],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'precisa de login' in exc_info.value.user_message
 
     @pytest.mark.anyio
     async def test_subprocess_exception(self, command, mocker):

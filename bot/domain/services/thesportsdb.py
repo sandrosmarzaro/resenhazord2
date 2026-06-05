@@ -1,6 +1,7 @@
 """TheSportsDB client for team info and league standings."""
 
 import difflib
+from typing import Any
 
 import structlog
 
@@ -25,7 +26,7 @@ class TheSportsDBService:
         )
         resp.raise_for_status()
         try:
-            raw = resp.json().get('teams') or []
+            raw: list[dict[str, Any]] = resp.json().get('teams') or []
         except ValueError:
             return []
         return [cls._parse_team(t) for t in raw]
@@ -38,7 +39,7 @@ class TheSportsDBService:
         )
         resp.raise_for_status()
         try:
-            raw = resp.json().get('table') or []
+            raw: list[dict[str, Any]] = resp.json().get('table') or []
         except ValueError:
             return []
         return [StandingRow(rank=int(r['intRank']), team=r['strTeam']) for r in raw]
@@ -51,7 +52,7 @@ class TheSportsDBService:
         )
         resp.raise_for_status()
         try:
-            teams = resp.json().get('teams') or []
+            teams: list[dict[str, Any]] = resp.json().get('teams') or []
         except ValueError:
             return None
         if not teams:
