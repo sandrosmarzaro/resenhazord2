@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "resenhazord2-core"
-version = "1.7.0"
+version = "1.8.0"
 description = "Python core for Resenhazord2 WhatsApp bot"
 requires-python = ">=3.13"
 dependencies = [
@@ -75,7 +75,7 @@ exclude = ["tests/"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.7.0"
+version = "1.8.0"
 tag_format = "v$version"
 version_files = ["pyproject.toml:version"]
 changelog_file = "CHANGELOG.md"
