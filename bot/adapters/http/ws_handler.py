@@ -6,7 +6,7 @@ from typing import Any
 
 import structlog
 import structlog.contextvars
-from starlette.websockets import WebSocket
+from starlette.websockets import WebSocket, WebSocketState
 
 from bot.adapters.http.schemas import WSCommandData, WSMessage
 from bot.application.command_handler import CommandHandler
@@ -95,7 +95,7 @@ class WebSocketHandler:
 
         async def send_ack() -> None:
             text_preview = cmd_data.text[:50]
-            await self._ws.send_json({'id': msg.id, 'type': 'command_ack', 'text': text_preview})
+            await self._send_json({'id': msg.id, 'type': 'command_ack', 'text': text_preview})
 
         try:
             messages = await self._command_handler.handle(command_data, on_match=send_ack)
@@ -107,7 +107,7 @@ class WebSocketHandler:
             return
 
         if messages is None:
-            await self._ws.send_json({'id': msg.id, 'type': 'no_match'})
+            await self._send_json({'id': msg.id, 'type': 'no_match'})
             return
 
         await self._send_command_response(msg.id, messages)
@@ -120,14 +120,24 @@ class WebSocketHandler:
         except Exception:
             logger.exception('group_event_error', id=msg.id)
 
+    async def _send_json(self, payload: dict[str, Any]) -> None:
+        # Skip sends once the client is gone: in-flight tasks would otherwise raise
+        # send-after-close errors whose rich tracebacks saturate the CPU on bursts.
+        if self._ws.client_state == WebSocketState.CONNECTED:
+            await self._ws.send_json(payload)
+
+    async def _send_bytes(self, payload: bytes) -> None:
+        if self._ws.client_state == WebSocketState.CONNECTED:
+            await self._ws.send_bytes(payload)
+
     async def _send_command_response(self, msg_id: str, messages: list[BotMessage]) -> None:
         # Prefix each binary frame with "<msg_id>:" so the TS side can route it
         # to the correct pending request when multiple commands run concurrently.
         id_prefix = msg_id.encode() + b':'
         for m in messages:
             if m.content.has_buffer:
-                await self._ws.send_bytes(id_prefix + m.content.buffer)  # type: ignore[union-attr]
-        await self._ws.send_json(
+                await self._send_bytes(id_prefix + m.content.buffer)  # type: ignore[union-attr]
+        await self._send_json(
             {
                 'id': msg_id,
                 'type': 'command_response',
@@ -136,7 +146,7 @@ class WebSocketHandler:
         )
 
     async def _send_error(self, msg_id: str, message: str, code: str = 'UNKNOWN_ERROR') -> None:
-        await self._ws.send_json(
+        await self._send_json(
             {
                 'id': msg_id,
                 'type': 'error',
