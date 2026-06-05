@@ -99,9 +99,12 @@ jobs:
       - run: uv sync --frozen
       - name: Scope mutation to changed files
         run: |
-          CHANGED=$(git diff --name-only HEAD~1...HEAD -- 'bot/**.py' | tr '\n' ',')
+          # Drop paths listed as do_not_mutate in setup.cfg: mutmut skips them, so
+          # scoping to only those yields an empty sandbox that fails the baseline run.
+          EXCLUDE='^bot/(infrastructure|adapters)/|^bot/(main|settings)\.py$|^bot/domain/services/discord\.py$'
+          CHANGED=$(git diff --name-only HEAD~1...HEAD -- 'bot/**.py' | { grep -vE "$EXCLUDE" || true; } | tr '\n' ',')
           if [ -z "$CHANGED" ]; then
-            echo "No Python files changed in bot/, skipping mutation testing"
+            echo "No mutable Python files changed in bot/, skipping mutation testing"
             echo "SKIP_MUTMUT=true" >> "$GITHUB_ENV"
           else
             sed -i "s|^paths_to_mutate = .*|paths_to_mutate = ${CHANGED%,}|" setup.cfg
