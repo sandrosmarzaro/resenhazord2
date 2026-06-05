@@ -36,15 +36,28 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     ws.app.state.ws_handler = handler
     tasks: set[asyncio.Task[None]] = set()
 
+    def on_task_done(task: asyncio.Task[None]) -> None:
+        tasks.discard(task)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            # Retrieve and log compactly: an unretrieved exception would make asyncio
+            # render a rich traceback-with-locals, expensive enough at volume to peg the CPU.
+            logger.warning('ws_task_failed', error=str(error), error_type=type(error).__name__)
+
     try:
         while True:
             data = await ws.receive()
             if 'text' in data:
                 task = asyncio.create_task(handler.handle_message(data['text']))
                 tasks.add(task)
-                task.add_done_callback(tasks.discard)
+                task.add_done_callback(on_task_done)
             elif 'bytes' in data:
                 handler.receive_binary(data['bytes'])
     except (WebSocketDisconnect, RuntimeError):
         logger.info('websocket_disconnected')
         ws.app.state.ws_handler = None
+    finally:
+        for task in list(tasks):
+            task.cancel()
