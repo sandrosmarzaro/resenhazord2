@@ -222,6 +222,8 @@ jobs:
           BACKMERGE_BRANCH="backmerge/main-to-develop-$(date +%s)"
           git checkout -b "$BACKMERGE_BRANCH"
           git push origin "$BACKMERGE_BRANCH"
+          # Ensure the label exists, otherwise gh pr create fails the whole release job.
+          gh label create chore --color cfd3d7 --description "Tooling, config, maintenance" 2>/dev/null || true
           gh pr create \
             --base develop \
             --head "$BACKMERGE_BRANCH" \
