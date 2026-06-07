@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v1.8.1 (2026-06-07)
+
+### Fix
+
+- **deploy**: pin container DNS and bound log size
+
 ## v1.8.0 (2026-06-05)
 
 ### Feat
