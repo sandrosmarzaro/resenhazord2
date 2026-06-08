@@ -1,0 +1,14 @@
+from collections.abc import Awaitable, Callable
+from typing import Protocol
+
+MessageHandler = Callable[[bytes], Awaitable[None]]
+
+
+class BrokerPort(Protocol):
+    async def connect(self, url: str) -> None: ...
+
+    async def publish(self, queue: str, body: bytes) -> None: ...
+
+    async def consume(self, queue: str, handler: MessageHandler) -> None: ...
+
+    async def close(self) -> None: ...
