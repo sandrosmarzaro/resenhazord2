@@ -5,16 +5,29 @@ import asyncio
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from bot.adapters.broker.group_event_consumer import GroupEventConsumer
 from bot.adapters.http.ws_handler import WebSocketHandler
 from bot.adapters.whatsapp.ws_client import WhatsAppWsClient
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.services.steal_group import StealGroupService
+from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 from bot.settings import Settings
 
 logger = structlog.get_logger()
 
 router = APIRouter()
+
+
+async def _start_group_events(steal_group: StealGroupService, url: str) -> RabbitBroker | None:
+    broker = RabbitBroker()
+    try:
+        await broker.connect(url)
+        await GroupEventConsumer(broker, steal_group).start()
+    except BrokerConnectionError:
+        logger.warning('group_events_broker_unavailable')
+        return None
+    return broker
 
 
 @router.websocket('/ws')
@@ -29,9 +42,9 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     registry.set_whatsapp(ws_client)
 
     settings = Settings()
-    handler.set_steal_group_service(
-        StealGroupService(ws_client, settings.resenhazord2_jid, settings.resenha_jid)
-    )
+    steal_group = StealGroupService(ws_client, settings.resenhazord2_jid, settings.resenha_jid)
+    handler.set_steal_group_service(steal_group)
+    broker = await _start_group_events(steal_group, settings.rabbitmq_url)
 
     ws.app.state.ws_handler = handler
     tasks: set[asyncio.Task[None]] = set()
@@ -61,3 +74,5 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     finally:
         for task in list(tasks):
             task.cancel()
+        if broker is not None:
+            await broker.close()

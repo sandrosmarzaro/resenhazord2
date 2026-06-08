@@ -1,24 +1,13 @@
 import asyncio
 
 import pytest
-from testcontainers.rabbitmq import RabbitMqContainer
 
-from bot.infrastructure.broker import RabbitBroker
+from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 
 
 class TestRoundTrip:
-    @pytest.fixture
-    def anyio_backend(self):
-        return 'asyncio'
-
-    @pytest.fixture(scope='class')
-    def broker_url(self):
-        with RabbitMqContainer('rabbitmq:3.13') as container:
-            params = container.get_connection_params()
-            yield (f'amqp://{container.username}:{container.password}@{params.host}:{params.port}/')
-
     @pytest.mark.anyio
-    async def test_publishes_and_consumes_a_message(self, broker_url):
+    async def test_publishes_and_consumes_a_message(self, rabbitmq_url):
         received = asyncio.Event()
         captured: list[bytes] = []
 
@@ -27,7 +16,7 @@ class TestRoundTrip:
             received.set()
 
         broker = RabbitBroker()
-        await broker.connect(broker_url)
+        await broker.connect(rabbitmq_url)
         await broker.consume('round_trip', handler)
 
         await broker.publish('round_trip', b'ola mundo')
@@ -37,3 +26,12 @@ class TestRoundTrip:
         await broker.close()
 
         assert captured == [b'ola mundo']
+
+
+class TestConnectFailure:
+    @pytest.mark.anyio
+    async def test_raises_broker_connection_error_when_unreachable(self):
+        broker = RabbitBroker()
+
+        with pytest.raises(BrokerConnectionError):
+            await broker.connect('amqp://guest:guest@127.0.0.1:1/')
