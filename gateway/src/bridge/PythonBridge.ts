@@ -187,17 +187,6 @@ export default class PythonBridge {
     }
   }
 
-  sendGroupEvent(data: Record<string, unknown>): void {
-    if (!this.isConnected) return;
-    this.ws!.send(
-      JSON.stringify({
-        id: crypto.randomUUID(),
-        type: 'group_event',
-        data,
-      }),
-    );
-  }
-
   private static readonly UUID_LEN = 36;
 
   private async handleMessage(event: MessageEvent): Promise<void> {

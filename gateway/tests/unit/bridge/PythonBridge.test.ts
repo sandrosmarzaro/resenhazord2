@@ -749,24 +749,6 @@ describe('PythonBridge', () => {
     });
   });
 
-  describe('sendGroupEvent', () => {
-    it('sends group event when connected', () => {
-      const bridge = createConnectedBridge();
-      bridge.sendGroupEvent({ type: 'join', jid: 'group@g.us' });
-
-      const sent = lastSentJson();
-      expect(sent.type).toBe('group_event');
-      expect(sent.data).toEqual({ type: 'join', jid: 'group@g.us' });
-    });
-
-    it('does nothing when not connected', () => {
-      const bridge = new PythonBridge('ws://test:8000/ws');
-      bridge.sendGroupEvent({ type: 'join' });
-
-      // No WebSocket created, so no send
-    });
-  });
-
   describe('handleWaCall', () => {
     it('delegates group_metadata to WhatsApp port', async () => {
       const mockWa = createMockWhatsAppPort({
