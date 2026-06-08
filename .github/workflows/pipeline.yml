@@ -199,6 +199,16 @@ jobs:
             git tag "v$VERSION"
             git push origin "v$VERSION"
           fi
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} already exists, skipping"
+          else
+            gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes --latest
+          fi
 
   # Stage 7: Back-merge main into develop
   back-merge:
@@ -207,29 +217,20 @@ jobs:
     needs: tag
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: develop
           token: ${{ secrets.RELEASE_TOKEN }}
-      - name: Create back-merge pull request
+      - name: Merge main into develop
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout develop
+          git fetch origin main
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "develop already contains main, nothing to back-merge"
+            exit 0
+          fi
           git merge --no-ff origin/main -m "chore: back-merge main into develop"
-          BACKMERGE_BRANCH="backmerge/main-to-develop-$(date +%s)"
-          git checkout -b "$BACKMERGE_BRANCH"
-          git push origin "$BACKMERGE_BRANCH"
-          # Ensure the label exists, otherwise gh pr create fails the whole release job.
-          gh label create chore --color cfd3d7 --description "Tooling, config, maintenance" 2>/dev/null || true
-          gh pr create \
-            --base develop \
-            --head "$BACKMERGE_BRANCH" \
-            --title "chore: back-merge main into develop" \
-            --body "Automated back-merge of \`main\` into \`develop\` after release." \
-            --label "chore" \
-            --repo ${{ github.repository }}
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          git push origin develop
