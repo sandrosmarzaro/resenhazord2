@@ -21,3 +21,9 @@ coverage.xml
 .env
 *.log
 mutants/
+
+# Secrets / SSH keys (never commit)
+*.key
+*.key.pub
+*.pem
+ssh-key-*
