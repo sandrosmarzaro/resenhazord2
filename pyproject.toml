@@ -25,6 +25,7 @@ dependencies = [
     "pynacl>=1.6.2",
     "python-telegram-bot>=21.0",
     "mcp>=1.0.0",
+    "aio-pika>=9.6.2",
 ]
 
 [dependency-groups]
@@ -49,6 +50,7 @@ dev = [
     "taskipy>=1.14.0",
     "commitizen>=4.0.0",
     "mutmut>=3.5.0",
+    "testcontainers[rabbitmq]>=4.14.2",
 ]
 
 [tool.taskipy.tasks]
