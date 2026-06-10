@@ -45,8 +45,22 @@ class CommandConsumer:
         )
 
         messages = await self._run(command_data)
-        reply = {'id': envelope['id'], 'messages': [message.to_dict() for message in messages]}
+        reply = {
+            'id': envelope['id'],
+            'messages': [self._serialize(message) for message in messages],
+        }
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
+
+    @staticmethod
+    def _serialize(message: BotMessage) -> dict[str, Any]:
+        payload = message.to_dict()
+        if message.content.has_buffer:
+            # Small media rides base64-inline in the reply JSON (the WS path sent it as a
+            # separate binary frame); the gateway decodes it back in ReplyDeserializer.
+            # has_buffer guarantees .buffer exists but the union can't be narrowed on it.
+            buffer = message.content.buffer  # type: ignore[union-attr]
+            payload['content']['buffer_b64'] = base64.b64encode(buffer).decode()
+        return payload
 
     async def _run(self, command_data: CommandData) -> list[BotMessage]:
         try:

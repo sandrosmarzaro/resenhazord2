@@ -1,9 +1,11 @@
+import base64
 import json
 
 import pytest
 
 from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.domain.exceptions import BotError
+from bot.domain.models.contents.image_content import ImageBufferContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from tests.fixtures.mock_broker import MockBrokerPort
@@ -51,6 +53,28 @@ class TestDispatch:
         reply = json.loads(body)
         assert queue == 'replies'
         assert reply == {'id': 'corr-1', 'messages': [message.to_dict()]}
+
+
+class TestMediaReply:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_inlines_buffer_content_as_base64(self, mocker):
+        broker = MockBrokerPort()
+        message = BotMessage(jid='g@g.us', content=ImageBufferContent(b'\x01\x02\x03'))
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = [message]
+        consumer = CommandConsumer(broker, handler)
+        await consumer.start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        _, body = broker.published[0]
+        content = json.loads(body)['messages'][0]['content']
+        assert content['type'] == 'image_buffer'
+        assert content['buffer_b64'] == base64.b64encode(b'\x01\x02\x03').decode()
 
 
 class TestErrors:
