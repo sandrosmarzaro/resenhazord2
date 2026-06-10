@@ -1,8 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import ReplyConsumer from '../../../src/bridge/ReplyConsumer.js';
+import InFlightCommands from '../../../src/bridge/InFlightCommands.js';
+import TypingIndicator from '../../../src/utils/TypingIndicator.js';
 import type BrokerPort from '../../../src/ports/BrokerPort.js';
 import type { MessageHandler } from '../../../src/ports/BrokerPort.js';
+import type WhatsAppPort from '../../../src/ports/WhatsAppPort.js';
 import { createMockWhatsAppPort } from '../../fixtures/factories/MockWhatsAppPort.js';
 
 function brokerCapturingHandler(): {
@@ -25,20 +28,34 @@ function brokerCapturingHandler(): {
   };
 }
 
-describe('ReplyConsumer', () => {
-  it('consumes the replies queue on start', async () => {
-    const { broker } = brokerCapturingHandler();
-    const whatsapp = createMockWhatsAppPort();
+interface Harness {
+  broker: BrokerPort;
+  whatsapp: WhatsAppPort;
+  inFlight: InFlightCommands;
+  deliver: (envelope: unknown) => Promise<void>;
+}
 
-    await new ReplyConsumer(broker, whatsapp).start();
+async function startConsumer(): Promise<Harness> {
+  const { broker, deliver } = brokerCapturingHandler();
+  const whatsapp = createMockWhatsAppPort();
+  const inFlight = new InFlightCommands();
+  await new ReplyConsumer(broker, whatsapp, inFlight).start();
+  return { broker, whatsapp, inFlight, deliver };
+}
+
+describe('ReplyConsumer', () => {
+  beforeEach(() => {
+    vi.spyOn(TypingIndicator, 'stop').mockResolvedValue(undefined);
+  });
+
+  it('consumes the replies queue on start', async () => {
+    const { broker } = await startConsumer();
 
     expect(broker.consume).toHaveBeenCalledWith('replies', expect.any(Function));
   });
 
   it('pushes a text reply to WhatsApp', async () => {
-    const { broker, deliver } = brokerCapturingHandler();
-    const whatsapp = createMockWhatsAppPort();
-    await new ReplyConsumer(broker, whatsapp).start();
+    const { whatsapp, deliver } = await startConsumer();
 
     await deliver({
       id: 'corr-1',
@@ -49,9 +66,7 @@ describe('ReplyConsumer', () => {
   });
 
   it('attaches quoted and expiration options', async () => {
-    const { broker, deliver } = brokerCapturingHandler();
-    const whatsapp = createMockWhatsAppPort();
-    await new ReplyConsumer(broker, whatsapp).start();
+    const { whatsapp, deliver } = await startConsumer();
 
     await deliver({
       id: 'corr-1',
@@ -73,9 +88,7 @@ describe('ReplyConsumer', () => {
   });
 
   it('decodes a base64 buffer reply', async () => {
-    const { broker, deliver } = brokerCapturingHandler();
-    const whatsapp = createMockWhatsAppPort();
-    await new ReplyConsumer(broker, whatsapp).start();
+    const { whatsapp, deliver } = await startConsumer();
 
     const buffer = Buffer.from([9, 8, 7]);
     await deliver({
@@ -89,13 +102,25 @@ describe('ReplyConsumer', () => {
     expect(content.image).toEqual(buffer);
   });
 
-  it('sends nothing for an empty terminal reply', async () => {
-    const { broker, deliver } = brokerCapturingHandler();
-    const whatsapp = createMockWhatsAppPort();
-    await new ReplyConsumer(broker, whatsapp).start();
+  it('stops the typing indicator for a tracked command', async () => {
+    const { inFlight, deliver } = await startConsumer();
+    inFlight.track('corr-1', 'g@g.us');
+
+    await deliver({
+      id: 'corr-1',
+      messages: [{ jid: 'g@g.us', content: { type: 'text', text: 'pong' } }],
+    });
+
+    expect(TypingIndicator.stop).toHaveBeenCalledWith('g@g.us');
+  });
+
+  it('stops typing on an empty terminal reply via the registry', async () => {
+    const { whatsapp, inFlight, deliver } = await startConsumer();
+    inFlight.track('corr-1', 'g@g.us');
 
     await deliver({ id: 'corr-1', messages: [] });
 
     expect(whatsapp.sendMessage).not.toHaveBeenCalled();
+    expect(TypingIndicator.stop).toHaveBeenCalledWith('g@g.us');
   });
 });
