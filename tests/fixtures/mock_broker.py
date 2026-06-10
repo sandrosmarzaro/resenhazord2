@@ -4,10 +4,14 @@ from bot.ports.broker_port import MessageHandler
 class MockBrokerPort:
     def __init__(self) -> None:
         self.published: list[tuple[str, bytes]] = []
+        self.declared: list[str] = []
         self._handlers: dict[str, MessageHandler] = {}
 
     async def connect(self, url: str) -> None:
         return None
+
+    async def declare(self, queue: str) -> None:
+        self.declared.append(queue)
 
     async def publish(self, queue: str, body: bytes) -> None:
         self.published.append((queue, body))

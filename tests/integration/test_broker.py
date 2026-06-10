@@ -28,6 +28,35 @@ class TestRoundTrip:
         assert captured == [b'ola mundo']
 
 
+class TestPublishInsideConsume:
+    @pytest.mark.anyio
+    async def test_confirmed_publish_from_inside_a_consume_callback(self, rabbitmq_url):
+        received = asyncio.Event()
+        captured: list[bytes] = []
+
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
+        await broker.declare('replies_q')
+
+        async def relay(_: bytes) -> None:
+            await broker.publish('replies_q', b'reply')
+
+        async def collect(body: bytes) -> None:
+            captured.append(body)
+            received.set()
+
+        await broker.consume('commands_q', relay)
+        await broker.consume('replies_q', collect)
+
+        await broker.publish('commands_q', b'command')
+
+        async with asyncio.timeout(10):
+            await received.wait()
+        await broker.close()
+
+        assert captured == [b'reply']
+
+
 class TestConnectFailure:
     @pytest.mark.anyio
     async def test_raises_broker_connection_error_when_unreachable(self):
