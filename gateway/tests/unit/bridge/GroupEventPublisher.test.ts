@@ -8,6 +8,7 @@ describe('GroupEventPublisher', () => {
     const broker: BrokerPort = {
       connect: vi.fn(),
       publish: vi.fn().mockResolvedValue(undefined),
+      consume: vi.fn(),
       close: vi.fn(),
     };
     const publisher = new GroupEventPublisher(broker);

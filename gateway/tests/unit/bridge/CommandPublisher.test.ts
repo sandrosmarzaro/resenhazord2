@@ -9,6 +9,7 @@ function makeBroker(): BrokerPort {
   return {
     connect: vi.fn(),
     publish: vi.fn().mockResolvedValue(undefined),
+    consume: vi.fn(),
     close: vi.fn(),
   };
 }

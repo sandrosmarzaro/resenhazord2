@@ -28,6 +28,27 @@ describe('RabbitBroker', () => {
 
     expect(received).toBe('ola mundo');
   });
+
+  it('delivers published messages to a registered consumer', async () => {
+    const broker = new RabbitBroker();
+    await broker.connect(url);
+
+    const received: string[] = [];
+    let resolve: () => void;
+    const done = new Promise<void>((r) => {
+      resolve = r;
+    });
+    await broker.consume('consume_q', async (body) => {
+      received.push(body.toString());
+      resolve();
+    });
+
+    await broker.publish('consume_q', Buffer.from('oi'));
+    await done;
+    await broker.close();
+
+    expect(received).toEqual(['oi']);
+  });
 });
 
 async function getOne(url: string, queue: string): Promise<string> {
