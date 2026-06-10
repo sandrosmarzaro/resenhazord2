@@ -11,6 +11,11 @@ import groupMetadataCache from '../cache/index.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import PythonBridge from '../bridge/PythonBridge.js';
 import GroupEventPublisher from '../bridge/GroupEventPublisher.js';
+import CommandPublisher from '../bridge/CommandPublisher.js';
+import BrokerForwarder from '../bridge/BrokerForwarder.js';
+import ReplyConsumer from '../bridge/ReplyConsumer.js';
+import InFlightCommands from '../bridge/InFlightCommands.js';
+import MediaHandler from '../bridge/MediaHandler.js';
 import RabbitBroker from '../infra/RabbitBroker.js';
 import { Sentry } from '../infra/Sentry.js';
 import logger from '../infra/Logger.js';
@@ -22,6 +27,8 @@ export default class Resenhazord2 {
   static readonly bridge: PythonBridge = new PythonBridge();
   static readonly broker = new RabbitBroker();
   static readonly groupEventPublisher = new GroupEventPublisher(this.broker);
+  static readonly inFlightCommands = new InFlightCommands();
+  static brokerForwarder: BrokerForwarder | null = null;
   static isConnecting = false;
 
   static async connectToWhatsApp(): Promise<void> {
@@ -50,9 +57,16 @@ export default class Resenhazord2 {
   private static async connectBroker(): Promise<void> {
     try {
       await this.broker.connect(process.env.RABBITMQ_URL ?? 'amqp://guest:guest@localhost:5672/');
+      await this.startCommandPath();
     } catch (error) {
       logger.warn({ event: 'broker_unavailable', error: String(error) });
     }
+  }
+
+  private static async startCommandPath(): Promise<void> {
+    const publisher = new CommandPublisher(this.broker, new MediaHandler(this.adapter!));
+    this.brokerForwarder = new BrokerForwarder(publisher, this.inFlightCommands);
+    await new ReplyConsumer(this.broker, this.adapter!, this.inFlightCommands).start();
   }
 
   static async onConnectionUpdate(update: BaileysEventMap['connection.update']): Promise<void> {
@@ -111,6 +125,7 @@ export default class Resenhazord2 {
     }
     CommandFactory.reset();
     this.bridge.disconnect();
+    this.brokerForwarder = null;
     await this.broker.close();
     this.isConnecting = false;
   }

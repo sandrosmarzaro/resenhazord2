@@ -48,9 +48,36 @@ function mockAdapter(sendMessage: Mock): void {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  Resenhazord2.brokerForwarder = null;
 });
 
 describe('CommandHandler', () => {
+  describe('broker routing', () => {
+    it('routes an allowlisted command through the broker forwarder', async () => {
+      const forward = vi.fn().mockResolvedValue(undefined);
+      Resenhazord2.brokerForwarder = { forward } as never;
+      const sendCommand = mockBridgeWithAck([{ jid: 'g', content: { text: 'x' } }]);
+      mockAdapter(vi.fn());
+
+      await CommandHandler.run(createGroupMessage(',oi'));
+
+      expect(forward).toHaveBeenCalledWith(expect.anything(), ',oi');
+      expect(sendCommand).not.toHaveBeenCalled();
+    });
+
+    it('routes a non-allowlisted command through the WS bridge', async () => {
+      const forward = vi.fn();
+      Resenhazord2.brokerForwarder = { forward } as never;
+      const sendCommand = mockBridgeWithAck([{ jid: 'g', content: { text: 'x' } }]);
+      mockAdapter(vi.fn());
+
+      await CommandHandler.run(createGroupMessage(',ptcg'));
+
+      expect(forward).not.toHaveBeenCalled();
+      expect(sendCommand).toHaveBeenCalled();
+    });
+  });
+
   describe('Python command sendMessages error handling', () => {
     it('sends error message to user when sendMessages throws', async () => {
       const jid = 'group@g.us';
