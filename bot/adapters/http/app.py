@@ -8,11 +8,15 @@ import aiohttp
 import structlog
 from fastapi import FastAPI
 
+from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.adapters.discord.bot import DiscordBot
 from bot.adapters.http.endpoints.v1.health import router as health_router
 from bot.adapters.http.endpoints.v1.ws import router as ws_router
 from bot.adapters.telegram.bot import TelegramBot
+from bot.application.command_handler import CommandHandler
+from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
+from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
 
@@ -22,6 +26,18 @@ settings = Settings()
 
 def _parse_chat_ids(raw: str) -> frozenset[int]:
     return frozenset(int(part) for part in raw.split(',') if part.strip())
+
+
+async def _start_command_consumer() -> RabbitBroker | None:
+    broker = RabbitBroker()
+    try:
+        await broker.connect(settings.rabbitmq_url)
+    except BrokerConnectionError:
+        logger.warning('command_consumer_broker_unavailable')
+        return None
+    registry = CommandRegistry.instance()
+    await CommandConsumer(broker, CommandHandler(registry)).start()
+    return broker
 
 
 async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
@@ -40,6 +56,7 @@ async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     register_all_commands()
+    command_broker = await _start_command_consumer()
     discord_bot = None
     discord_task = None
     if settings.discord_token and settings.discord_server_guild_id:
@@ -61,6 +78,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         discord_task.cancel()
     if telegram_bot is not None:
         await telegram_bot.stop()
+    if command_broker is not None:
+        await command_broker.close()
     await MongoDBConnection.close()
     logger.info('app_stopped')
 
