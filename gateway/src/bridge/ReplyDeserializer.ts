@@ -1,4 +1,4 @@
-import type { AnyMessageContent, WAMessage } from '@whiskeysockets/baileys';
+import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import type { Message } from '../types/message.js';
 import injectStickerExif from '../utils/StickerExif.js';
 
@@ -21,13 +21,11 @@ export default class ReplyDeserializer {
     return message;
   }
 
+  // Quoting belongs to ReplyConsumer: it holds the original WAMessage in flight,
+  // which Baileys requires to build the reply context. Here we only carry expiration.
   private static options(raw: ContentDict): Message['options'] | null {
-    const options: Record<string, unknown> = {};
-    if (raw.quoted_message_id) {
-      options.quoted = { key: { id: raw.quoted_message_id as string } } as WAMessage;
-    }
-    if (raw.expiration) options.ephemeralExpiration = raw.expiration;
-    return Object.keys(options).length > 0 ? (options as Message['options']) : null;
+    if (!raw.expiration) return null;
+    return { ephemeralExpiration: raw.expiration as number };
   }
 
   private static buffer(content: ContentDict): Buffer {

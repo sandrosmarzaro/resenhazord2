@@ -1,3 +1,4 @@
+import type { MiscMessageGenerationOptions, WAMessage } from '@whiskeysockets/baileys';
 import type BrokerPort from '../ports/BrokerPort.js';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import type InFlightCommands from './InFlightCommands.js';
@@ -28,14 +29,26 @@ export default class ReplyConsumer {
     // Carry the correlation id in the gateway's logs too, so one id spans both
     // processes when tracing a command (§12).
     logger.info({ event: 'reply_received', correlationId: envelope.id });
-    for (const raw of envelope.messages) {
-      const message = await ReplyDeserializer.toMessage(raw);
-      await this.whatsapp.sendMessage(message.jid, message.content, message.options ?? {});
-    }
 
     // The registry carries the jid even for an empty terminal reply (no-output
-    // commands), so the typing indicator always stops.
-    const jid = this.inFlight.resolve(envelope.id);
-    if (jid) await TypingIndicator.stop(jid);
+    // commands), so the typing indicator always stops. It also holds the original
+    // message, which Baileys needs to quote the reply.
+    const command = this.inFlight.resolve(envelope.id);
+    for (const raw of envelope.messages) {
+      const message = await ReplyDeserializer.toMessage(raw);
+      const options = ReplyConsumer.withQuoted(message.options, raw, command?.quoted);
+      await this.whatsapp.sendMessage(message.jid, message.content, options);
+    }
+
+    if (command) await TypingIndicator.stop(command.jid);
+  }
+
+  private static withQuoted(
+    options: MiscMessageGenerationOptions | undefined,
+    raw: Record<string, unknown>,
+    quoted: WAMessage | undefined,
+  ): MiscMessageGenerationOptions {
+    if (raw.quoted_message_id && quoted) return { ...options, quoted };
+    return options ?? {};
   }
 }

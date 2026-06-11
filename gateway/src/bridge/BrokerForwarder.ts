@@ -26,7 +26,9 @@ export default class BrokerForwarder {
 
     try {
       const id = await this.publisher.publish(commandData);
-      this.inFlight.track(id, jid);
+      // Keep the original message in flight so ReplyConsumer can quote it: Baileys
+      // needs the full WAMessage, not just its id, to build the reply context.
+      this.inFlight.track(id, jid, data);
     } catch (error) {
       logger.error({ event: 'command_publish_failed', jid, error: String(error) });
       Sentry.captureException(error);

@@ -40,14 +40,14 @@ describe('BrokerForwarder', () => {
     expect(commandData.text).toBe(',ping');
   });
 
-  it('tracks the correlation id against the jid', async () => {
+  it('tracks the correlation id against the jid and original message', async () => {
     const publisher = makePublisher('corr-42');
     const inFlight = new InFlightCommands();
     const data = GroupCommandData.build();
 
     await new BrokerForwarder(publisher, inFlight).forward(data, ',ping');
 
-    expect(inFlight.resolve('corr-42')).toBe(data.key.remoteJid);
+    expect(inFlight.resolve('corr-42')).toEqual({ jid: data.key.remoteJid, quoted: data });
   });
 
   it('stops typing and does not track when the publish fails', async () => {
