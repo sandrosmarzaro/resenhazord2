@@ -3,6 +3,7 @@ import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import type InFlightCommands from './InFlightCommands.js';
 import ReplyDeserializer from './ReplyDeserializer.js';
 import TypingIndicator from '../utils/TypingIndicator.js';
+import logger from '../infra/Logger.js';
 
 interface ReplyEnvelope {
   id: string;
@@ -24,6 +25,9 @@ export default class ReplyConsumer {
 
   private async handle(body: Buffer): Promise<void> {
     const envelope = JSON.parse(body.toString()) as ReplyEnvelope;
+    // Carry the correlation id in the gateway's logs too, so one id spans both
+    // processes when tracing a command (§12).
+    logger.info({ event: 'reply_received', correlationId: envelope.id });
     for (const raw of envelope.messages) {
       const message = await ReplyDeserializer.toMessage(raw);
       await this.whatsapp.sendMessage(message.jid, message.content, message.options ?? {});

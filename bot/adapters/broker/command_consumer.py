@@ -4,6 +4,7 @@ import base64
 import json
 from typing import Any
 
+import sentry_sdk
 import structlog
 import structlog.contextvars
 
@@ -43,6 +44,9 @@ class CommandConsumer:
             jid=command_data.jid,
             sender=command_data.sender_jid,
         )
+        # Same id on every Sentry event for this command, so one filter spans both
+        # processes and the retry/DLQ hops (§12). prefetch=1 keeps it per-message.
+        sentry_sdk.set_tag('correlation_id', envelope['id'])
 
         messages = await self._run(command_data)
         reply = {
