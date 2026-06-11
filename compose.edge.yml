@@ -1,5 +1,8 @@
-# Local all-in-one dev stack (gateway + bot + broker on one host). Production runs the
-# two-node split instead: compose.edge.yml (gateway + rabbitmq) and compose.core.yml (bot).
+# Edge node (VM-A): gateway + broker. The gateway holds the stable Baileys session and
+# RabbitMQ lives beside it so the broker survives bot redeploys on the core node.
+# In production the core node's bot reaches RabbitMQ over the VCN private subnet
+# (RABBITMQ_URL=amqps://<edge_private_ip>); locally, run both compose files together
+# (docker compose -f compose.edge.yml -f compose.core.yml up) and they share the network.
 services:
   whatsapp:
     container_name: whatsapp
@@ -11,12 +14,10 @@ services:
     tty: true
     working_dir: /app
     depends_on:
-      bot:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
-      - bot-network
+      - resenha-network
     restart: unless-stopped
     dns:
       - 1.1.1.1
@@ -33,44 +34,21 @@ services:
       retries: 3
       start_period: 60s
 
-  bot:
-    container_name: bot
-    image: ghcr.io/sandrosmarzaro/resenhazord2:python
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file: .env
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - bot-network
-    restart: unless-stopped
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
   rabbitmq:
     container_name: rabbitmq
     image: rabbitmq:3.13-management
     env_file: .env
     networks:
-      - bot-network
+      - resenha-network
     restart: unless-stopped
+    # AMQP exposed for the core node over the VCN private subnet (Oracle security list
+    # opens 5672 only from VM-B). Management UI stays bound to localhost.
     ports:
-      - "127.0.0.1:5672:5672"
+      - "5672:5672"
       - "127.0.0.1:15672:15672"
     mem_limit: 400m
+    environment:
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "0.6"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     logging:
@@ -89,5 +67,5 @@ volumes:
   rabbitmq-data:
 
 networks:
-  bot-network:
+  resenha-network:
     driver: bridge
