@@ -135,21 +135,22 @@ jobs:
           cache-from: type=gha,scope=py
           cache-to: type=gha,mode=max,scope=py
 
-  # Stage 4: Deploy (after build)
-  deploy:
-    name: SSH deploy to Oracle VPS
+  # Stage 4: Deploy — two explicit jobs, one per node (ADR 0006). They run in parallel;
+  # queue-contract changes follow expand/contract discipline so deploy order never matters.
+  deploy-edge:
+    name: SSH deploy to edge node (gateway + broker)
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 10
     env:
-      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_HOST: ${{ secrets.VPS_EDGE_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
     steps:
       - name: Set up SSH agent
         uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
-          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.VPS_EDGE_SSH_PRIVATE_KEY }}
 
       - name: Add VPS to known hosts
         run: ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
@@ -158,13 +159,37 @@ jobs:
         run: |
           ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=5 \
             "$VPS_USER@$VPS_HOST" \
-            "cd $VPS_APP_DIR && git pull && docker compose pull && docker compose up -d --no-build"
+            "cd $VPS_APP_DIR && git pull && docker compose -f compose.edge.yml pull && docker compose -f compose.edge.yml up -d --no-build"
+
+  deploy-core:
+    name: SSH deploy to core node (bot)
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    env:
+      VPS_HOST: ${{ secrets.VPS_CORE_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+    steps:
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+        with:
+          ssh-private-key: ${{ secrets.VPS_CORE_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=5 \
+            "$VPS_USER@$VPS_HOST" \
+            "cd $VPS_APP_DIR && git pull && docker compose -f compose.core.yml pull && docker compose -f compose.core.yml up -d --no-build"
 
   # Stage 5: Register deployment (after deploy)
   register-deploy:
     name: Register GitHub deployment
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: [deploy-edge, deploy-core]
     permissions:
       deployments: write
     steps:
@@ -193,7 +218,7 @@ jobs:
   tag:
     name: Tag release
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: [deploy-edge, deploy-core]
     permissions:
       contents: write
     steps:
