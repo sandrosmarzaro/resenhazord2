@@ -28,10 +28,10 @@ describe('ReplyDeserializer', () => {
   describe('url-backed media', () => {
     it('image', async () => {
       const message = await ReplyDeserializer.toMessage(
-        content({ type: 'image', url: 'http://x/i.jpg', view_once: true, caption: 'c' }),
+        content({ type: 'image', url: 'https://x/i.jpg', view_once: true, caption: 'c' }),
       );
       expect(message.content).toEqual({
-        image: { url: 'http://x/i.jpg' },
+        image: { url: 'https://x/i.jpg' },
         viewOnce: true,
         caption: 'c',
       });
@@ -39,17 +39,17 @@ describe('ReplyDeserializer', () => {
 
     it('video', async () => {
       const message = await ReplyDeserializer.toMessage(
-        content({ type: 'video', url: 'http://x/v.mp4', view_once: false }),
+        content({ type: 'video', url: 'https://x/v.mp4', view_once: false }),
       );
-      expect(message.content).toMatchObject({ video: { url: 'http://x/v.mp4' }, viewOnce: false });
+      expect(message.content).toMatchObject({ video: { url: 'https://x/v.mp4' }, viewOnce: false });
     });
 
     it('audio with default mimetype', async () => {
       const message = await ReplyDeserializer.toMessage(
-        content({ type: 'audio', url: 'http://x/a' }),
+        content({ type: 'audio', url: 'https://x/a' }),
       );
       expect(message.content).toMatchObject({
-        audio: { url: 'http://x/a' },
+        audio: { url: 'https://x/a' },
         mimetype: 'audio/mp4',
       });
     });
