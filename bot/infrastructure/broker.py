@@ -17,12 +17,17 @@ class BrokerConnectionError(Exception):
 
 class RabbitBroker:
     PREFETCH_COUNT = 1
+    DRAIN_GRACE_SECONDS = 20.0
 
     def __init__(self) -> None:
         self._publish_connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._consume_connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._publish_channel: aio_pika.abc.AbstractChannel | None = None
         self._consume_channel: aio_pika.abc.AbstractChannel | None = None
+        self._consumers: list[tuple[aio_pika.abc.AbstractQueue, str]] = []
+        self._in_flight = 0
+        self._idle = asyncio.Event()
+        self._idle.set()
 
     async def connect(self, url: str) -> None:
         try:
@@ -69,7 +74,8 @@ class RabbitBroker:
     async def consume(self, queue: str, handler: MessageHandler) -> None:
         channel = self._active(self._consume_channel)
         declared = await channel.declare_queue(queue, durable=True)
-        await declared.consume(self._make_callback(handler))
+        tag = await declared.consume(self._make_callback(handler))
+        self._consumers.append((declared, tag))
 
     async def rpc_call(self, queue: str, body: bytes) -> bytes:
         # The caller owns the deadline via `asyncio.timeout(...)`; on cancellation the
@@ -96,7 +102,20 @@ class RabbitBroker:
         declared = await self._active(self._consume_channel).declare_queue(queue, durable=True)
         await declared.consume(self._make_rpc_callback(handler))
 
+    async def stop_consuming(self) -> None:
+        # Cancel consumers so no new message is delivered, then wait (bounded) for the
+        # in-flight one to finish and ack — best-effort graceful drain on redeploy (§7).
+        for queue, tag in self._consumers:
+            await queue.cancel(tag)
+        self._consumers.clear()
+        try:
+            async with asyncio.timeout(self.DRAIN_GRACE_SECONDS):
+                await self._idle.wait()
+        except TimeoutError:
+            logger.warning('graceful_drain_timeout', in_flight=self._in_flight)
+
     async def close(self) -> None:
+        await self.stop_consuming()
         for connection in (self._publish_connection, self._consume_connection):
             if connection:
                 await connection.close()
@@ -112,11 +131,17 @@ class RabbitBroker:
             raise RuntimeError(message)
         return channel
 
-    @staticmethod
-    def _make_callback(handler: MessageHandler):
+    def _make_callback(self, handler: MessageHandler):
         async def on_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
-            async with message.process():
-                await handler(message.body)
+            self._in_flight += 1
+            self._idle.clear()
+            try:
+                async with message.process():
+                    await handler(message.body)
+            finally:
+                self._in_flight -= 1
+                if self._in_flight == 0:
+                    self._idle.set()
 
         return on_message
 

@@ -113,6 +113,34 @@ def _record(captured: list[bytes], event: asyncio.Event):
     return handler
 
 
+class TestGracefulDrain:
+    @pytest.mark.anyio
+    async def test_close_waits_for_the_in_flight_message(self, rabbitmq_url):
+        started = asyncio.Event()
+        release = asyncio.Event()
+        finished: list[bytes] = []
+
+        async def slow_handler(body: bytes) -> None:
+            started.set()
+            await release.wait()
+            finished.append(body)
+
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
+        await broker.consume('drain_q', slow_handler)
+        await broker.publish('drain_q', b'work')
+
+        async with asyncio.timeout(10):
+            await started.wait()
+
+        close_task = asyncio.create_task(broker.close())
+        release.set()
+        async with asyncio.timeout(10):
+            await close_task
+
+        assert finished == [b'work']
+
+
 class TestConnectFailure:
     @pytest.mark.anyio
     async def test_raises_broker_connection_error_when_unreachable(self):
