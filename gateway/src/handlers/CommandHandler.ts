@@ -3,9 +3,7 @@ import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import BotMentionDetector from './BotMentionDetector.js';
 import CommandFactory from '../factories/CommandFactory.js';
-import PythonForwarder from './PythonForwarder.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
-import { BROKER_COMMANDS } from '../data/brokerCommands.js';
 import GetTextMessage from '../utils/GetTextMessage.js';
 import GetGroupExpiration from '../utils/GetGroupExpiration.js';
 import ReactMessage from '../utils/ReactMessage.js';
@@ -30,22 +28,7 @@ export default class CommandHandler {
     }
 
     if (!CommandHandler.shouldForward(data, text)) return;
-
-    const brokerForwarder = Resenhazord2.brokerForwarder;
-    if (brokerForwarder && CommandHandler.isBrokerCommand(text)) {
-      await brokerForwarder.forward(data, text);
-      return;
-    }
-    await PythonForwarder.forward(data, text, CommandHandler.sendMessages);
-  }
-
-  private static isBrokerCommand(text: string): boolean {
-    const name = text
-      .replace(/^\s*,\s*/, '')
-      .trim()
-      .split(/\s+/)[0]
-      ?.toLowerCase();
-    return name ? BROKER_COMMANDS.has(name) : false;
+    await Resenhazord2.brokerForwarder?.forward(data, text);
   }
 
   private static shouldForward(data: WAMessage, text: string): boolean {
@@ -55,14 +38,14 @@ export default class CommandHandler {
 
     logger.debug({
       event: 'mention_forward_check',
-      isConnected: Resenhazord2.bridge.isConnected,
+      brokerReady: Resenhazord2.brokerForwarder !== null,
       startsWithComma,
       mentionsBot,
       isDM,
       text: text?.slice(0, 50),
     });
 
-    return Resenhazord2.bridge.isConnected && (startsWithComma || mentionsBot || isDM);
+    return startsWithComma || mentionsBot || isDM;
   }
 
   private static async executeCommand(

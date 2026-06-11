@@ -3,8 +3,7 @@ import type { Message } from '../types/message.js';
 import injectStickerExif from '../utils/StickerExif.js';
 
 // Reply messages arrive as dynamic JSON from the broker, so every field read here is
-// a narrowing cast — the same shape the WS deserializer (PythonBridge) handled from
-// binary frames, with buffers now base64-inline instead.
+// a narrowing cast. Buffer-backed content carries its bytes base64-inline.
 type ContentDict = Record<string, unknown>;
 type Deserializer = (content: ContentDict) => AnyMessageContent | Promise<AnyMessageContent>;
 
