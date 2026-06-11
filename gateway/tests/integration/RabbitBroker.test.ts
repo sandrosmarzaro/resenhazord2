@@ -72,15 +72,17 @@ async function rpcRequest(url: string, queue: string, payload: unknown): Promise
   const correlationId = 'corr-test';
 
   const reply = new Promise<unknown>((resolve) => {
-    void channel.consume(
-      replyTo,
-      (message) => {
-        if (message && message.properties.correlationId === correlationId) {
-          resolve(JSON.parse(message.content.toString()));
-        }
-      },
-      { noAck: true },
-    );
+    channel
+      .consume(
+        replyTo,
+        (message) => {
+          if (message?.properties.correlationId === correlationId) {
+            resolve(JSON.parse(message.content.toString()));
+          }
+        },
+        { noAck: true },
+      )
+      .catch(() => {});
   });
 
   await channel.assertQueue(queue, { durable: true });

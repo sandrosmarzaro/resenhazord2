@@ -9,5 +9,5 @@ export function createMockBrokerPort(overrides: Partial<BrokerPort> = {}): Broke
     respondRpc: vi.fn().mockResolvedValue(undefined),
     close: vi.fn(),
     ...overrides,
-  } as BrokerPort;
+  };
 }

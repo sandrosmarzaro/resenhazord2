@@ -26,12 +26,12 @@ export default class ReplyDeserializer {
     if (raw.quoted_message_id) {
       options.quoted = { key: { id: raw.quoted_message_id as string } } as WAMessage;
     }
-    if (raw.expiration) options.ephemeralExpiration = raw.expiration as number;
+    if (raw.expiration) options.ephemeralExpiration = raw.expiration;
     return Object.keys(options).length > 0 ? (options as Message['options']) : null;
   }
 
   private static buffer(content: ContentDict): Buffer {
-    return Buffer.from(content.buffer_b64 as string, 'base64');
+    return Buffer.from(String(content.buffer_b64), 'base64');
   }
 
   private static deserializers(): Record<string, Deserializer> {
