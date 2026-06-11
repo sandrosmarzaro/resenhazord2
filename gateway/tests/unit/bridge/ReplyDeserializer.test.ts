@@ -110,14 +110,14 @@ describe('ReplyDeserializer', () => {
       expect(message.options).toBeUndefined();
     });
 
-    it('quoted and expiration', async () => {
+    it('expiration only; quoting is the consumer responsibility', async () => {
       const message = await ReplyDeserializer.toMessage({
         jid: 'g@g.us',
         content: { type: 'text', text: 'x' },
         quoted_message_id: 'ORIG',
         expiration: 60,
       });
-      expect(message.options).toEqual({ quoted: { key: { id: 'ORIG' } }, ephemeralExpiration: 60 });
+      expect(message.options).toEqual({ ephemeralExpiration: 60 });
     });
   });
 });

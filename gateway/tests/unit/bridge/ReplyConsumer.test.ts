@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { WAMessage } from '@whiskeysockets/baileys';
 
 import ReplyConsumer from '../../../src/bridge/ReplyConsumer.js';
 import InFlightCommands from '../../../src/bridge/InFlightCommands.js';
@@ -63,8 +64,10 @@ describe('ReplyConsumer', () => {
     expect(whatsapp.sendMessage).toHaveBeenCalledWith('g@g.us', { text: 'pong' }, {});
   });
 
-  it('attaches quoted and expiration options', async () => {
-    const { whatsapp, deliver } = await startConsumer();
+  it('quotes the original tracked message and attaches expiration', async () => {
+    const { whatsapp, inFlight, deliver } = await startConsumer();
+    const original = { key: { id: 'ORIG_1', remoteJid: 'g@g.us' } } as WAMessage;
+    inFlight.track('corr-1', 'g@g.us', original);
 
     await deliver({
       id: 'corr-1',
@@ -81,8 +84,21 @@ describe('ReplyConsumer', () => {
     expect(whatsapp.sendMessage).toHaveBeenCalledWith(
       'g@g.us',
       { text: 'pong' },
-      { quoted: { key: { id: 'ORIG_1' } }, ephemeralExpiration: 86400 },
+      { quoted: original, ephemeralExpiration: 86400 },
     );
+  });
+
+  it('skips the quote when the original message is no longer tracked', async () => {
+    const { whatsapp, deliver } = await startConsumer();
+
+    await deliver({
+      id: 'corr-1',
+      messages: [
+        { jid: 'g@g.us', content: { type: 'text', text: 'pong' }, quoted_message_id: 'ORIG_1' },
+      ],
+    });
+
+    expect(whatsapp.sendMessage).toHaveBeenCalledWith('g@g.us', { text: 'pong' }, {});
   });
 
   it('decodes a base64 buffer reply', async () => {
@@ -102,7 +118,7 @@ describe('ReplyConsumer', () => {
 
   it('stops the typing indicator for a tracked command', async () => {
     const { inFlight, deliver } = await startConsumer();
-    inFlight.track('corr-1', 'g@g.us');
+    inFlight.track('corr-1', 'g@g.us', { key: { id: 'ORIG_1' } } as WAMessage);
 
     await deliver({
       id: 'corr-1',
@@ -114,7 +130,7 @@ describe('ReplyConsumer', () => {
 
   it('stops typing on an empty terminal reply via the registry', async () => {
     const { whatsapp, inFlight, deliver } = await startConsumer();
-    inFlight.track('corr-1', 'g@g.us');
+    inFlight.track('corr-1', 'g@g.us', { key: { id: 'ORIG_1' } } as WAMessage);
 
     await deliver({ id: 'corr-1', messages: [] });
 
