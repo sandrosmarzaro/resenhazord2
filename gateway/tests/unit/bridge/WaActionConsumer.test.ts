@@ -68,4 +68,33 @@ describe('WaActionConsumer', () => {
 
     expect(whatsapp.sendPresenceUpdate).toHaveBeenCalledWith('composing', 'g@g.us');
   });
+
+  it('sends a message', async () => {
+    const { broker, deliver } = actionCapturingBroker();
+    const whatsapp = createMockWhatsAppPort();
+    await new WaActionConsumer(broker, whatsapp).start();
+
+    await deliver({ method: 'send_message', jid: 'g@g.us', content: { text: 'oi' }, options: {} });
+
+    expect(whatsapp.sendMessage).toHaveBeenCalledWith('g@g.us', { text: 'oi' }, {});
+  });
+
+  it('updates subject and description', async () => {
+    const { broker, deliver } = actionCapturingBroker();
+    const whatsapp = createMockWhatsAppPort();
+    await new WaActionConsumer(broker, whatsapp).start();
+
+    await deliver({ method: 'group_update_subject', jid: 'g@g.us', subject: 'Resenha' });
+    await deliver({ method: 'group_update_description', jid: 'g@g.us', description: 'desc' });
+
+    expect(whatsapp.groupUpdateSubject).toHaveBeenCalledWith('g@g.us', 'Resenha');
+    expect(whatsapp.groupUpdateDescription).toHaveBeenCalledWith('g@g.us', 'desc');
+  });
+
+  it('throws on an unknown action', async () => {
+    const { broker, deliver } = actionCapturingBroker();
+    await new WaActionConsumer(broker, createMockWhatsAppPort()).start();
+
+    await expect(deliver({ method: 'nope', jid: 'g@g.us' })).rejects.toThrow('Unknown wa_action');
+  });
 });

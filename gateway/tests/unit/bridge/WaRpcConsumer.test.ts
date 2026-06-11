@@ -58,4 +58,11 @@ describe('WaRpcConsumer', () => {
     expect(whatsapp.groupMetadata).toHaveBeenCalledWith('g@g.us');
     expect(reply).toEqual({ id: 'g@g.us', subject: 'Resenha' });
   });
+
+  it('rejects an unknown method', async () => {
+    const { broker, call } = rpcCapturingBroker();
+    await new WaRpcConsumer(broker, createMockWhatsAppPort()).start();
+
+    await expect(call({ method: 'nope' })).rejects.toThrow('Unknown wa_rpc method');
+  });
 });

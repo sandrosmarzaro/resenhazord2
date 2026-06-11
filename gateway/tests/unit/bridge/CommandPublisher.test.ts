@@ -36,6 +36,23 @@ describe('CommandPublisher', () => {
       expect(envelope.data.is_group).toBe(true);
       expect(envelope.data.media_buffer_b64).toBeUndefined();
     });
+
+    it('carries mentions and the quoted text', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build(
+        { text: ',ban' },
+        { transient: { isGroup: true, mentionedJids: ['victim@s'], hasQuotedMessage: true } },
+      );
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.mentioned_jids).toEqual(['victim@s']);
+      expect(envelope.data.quoted_text).toBe('quoted message');
+    });
   });
 
   describe('with media', () => {
