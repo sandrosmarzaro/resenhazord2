@@ -7,7 +7,7 @@ from typing import Any
 import structlog
 import structlog.contextvars
 
-from bot.adapters.http.schemas import WSCommandData
+from bot.adapters.http.schemas import CommandPayload
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Platform
@@ -71,7 +71,7 @@ class CommandConsumer:
 
     @staticmethod
     def _to_command_data(data: dict[str, Any]) -> CommandData:
-        parsed = WSCommandData.model_validate(data)
+        parsed = CommandPayload.model_validate(data)
         buffer = data.get('media_buffer_b64')
         return CommandData(
             text=parsed.text,

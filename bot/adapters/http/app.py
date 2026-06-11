@@ -9,13 +9,15 @@ import structlog
 from fastapi import FastAPI
 
 from bot.adapters.broker.command_consumer import CommandConsumer
+from bot.adapters.broker.group_event_consumer import GroupEventConsumer
 from bot.adapters.discord.bot import DiscordBot
 from bot.adapters.http.endpoints.v1.health import router as health_router
-from bot.adapters.http.endpoints.v1.ws import router as ws_router
 from bot.adapters.telegram.bot import TelegramBot
+from bot.adapters.whatsapp.broker_client import BrokerWhatsAppClient
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
+from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
@@ -28,15 +30,19 @@ def _parse_chat_ids(raw: str) -> frozenset[int]:
     return frozenset(int(part) for part in raw.split(',') if part.strip())
 
 
-async def _start_command_consumer() -> RabbitBroker | None:
+async def _start_broker_consumers() -> RabbitBroker | None:
     broker = RabbitBroker()
     try:
         await broker.connect(settings.rabbitmq_url)
     except BrokerConnectionError:
-        logger.warning('command_consumer_broker_unavailable')
+        logger.warning('broker_unavailable')
         return None
+    whatsapp = BrokerWhatsAppClient(broker)
     registry = CommandRegistry.instance()
+    registry.set_whatsapp(whatsapp)
     await CommandConsumer(broker, CommandHandler(registry)).start()
+    steal_group = StealGroupService(whatsapp, settings.resenhazord2_jid, settings.resenha_jid)
+    await GroupEventConsumer(broker, steal_group).start()
     return broker
 
 
@@ -56,7 +62,7 @@ async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     register_all_commands()
-    command_broker = await _start_command_consumer()
+    command_broker = await _start_broker_consumers()
     discord_bot = None
     discord_task = None
     if settings.discord_token and settings.discord_server_guild_id:
@@ -86,4 +92,3 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title='Resenhazord2 Python Core', lifespan=lifespan)
 app.include_router(health_router)
-app.include_router(ws_router)
