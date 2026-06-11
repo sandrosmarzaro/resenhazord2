@@ -2,7 +2,7 @@
 
 import base64
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 import sentry_sdk
 import structlog
@@ -12,7 +12,7 @@ from bot.adapters.http.schemas import CommandPayload
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Platform
-from bot.domain.exceptions import BotError
+from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.ports.broker_port import BrokerPort
@@ -23,15 +23,26 @@ logger = structlog.get_logger()
 class CommandConsumer:
     COMMANDS_QUEUE = 'commands'
     REPLIES_QUEUE = 'replies'
+    RETRY_QUEUE = 'commands.retry'
+    DLQ_QUEUE = 'commands.dlq'
+    MAX_ATTEMPTS: ClassVar[int] = 3
+    DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = 1
+    RETRY_TTL_MS: ClassVar[int] = 30_000
 
     def __init__(self, broker: BrokerPort, command_handler: CommandHandler) -> None:
         self._broker = broker
         self._command_handler = command_handler
 
     async def start(self) -> None:
-        # Declare the reply target up front so the publish from inside the consume
-        # callback never issues a queue-declare RPC (which would wedge the confirm).
+        # Declare the publish targets up front so the publishes from inside the consume
+        # callback never issue a queue-declare RPC (which would wedge the confirm). The
+        # retry queue parks a failed command for a backoff then dead-letters it back to
+        # commands; the DLQ is terminal (ADR 0004).
         await self._broker.declare(self.REPLIES_QUEUE)
+        await self._broker.declare(self.DLQ_QUEUE)
+        await self._broker.declare_retry_queue(
+            self.RETRY_QUEUE, self.RETRY_TTL_MS, self.COMMANDS_QUEUE
+        )
         await self._broker.consume(self.COMMANDS_QUEUE, self._handle)
 
     async def _handle(self, body: bytes) -> None:
@@ -48,7 +59,35 @@ class CommandConsumer:
         # processes and the retry/DLQ hops (§12). prefetch=1 keeps it per-message.
         sentry_sdk.set_tag('correlation_id', envelope['id'])
 
-        messages = await self._run(command_data)
+        try:
+            messages = await self._command_handler.handle(command_data)
+        except ExternalServiceError as error:
+            await self._retry_or_fail(envelope, command_data, error)
+            return
+        except BotError as error:
+            await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
+            return
+        await self._publish_reply(envelope, messages or [])
+
+    async def _retry_or_fail(
+        self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError
+    ) -> None:
+        attempts = envelope.get('attempts', 0) + 1
+        if attempts < self._max_attempts(error):
+            envelope['attempts'] = attempts
+            await self._broker.publish(self.RETRY_QUEUE, json.dumps(envelope).encode())
+            logger.warning('command_retry_scheduled', attempts=attempts, error=str(error))
+            return
+        logger.error('command_retries_exhausted', attempts=attempts, error=str(error))
+        await self._broker.publish(self.DLQ_QUEUE, json.dumps(envelope).encode())
+        await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
+
+    @classmethod
+    def _max_attempts(cls, error: ExternalServiceError) -> int:
+        # yt-dlp failures are usually permanent, so they skip the multi-minute ladder.
+        return cls.DOWNLOAD_MAX_ATTEMPTS if isinstance(error, DownloadError) else cls.MAX_ATTEMPTS
+
+    async def _publish_reply(self, envelope: dict[str, Any], messages: list[BotMessage]) -> None:
         reply = {
             'id': envelope['id'],
             'messages': [self._serialize(message) for message in messages],
@@ -65,13 +104,6 @@ class CommandConsumer:
             buffer = message.content.buffer  # type: ignore[union-attr]
             payload['content']['buffer_b64'] = base64.b64encode(buffer).decode()
         return payload
-
-    async def _run(self, command_data: CommandData) -> list[BotMessage]:
-        try:
-            messages = await self._command_handler.handle(command_data)
-        except BotError as error:
-            return [Reply.to(command_data).text(error.user_message)]
-        return messages or []
 
     @staticmethod
     def _to_command_data(data: dict[str, Any]) -> CommandData:

@@ -46,6 +46,20 @@ class RabbitBroker:
         channel = self._active(self._publish_channel)
         await channel.declare_queue(queue, durable=True)
 
+    async def declare_retry_queue(self, queue: str, ttl_ms: int, dead_letter_to: str) -> None:
+        # A message parked here waits ttl_ms, then dead-letters (default exchange) to
+        # dead_letter_to — the backoff hop of the retry ladder (ADR 0004).
+        channel = self._active(self._publish_channel)
+        await channel.declare_queue(
+            queue,
+            durable=True,
+            arguments={
+                'x-message-ttl': ttl_ms,
+                'x-dead-letter-exchange': '',
+                'x-dead-letter-routing-key': dead_letter_to,
+            },
+        )
+
     async def publish(self, queue: str, body: bytes) -> None:
         channel = self._active(self._publish_channel)
         message = aio_pika.Message(body, delivery_mode=aio_pika.DeliveryMode.PERSISTENT)

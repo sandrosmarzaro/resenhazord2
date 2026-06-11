@@ -83,6 +83,36 @@ class TestRpc:
         assert json.loads(reply) == {'echo': ['x@s']}
 
 
+class TestRetryQueue:
+    @pytest.mark.anyio
+    async def test_message_dead_letters_back_to_the_target_after_ttl(self, rabbitmq_url):
+        received = asyncio.Event()
+        captured: list[bytes] = []
+
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
+        await broker.consume('retry_target', _record(captured, received))
+        await broker.declare_retry_queue(
+            'retry_target.retry', ttl_ms=300, dead_letter_to='retry_target'
+        )
+
+        await broker.publish('retry_target.retry', b'delayed')
+
+        async with asyncio.timeout(10):
+            await received.wait()
+        await broker.close()
+
+        assert captured == [b'delayed']
+
+
+def _record(captured: list[bytes], event: asyncio.Event):
+    async def handler(body: bytes) -> None:
+        captured.append(body)
+        event.set()
+
+    return handler
+
+
 class TestConnectFailure:
     @pytest.mark.anyio
     async def test_raises_broker_connection_error_when_unreachable(self):
