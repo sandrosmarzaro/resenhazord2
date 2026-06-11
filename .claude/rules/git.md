@@ -40,3 +40,22 @@ This file covers commit-time mechanics.
 
 - Never delete a file without `grep -r "<basename>"` first. Re-exports, dynamic
   imports, and test fixtures often break silently.
+
+## Queue-contract changes are expand/contract
+
+**Scope**: `.github/**`, broker queue/routing/payload changes.
+
+The two nodes (edge gateway, core bot) deploy independently and in parallel
+([ADR 0006](../../docs/adr/0006-two-node-cicd-deploy.md)), so there is always a
+window where one node runs the new code and the other the old. Any change to a
+**queue contract** — routing key, queue name, binding, or payload schema — must
+ship **expand/contract**, never as a breaking rename in one release:
+
+1. **Expand**: add the new queue/field/binding alongside the old; both producer
+   and consumer understand both. Deploy.
+2. **Migrate**: move producers to the new shape; consumers still accept both.
+3. **Contract**: remove the old shape in a later release.
+
+Then deploy order never matters and both deploy jobs run in parallel. A
+code-only change with no contract change is covered by reconnect +
+at-least-once + graceful drain — no special handling.

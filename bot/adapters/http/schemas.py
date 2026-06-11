@@ -1,11 +1,7 @@
-"""Pydantic models for WebSocket message types."""
-
-from typing import Any
-
 from pydantic import BaseModel
 
 
-class WSCommandData(BaseModel):
+class CommandPayload(BaseModel):
     text: str
     jid: str
     sender_jid: str
@@ -19,13 +15,5 @@ class WSCommandData(BaseModel):
     media_source: str | None = None
     media_is_animated: bool = False
     media_caption: str | None = None
-    media_buffer_size: int = 0
     message_id: str | None = None
     push_name: str | None = None
-
-
-class WSMessage(BaseModel):
-    id: str
-    type: str
-    method: str | None = None
-    data: dict[str, Any] | None = None

@@ -1,0 +1,31 @@
+# Core node (VM-B): the bot, on its own. It connects to the broker on the edge node via
+# RABBITMQ_URL (amqps://<edge_private_ip> in production). No depends_on the gateway —
+# broker durability replaces boot ordering, so the bot deploys and restarts on its own.
+services:
+  bot:
+    container_name: bot
+    image: ghcr.io/sandrosmarzaro/resenhazord2:python
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    networks:
+      - resenha-network
+    restart: unless-stopped
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  resenha-network:
+    driver: bridge

@@ -25,6 +25,17 @@ Things that lint, format, or typecheck cannot catch. Follow PEP 8 plus the below
 - **Lookup tables live in `bot/data/`** — dicts, lists, sets, enum maps, emoji
   tables, even small ones. Named exports only. No inline data in command files.
 
+## Broker idempotency
+
+- **At-least-once delivery means commands can be redelivered** after a crash gap
+  ([ADR 0001](../../docs/adr/0001-at-least-once-delivery.md)). Most commands are
+  replay-safe (pure render, `$addToSet`/`$pull`, idempotent WhatsApp writes).
+- **Any new non-idempotent command** (economy, points, counters — anything
+  money- or state-meaningful) must either be made replay-safe or gate on the
+  `CommandData.message_id` idempotency key (a short-TTL Redis `SET` inbox). Don't
+  add a `$inc`-style counter without one. The two known exceptions (`,borges`,
+  steal-group counter) are tolerated vanity numbers, not a precedent.
+
 ## Logging
 
 - Always `structlog.get_logger()` at module top — never `logging.getLogger`.

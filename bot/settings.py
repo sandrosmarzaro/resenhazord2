@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str | None = None
 
+    # RabbitMQ
+    rabbitmq_url: str = 'amqp://guest:guest@localhost:5672/'
+
     # Server
     host: str = '0.0.0.0'
     port: int = 8000
