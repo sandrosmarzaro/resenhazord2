@@ -2,6 +2,7 @@ from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 MessageHandler = Callable[[bytes], Awaitable[None]]
+RpcHandler = Callable[[bytes], Awaitable[bytes]]
 
 
 class BrokerPort(Protocol):
@@ -12,5 +13,7 @@ class BrokerPort(Protocol):
     async def publish(self, queue: str, body: bytes) -> None: ...
 
     async def consume(self, queue: str, handler: MessageHandler) -> None: ...
+
+    async def rpc_call(self, queue: str, body: bytes) -> bytes: ...
 
     async def close(self) -> None: ...

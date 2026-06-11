@@ -1,9 +1,12 @@
 """RabbitMQ broker adapter (aio-pika) implementing BrokerPort."""
 
+import asyncio
+import uuid
+
 import aio_pika
 import structlog
 
-from bot.ports.broker_port import MessageHandler
+from bot.ports.broker_port import MessageHandler, RpcHandler
 
 logger = structlog.get_logger()
 
@@ -49,6 +52,31 @@ class RabbitBroker:
         declared = await channel.declare_queue(queue, durable=True)
         await declared.consume(self._make_callback(handler))
 
+    async def rpc_call(self, queue: str, body: bytes) -> bytes:
+        # The caller owns the deadline via `asyncio.timeout(...)`; on cancellation the
+        # finally still tears down the temporary callback queue's consumer.
+        callback_queue = await self._active(self._consume_channel).declare_queue(exclusive=True)
+        correlation_id = str(uuid.uuid4())
+        future: asyncio.Future[bytes] = asyncio.get_event_loop().create_future()
+        consumer_tag = await callback_queue.consume(self._rpc_response(correlation_id, future))
+        request = aio_pika.Message(
+            body,
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            correlation_id=correlation_id,
+            reply_to=callback_queue.name,
+        )
+        await self._active(self._publish_channel).default_exchange.publish(
+            request, routing_key=queue
+        )
+        try:
+            return await future
+        finally:
+            await callback_queue.cancel(consumer_tag)
+
+    async def rpc_respond(self, queue: str, handler: RpcHandler) -> None:
+        declared = await self._active(self._consume_channel).declare_queue(queue, durable=True)
+        await declared.consume(self._make_rpc_callback(handler))
+
     async def close(self) -> None:
         for connection in (self._publish_connection, self._consume_connection):
             if connection:
@@ -72,3 +100,25 @@ class RabbitBroker:
                 await handler(message.body)
 
         return on_message
+
+    @staticmethod
+    def _rpc_response(correlation_id: str, future: asyncio.Future[bytes]):
+        async def on_response(message: aio_pika.abc.AbstractIncomingMessage) -> None:
+            async with message.process():
+                if message.correlation_id == correlation_id and not future.done():
+                    future.set_result(message.body)
+
+        return on_response
+
+    def _make_rpc_callback(self, handler: RpcHandler):
+        async def on_request(message: aio_pika.abc.AbstractIncomingMessage) -> None:
+            async with message.process():
+                if message.reply_to is None:
+                    return
+                result = await handler(message.body)
+                reply = aio_pika.Message(result, correlation_id=message.correlation_id)
+                await self._active(self._publish_channel).default_exchange.publish(
+                    reply, routing_key=message.reply_to
+                )
+
+        return on_request

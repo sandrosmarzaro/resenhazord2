@@ -5,10 +5,16 @@ class MockBrokerPort:
     def __init__(self) -> None:
         self.published: list[tuple[str, bytes]] = []
         self.declared: list[str] = []
+        self.rpc_calls: list[tuple[str, bytes]] = []
+        self.rpc_response: bytes = b'{}'
         self._handlers: dict[str, MessageHandler] = {}
 
     async def connect(self, url: str) -> None:
         return None
+
+    async def rpc_call(self, queue: str, body: bytes) -> bytes:
+        self.rpc_calls.append((queue, body))
+        return self.rpc_response
 
     async def declare(self, queue: str) -> None:
         self.declared.append(queue)

@@ -57,6 +57,32 @@ class TestPublishInsideConsume:
         assert captured == [b'reply']
 
 
+class TestRpc:
+    @pytest.mark.anyio
+    async def test_rpc_call_round_trips_through_a_responder(self, rabbitmq_url):
+        import json
+
+        responder = RabbitBroker()
+        await responder.connect(rabbitmq_url)
+
+        async def handle(body: bytes) -> bytes:
+            request = json.loads(body)
+            return json.dumps({'echo': request['jids']}).encode()
+
+        await responder.rpc_respond('wa_rpc', handle)
+
+        client = RabbitBroker()
+        await client.connect(rabbitmq_url)
+
+        async with asyncio.timeout(10):
+            reply = await client.rpc_call('wa_rpc', json.dumps({'jids': ['x@s']}).encode())
+
+        await client.close()
+        await responder.close()
+
+        assert json.loads(reply) == {'echo': ['x@s']}
+
+
 class TestConnectFailure:
     @pytest.mark.anyio
     async def test_raises_broker_connection_error_when_unreachable(self):
