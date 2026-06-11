@@ -3,15 +3,11 @@ import { describe, it, expect, vi } from 'vitest';
 import CommandPublisher from '../../../src/bridge/CommandPublisher.js';
 import type BrokerPort from '../../../src/ports/BrokerPort.js';
 import type MediaHandler from '../../../src/bridge/MediaHandler.js';
+import { createMockBrokerPort } from '../../fixtures/factories/MockBrokerPort.js';
 import { GroupCommandData } from '../../fixtures/index.js';
 
 function makeBroker(): BrokerPort {
-  return {
-    connect: vi.fn(),
-    publish: vi.fn().mockResolvedValue(undefined),
-    consume: vi.fn(),
-    close: vi.fn(),
-  };
+  return createMockBrokerPort();
 }
 
 function publishedEnvelope(broker: BrokerPort): { id: string; data: Record<string, unknown> } {

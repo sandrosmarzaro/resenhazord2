@@ -49,7 +49,47 @@ describe('RabbitBroker', () => {
 
     expect(received).toEqual(['oi']);
   });
+
+  it('responds to an RPC request on the reply queue', async () => {
+    const broker = new RabbitBroker();
+    await broker.connect(url);
+    await broker.respondRpc('rpc_q', async (body) => {
+      const request = JSON.parse(body.toString());
+      return Buffer.from(JSON.stringify({ echo: request.value }));
+    });
+
+    const reply = await rpcRequest(url, 'rpc_q', { value: 42 });
+
+    await broker.close();
+    expect(reply).toEqual({ echo: 42 });
+  });
 });
+
+async function rpcRequest(url: string, queue: string, payload: unknown): Promise<unknown> {
+  const connection = await connect(url);
+  const channel = await connection.createChannel();
+  const { queue: replyTo } = await channel.assertQueue('', { exclusive: true });
+  const correlationId = 'corr-test';
+
+  const reply = new Promise<unknown>((resolve) => {
+    void channel.consume(
+      replyTo,
+      (message) => {
+        if (message && message.properties.correlationId === correlationId) {
+          resolve(JSON.parse(message.content.toString()));
+        }
+      },
+      { noAck: true },
+    );
+  });
+
+  await channel.assertQueue(queue, { durable: true });
+  channel.sendToQueue(queue, Buffer.from(JSON.stringify(payload)), { correlationId, replyTo });
+
+  const result = await reply;
+  await connection.close();
+  return result;
+}
 
 async function getOne(url: string, queue: string): Promise<string> {
   const connection = await connect(url);

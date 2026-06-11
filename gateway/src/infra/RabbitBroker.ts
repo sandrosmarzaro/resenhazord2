@@ -7,7 +7,7 @@ import {
 } from 'amqplib';
 
 import type BrokerPort from '../ports/BrokerPort.js';
-import type { MessageHandler } from '../ports/BrokerPort.js';
+import type { MessageHandler, RpcHandler } from '../ports/BrokerPort.js';
 import logger from './Logger.js';
 
 export default class RabbitBroker implements BrokerPort {
@@ -36,6 +36,14 @@ export default class RabbitBroker implements BrokerPort {
     });
   }
 
+  async respondRpc(queue: string, handler: RpcHandler): Promise<void> {
+    const channel = this.activeConsumeChannel();
+    await channel.assertQueue(queue, { durable: true });
+    await channel.consume(queue, (message) => {
+      void this.reply(channel, handler, message);
+    });
+  }
+
   async close(): Promise<void> {
     if (this.connection) {
       await this.connection.close();
@@ -55,6 +63,23 @@ export default class RabbitBroker implements BrokerPort {
       await handler(message.content);
     } catch (error) {
       logger.error({ event: 'consume_handler_error', error: String(error) });
+    } finally {
+      channel.ack(message);
+    }
+  }
+
+  private async reply(
+    channel: Channel,
+    handler: RpcHandler,
+    message: ConsumeMessage | null,
+  ): Promise<void> {
+    if (!message) return;
+    const { correlationId, replyTo } = message.properties;
+    try {
+      const result = await handler(message.content);
+      if (replyTo) channel.sendToQueue(replyTo, result, { correlationId });
+    } catch (error) {
+      logger.error({ event: 'rpc_handler_error', error: String(error) });
     } finally {
       channel.ack(message);
     }

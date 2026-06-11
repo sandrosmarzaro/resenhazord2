@@ -6,6 +6,7 @@ import TypingIndicator from '../../../src/utils/TypingIndicator.js';
 import type BrokerPort from '../../../src/ports/BrokerPort.js';
 import type { MessageHandler } from '../../../src/ports/BrokerPort.js';
 import type WhatsAppPort from '../../../src/ports/WhatsAppPort.js';
+import { createMockBrokerPort } from '../../fixtures/factories/MockBrokerPort.js';
 import { createMockWhatsAppPort } from '../../fixtures/factories/MockWhatsAppPort.js';
 
 function brokerCapturingHandler(): {
@@ -13,15 +14,12 @@ function brokerCapturingHandler(): {
   deliver: (envelope: unknown) => Promise<void>;
 } {
   let handler: MessageHandler;
-  const broker: BrokerPort = {
-    connect: vi.fn(),
-    publish: vi.fn(),
+  const broker = createMockBrokerPort({
     consume: vi.fn().mockImplementation((_queue: string, given: MessageHandler) => {
       handler = given;
       return Promise.resolve();
     }),
-    close: vi.fn(),
-  };
+  });
   return {
     broker,
     deliver: (envelope) => handler(Buffer.from(JSON.stringify(envelope))),
