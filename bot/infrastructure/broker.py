@@ -16,6 +16,8 @@ class BrokerConnectionError(Exception):
 
 
 class RabbitBroker:
+    PREFETCH_COUNT = 1
+
     def __init__(self) -> None:
         self._publish_connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._consume_connection: aio_pika.abc.AbstractRobustConnection | None = None
@@ -31,6 +33,9 @@ class RabbitBroker:
             self._consume_connection = await aio_pika.connect_robust(url)
             self._publish_channel = await self._publish_connection.channel(publisher_confirms=True)
             self._consume_channel = await self._consume_connection.channel()
+            # One unacked message at a time, so a slow command can't starve others and a
+            # second worker round-robins with no code change (PRD §5).
+            await self._consume_channel.set_qos(prefetch_count=self.PREFETCH_COUNT)
         except (OSError, aio_pika.exceptions.AMQPError) as error:
             raise BrokerConnectionError(str(error)) from error
 
