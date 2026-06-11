@@ -125,7 +125,7 @@ class Command(ABC):
         return self._whatsapp
 
     async def _get_media(self, data: CommandData) -> bytes:
-        """Return the proactively-downloaded media buffer, or download it on demand."""
+        """Return proactively-downloaded media buffer, or fall back to wa_call."""
         if data.media_buffer is not None:
             return data.media_buffer
         if data.message_id is None or data.media_source is None:
