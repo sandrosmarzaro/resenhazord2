@@ -1,5 +1,3 @@
-"""Pydantic model for the inbound command wire payload."""
-
 from pydantic import BaseModel
 
 

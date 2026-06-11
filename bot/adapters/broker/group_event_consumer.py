@@ -1,5 +1,3 @@
-"""Consumes group events from the broker and dispatches to StealGroupService."""
-
 import json
 
 import structlog

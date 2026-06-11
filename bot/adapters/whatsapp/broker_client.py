@@ -32,7 +32,9 @@ class BrokerWhatsAppClient:
     async def download_media(self, message_id: str, source: str) -> bytes:
         # Small media rides base64-inline on the command (Command._get_media prefers it),
         # so this is only reachable for large media — the deferred dedicated media queue.
-        message = 'download_media over the broker is not supported (large media queue pending)'
+        message = (
+            f'broker download_media unsupported (large media queue pending): {message_id}/{source}'
+        )
         raise NotImplementedError(message)
 
     async def _rpc(self, method: str, **data: Any) -> dict:

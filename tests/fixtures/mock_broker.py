@@ -9,7 +9,7 @@ class MockBrokerPort:
         self.rpc_response: bytes = b'{}'
         self._handlers: dict[str, MessageHandler] = {}
 
-    async def connect(self, url: str) -> None:
+    async def connect(self, _url: str) -> None:
         return None
 
     async def rpc_call(self, queue: str, body: bytes) -> bytes:
@@ -19,7 +19,7 @@ class MockBrokerPort:
     async def declare(self, queue: str) -> None:
         self.declared.append(queue)
 
-    async def declare_retry_queue(self, queue: str, ttl_ms: int, dead_letter_to: str) -> None:
+    async def declare_retry_queue(self, queue: str, _ttl_ms: int, _dead_letter_to: str) -> None:
         self.declared.append(queue)
 
     async def publish(self, queue: str, body: bytes) -> None:

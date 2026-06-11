@@ -1,5 +1,3 @@
-"""RabbitMQ broker adapter (aio-pika) implementing BrokerPort."""
-
 import asyncio
 import uuid
 
@@ -12,7 +10,7 @@ logger = structlog.get_logger()
 
 
 class BrokerConnectionError(Exception):
-    pass
+    """Raised when the broker connection cannot be established."""
 
 
 class RabbitBroker:

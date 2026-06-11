@@ -1,5 +1,3 @@
-"""Consumes inbound commands from the broker and publishes replies."""
-
 import base64
 import json
 from typing import Any, ClassVar
