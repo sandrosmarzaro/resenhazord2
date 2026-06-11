@@ -7,18 +7,39 @@ return value). Reads (group_metadata) and the on_whatsapp lookup are added along
 proactive-push and wa_rpc respectively.
 """
 
+import asyncio
 import base64
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 from bot.ports.broker_port import BrokerPort
 
 
 class BrokerWhatsAppClient:
     ACTIONS_QUEUE = 'wa_actions'
+    RPC_QUEUE = 'wa_rpc'
+    RPC_TIMEOUT_SECONDS: ClassVar[float] = 30.0
 
     def __init__(self, broker: BrokerPort) -> None:
         self._broker = broker
+
+    async def on_whatsapp(self, jids: list[str]) -> list[dict]:
+        return (await self._rpc('on_whatsapp', jids=jids)).get('results', [])
+
+    async def group_metadata(self, jid: str) -> dict:
+        return await self._rpc('group_metadata', jid=jid)
+
+    async def download_media(self, message_id: str, source: str) -> bytes:
+        # Small media rides base64-inline on the command (Command._get_media prefers it),
+        # so this is only reachable for large media — the deferred dedicated media queue.
+        message = 'download_media over the broker is not supported (large media queue pending)'
+        raise NotImplementedError(message)
+
+    async def _rpc(self, method: str, **data: Any) -> dict:
+        request = json.dumps({'method': method, **data}).encode()
+        async with asyncio.timeout(self.RPC_TIMEOUT_SECONDS):
+            reply = await self._broker.rpc_call(self.RPC_QUEUE, request)
+        return json.loads(reply)
 
     async def group_participants_update(
         self, jid: str, participants: list[str], action: str

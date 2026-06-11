@@ -68,3 +68,43 @@ class TestFireAndForgetWrites:
             'type': 'composing',
             'jid': 'g@g.us',
         }
+
+
+class TestOnWhatsApp:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_resolves_jids_via_rpc(self):
+        broker = MockBrokerPort()
+        broker.rpc_response = json.dumps(
+            {'results': [{'exists': True, 'jid': '5511@s.whatsapp.net'}]}
+        ).encode()
+        client = BrokerWhatsAppClient(broker)
+
+        results = await client.on_whatsapp(['5511'])
+
+        assert results == [{'exists': True, 'jid': '5511@s.whatsapp.net'}]
+        queue, body = broker.rpc_calls[0]
+        assert queue == 'wa_rpc'
+        assert json.loads(body) == {'method': 'on_whatsapp', 'jids': ['5511']}
+
+    @pytest.mark.anyio
+    async def test_group_metadata_resolves_via_rpc(self):
+        broker = MockBrokerPort()
+        broker.rpc_response = json.dumps({'id': 'g@g.us', 'subject': 'Resenha'}).encode()
+        client = BrokerWhatsAppClient(broker)
+
+        metadata = await client.group_metadata('g@g.us')
+
+        assert metadata == {'id': 'g@g.us', 'subject': 'Resenha'}
+        _, body = broker.rpc_calls[0]
+        assert json.loads(body) == {'method': 'group_metadata', 'jid': 'g@g.us'}
+
+    @pytest.mark.anyio
+    async def test_download_media_is_not_supported(self):
+        client = BrokerWhatsAppClient(MockBrokerPort())
+
+        with pytest.raises(NotImplementedError):
+            await client.download_media('MSG_1', 'direct')
