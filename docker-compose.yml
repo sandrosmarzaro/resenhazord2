@@ -1,3 +1,5 @@
+# Local all-in-one dev stack (gateway + bot + broker on one host). Production runs the
+# two-node split instead: compose.edge.yml (gateway + rabbitmq) and compose.core.yml (bot).
 services:
   whatsapp:
     container_name: whatsapp
@@ -6,10 +8,15 @@ services:
       context: ./gateway
       dockerfile: Dockerfile
     env_file: .env
+    environment:
+      # Reach the broker by its service name; .env's localhost only works on the host.
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     tty: true
     working_dir: /app
     depends_on:
       bot:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - bot-network
@@ -36,6 +43,12 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file: .env
+    environment:
+      # Reach the broker by its service name; .env's localhost only works on the host.
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - bot-network
     restart: unless-stopped
@@ -52,6 +65,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.13-management
+    env_file: .env
+    networks:
+      - bot-network
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    mem_limit: 400m
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  rabbitmq-data:
 
 networks:
   bot-network:

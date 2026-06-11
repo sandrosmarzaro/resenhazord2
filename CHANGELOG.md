@@ -2,6 +2,46 @@
 
 <!-- version list -->
 
+## v2.0.0 (2026-06-11)
+
+### Feat
+
+- **broker**: drain in-flight work on shutdown
+- **broker**: retry transient failures with backoff and a DLQ
+- **broker**: set consumer prefetch to one
+- **broker**: tag the correlation id across both processes
+- **gateway**: route every command over the broker, delete the WebSocket
+- **broker**: run the bot entirely over the broker, delete the WebSocket
+- **gateway**: consume wa_rpc and wa_actions
+- **gateway**: add RPC respond to the broker adapter
+- **broker**: resolve on_whatsapp and group_metadata via wa_rpc
+- **broker**: add RPC-over-AMQP call and respond
+- **broker**: publish WhatsApp writes as fire-and-forget actions
+- **infra**: split compose into edge and core nodes with a broker
+- **broker**: start the command consumer at bot startup
+- **gateway**: route allowlisted commands over the broker
+- **gateway**: add BrokerForwarder for the broker command path
+- **gateway**: stop typing on reply via an in-flight registry
+- **broker**: inline reply media as base64
+- **gateway**: add ReplyConsumer to push broker replies to WhatsApp
+- **gateway**: add consume to the broker adapter
+- **gateway**: add CommandPublisher for the commands queue
+- **broker**: consume commands and publish replies
+- **gateway**: publish group events to the broker, not the websocket
+- **gateway**: add RabbitBroker amqplib adapter
+- **broker**: consume group_events over the websocket lifecycle
+- **broker**: add GroupEventConsumer for group_events queue
+- **broker**: add BrokerPort and RabbitBroker adapter
+
+### Fix
+
+- **broker**: isolate publisher and consumer on separate connections
+
+### Refactor
+
+- **gateway**: address sonarcloud typescript smells
+- **broker**: address sonarcloud python smells
+
 ## v1.8.2 (2026-06-07)
 
 ## v1.8.1 (2026-06-07)
