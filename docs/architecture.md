@@ -9,7 +9,9 @@ resenhazord2/
       whatsapp/                  Thin Python-side port (WhatsAppPort)
       discord/                   discord.py slash-command adapter
       telegram/                  python-telegram-bot polling adapter
-      http/                      FastAPI app + WebSocket handler
+      broker/                    RabbitMQ command + group-event consumers
+      http/                      FastAPI app (health) + lifespan
+      whatsapp/broker_client.py  WhatsAppPort over the broker (wa_actions/wa_rpc)
     application/
       command_handler.py         Dispatches a parsed command
       command_registry.py        Singleton list of registered Command instances
@@ -34,7 +36,8 @@ resenhazord2/
       cache/                     Layered GroupMetadata cache (Memory + Redis)
       infra/Sentry.ts            @sentry/bun initialization
       parsers/CommandParser.ts   Mirror of Python parser for early filtering
-      ports/WhatsAppPort.ts      TS interface the Python side calls via WebSocket
+      bridge/                    Broker forwarder, publisher, consumers, RPC server
+      ports/WhatsAppPort.ts      TS interface the gateway serves over wa_actions/wa_rpc
   docs/
   tests/                         pytest + anyio
 ```
@@ -47,10 +50,13 @@ Three inbound platforms, one command pipeline.
 
 1. Baileys socket receives a message → `messages.upsert` event.
 2. The TS gateway filters against allowed group JIDs.
-3. If media is attached, gateway downloads it proactively.
-4. Gateway forwards `{CommandData JSON, optional binary frame}` over WebSocket to the
-   Python `WebSocketHandler`.
-5. Python's `CommandHandler.handle_parsed(data)` routes the payload.
+3. If media is attached, gateway downloads it proactively (small media base64-inline).
+4. Gateway's `BrokerForwarder` publishes the command to the `commands` queue (RabbitMQ);
+   the bot's `CommandConsumer` consumes it and runs `CommandHandler.handle(data)`.
+5. The bot publishes the resulting `BotMessage`s to the `replies` queue; the gateway's
+   `ReplyConsumer` deserializes them and pushes them to Baileys. WhatsApp side-effects
+   mid-command ride `wa_actions` (fire-and-forget writes) and `wa_rpc` (on_whatsapp,
+   group_metadata). See [prd-event-driven-gateway.md](./prd-event-driven-gateway.md).
 
 ### Discord
 
@@ -89,7 +95,7 @@ CommandData ──▶ CommandRegistry.get_strategy(text) ──▶ Command.run(d
                                                           │
                               ┌───────────────────────────┼──────────────────────────┐
                               ▼                           ▼                          ▼
-                 WebSocketHandler → gateway        DiscordRenderer        TelegramResponseRenderer
+                 replies queue → gateway          DiscordRenderer        TelegramResponseRenderer
                    → Baileys                       → discord.py           → python-telegram-bot
 ```
 
@@ -134,9 +140,10 @@ Python ports live under `bot/ports/` and `bot/adapters/whatsapp/port.py`:
 
 Adapters:
 
-- **`WhatsAppWsClient`** (`bot/adapters/whatsapp/ws_client.py`) implements
-  `WhatsAppPort` by round-tripping each call over WebSocket to the TS gateway,
-  which forwards to Baileys through `BaileysAdapter`.
+- **`BrokerWhatsAppClient`** (`bot/adapters/whatsapp/broker_client.py`) implements
+  `WhatsAppPort` over RabbitMQ: writes publish fire-and-forget to `wa_actions`,
+  `on_whatsapp`/`group_metadata` round-trip over `wa_rpc`. The gateway's
+  `WaActionConsumer`/`WaRpcConsumer` apply them through `BaileysAdapter`.
 - **`DiscordInteractionAdapter`** (`bot/adapters/discord/adapter.py`) wraps a
   `discord.Interaction` and exposes `DiscordPort`.
 - **`TelegramBotAdapter`** (`bot/adapters/telegram/adapter.py`) wraps
@@ -145,15 +152,14 @@ Adapters:
 
 Commands that need WhatsApp operations accept `WhatsAppPort` in the `Command`
 constructor and read it via `self.whatsapp`. `CommandRegistry.set_whatsapp(port)`
-injects the port into every registered command once the WebSocket connects.
+injects the port into every registered command at bot startup (the broker client).
 
 ## Media Download
 
 Media is downloaded **proactively by the TS gateway** when a WhatsApp message
-arrives; the bytes are sent as a binary WebSocket frame before the command JSON.
-Python commands access media via `self._get_media(data)` which returns the
-proactive buffer, falling back to `whatsapp.download_media(...)` over WebSocket
-if the buffer is absent.
+arrives; small media rides base64-inline in the command payload. Python commands
+access media via `self._get_media(data)` which returns the proactive buffer
+(large media over the broker is a deferred dedicated `media` queue).
 
 ## Reply Builder
 
@@ -254,7 +260,7 @@ Commands raise `BotError` subclasses from `bot/domain/exceptions.py`:
 - `ExternalServiceError` — external API failure.
 - `DownloadError` — yt-dlp or download pipeline failure.
 
-`WebSocketHandler` (WhatsApp), `DiscordInteractionHandler` (Discord), and
+`CommandConsumer` (WhatsApp), `DiscordInteractionHandler` (Discord), and
 `TelegramUpdateHandler` (Telegram) all catch `BotError` and convert
 `error.user_message` into a friendly reply. Unknown exceptions are logged via
 `logger.exception(...)` and surfaced as generic errors.
