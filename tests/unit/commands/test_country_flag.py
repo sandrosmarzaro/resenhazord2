@@ -3,12 +3,22 @@ import pytest
 
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.models.message import ImageContent, TextContent
+from bot.infrastructure.restcountries_client import RestCountriesClient
 from tests.factories.command_data import GroupCommandDataFactory
+
+V5_LIST_URL = 'https://api.restcountries.com/countries/v5'
 
 
 @pytest.fixture
 def command():
-    return CountryFlagCommand()
+    return CountryFlagCommand(api_key='rc_live_test')
+
+
+@pytest.fixture(autouse=True)
+def reset_cache():
+    RestCountriesClient.reset_cache()
+    yield
+    RestCountriesClient.reset_cache()
 
 
 @pytest.fixture(autouse=True)
@@ -21,28 +31,29 @@ def mock_translator(mocker):
 
 def _mock_country(**overrides):
     return {
-        'name': {'common': 'Brazil', 'official': 'Federative Republic of Brazil'},
-        'flags': {'png': 'https://flagcdn.com/w320/br.png'},
-        'cca3': 'BRA',
-        'capital': ['Brasília'],
+        'names': {'common': 'Brazil', 'official': 'Federative Republic of Brazil'},
+        'flag': {'url_png': 'https://flags.restcountries.com/v5/w160/br.png', 'emoji': '🇧🇷'},
+        'codes': {'alpha_3': 'BRA'},
+        'capitals': [{'name': 'Brasília'}],
         'region': 'Americas',
         'subregion': 'South America',
         'population': 212559417,
-        'area': 8515767,
-        'languages': {'por': 'Portuguese'},
-        'currencies': {'BRL': {'name': 'Brazilian real', 'symbol': 'R$'}},
+        'area': {'kilometers': 8515767},
+        'languages': [{'name': 'Portuguese'}],
+        'currencies': [{'code': 'BRL', 'name': 'Brazilian real', 'symbol': 'R$'}],
+        'timezones': ['UTC-03:00'],
+        'coordinates': {'lat': -15.79, 'lng': -47.88},
+        'calling_codes': ['55'],
+        'borders': ['ARG', 'BOL', 'COL'],
+        'cars': {'driving_side': 'right'},
         **overrides,
     }
 
 
-def _mock_detail():
-    return {
-        'timezones': ['UTC-03:00'],
-        'latlng': [-15.79, -47.88],
-        'idd': {'root': '+5', 'suffixes': ['5']},
-        'borders': ['ARG', 'BOL', 'COL'],
-        'car': {'side': 'right'},
-    }
+def _v5_response(*countries):
+    return httpx.Response(
+        200, json={'data': {'objects': list(countries), 'meta': {'total': len(countries)}}}
+    )
 
 
 class TestMatches:
@@ -69,14 +80,13 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_image_with_country_info(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[_mock_country()])
-        )
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(_mock_country()))
+
         messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
-        assert messages[0].content.url == 'https://flagcdn.com/w320/br.png'
+        assert messages[0].content.url == 'https://flags.restcountries.com/v5/w160/br.png'
         caption = messages[0].content.caption
         assert caption is not None
         assert 'Brazil' in caption
@@ -88,9 +98,8 @@ class TestRun:
     @pytest.mark.anyio
     async def test_includes_official_name_when_different(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[_mock_country()])
-        )
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(_mock_country()))
+
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -100,10 +109,9 @@ class TestRun:
     @pytest.mark.anyio
     async def test_omits_official_name_when_same(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-        country = _mock_country(name={'common': 'Japan', 'official': 'Japan'})
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[country])
-        )
+        country = _mock_country(names={'common': 'Japan', 'official': 'Japan'})
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(country))
+
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -114,9 +122,8 @@ class TestRun:
     async def test_handles_missing_subregion(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
         country = _mock_country(subregion=None, region='Antarctic')
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[country])
-        )
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(country))
+
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -126,12 +133,25 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_error_on_failure(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            side_effect=Exception('API down')
-        )
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(side_effect=Exception('API down'))
+
         messages = await command.run(data)
 
         assert len(messages) == 1
+        assert isinstance(messages[0].content, TextContent)
+        assert 'Erro' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_returns_error_on_deprecated_200_body(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bandeira')
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={'success': False, 'data': None, 'errors': [{'message': 'deprecated'}]}
+            )
+        )
+
+        messages = await command.run(data)
+
         assert isinstance(messages[0].content, TextContent)
         assert 'Erro' in messages[0].content.text
 
@@ -140,12 +160,8 @@ class TestDetailFlag:
     @pytest.mark.anyio
     async def test_detail_flag_adds_extra_info(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira detail')
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[_mock_country()])
-        )
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/alpha/BRA').mock(
-            return_value=httpx.Response(200, json=_mock_detail())
-        )
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(_mock_country()))
+
         messages = await command.run(data)
 
         caption = messages[0].content.caption
@@ -159,31 +175,25 @@ class TestDetailFlag:
     @pytest.mark.anyio
     async def test_without_detail_flag_omits_extra_info(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira')
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[_mock_country()])
-        )
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(_mock_country()))
+
         messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert caption is not None
         assert 'UTC-03:00' not in caption
-        assert 'Fronteiras' not in caption
+        assert '🗺️' not in caption
 
     @pytest.mark.anyio
     async def test_detail_handles_missing_fields(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bandeira detail')
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/all').mock(
-            return_value=httpx.Response(200, json=[_mock_country()])
-        )
-        respx_mock.get(url__startswith='https://restcountries.com/v3.1/alpha/BRA').mock(
-            return_value=httpx.Response(
-                200, json={'timezones': [], 'latlng': [], 'idd': {}, 'borders': [], 'car': {}}
-            )
-        )
+        country = _mock_country(timezones=[], coordinates={}, calling_codes=[], borders=[], cars={})
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(country))
+
         messages = await command.run(data)
 
         caption = messages[0].content.caption
         assert caption is not None
         assert 'Brazil' in caption
-        assert 'Fronteiras' not in caption
-        assert 'Mão' not in caption
+        assert '🗺️' not in caption
+        assert '🚗' not in caption

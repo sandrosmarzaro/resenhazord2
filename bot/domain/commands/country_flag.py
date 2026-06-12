@@ -8,18 +8,17 @@ from bot.domain.commands.base import Category, Command, CommandConfig, Flag, Par
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.translator import Translator
-from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.restcountries_client import RestCountriesClient
 
 logger = structlog.get_logger()
 
 
 class CountryFlagCommand(Command):
-    BASE_FIELDS = 'name,flags,cca3,capital,region,subregion,population,area,languages,currencies'
-    API_URL = f'https://restcountries.com/v3.1/all?fields={BASE_FIELDS}'
-    DETAIL_FIELDS = 'timezones,borders,idd,latlng,car'
-    DETAIL_URL = 'https://restcountries.com/v3.1/alpha/{code}?fields={fields}'
-    LATLNG_PAIR_LEN = 2
-    MAX_IDD_SUFFIXES = 3
+    MAX_CALLING_CODES = 3
+
+    def __init__(self, api_key: str = '') -> None:
+        super().__init__()
+        self._catalog = RestCountriesClient(api_key)
 
     @property
     def config(self) -> CommandConfig:
@@ -37,34 +36,23 @@ class CountryFlagCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
-            response = await HttpClient.get(self.API_URL)
-            response.raise_for_status()
-            countries = response.json()
+            countries = await self._catalog.fetch()
             country = random.choice(countries)
-            detail = 'detail' in parsed.flags
-            if detail:
-                country = await self._fetch_detail(country)
-            name = country.get('name', {})
-            common_pt = await Translator.to_pt(name.get('common', ''))
-            official_pt = await Translator.to_pt(name.get('official', ''))
-            country = {**country, 'name': {**name, 'common': common_pt, 'official': official_pt}}
-            caption = self._build_caption(country, detail=detail)
-            return [Reply.to(data).image(country['flags']['png'], caption)]
+            names = country.get('names', {})
+            common_pt = await Translator.to_pt(names.get('common', ''))
+            official_pt = await Translator.to_pt(names.get('official', ''))
+            country = {**country, 'names': {**names, 'common': common_pt, 'official': official_pt}}
+            caption = self._build_caption(country, detail='detail' in parsed.flags)
+            flag_png = country.get('flag', {}).get('url_png', '')
+            return [Reply.to(data).image(flag_png, caption)]
         except Exception:
             logger.exception('country_flag_fetch_error')
             return [Reply.to(data).text('Erro ao buscar bandeira. Tente novamente mais tarde! 🌍')]
 
-    async def _fetch_detail(self, country: dict) -> dict:
-        url = self.DETAIL_URL.format(code=country['cca3'], fields=self.DETAIL_FIELDS)
-        response = await HttpClient.get(url)
-        response.raise_for_status()
-        return {**country, **response.json()}
-
     @staticmethod
     def _build_caption(country: dict, *, detail: bool = False) -> str:
-        region_info = REGION_MAP.get(
-            country.get('region', ''), {'emoji': '🌐', 'label': country.get('region', '')}
-        )
+        region = country.get('region', '')
+        region_info = REGION_MAP.get(region, {'emoji': '🌐', 'label': region})
         subregion = country.get('subregion')
         if subregion:
             subregion_pt = SUBREGION_PT.get(subregion, subregion)
@@ -72,21 +60,27 @@ class CountryFlagCommand(Command):
         else:
             location_line = f'{region_info["emoji"]} {region_info["label"]}'
 
-        capitals = country.get('capital', [])
-        capital = capitals[0] if capitals else 'N/A'
+        capitals = country.get('capitals', [])
+        capital = capitals[0]['name'] if capitals else 'N/A'
         population = f'{country.get("population", 0):,}'.replace(',', '.')
-        area = f'{round(country.get("area", 0)):,}'.replace(',', '.')
-        languages = ', '.join(country.get('languages', {}).values()) or 'N/A'
-
-        currencies_data = country.get('currencies', {})
+        area_km = country.get('area', {}).get('kilometers', 0)
+        area = f'{round(area_km):,}'.replace(',', '.')
+        languages = (
+            ', '.join(language['name'] for language in country.get('languages', [])) or 'N/A'
+        )
         currencies = (
-            ' / '.join(f'{c["name"]} ({code})' for code, c in currencies_data.items()) or 'N/A'
+            ' / '.join(
+                f'{currency["name"]} ({currency["code"]})'
+                for currency in country.get('currencies', [])
+            )
+            or 'N/A'
         )
 
-        name = country.get('name', {})
-        lines = [f'*{name.get("common", "")}* {country.get("flag", "")}']
-        if name.get('official') != name.get('common'):
-            lines.append(f'_{name.get("official", "")}_')
+        names = country.get('names', {})
+        flag_emoji = country.get('flag', {}).get('emoji', '')
+        lines = [f'*{names.get("common", "")}* {flag_emoji}']
+        if names.get('official') != names.get('common'):
+            lines.append(f'_{names.get("official", "")}_')
         lines.append('')
         lines.append(location_line)
         lines.append(f'🏙️ {capital}')
@@ -107,24 +101,25 @@ class CountryFlagCommand(Command):
         if timezones:
             lines.append(f'🕐 {", ".join(timezones)}')
 
-        latlng = country.get('latlng', [])
-        if len(latlng) == CountryFlagCommand.LATLNG_PAIR_LEN:
-            lines.append(f'📍 {latlng[0]:.2f}, {latlng[1]:.2f}')
+        coordinates = country.get('coordinates', {})
+        latitude = coordinates.get('lat')
+        longitude = coordinates.get('lng')
+        if latitude is not None and longitude is not None:
+            lines.append(f'📍 {latitude:.2f}, {longitude:.2f}')
 
-        idd = country.get('idd', {})
-        root = idd.get('root', '')
-        suffixes = idd.get('suffixes', [])
-        if root and suffixes:
-            codes = ', '.join(f'{root}{s}' for s in suffixes[: CountryFlagCommand.MAX_IDD_SUFFIXES])
+        calling_codes = country.get('calling_codes', [])
+        if calling_codes:
+            codes = ', '.join(
+                f'+{code}' for code in calling_codes[: CountryFlagCommand.MAX_CALLING_CODES]
+            )
             lines.append(f'📞 {codes}')
 
         borders = country.get('borders', [])
         if borders:
             lines.append(f'🗺️ {", ".join(borders)}')
 
-        car = country.get('car', {})
-        side = car.get('side', '')
-        if side:
-            lines.append(f'🚗 {DRIVING_SIDE_PT.get(side, side)}')
+        driving_side = country.get('cars', {}).get('driving_side', '')
+        if driving_side:
+            lines.append(f'🚗 {DRIVING_SIDE_PT.get(driving_side, driving_side)}')
 
         return lines

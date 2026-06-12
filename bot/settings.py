@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     twitch_client_id: str = ''
     twitch_client_secret: str = ''
     rawg_api_key: str = ''
+    restcountries_api_key: str = ''
 
     # OP.GG MCP
     opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
