@@ -112,18 +112,24 @@ jobs:
       - run: uv sync --frozen
       - name: Scope mutation to changed files
         run: |
-          # Drop paths listed as do_not_mutate in setup.cfg: mutmut skips them, so
-          # scoping to only those yields an empty sandbox that fails the baseline run.
+          # Keep paths_to_mutate = bot/ so the sandbox holds the full package
+          # (conftest imports bot.application etc.). Narrowing it copies only the
+          # changed files' import closure, which is incomplete and crashes the
+          # baseline run. Instead, only RUN mutants for the changed mutable files.
           EXCLUDE='^bot/(infrastructure|adapters|ports)/|^bot/(main|settings)\.py$|^bot/domain/services/discord\.py$'
-          CHANGED=$(git diff --name-only origin/develop...HEAD -- 'bot/**.py' | { grep -vE "$EXCLUDE" || true; } | tr '\n' ',')
+          CHANGED=$(git diff --name-only origin/develop...HEAD -- 'bot/**.py' | { grep -vE "$EXCLUDE" || true; })
           if [ -z "$CHANGED" ]; then
             echo "No mutable Python files changed in bot/, skipping mutation testing"
             echo "SKIP_MUTMUT=true" >> "$GITHUB_ENV"
           else
-            sed -i "s|^paths_to_mutate = .*|paths_to_mutate = ${CHANGED%,}|" setup.cfg
-            echo "Mutating: $CHANGED"
+            FILTERS=$(echo "$CHANGED" | sed 's|/|.|g; s|\.py$|*|' | tr '\n' ' ')
+            echo "MUTMUT_FILTERS=$FILTERS" >> "$GITHUB_ENV"
+            echo "Mutating: $FILTERS"
           fi
-      - run: uv run mutmut run
+      - name: Run mutation on changed modules
         if: env.SKIP_MUTMUT != 'true'
+        run: |
+          set -f  # keep the * in $MUTMUT_FILTERS literal, no shell globbing
+          uv run mutmut run $MUTMUT_FILTERS
       - run: uv run mutmut results
         if: env.SKIP_MUTMUT != 'true'
