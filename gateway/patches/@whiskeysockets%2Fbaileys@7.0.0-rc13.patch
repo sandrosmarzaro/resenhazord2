@@ -1,0 +1,15 @@
+diff --git a/lib/Socket/messages-send.js b/lib/Socket/messages-send.js
+index d61e064d01252fb1aaae4bf7b0f295df8a3c4def..aa2523c92b6770732f969f31b64decbd01a14582 100644
+--- a/lib/Socket/messages-send.js
++++ b/lib/Socket/messages-send.js
+@@ -904,6 +904,10 @@ export const makeMessagesSocket = (config) => {
+         return 'text';
+     };
+     const getMediaType = (message) => {
++        const inner = message.viewOnceMessage?.message || message.viewOnceMessageV2?.message || message.viewOnceMessageV2Extension?.message;
++        if (inner) {
++            return getMediaType(inner);
++        }
+         if (message.imageMessage) {
+             return 'image';
+         }
