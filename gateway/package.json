@@ -31,7 +31,7 @@
   "dependencies": {
     "@sentry/bun": "^10.51.0",
     "@upstash/redis": "^1.37.0",
-    "@whiskeysockets/baileys": "^7.0.0-rc10",
+    "@whiskeysockets/baileys": "7.0.0-rc13",
     "amqplib": "^2.0.1",
     "axios": "^1.16.0",
     "axios-retry": "^4.5.0",
@@ -65,5 +65,8 @@
     "postcss": "^8.5.10",
     "uuid": "^14.0.0",
     "vite": "^7.3.2"
+  },
+  "patchedDependencies": {
+    "@whiskeysockets/baileys@7.0.0-rc13": "patches/@whiskeysockets%2Fbaileys@7.0.0-rc13.patch"
   }
 }
