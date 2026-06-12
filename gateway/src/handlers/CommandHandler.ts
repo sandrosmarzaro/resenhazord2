@@ -17,6 +17,10 @@ export default class CommandHandler {
   private static readonly TEXT_PREVIEW_LENGTH = 200;
 
   static async run(data: WAMessage): Promise<void> {
+    // Never act on our own outgoing messages. In a DM the bot's reply echoes back as
+    // an upsert, and since DMs auto-forward it would re-trigger the agent endlessly.
+    if (data.key.fromMe) return;
+
     const text = GetTextMessage.run(data);
     const command = CommandFactory.getInstance().getStrategy(text);
 
