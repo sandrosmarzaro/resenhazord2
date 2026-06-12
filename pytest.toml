@@ -6,10 +6,15 @@ addopts = [
     '-x',
     '-s',
     '-n4',
+    '-m',
+    'not external',
     '--cov=bot',
     '--cov-report=term-missing',
     '--cov-report=xml',
     '--import-mode=importlib',
+]
+markers = [
+    'external: hits a real third-party API; excluded by default (quota/flaky). Run via task test:external',
 ]
 strict = true
 log_cli = true
