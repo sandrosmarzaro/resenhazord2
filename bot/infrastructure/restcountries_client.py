@@ -7,7 +7,7 @@ from bot.infrastructure.http_client import HttpClient
 class RestCountriesClient:
     BASE_URL = 'https://api.restcountries.com/countries/v5'
     RESPONSE_FIELDS = (
-        'names,flag,codes,capitals,region,subregion,population,area,'
+        'names,flag,capitals,region,subregion,population,area,'
         'languages,currencies,timezones,coordinates,calling_codes,borders,cars'
     )
     PAGE_SIZE = 100

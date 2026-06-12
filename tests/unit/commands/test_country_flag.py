@@ -33,7 +33,6 @@ def _mock_country(**overrides):
     return {
         'names': {'common': 'Brazil', 'official': 'Federative Republic of Brazil'},
         'flag': {'url_png': 'https://flags.restcountries.com/v5/w160/br.png', 'emoji': '🇧🇷'},
-        'codes': {'alpha_3': 'BRA'},
         'capitals': [{'name': 'Brasília'}],
         'region': 'Americas',
         'subregion': 'South America',
@@ -140,6 +139,21 @@ class TestRun:
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'Erro' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_skips_countries_without_flag(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bandeira')
+        no_flag = _mock_country(
+            names={'common': 'Abkhazia', 'official': 'Abkhazia'},
+            flag={'url_png': '', 'emoji': ''},
+        )
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(
+            return_value=_v5_response(no_flag, _mock_country())
+        )
+
+        messages = await command.run(data)
+
+        assert messages[0].content.url == 'https://flags.restcountries.com/v5/w160/br.png'
 
     @pytest.mark.anyio
     async def test_returns_error_on_deprecated_200_body(self, command, respx_mock):

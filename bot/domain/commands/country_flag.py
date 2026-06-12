@@ -37,7 +37,8 @@ class CountryFlagCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
             countries = await self._catalog.fetch()
-            country = random.choice(countries)
+            renderable = [country for country in countries if self._has_flag(country)]
+            country = random.choice(renderable)
             names = country.get('names', {})
             common_pt = await Translator.to_pt(names.get('common', ''))
             official_pt = await Translator.to_pt(names.get('official', ''))
@@ -48,6 +49,10 @@ class CountryFlagCommand(Command):
         except Exception:
             logger.exception('country_flag_fetch_error')
             return [Reply.to(data).text('Erro ao buscar bandeira. Tente novamente mais tarde! 🌍')]
+
+    @staticmethod
+    def _has_flag(country: dict) -> bool:
+        return bool(country.get('flag', {}).get('url_png'))
 
     @staticmethod
     def _build_caption(country: dict, *, detail: bool = False) -> str:
