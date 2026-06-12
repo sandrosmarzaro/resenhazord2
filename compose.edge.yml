@@ -47,8 +47,9 @@ services:
       - "5672:5672"
       - "127.0.0.1:15672:15672"
     mem_limit: 400m
-    environment:
-      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "0.6"
+    # No RABBITMQ_VM_MEMORY_HIGH_WATERMARK env: rabbitmq:3.13 rejects that deprecated
+    # variable and refuses to start. The default 0.4 relative watermark is also the
+    # safer choice on this 1 GB node (blocks publishers before the host OOMs).
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     logging:
