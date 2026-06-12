@@ -70,6 +70,7 @@ log = "docker compose up --build -d && docker compose logs -f --no-color --tail=
 logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 0 docker.log 2>/dev/null; echo 'docker.log truncated'"
 mutate = "mutmut run"
 "mutate:results" = "mutmut results"
+"test:external" = "pytest -m external"
 
 
 [tool.zuban]
