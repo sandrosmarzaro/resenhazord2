@@ -44,5 +44,17 @@ describe('CommandHandler', () => {
 
       expect(forward).not.toHaveBeenCalled();
     });
+
+    it('ignores messages the bot itself sent, to avoid replying to its own replies', async () => {
+      const forward = vi.fn();
+      Resenhazord2.brokerForwarder = { forward } as never;
+
+      const ownMessage = createGroupMessage(',ping');
+      ownMessage.key.fromMe = true;
+
+      await CommandHandler.run(ownMessage);
+
+      expect(forward).not.toHaveBeenCalled();
+    });
   });
 });
