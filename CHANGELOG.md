@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## v2.0.1 (2026-06-13)
+
+### Fix
+
+- **release**: restore grouped changelog under cz_customize
+- **gateway**: honor view_once on buffer-backed videos
+- **commands**: skip flagless v5 territories in ,bandeira
+- **commands**: migrate ,bandeira to REST Countries v5
+- **gateway**: render view-once via Baileys rc13 + getMediaType patch
+- **compose**: drop deprecated RABBITMQ_VM_MEMORY_HIGH_WATERMARK env
+- **tests**: align MockBrokerPort signatures with the BrokerPort protocol
+
 ## v2.0.0 (2026-06-11)
 
 ### Feat
