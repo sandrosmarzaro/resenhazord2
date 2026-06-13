@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "resenhazord2-core"
-version = "2.0.0"
+version = "2.0.1"
 description = "Python core for Resenhazord2 WhatsApp bot"
 requires-python = ">=3.13"
 dependencies = [
@@ -70,18 +70,34 @@ log = "docker compose up --build -d && docker compose logs -f --no-color --tail=
 logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 0 docker.log 2>/dev/null; echo 'docker.log truncated'"
 mutate = "mutmut run"
 "mutate:results" = "mutmut results"
+"test:external" = "pytest -m external"
 
 
 [tool.zuban]
 exclude = ["tests/"]
 
 [tool.commitizen]
-name = "cz_conventional_commits"
-version = "2.0.0"
+name = "cz_customize"
+version = "2.0.1"
 tag_format = "v$version"
 version_files = ["pyproject.toml:version"]
 changelog_file = "CHANGELOG.md"
 update_changelog_on_bump = true
+
+[tool.commitizen.customize]
+# Pin the major at 2 — the product is "resenhazord2", its second version.
+# cz_customize replicates cz_conventional_commits, with one deviation:
+# breaking-change triggers (`!` and `BREAKING CHANGE`) map to MINOR instead of
+# MAJOR in bump_map, so `cz bump` never crosses into 3.x. A real major bump, if
+# ever wanted, is a deliberate `cz bump --increment MAJOR`.
+#
+# commit_parser / changelog_pattern / change_type_map mirror conventional
+# verbatim — cz_customize does NOT inherit them, so the grouped changelog
+# (### Feat / ### Fix …) only renders when they are restated here.
+bump_map = { '^.+!$' = "MINOR", '^BREAKING[\-\ ]CHANGE' = "MINOR", '^feat' = "MINOR", '^fix' = "PATCH", '^refactor' = "PATCH", '^perf' = "PATCH" }
+commit_parser = '^((?P<change_type>feat|fix|refactor|perf|BREAKING CHANGE)(?:\((?P<scope>[^()\r\n]*)\)|\()?(?P<breaking>!)?|\w+!):\s(?P<message>.*)?'
+changelog_pattern = '^((BREAKING[\-\ ]CHANGE|\w+)(\(.+\))?!?):'
+change_type_map = { feat = "Feat", fix = "Fix", refactor = "Refactor", perf = "Perf" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["bot"]
