@@ -86,12 +86,18 @@ update_changelog_on_bump = true
 
 [tool.commitizen.customize]
 # Pin the major at 2 — the product is "resenhazord2", its second version.
-# Identical to conventional commits except breaking-change triggers (`!` and
-# `BREAKING CHANGE`) map to MINOR instead of MAJOR, so `cz bump` never crosses
-# into 3.x. A real major bump, if ever wanted, is a deliberate
-# `cz bump --increment MAJOR`. Everything else (parser, changelog) keeps the
-# conventional-commits defaults.
+# cz_customize replicates cz_conventional_commits, with one deviation:
+# breaking-change triggers (`!` and `BREAKING CHANGE`) map to MINOR instead of
+# MAJOR in bump_map, so `cz bump` never crosses into 3.x. A real major bump, if
+# ever wanted, is a deliberate `cz bump --increment MAJOR`.
+#
+# commit_parser / changelog_pattern / change_type_map mirror conventional
+# verbatim — cz_customize does NOT inherit them, so the grouped changelog
+# (### Feat / ### Fix …) only renders when they are restated here.
 bump_map = { '^.+!$' = "MINOR", '^BREAKING[\-\ ]CHANGE' = "MINOR", '^feat' = "MINOR", '^fix' = "PATCH", '^refactor' = "PATCH", '^perf' = "PATCH" }
+commit_parser = '^((?P<change_type>feat|fix|refactor|perf|BREAKING CHANGE)(?:\((?P<scope>[^()\r\n]*)\)|\()?(?P<breaking>!)?|\w+!):\s(?P<message>.*)?'
+changelog_pattern = '^((BREAKING[\-\ ]CHANGE|\w+)(\(.+\))?!?):'
+change_type_map = { feat = "Feat", fix = "Fix", refactor = "Refactor", perf = "Perf" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["bot"]
