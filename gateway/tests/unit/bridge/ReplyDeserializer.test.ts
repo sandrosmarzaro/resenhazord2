@@ -65,6 +65,13 @@ describe('ReplyDeserializer', () => {
       expect(message.content).toMatchObject({ video: Buffer.from([1, 2, 3]), gifPlayback: true });
     });
 
+    it('video_buffer honors view_once', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'video_buffer', buffer_b64: b64, view_once: true }),
+      );
+      expect(message.content).toMatchObject({ video: Buffer.from([1, 2, 3]), viewOnce: true });
+    });
+
     it('audio_buffer', async () => {
       const message = await ReplyDeserializer.toMessage(
         content({ type: 'audio_buffer', buffer_b64: b64, mimetype: 'audio/ogg' }),
