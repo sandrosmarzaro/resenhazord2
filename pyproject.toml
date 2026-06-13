@@ -77,12 +77,21 @@ mutate = "mutmut run"
 exclude = ["tests/"]
 
 [tool.commitizen]
-name = "cz_conventional_commits"
+name = "cz_customize"
 version = "2.0.0"
 tag_format = "v$version"
 version_files = ["pyproject.toml:version"]
 changelog_file = "CHANGELOG.md"
 update_changelog_on_bump = true
+
+[tool.commitizen.customize]
+# Pin the major at 2 — the product is "resenhazord2", its second version.
+# Identical to conventional commits except breaking-change triggers (`!` and
+# `BREAKING CHANGE`) map to MINOR instead of MAJOR, so `cz bump` never crosses
+# into 3.x. A real major bump, if ever wanted, is a deliberate
+# `cz bump --increment MAJOR`. Everything else (parser, changelog) keeps the
+# conventional-commits defaults.
+bump_map = { '^.+!$' = "MINOR", '^BREAKING[\-\ ]CHANGE' = "MINOR", '^feat' = "MINOR", '^fix' = "PATCH", '^refactor' = "PATCH", '^perf' = "PATCH" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["bot"]
