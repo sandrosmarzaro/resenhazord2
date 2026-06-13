@@ -56,7 +56,7 @@ export default class ReplyDeserializer {
       }),
       video_buffer: (c) => ({
         video: buf(c),
-        viewOnce: false,
+        viewOnce: c.view_once as boolean,
         gifPlayback: (c.gif_playback as boolean) ?? false,
         caption: c.caption as string | undefined,
       }),
