@@ -24,6 +24,9 @@ class TestRetrieveRoundTrip:
 
     @pytest.mark.anyio
     async def test_indexes_and_retrieves_most_similar_first(self):
+        assert UPSTASH_URL is not None
+        assert UPSTASH_TOKEN is not None
+
         retriever = UpstashExampleRetriever.from_credentials(UPSTASH_URL, UPSTASH_TOKEN)
         await retriever.index_examples(
             [
