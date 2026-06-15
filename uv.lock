@@ -2092,7 +2092,7 @@ wheels = [
 
 [[package]]
 name = "resenhazord2-core"
-version = "2.0.0"
+version = "2.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "aio-pika" },
@@ -2112,6 +2112,7 @@ dependencies = [
     { name = "redis" },
     { name = "sentry-sdk", extra = ["fastapi"] },
     { name = "structlog" },
+    { name = "upstash-vector" },
     { name = "yt-dlp" },
 ]
 
@@ -2159,6 +2160,7 @@ requires-dist = [
     { name = "redis", specifier = ">=5.2.0" },
     { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.19.0" },
     { name = "structlog", specifier = ">=25.1.0" },
+    { name = "upstash-vector", specifier = ">=0.8.0" },
     { name = "yt-dlp", specifier = ">=2025.1.0" },
 ]
 
@@ -2700,6 +2702,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/78/67/9a363818028526e2d4579334460df777115bdec1bb77c08f9db88f6389f2/uc_micro_py-2.0.0.tar.gz", hash = "sha256:c53691e495c8db60e16ffc4861a35469b0ba0821fe409a8a7a0a71864d33a811", size = 6611, upload-time = "2026-03-01T06:31:27.526Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/61/73/d21edf5b204d1467e06500080a50f79d49ef2b997c79123a536d4a17d97c/uc_micro_py-2.0.0-py3-none-any.whl", hash = "sha256:3603a3859af53e5a39bc7677713c78ea6589ff188d70f4fee165db88e22b242c", size = 6383, upload-time = "2026-03-01T06:31:26.257Z" },
+]
+
+[[package]]
+name = "upstash-vector"
+version = "0.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/65/22/1b9161b82ef52addc2b71ffca9498cb745b34b2e43e77ef1c921d96fb3f1/upstash_vector-0.8.0.tar.gz", hash = "sha256:cdeeeeabe08c813f0f525d9b6ceefbf17abb720bd30190cd6df88b9f2c318334", size = 18565, upload-time = "2025-02-27T11:52:38.14Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/ce/1528e6e37d4a1ba7a333ebca7191b638986f4ba9f73ba17458b45c4d36e2/upstash_vector-0.8.0-py3-none-any.whl", hash = "sha256:e8a7560e6e80e22ff2a4d95ff0b08723b22bafaae7dab38eddce51feb30c5785", size = 18480, upload-time = "2025-02-27T11:52:36.189Z" },
 ]
 
 [[package]]
