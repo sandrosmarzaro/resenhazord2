@@ -24,6 +24,7 @@ from bot.infrastructure.llm.tools import (
 )
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.ports.example_retriever_port import ExampleRetrieverPort
+from bot.ports.llm_provider_port import LLMProviderPort
 
 logger = structlog.get_logger()
 
@@ -40,9 +41,11 @@ class AgentExecutor:
         self,
         registry: CommandRegistry | None = None,
         retriever: ExampleRetrieverPort | None = None,
+        provider: LLMProviderPort | None = None,
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._retriever = retriever or UpstashExampleRetriever.configured()
+        self._provider = provider
         self._tools = build_tools_for_prompt(self._registry)
         self._command_list = get_command_list_with_descriptions(self._registry)
         self._translator = AgentResponseTranslator(self._registry)
@@ -58,7 +61,8 @@ class AgentExecutor:
         logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
 
         try:
-            response = await ProviderChain.instance().complete(prompt, self._tools)
+            provider = self._provider or ProviderChain.instance()
+            response = await provider.complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError) as e:
             logger.warning('agent_provider_failed', error=str(e))
             return self._fallback(data, self._AGENT_UNAVAILABLE_MSG)

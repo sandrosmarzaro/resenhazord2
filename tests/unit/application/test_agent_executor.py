@@ -265,6 +265,24 @@ class TestRun:
         assert 'menu' in result.text
 
 
+class TestProviderInjection:
+    @pytest.mark.anyio
+    async def test_injected_provider_bypasses_provider_chain(self, mocker):
+        instance_spy = mocker.patch.object(ProviderChain, 'instance')
+        provider = mocker.Mock()
+        provider.complete = mocker.AsyncMock(
+            return_value=LLMResponse(
+                content=f'{LLM_CLARIFY_MARKER} confirma?', provider='x', model='m'
+            )
+        )
+        executor = AgentExecutor(provider=provider)
+
+        await executor.run(_data('@resenhazord algo ambíguo'))
+
+        provider.complete.assert_awaited_once()
+        instance_spy.assert_not_called()
+
+
 def _data(text: str) -> CommandData:
     return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net')
 
