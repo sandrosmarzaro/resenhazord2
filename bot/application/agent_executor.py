@@ -22,6 +22,7 @@ from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     get_command_list_with_descriptions,
 )
+from bot.ports.example_retriever_port import ExampleRetrieverPort
 
 logger = structlog.get_logger()
 
@@ -34,8 +35,13 @@ class AgentExecutor:
     _AGENT_UNAVAILABLE_MSG: ClassVar[str] = f'🤖 IA indisponível no momento. {AGENT_MENU_HINT}'
     _AGENT_UNRESOLVABLE_MSG: ClassVar[str] = f'🤖 Não consegui entender. {AGENT_MENU_HINT}'
 
-    def __init__(self, registry: CommandRegistry | None = None) -> None:
+    def __init__(
+        self,
+        registry: CommandRegistry | None = None,
+        retriever: ExampleRetrieverPort | None = None,
+    ) -> None:
         self._registry = registry or CommandRegistry.instance()
+        self._retriever = retriever
         self._tools = build_tools_for_prompt(self._registry)
         self._command_list = get_command_list_with_descriptions(self._registry)
         self._translator = AgentResponseTranslator(self._registry)
@@ -45,7 +51,8 @@ class AgentExecutor:
 
         Returns CommandData with rewritten text for command execution.
         """
-        prompt = self._build_prompt(data.text, context=data.quoted_text)
+        examples = await self._select_examples(data.text)
+        prompt = self._build_prompt(data.text, examples, context=data.quoted_text)
 
         logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
 
@@ -86,15 +93,30 @@ class AgentExecutor:
         logger.warning('agent_no_tool_call', content=content, tool_call=response.tool_call)
         return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
 
-    def _build_prompt(self, user_input: str, context: str | None = None) -> str:
-        filtered_input = user_input.replace(self.BOT_MENTION_TAG, '').strip()[
-            : self.MAX_USER_INPUT_LENGTH
-        ]
+    async def _select_examples(self, user_input: str) -> list[tuple[str, str]]:
+        if self._retriever is None:
+            return list(AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES])
+
+        query = self._strip_mention(user_input)
+        try:
+            retrieved = await self._retriever.retrieve(query, self.MAX_AGENT_EXAMPLES)
+        except httpx.HTTPError as error:
+            logger.warning('agent_retrieval_failed', error=str(error))
+            return list(AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES])
+        return [(example.text, example.command) for example in retrieved]
+
+    @classmethod
+    def _strip_mention(cls, text: str) -> str:
+        return text.replace(cls.BOT_MENTION_TAG, '').strip()[: cls.MAX_USER_INPUT_LENGTH]
+
+    def _build_prompt(
+        self, user_input: str, examples: list[tuple[str, str]], context: str | None = None
+    ) -> str:
+        filtered_input = self._strip_mention(user_input)
         truncated_context = context[: self.MAX_CONTEXT_LENGTH] if context else None
 
         examples_text = '\n'.join(
-            f'Usuário: "{prompt}" -> Comando: {cmd}'
-            for prompt, cmd in AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES]
+            f'Usuário: "{example}" -> Comando: {command}' for example, command in examples
         )
 
         if truncated_context:

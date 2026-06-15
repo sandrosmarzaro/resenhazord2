@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
+from bot.data.agent_examples import AGENT_EXAMPLES
 from bot.domain.constants import (
     CLARIFY_PREFIX,
     LLM_CLARIFY_MARKER,
@@ -11,6 +12,9 @@ from bot.domain.constants import (
 from bot.domain.models.command_data import CommandData
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.providers.base import LLMResponse
+from tests.fixtures.fake_example_retriever import FakeExampleRetriever
+
+_STATIC_EXAMPLES = AGENT_EXAMPLES[: AgentExecutor.MAX_AGENT_EXAMPLES]
 
 
 @pytest.fixture
@@ -21,14 +25,14 @@ def executor() -> AgentExecutor:
 class TestPromptBuilding:
     @pytest.mark.anyio
     async def test_strips_bot_mention(self, executor):
-        prompt = executor._build_prompt('@resenhazord ver placar')
+        prompt = executor._build_prompt('@resenhazord ver placar', _STATIC_EXAMPLES)
 
         assert '@resenhazord' not in prompt
         assert 'ver placar' in prompt
 
     @pytest.mark.anyio
     async def test_includes_command_list(self, executor):
-        prompt = executor._build_prompt('test')
+        prompt = executor._build_prompt('test', _STATIC_EXAMPLES)
 
         assert 'command_list' in prompt or 'placar' in prompt.lower()
 
@@ -36,6 +40,7 @@ class TestPromptBuilding:
     async def test_includes_quoted_context_block(self, executor):
         prompt = executor._build_prompt(
             'sim',
+            _STATIC_EXAMPLES,
             context='Não sei te dizer..., use ,time',
         )
 
@@ -44,9 +49,38 @@ class TestPromptBuilding:
 
     @pytest.mark.anyio
     async def test_omits_context_block_when_quoted_text_absent(self, executor):
-        prompt = executor._build_prompt('me mande um fato')
+        prompt = executor._build_prompt('me mande um fato', _STATIC_EXAMPLES)
 
         assert 'Contexto da mensagem anterior' not in prompt
+
+
+class TestExampleSelection:
+    @pytest.mark.anyio
+    async def test_returns_static_slice_without_retriever(self, executor):
+        examples = await executor._select_examples('qualquer pedido')
+
+        assert examples == list(_STATIC_EXAMPLES)
+
+    @pytest.mark.anyio
+    async def test_uses_retrieved_examples_when_retriever_present(self):
+        retriever = FakeExampleRetriever()
+        retriever.index('quero ver o placar agora', ',score --now')
+        retriever.index('me manda um carro', ',carro')
+        executor = AgentExecutor(retriever=retriever)
+
+        examples = await executor._select_examples('@resenhazord placar agora')
+
+        assert examples == [('quero ver o placar agora', ',score --now')]
+
+    @pytest.mark.anyio
+    async def test_falls_back_to_static_on_retrieval_error(self, mocker):
+        retriever = mocker.Mock()
+        retriever.retrieve = mocker.AsyncMock(side_effect=httpx.ConnectError('upstash down'))
+        executor = AgentExecutor(retriever=retriever)
+
+        examples = await executor._select_examples('placar agora')
+
+        assert examples == list(_STATIC_EXAMPLES)
 
 
 class TestRunProviderFailure:
