@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import structlog
 from upstash_vector import AsyncIndex
 from upstash_vector.types import Data
@@ -8,12 +10,27 @@ logger = structlog.get_logger()
 
 
 class UpstashExampleRetriever:
+    _instance: ClassVar['UpstashExampleRetriever | None'] = None
+
     def __init__(self, index: AsyncIndex) -> None:
         self._index = index
 
     @classmethod
     def from_credentials(cls, url: str, token: str) -> 'UpstashExampleRetriever':
         return cls(AsyncIndex(url=url, token=token))
+
+    @classmethod
+    def configure(cls, url: str, token: str) -> 'UpstashExampleRetriever':
+        cls._instance = cls.from_credentials(url, token)
+        return cls._instance
+
+    @classmethod
+    def configured(cls) -> 'UpstashExampleRetriever | None':
+        return cls._instance
+
+    @classmethod
+    def reset(cls) -> None:
+        cls._instance = None
 
     async def retrieve(self, query: str, top_k: int) -> list[RetrievedExample]:
         results = await self._index.query(

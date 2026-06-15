@@ -22,6 +22,7 @@ from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     get_command_list_with_descriptions,
 )
+from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.ports.example_retriever_port import ExampleRetrieverPort
 
 logger = structlog.get_logger()
@@ -41,7 +42,7 @@ class AgentExecutor:
         retriever: ExampleRetrieverPort | None = None,
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
-        self._retriever = retriever
+        self._retriever = retriever or UpstashExampleRetriever.configured()
         self._tools = build_tools_for_prompt(self._registry)
         self._command_list = get_command_list_with_descriptions(self._registry)
         self._translator = AgentResponseTranslator(self._registry)

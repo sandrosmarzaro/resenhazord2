@@ -54,4 +54,8 @@ class Settings(BaseSettings):
     mistral_api_key: str = ''
     groq_api_key: str = ''
 
+    # Upstash Vector (RAG few-shot example retrieval)
+    upstash_vector_rest_url: str = ''
+    upstash_vector_rest_token: str = ''
+
     model_config = {'env_file': '.env', 'extra': 'ignore'}

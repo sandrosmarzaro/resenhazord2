@@ -12,6 +12,7 @@ from bot.domain.constants import (
 from bot.domain.models.command_data import CommandData
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.providers.base import LLMResponse
+from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from tests.fixtures.fake_example_retriever import FakeExampleRetriever
 
 _STATIC_EXAMPLES = AGENT_EXAMPLES[: AgentExecutor.MAX_AGENT_EXAMPLES]
@@ -60,6 +61,13 @@ class TestExampleSelection:
         examples = await executor._select_examples('qualquer pedido')
 
         assert examples == list(_STATIC_EXAMPLES)
+
+    def test_defaults_to_configured_singleton(self):
+        retriever = UpstashExampleRetriever.configure('https://index.upstash.io', 'token')
+
+        executor = AgentExecutor()
+
+        assert executor._retriever is retriever
 
     @pytest.mark.anyio
     async def test_uses_retrieved_examples_when_retriever_present(self):
