@@ -258,6 +258,32 @@ class TestToolDecision:
         assert result.text.startswith(CLARIFY_PREFIX)
         assert 'menu' in result.text
 
+    @pytest.mark.anyio
+    async def test_suggest_tool_call_without_message_falls_back(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'suggest', 'arguments': '{}'})
+
+        result = await executor.run(_data('@resenhazord algo'))
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_malformed_tool_arguments_fall_back(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': 'not json'})
+
+        result = await executor.run(_data('@resenhazord algo'))
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_plain_text_command_content_executes(self, executor, mocker):
+        _stub_chain(mocker, content=',menu')
+
+        result = await executor.run(_data('@resenhazord comandos'))
+
+        assert result.text == ',menu'
+
 
 class TestConfidenceGating:
     @pytest.mark.anyio
@@ -297,6 +323,17 @@ class TestConfidenceGating:
     @pytest.mark.anyio
     async def test_missing_confidence_defaults_to_execute(self, executor, mocker):
         _stub_chain(mocker, tool_call={'name': 'placar', 'arguments': '{"now": true}'})
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text == ',placar now'
+
+    @pytest.mark.anyio
+    async def test_non_numeric_confidence_defaults_to_execute(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": "alta"}'},
+        )
 
         result = await executor.run(_data('@resenhazord placar'))
 
