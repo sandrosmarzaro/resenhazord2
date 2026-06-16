@@ -8,6 +8,7 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 RUN apk add --no-cache \
     gcc \
+    g++ \
     musl-dev \
     libffi-dev \
     libsodium-dev \
