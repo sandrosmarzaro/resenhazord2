@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # OP.GG MCP
     opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
 
-    # LLM Providers (fallback order: github, mistral, groq, google)
+    # LLM Providers (fallback order: github, mistral, groq)
     github_token: str = ''
     mistral_api_key: str = ''
     groq_api_key: str = ''
