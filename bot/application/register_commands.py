@@ -82,8 +82,9 @@ def register_all_commands(settings: Settings | None = None) -> None:
     _register_configured_commands(registry, settings)
 
     # After commands are registered, so the graph's inner executor sees the full tool set.
+    # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
     if settings.agent_use_graph:
-        GraphAgentOrchestrator.configure()
+        GraphAgentOrchestrator.configure(settings.redis_url)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:

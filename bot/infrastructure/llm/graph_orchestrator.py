@@ -1,46 +1,56 @@
+from __future__ import annotations
+
 import time
 from dataclasses import replace
 from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 
 import structlog
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, START, StateGraph
 
 from bot.application.agent_executor import AgentExecutor
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
-from bot.domain.models.command_data import CommandData
 
 if TYPE_CHECKING:
     from langchain_core.runnables import RunnableConfig
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+
+    from bot.domain.models.command_data import CommandData
+    from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 
 logger = structlog.get_logger()
 
 
 class _State(TypedDict):
-    data: CommandData
-    result: CommandData
     open_question: str
     asked_at: float
+    result_text: str
+    result_jid: str
 
 
 class GraphAgentOrchestrator:
     DEFAULT_PLATFORM: ClassVar[str] = 'whatsapp'
     RESUME_WINDOW_SECONDS: ClassVar[float] = 90.0
+    STORAGE_TTL_MINUTES: ClassVar[float] = 2.0
 
-    _instance: ClassVar['GraphAgentOrchestrator | None'] = None
+    _instance: ClassVar[GraphAgentOrchestrator | None] = None
 
-    def __init__(self, executor: AgentExecutor | None = None) -> None:
+    def __init__(
+        self, executor: AgentOrchestratorPort | None = None, redis_url: str | None = None
+    ) -> None:
         self._executor = executor or AgentExecutor()
+        self._checkpointer = self._build_checkpointer(redis_url)
+        self._needs_setup = isinstance(self._checkpointer, AsyncRedisSaver)
         self._graph = self._build_graph()
 
     @classmethod
-    def configure(cls) -> 'GraphAgentOrchestrator':
-        cls._instance = cls()
+    def configure(cls, redis_url: str | None = None) -> GraphAgentOrchestrator:
+        cls._instance = cls(redis_url=redis_url)
         return cls._instance
 
     @classmethod
-    def configured(cls) -> 'GraphAgentOrchestrator | None':
+    def configured(cls) -> GraphAgentOrchestrator | None:
         return cls._instance
 
     @classmethod
@@ -48,33 +58,45 @@ class GraphAgentOrchestrator:
         cls._instance = None
 
     async def run(self, data: CommandData) -> CommandData:
-        config: RunnableConfig = {'configurable': {'thread_id': self._thread_id(data)}}
-        # First-turn input carries only data; the checkpointer fills result/open_question.
-        state = await self._graph.ainvoke(cast('_State', {'data': data}), config)
-        return state['result']
+        await self._ensure_setup()
+        # data rides the config (ephemeral, never checkpointed); only primitives persist.
+        config: RunnableConfig = {
+            'configurable': {'thread_id': self._thread_id(data), 'data': data}
+        }
+        state = await self._graph.ainvoke(cast('_State', {}), config)
+        return replace(data, text=state['result_text'], jid=state['result_jid'])
+
+    async def _ensure_setup(self) -> None:
+        if not self._needs_setup:
+            return
+        await cast('AsyncRedisSaver', self._checkpointer).asetup()
+        self._needs_setup = False
+
+    def _build_checkpointer(self, redis_url: str | None) -> BaseCheckpointSaver:
+        if not redis_url:
+            return MemorySaver()
+        ttl = {'default_ttl': self.STORAGE_TTL_MINUTES, 'refresh_on_read': False}
+        return AsyncRedisSaver(redis_url, ttl=ttl)
 
     def _build_graph(self):
         graph = StateGraph(_State)
         graph.add_node('turn', self._turn)
         graph.add_edge(START, 'turn')
         graph.add_edge('turn', END)
-        serde = JsonPlusSerializer(
-            allowed_msgpack_modules=[('bot.domain.models.command_data', 'CommandData')]
-        )
-        return graph.compile(checkpointer=MemorySaver(serde=serde))
+        return graph.compile(checkpointer=self._checkpointer)
 
-    async def _turn(self, state: _State) -> _State:
-        data = state['data']
+    async def _turn(self, state: _State, config: RunnableConfig) -> _State:
+        data = cast('CommandData', (config.get('configurable') or {})['data'])
         question = self._resumable_question(state, data)
         if question:
             data = replace(data, quoted_text=question)
         result = await self._executor.run(data)
         new_question = self._extract_question(result)
         return {
-            'data': data,
-            'result': result,
             'open_question': new_question,
             'asked_at': time.time() if new_question else 0.0,
+            'result_text': result.text,
+            'result_jid': result.jid,
         }
 
     def _resumable_question(self, state: _State, data: CommandData) -> str:
