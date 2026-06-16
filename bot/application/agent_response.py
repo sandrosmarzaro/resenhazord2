@@ -29,14 +29,17 @@ class AgentResponseTranslator:
         text = cls.LONG_FLAG_PATTERN.sub(r'\1\2', text)
         return cls.LEADING_DASH_PATTERN.sub(',', text)
 
+    def compose(self, command_name: str, arguments: str) -> str:
+        command_text = self._compose_command_text(command_name, arguments)
+        return self._resolve_command_name(command_text)
+
     def translate(
         self,
         data: CommandData,
         command_name: str,
         arguments: str,
     ) -> CommandData:
-        command_text = self._compose_command_text(command_name, arguments)
-        command_text = self._resolve_command_name(command_text)
+        command_text = self.compose(command_name, arguments)
         command_text, target_jid = self._apply_dm_redirect(command_text, data)
         command_text = self.normalize_flags(command_text)
 
@@ -74,7 +77,7 @@ class AgentResponseTranslator:
         return {
             k.lstrip('-'): v
             for k, v in args_dict.items()
-            if v is not True and v is not False and k not in ('args', 'command')
+            if v is not True and v is not False and k not in ('args', 'command', 'confidence')
         }
 
     @staticmethod

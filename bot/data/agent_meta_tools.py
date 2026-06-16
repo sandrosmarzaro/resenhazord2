@@ -8,6 +8,15 @@ expressed as tool calls and routed by tool name, not by parsing a text prefix.
 CLARIFY_TOOL_NAME = 'clarify'
 SUGGEST_TOOL_NAME = 'suggest'
 
+# Injected into every command tool so the model rates its certainty; execution is
+# gated on it. The meta-tools above are already the low-confidence path, so they
+# carry no confidence of their own.
+CONFIDENCE_ARG = 'confidence'
+CONFIDENCE_PROPERTY = {
+    'type': 'number',
+    'description': 'Sua certeza, de 0 a 1, de que este é o comando que o usuário quer.',
+}
+
 CLARIFY_TOOL = {
     'type': 'function',
     'function': {

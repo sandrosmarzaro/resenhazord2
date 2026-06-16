@@ -13,6 +13,8 @@ from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
 from bot.data.agent_meta_tools import (
     AGENT_META_TOOLS,
     CLARIFY_TOOL_NAME,
+    CONFIDENCE_ARG,
+    CONFIDENCE_PROPERTY,
     SUGGEST_TOOL_NAME,
 )
 from bot.domain.constants import (
@@ -38,6 +40,7 @@ logger = structlog.get_logger()
 
 class AgentExecutor:
     MAX_AGENT_EXAMPLES: ClassVar[int] = 20
+    CONFIDENCE_THRESHOLD: ClassVar[float] = 0.7
     MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
     BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
@@ -53,7 +56,8 @@ class AgentExecutor:
         self._registry = registry or CommandRegistry.instance()
         self._retriever = retriever or UpstashExampleRetriever.configured()
         self._provider = provider or LangChainProvider.configured()
-        self._tools = build_tools_for_prompt(self._registry) + AGENT_META_TOOLS
+        command_tools = self._with_confidence(build_tools_for_prompt(self._registry))
+        self._tools = command_tools + AGENT_META_TOOLS
         self._command_list = get_command_list_with_descriptions(self._registry)
         self._translator = AgentResponseTranslator(self._registry)
 
@@ -100,7 +104,28 @@ class AgentExecutor:
             return self._clarify(data, self._tool_arg(arguments, 'question'))
         if name == SUGGEST_TOOL_NAME:
             return self._suggest(data, self._tool_arg(arguments, 'message'))
+        if self._confidence(arguments) < self.CONFIDENCE_THRESHOLD:
+            return self._confirm(data, name, arguments)
         return self._translator.translate(data, name, arguments)
+
+    def _confirm(self, data: CommandData, name: str, arguments: str) -> CommandData:
+        command = self._translator.compose(name, arguments)
+        proposed = AgentResponseTranslator.normalize_flags(command)
+        logger.info('agent_confirming', proposed=proposed, original=data.text)
+        return replace(data, text=f'{CLARIFY_PREFIX}Você quis dizer `{proposed}`?')
+
+    @staticmethod
+    def _confidence(arguments: str) -> float:
+        try:
+            return float(json.loads(arguments).get(CONFIDENCE_ARG, 1.0))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return 1.0
+
+    @staticmethod
+    def _with_confidence(tools: list[dict]) -> list[dict]:
+        for tool in tools:
+            tool['function']['parameters']['properties'][CONFIDENCE_ARG] = CONFIDENCE_PROPERTY
+        return tools
 
     def _clarify(self, data: CommandData, question: str) -> CommandData:
         if not question:

@@ -324,6 +324,50 @@ class TestToolDecision:
         assert 'menu' in result.text
 
 
+class TestConfidenceGating:
+    @pytest.mark.anyio
+    async def test_low_confidence_command_routes_to_confirm(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.3}'},
+        )
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert ',placar now' in result.text
+
+    @pytest.mark.anyio
+    async def test_high_confidence_command_executes(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
+        )
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text == ',placar now'
+
+    @pytest.mark.anyio
+    async def test_confidence_is_not_appended_to_the_command(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
+        )
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert 'confidence' not in result.text
+
+    @pytest.mark.anyio
+    async def test_missing_confidence_defaults_to_execute(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'placar', 'arguments': '{"now": true}'})
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text == ',placar now'
+
+
 def _data(text: str) -> CommandData:
     return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net')
 
