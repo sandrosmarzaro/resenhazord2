@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     github_token: str = ''
     mistral_api_key: str = ''
     groq_api_key: str = ''
+    # Route the agent's LLM calls through LangChain instead of the httpx ProviderChain
+    llm_use_langchain: bool = False
 
     # Upstash Vector (RAG few-shot example retrieval)
     upstash_vector_rest_url: str = ''

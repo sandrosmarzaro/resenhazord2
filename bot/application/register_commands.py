@@ -54,6 +54,7 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
@@ -66,6 +67,10 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
     ProviderChain.configure(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
+    if settings.llm_use_langchain:
+        LangChainProvider.configure(
+            settings.github_token, settings.mistral_api_key, settings.groq_api_key
+        )
     if settings.upstash_vector_rest_url:
         UpstashExampleRetriever.configure(
             settings.upstash_vector_rest_url, settings.upstash_vector_rest_token

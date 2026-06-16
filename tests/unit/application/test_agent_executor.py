@@ -10,6 +10,7 @@ from bot.domain.constants import (
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.providers.base import LLMResponse
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
@@ -281,6 +282,13 @@ class TestProviderInjection:
 
         provider.complete.assert_awaited_once()
         instance_spy.assert_not_called()
+
+    def test_defaults_to_configured_langchain_provider(self):
+        provider = LangChainProvider.configure('github', '', '')
+
+        executor = AgentExecutor()
+
+        assert executor._provider is provider
 
 
 def _data(text: str) -> CommandData:

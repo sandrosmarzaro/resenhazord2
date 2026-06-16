@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from bot.application.command_registry import CommandRegistry
 from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
@@ -38,12 +39,14 @@ def _reset_singletons():
     MongoDBConnection.reset()
     ProviderChain.reset()
     UpstashExampleRetriever.reset()
+    LangChainProvider.reset()
     yield
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
     ProviderChain.reset()
     UpstashExampleRetriever.reset()
+    LangChainProvider.reset()
 
 
 @pytest.fixture

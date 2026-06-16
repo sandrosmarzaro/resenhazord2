@@ -17,6 +17,7 @@ from bot.domain.constants import (
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
@@ -45,7 +46,7 @@ class AgentExecutor:
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._retriever = retriever or UpstashExampleRetriever.configured()
-        self._provider = provider
+        self._provider = provider or LangChainProvider.configured()
         self._tools = build_tools_for_prompt(self._registry)
         self._command_list = get_command_list_with_descriptions(self._registry)
         self._translator = AgentResponseTranslator(self._registry)
