@@ -1,5 +1,6 @@
 """LLM Agent Executor - maps natural language to bot commands."""
 
+import json
 from dataclasses import replace
 from typing import ClassVar
 
@@ -9,6 +10,11 @@ import structlog
 from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
 from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
+from bot.data.agent_meta_tools import (
+    AGENT_META_TOOLS,
+    CLARIFY_TOOL_NAME,
+    SUGGEST_TOOL_NAME,
+)
 from bot.domain.constants import (
     AGENT_MENU_HINT,
     CLARIFY_PREFIX,
@@ -47,7 +53,7 @@ class AgentExecutor:
         self._registry = registry or CommandRegistry.instance()
         self._retriever = retriever or UpstashExampleRetriever.configured()
         self._provider = provider or LangChainProvider.configured()
-        self._tools = build_tools_for_prompt(self._registry)
+        self._tools = build_tools_for_prompt(self._registry) + AGENT_META_TOOLS
         self._command_list = get_command_list_with_descriptions(self._registry)
         self._translator = AgentResponseTranslator(self._registry)
 
@@ -69,11 +75,7 @@ class AgentExecutor:
             return self._fallback(data, self._AGENT_UNAVAILABLE_MSG)
 
         if response.tool_call:
-            return self._translator.translate(
-                data,
-                response.tool_call.get('name', ''),
-                response.tool_call.get('arguments', '{}'),
-            )
+            return self._route_tool_call(data, response.tool_call)
 
         content = AgentResponseTranslator.normalize_flags(
             response.content.strip().strip('`').strip('"\'').strip()
@@ -83,21 +85,41 @@ class AgentExecutor:
             return self._translator.translate(data, content.lstrip(',/').strip('\'"'), '')
 
         if content.startswith(LLM_CLARIFY_MARKER):
-            question = content[len(LLM_CLARIFY_MARKER) :].strip()
-            if not question:
-                return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
-            logger.info('agent_asking_clarification', question=question)
-            return replace(data, text=f'{CLARIFY_PREFIX}{question}')
+            return self._clarify(data, content[len(LLM_CLARIFY_MARKER) :].strip())
 
         if content.startswith(LLM_SUGGEST_MARKER):
-            suggestion = content[len(LLM_SUGGEST_MARKER) :].strip()
-            if not suggestion:
-                return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
-            logger.info('agent_suggesting_command', suggestion=suggestion)
-            return replace(data, text=f'{SUGGEST_PREFIX}{suggestion}')
+            return self._suggest(data, content[len(LLM_SUGGEST_MARKER) :].strip())
 
         logger.warning('agent_no_tool_call', content=content, tool_call=response.tool_call)
         return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
+
+    def _route_tool_call(self, data: CommandData, tool_call: dict) -> CommandData:
+        name = tool_call.get('name', '')
+        arguments = tool_call.get('arguments', '{}')
+        if name == CLARIFY_TOOL_NAME:
+            return self._clarify(data, self._tool_arg(arguments, 'question'))
+        if name == SUGGEST_TOOL_NAME:
+            return self._suggest(data, self._tool_arg(arguments, 'message'))
+        return self._translator.translate(data, name, arguments)
+
+    def _clarify(self, data: CommandData, question: str) -> CommandData:
+        if not question:
+            return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
+        logger.info('agent_asking_clarification', question=question)
+        return replace(data, text=f'{CLARIFY_PREFIX}{question}')
+
+    def _suggest(self, data: CommandData, message: str) -> CommandData:
+        if not message:
+            return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
+        logger.info('agent_suggesting_command', suggestion=message)
+        return replace(data, text=f'{SUGGEST_PREFIX}{message}')
+
+    @staticmethod
+    def _tool_arg(arguments: str, key: str) -> str:
+        try:
+            return str(json.loads(arguments).get(key, '')).strip()
+        except json.JSONDecodeError:
+            return ''
 
     async def _select_examples(self, user_input: str) -> list[tuple[str, str]]:
         if self._retriever is None:

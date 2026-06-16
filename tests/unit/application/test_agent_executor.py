@@ -291,6 +291,39 @@ class TestProviderInjection:
         assert executor._provider is provider
 
 
+class TestToolDecision:
+    @pytest.mark.anyio
+    async def test_clarify_tool_call_routes_to_clarify(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'clarify', 'arguments': '{"question": "Qual jogo de cartas?"}'},
+        )
+
+        result = await executor.run(_data('@resenhazord uma carta'))
+
+        assert result.text == f'{CLARIFY_PREFIX}Qual jogo de cartas?'
+
+    @pytest.mark.anyio
+    async def test_suggest_tool_call_routes_to_suggest(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,time"}'},
+        )
+
+        result = await executor.run(_data('@resenhazord fundação do flamengo'))
+
+        assert result.text == f'{SUGGEST_PREFIX}Use ,time'
+
+    @pytest.mark.anyio
+    async def test_clarify_tool_call_without_question_falls_back(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': '{}'})
+
+        result = await executor.run(_data('@resenhazord algo'))
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert 'menu' in result.text
+
+
 def _data(text: str) -> CommandData:
     return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net')
 
