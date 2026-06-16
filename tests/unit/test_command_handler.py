@@ -274,6 +274,50 @@ class TestAgentDetection:
         assert handler_with_jid._should_run_agent(data) is True
 
 
+class TestHandleRouting:
+    @pytest.mark.anyio
+    async def test_dm_natural_language_routed_through_agent_then_dispatched(self, handler, mocker):
+        data = CommandData(
+            text='manda um negócio público',
+            jid='user@s.whatsapp.net',
+            sender_jid='user@s.whatsapp.net',
+            is_group=False,
+        )
+        mocker.patch.object(
+            handler,
+            '_run_agent',
+            mocker.AsyncMock(
+                return_value=CommandData(
+                    text=',pub',
+                    jid=data.jid,
+                    sender_jid=data.sender_jid,
+                    is_group=False,
+                )
+            ),
+        )
+
+        result = await handler.handle(data)
+
+        handler._run_agent.assert_awaited_once_with(data)
+        assert result is not None
+        assert result[0].content.text == 'public ok'
+
+    @pytest.mark.anyio
+    async def test_dm_direct_command_skips_agent(self, handler, mocker):
+        data = CommandData(
+            text=',pub',
+            jid='user@s.whatsapp.net',
+            sender_jid='user@s.whatsapp.net',
+            is_group=False,
+        )
+        run_agent = mocker.patch.object(handler, '_run_agent', mocker.AsyncMock())
+
+        result = await handler.handle(data)
+
+        run_agent.assert_not_awaited()
+        assert result[0].content.text == 'public ok'
+
+
 class TestRunAgent:
     @pytest.mark.anyio
     async def test_run_agent_returns_translated_data(self, handler, mocker):
