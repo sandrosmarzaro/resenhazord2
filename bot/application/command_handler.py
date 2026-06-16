@@ -62,8 +62,8 @@ class CommandHandler:
     ) -> list[BotMessage] | None:
         logger.debug('handle_raw', text=repr(data.text))
 
-        if self._is_agent_mention(data):
-            logger.info('agent_mention_detected', text=data.text)
+        if self._should_run_agent(data):
+            logger.info('agent_routing', text=data.text)
             data = await self._run_agent(data)
 
         repeat, data = self._parse_batch(data)
@@ -122,14 +122,21 @@ class CommandHandler:
             raise
         return messages
 
-    def _is_agent_mention(self, data: CommandData) -> bool:
+    def _should_run_agent(self, data: CommandData) -> bool:
+        if self._is_explicit_mention(data):
+            return True
+        if data.is_group:
+            return False
+        # Private chat: a recognized ",command" takes the fast direct path;
+        # natural language or an unmatched ",typo" goes to the agent to map or clarify.
+        return self._registry.get_strategy(data.text) is None
+
+    def _is_explicit_mention(self, data: CommandData) -> bool:
         text_lower = (data.text or '').lower()
         for mentioned in data.mentioned_jids or ():
             if mentioned.split('@')[0] in self._bot_numeric:
                 return True
         if AgentExecutor.BOT_MENTION_TAG in text_lower:
-            return True
-        if not data.is_group:
             return True
         return bool(self._SEND_ME_PATTERN.search(text_lower))
 

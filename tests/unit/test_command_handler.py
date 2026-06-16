@@ -166,7 +166,7 @@ class TestAgentDetection:
             is_group=False,
         )
 
-        is_agent = handler._is_agent_mention(data)
+        is_agent = handler._should_run_agent(data)
 
         assert is_agent is True
 
@@ -181,7 +181,7 @@ class TestAgentDetection:
             is_group=True,
         )
 
-        is_agent = handler._is_agent_mention(data)
+        is_agent = handler._should_run_agent(data)
 
         assert is_agent is True
 
@@ -189,9 +189,54 @@ class TestAgentDetection:
     async def test_no_agent_for_plain_command_in_group(self, handler):
         data = GroupCommandDataFactory.build(text=',pub')
 
-        is_agent = handler._is_agent_mention(data)
+        is_agent = handler._should_run_agent(data)
 
         assert is_agent is False
+
+    @pytest.mark.anyio
+    async def test_no_agent_for_direct_command_in_dm(self, handler):
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',pub',
+            jid='test@s.whatsapp.net',
+            sender_jid='test@s.whatsapp.net',
+            is_group=False,
+        )
+
+        is_agent = handler._should_run_agent(data)
+
+        assert is_agent is False
+
+    @pytest.mark.anyio
+    async def test_agent_for_unmatched_command_in_dm(self, handler):
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text=',unknown',
+            jid='test@s.whatsapp.net',
+            sender_jid='test@s.whatsapp.net',
+            is_group=False,
+        )
+
+        is_agent = handler._should_run_agent(data)
+
+        assert is_agent is True
+
+    @pytest.mark.anyio
+    async def test_agent_for_natural_language_in_dm(self, handler):
+        from bot.domain.models.command_data import CommandData
+
+        data = CommandData(
+            text='qual o placar do jogo?',
+            jid='test@s.whatsapp.net',
+            sender_jid='test@s.whatsapp.net',
+            is_group=False,
+        )
+
+        is_agent = handler._should_run_agent(data)
+
+        assert is_agent is True
 
     def test_agent_trigger_by_bot_mention_tag(self, handler):
         from bot.domain.models.command_data import CommandData
@@ -203,7 +248,7 @@ class TestAgentDetection:
             is_group=True,
         )
 
-        assert handler._is_agent_mention(data) is True
+        assert handler._should_run_agent(data) is True
 
     def test_agent_trigger_by_mentioned_jid(self, handler, mocker):
         from bot.domain.models.command_data import CommandData
@@ -226,7 +271,7 @@ class TestAgentDetection:
             is_group=True,
         )
 
-        assert handler_with_jid._is_agent_mention(data) is True
+        assert handler_with_jid._should_run_agent(data) is True
 
 
 class TestRunAgent:
