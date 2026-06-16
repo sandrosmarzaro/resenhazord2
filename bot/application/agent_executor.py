@@ -1,5 +1,6 @@
 """LLM Agent Executor - maps natural language to bot commands."""
 
+import json
 from dataclasses import replace
 from typing import ClassVar
 
@@ -9,34 +10,52 @@ import structlog
 from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
 from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
+from bot.data.agent_meta_tools import (
+    AGENT_META_TOOLS,
+    CLARIFY_TOOL_NAME,
+    CONFIDENCE_ARG,
+    CONFIDENCE_PROPERTY,
+    SUGGEST_TOOL_NAME,
+)
 from bot.domain.constants import (
     AGENT_MENU_HINT,
     CLARIFY_PREFIX,
-    LLM_CLARIFY_MARKER,
-    LLM_SUGGEST_MARKER,
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     get_command_list_with_descriptions,
 )
+from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
+from bot.ports.example_retriever_port import ExampleRetrieverPort
+from bot.ports.llm_provider_port import LLMProviderPort
 
 logger = structlog.get_logger()
 
 
 class AgentExecutor:
     MAX_AGENT_EXAMPLES: ClassVar[int] = 20
+    CONFIDENCE_THRESHOLD: ClassVar[float] = 0.7
     MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
     BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
     _AGENT_UNAVAILABLE_MSG: ClassVar[str] = f'🤖 IA indisponível no momento. {AGENT_MENU_HINT}'
     _AGENT_UNRESOLVABLE_MSG: ClassVar[str] = f'🤖 Não consegui entender. {AGENT_MENU_HINT}'
 
-    def __init__(self, registry: CommandRegistry | None = None) -> None:
+    def __init__(
+        self,
+        registry: CommandRegistry | None = None,
+        retriever: ExampleRetrieverPort | None = None,
+        provider: LLMProviderPort | None = None,
+    ) -> None:
         self._registry = registry or CommandRegistry.instance()
-        self._tools = build_tools_for_prompt(self._registry)
+        self._retriever = retriever or UpstashExampleRetriever.configured()
+        self._provider = provider or LangChainProvider.configured()
+        command_tools = self._with_confidence(build_tools_for_prompt(self._registry))
+        self._tools = command_tools + AGENT_META_TOOLS
         self._command_list = get_command_list_with_descriptions(self._registry)
         self._translator = AgentResponseTranslator(self._registry)
 
@@ -45,22 +64,20 @@ class AgentExecutor:
 
         Returns CommandData with rewritten text for command execution.
         """
-        prompt = self._build_prompt(data.text, context=data.quoted_text)
+        examples = await self._select_examples(data.text)
+        prompt = self._build_prompt(data.text, examples, context=data.quoted_text)
 
         logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
 
         try:
-            response = await ProviderChain.instance().complete(prompt, self._tools)
+            provider = self._provider or ProviderChain.instance()
+            response = await provider.complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError) as e:
             logger.warning('agent_provider_failed', error=str(e))
             return self._fallback(data, self._AGENT_UNAVAILABLE_MSG)
 
         if response.tool_call:
-            return self._translator.translate(
-                data,
-                response.tool_call.get('name', ''),
-                response.tool_call.get('arguments', '{}'),
-            )
+            return self._route_tool_call(data, response.tool_call)
 
         content = AgentResponseTranslator.normalize_flags(
             response.content.strip().strip('`').strip('"\'').strip()
@@ -69,32 +86,82 @@ class AgentExecutor:
         if content.startswith((',', '/')):
             return self._translator.translate(data, content.lstrip(',/').strip('\'"'), '')
 
-        if content.startswith(LLM_CLARIFY_MARKER):
-            question = content[len(LLM_CLARIFY_MARKER) :].strip()
-            if not question:
-                return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
-            logger.info('agent_asking_clarification', question=question)
-            return replace(data, text=f'{CLARIFY_PREFIX}{question}')
-
-        if content.startswith(LLM_SUGGEST_MARKER):
-            suggestion = content[len(LLM_SUGGEST_MARKER) :].strip()
-            if not suggestion:
-                return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
-            logger.info('agent_suggesting_command', suggestion=suggestion)
-            return replace(data, text=f'{SUGGEST_PREFIX}{suggestion}')
-
         logger.warning('agent_no_tool_call', content=content, tool_call=response.tool_call)
         return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
 
-    def _build_prompt(self, user_input: str, context: str | None = None) -> str:
-        filtered_input = user_input.replace(self.BOT_MENTION_TAG, '').strip()[
-            : self.MAX_USER_INPUT_LENGTH
-        ]
+    def _route_tool_call(self, data: CommandData, tool_call: dict) -> CommandData:
+        name = tool_call.get('name', '')
+        arguments = tool_call.get('arguments', '{}')
+        if name == CLARIFY_TOOL_NAME:
+            return self._clarify(data, self._tool_arg(arguments, 'question'))
+        if name == SUGGEST_TOOL_NAME:
+            return self._suggest(data, self._tool_arg(arguments, 'message'))
+        if self._confidence(arguments) < self.CONFIDENCE_THRESHOLD:
+            return self._confirm(data, name, arguments)
+        return self._translator.translate(data, name, arguments)
+
+    def _confirm(self, data: CommandData, name: str, arguments: str) -> CommandData:
+        command = self._translator.compose(name, arguments)
+        proposed = AgentResponseTranslator.normalize_flags(command)
+        logger.info('agent_confirming', proposed=proposed, original=data.text)
+        return replace(data, text=f'{CLARIFY_PREFIX}Você quis dizer `{proposed}`?')
+
+    @staticmethod
+    def _confidence(arguments: str) -> float:
+        try:
+            return float(json.loads(arguments).get(CONFIDENCE_ARG, 1.0))
+        except (TypeError, ValueError):  # JSONDecodeError is a ValueError subclass
+            return 1.0
+
+    @staticmethod
+    def _with_confidence(tools: list[dict]) -> list[dict]:
+        for tool in tools:
+            tool['function']['parameters']['properties'][CONFIDENCE_ARG] = CONFIDENCE_PROPERTY
+        return tools
+
+    def _clarify(self, data: CommandData, question: str) -> CommandData:
+        if not question:
+            return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
+        logger.info('agent_asking_clarification', question=question)
+        return replace(data, text=f'{CLARIFY_PREFIX}{question}')
+
+    def _suggest(self, data: CommandData, message: str) -> CommandData:
+        if not message:
+            return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
+        logger.info('agent_suggesting_command', suggestion=message)
+        return replace(data, text=f'{SUGGEST_PREFIX}{message}')
+
+    @staticmethod
+    def _tool_arg(arguments: str, key: str) -> str:
+        try:
+            return str(json.loads(arguments).get(key, '')).strip()
+        except json.JSONDecodeError:
+            return ''
+
+    async def _select_examples(self, user_input: str) -> list[tuple[str, str]]:
+        if self._retriever is None:
+            return list(AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES])
+
+        query = self._strip_mention(user_input)
+        try:
+            retrieved = await self._retriever.retrieve(query, self.MAX_AGENT_EXAMPLES)
+        except httpx.HTTPError as error:
+            logger.warning('agent_retrieval_failed', error=str(error))
+            return list(AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES])
+        return [(example.text, example.command) for example in retrieved]
+
+    @classmethod
+    def _strip_mention(cls, text: str) -> str:
+        return text.replace(cls.BOT_MENTION_TAG, '').strip()[: cls.MAX_USER_INPUT_LENGTH]
+
+    def _build_prompt(
+        self, user_input: str, examples: list[tuple[str, str]], context: str | None = None
+    ) -> str:
+        filtered_input = self._strip_mention(user_input)
         truncated_context = context[: self.MAX_CONTEXT_LENGTH] if context else None
 
         examples_text = '\n'.join(
-            f'Usuário: "{prompt}" -> Comando: {cmd}'
-            for prompt, cmd in AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES]
+            f'Usuário: "{example}" -> Comando: {command}' for example, command in examples
         )
 
         if truncated_context:

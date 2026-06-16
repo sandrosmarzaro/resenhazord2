@@ -409,3 +409,33 @@ class TestSuggestHandler:
 
         assert result is not None
         assert result[0].content.text == AGENT_MENU_HINT
+
+
+class TestAgentOrchestratorSelection:
+    @pytest.mark.anyio
+    async def test_uses_configured_graph_orchestrator(self, handler, mocker):
+        from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
+
+        data = GroupCommandDataFactory.build(text='@resenhazord algo')
+        graph = mocker.Mock()
+        graph.run = mocker.AsyncMock(return_value=data)
+        mocker.patch.object(GraphAgentOrchestrator, 'configured', return_value=graph)
+
+        await handler._run_agent(data)
+
+        graph.run.assert_awaited_once_with(data)
+
+    @pytest.mark.anyio
+    async def test_falls_back_to_executor_without_graph(self, handler, mocker):
+        from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
+        from bot.infrastructure.llm.provider_chain import ProviderChain
+
+        data = GroupCommandDataFactory.build(text='@resenhazord algo')
+        mocker.patch.object(GraphAgentOrchestrator, 'configured', return_value=None)
+        instance_spy = mocker.patch.object(
+            ProviderChain, 'instance', side_effect=RuntimeError('not configured')
+        )
+
+        await handler._run_agent(data)
+
+        instance_spy.assert_called_once()

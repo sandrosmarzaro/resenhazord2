@@ -1,7 +1,7 @@
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import structlog
 
@@ -14,7 +14,11 @@ from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
+from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.settings import Settings
+
+if TYPE_CHECKING:
+    from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 
 logger = structlog.get_logger()
 
@@ -38,7 +42,7 @@ class CommandHandler:
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
-        self._agent_executor: AgentExecutor | None = None
+        self._agent: AgentOrchestratorPort | None = None
         settings = Settings()
         self._bot_numeric: frozenset[str] = frozenset(
             jid.split('@')[0]
@@ -131,9 +135,9 @@ class CommandHandler:
 
     async def _run_agent(self, data: CommandData) -> CommandData:
         try:
-            if self._agent_executor is None:
-                self._agent_executor = AgentExecutor(self._registry)
-            return await self._agent_executor.run(data)
+            if self._agent is None:
+                self._agent = GraphAgentOrchestrator.configured() or AgentExecutor(self._registry)
+            return await self._agent.run(data)
         except ValueError:
             logger.warning('agent_invalid_response', text=data.text)
             return replace(data, text=f'{CLARIFY_PREFIX}Erro inesperado. {AGENT_MENU_HINT}')

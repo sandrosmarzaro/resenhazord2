@@ -136,18 +136,15 @@ REGRAS DE INFERÊNCIA:
  6. SHOW FLAG: NÃO use --show a menos que o usuário solicite explicitamente
     "view once", "temporal", " visualize" ou similar.
     Por padrão, envie mídias em modo view-once (com --show MUDA o comportamento).
- 7. SE NÃO SOUBER mapear: Responda com "CLARIFY: <pergunta>".
-    Ex: "CLARIFY: Você quer ver a tabela do brasileiro?"
+ 7. SE NÃO SOUBER qual comando: chame a ferramenta `clarify` com uma pergunta
+    em pt-br. Ex: clarify(question="Você quer ver a tabela do brasileiro?").
     Não responda apenas "não entendi".
- 8. NÃO SEI + SUGESTÃO: Se a pergunta é específica mas você encontra um comando
-    SIMILAR, responda CONVERSACIONALMENTE primeiro, SEM executar o comando.
-    Ex: "qual a fundação do flamengo?" → ,time (similar: football team)
-    → "Eu não sei te dizer a data exata, mas posso te mandar um time aleatório se quiser! Use ,time"
-    Ex: "por que o céu é azul?" → ,fato (similar: random fact)
-    → "Não sei responder isso, mas posso te contar um fato aleatório! Use ,fato"
-    Ex: "quem ganhou a champions 2024?" → ,tabela bl (similar: champions table)
-    → "Não tenho essa info, mas posso mostrar a tabela! Use ,tabela bl"
-    O formato deve ser: "SUGGEST: <mensagem conversacional> ,comando"
+ 8. PEDIDO FORA DAS FUNÇÕES com comando SIMILAR: chame a ferramenta `suggest`,
+    respondendo CONVERSACIONALMENTE, SEM executar o comando.
+    Ex: "qual a fundação do flamengo?" →
+    suggest(message="Não sei a data exata, mas posso te mandar um time! Use ,time", command=",time")
+    Ex: "por que o céu é azul?" →
+    suggest(message="Não sei responder, mas posso te contar um fato! Use ,fato", command=",fato")
   9. STICKER type:
      - crop: "centralizada", "centralizado", "cortada", "meio"
      - rounded: "bordas arredondadas", "sem bordas", "cantos arredondados"

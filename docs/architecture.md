@@ -124,6 +124,32 @@ registered `Command` instances and selects the first match.
 The TS gateway mirrors the parser (`gateway/src/parsers/CommandParser.ts`) for
 early filtering before forwarding to Python.
 
+## Agentic Command Mapping
+
+`@`-mentions and DMs route to an LLM agent that maps natural language to a command,
+behind flags that parallel-run with the manual comma path. Design:
+[prd-agentic-command-mapping.md](prd-agentic-command-mapping.md) + ADRs 0007–0011.
+
+Three ports (`bot/ports/`) keep the frameworks out of the domain; each falls back
+when its flag/env is unset:
+
+- **`LLMProviderPort`** → `LangChainProvider` (gpt-4o/Groq/Mistral, `bind_tools` +
+  `with_fallbacks`) under `LLM_USE_LANGCHAIN`, else httpx `ProviderChain`.
+- **`ExampleRetrieverPort`** → `UpstashExampleRetriever` (Upstash Vector, RAG
+  few-shot) when `UPSTASH_VECTOR_REST_URL` set, else a static slice. Build:
+  `uv run task index:examples`.
+- **`AgentOrchestratorPort`** → `GraphAgentOrchestrator` (LangGraph) under
+  `AGENT_USE_GRAPH`, else single-turn `AgentExecutor`.
+
+Outcomes are tool calls (ADR 0009): a command tool (execute, gated on a `confidence`
+arg), `clarify(question)`, or `suggest(message, command)`; `AgentResponseTranslator`
+renders a command call into `,command args`. The graph wraps `AgentExecutor` and
+persists the open question per `thread_id` (`platform:chat:user`) so clarify → answer
+survives across messages (resume on quote or within `RESUME_WINDOW_SECONDS`).
+Checkpointer: `AsyncRedisSaver` when `REDIS_URL` (Redis Cloud — needs RediSearch +
+RedisJSON) set, else `MemorySaver`; only primitives persist, `CommandData` rides the
+run config (ADR 0008).
+
 ## Ports & Adapters
 
 Python ports live under `bot/ports/` and `bot/adapters/whatsapp/port.py`:
@@ -283,7 +309,10 @@ decorator pattern. Python consumes it transparently through `WhatsAppPort`.
 
 ## Singletons
 
-Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`.
+Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`,
+`ProviderChain`, plus the agent singletons (`LangChainProvider`,
+`UpstashExampleRetriever`, `GraphAgentOrchestrator`) — all `configure()`d in
+`register_all_commands`.
 TypeScript: `CommandFactory`, `MongoDBConnection`, `AxiosClient`.
 
 **Always use existing singletons.** Never instantiate `httpx.AsyncClient`,
