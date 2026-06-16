@@ -74,6 +74,8 @@ jobs:
     needs: [lint-py, security-py, complexity-py]
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # SonarQube needs full history for new-code/SCM blame
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           cache-suffix: ${{ github.job }}
@@ -85,6 +87,11 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
           files: coverage.xml
+      - name: SonarQube Cloud scan
+        uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
   complexity-py:
     name: Python complexity gate
