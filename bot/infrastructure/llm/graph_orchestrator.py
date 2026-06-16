@@ -1,8 +1,10 @@
+import time
 from dataclasses import replace
 from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 
 import structlog
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 
 from bot.application.agent_executor import AgentExecutor
@@ -19,10 +21,12 @@ class _State(TypedDict):
     data: CommandData
     result: CommandData
     open_question: str
+    asked_at: float
 
 
 class GraphAgentOrchestrator:
     DEFAULT_PLATFORM: ClassVar[str] = 'whatsapp'
+    RESUME_WINDOW_SECONDS: ClassVar[float] = 90.0
 
     def __init__(self, executor: AgentExecutor | None = None) -> None:
         self._executor = executor or AgentExecutor()
@@ -39,15 +43,34 @@ class GraphAgentOrchestrator:
         graph.add_node('turn', self._turn)
         graph.add_edge(START, 'turn')
         graph.add_edge('turn', END)
-        return graph.compile(checkpointer=MemorySaver())
+        serde = JsonPlusSerializer(
+            allowed_msgpack_modules=[('bot.domain.models.command_data', 'CommandData')]
+        )
+        return graph.compile(checkpointer=MemorySaver(serde=serde))
 
     async def _turn(self, state: _State) -> _State:
         data = state['data']
-        open_question = state.get('open_question', '')
-        if open_question:
-            data = replace(data, quoted_text=open_question)
+        question = self._resumable_question(state, data)
+        if question:
+            data = replace(data, quoted_text=question)
         result = await self._executor.run(data)
-        return {'data': data, 'result': result, 'open_question': self._extract_question(result)}
+        new_question = self._extract_question(result)
+        return {
+            'data': data,
+            'result': result,
+            'open_question': new_question,
+            'asked_at': time.time() if new_question else 0.0,
+        }
+
+    def _resumable_question(self, state: _State, data: CommandData) -> str:
+        # Quote wins: a quoted message already carries the bot's question as context.
+        if data.quoted_text:
+            return ''
+        question = state.get('open_question', '')
+        if not question:
+            return ''
+        within_window = time.time() - state.get('asked_at', 0.0) <= self.RESUME_WINDOW_SECONDS
+        return question if within_window else ''
 
     @staticmethod
     def _extract_question(result: CommandData) -> str:

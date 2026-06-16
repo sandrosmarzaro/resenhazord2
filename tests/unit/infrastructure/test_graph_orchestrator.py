@@ -49,3 +49,40 @@ class TestGraphOrchestrator:
 
         second_turn_data = executor.run.call_args_list[1].args[0]
         assert second_turn_data.quoted_text is None
+
+    @pytest.mark.anyio
+    async def test_does_not_resume_after_window_expires(self, mocker):
+        executor = mocker.Mock()
+        executor.run = mocker.AsyncMock(
+            side_effect=[_data(f'{CLARIFY_PREFIX}pergunta?'), _data(',menu')]
+        )
+        orchestrator = GraphAgentOrchestrator(executor=executor)
+        clock = mocker.patch('bot.infrastructure.llm.graph_orchestrator.time.time')
+
+        clock.return_value = 1000.0
+        await orchestrator.run(_data('algo'))
+        clock.return_value = 1000.0 + GraphAgentOrchestrator.RESUME_WINDOW_SECONDS + 1
+        await orchestrator.run(_data('sim'))
+
+        second_turn_data = executor.run.call_args_list[1].args[0]
+        assert second_turn_data.quoted_text is None
+
+    @pytest.mark.anyio
+    async def test_quote_takes_precedence_over_persisted_question(self, mocker):
+        executor = mocker.Mock()
+        executor.run = mocker.AsyncMock(
+            side_effect=[_data(f'{CLARIFY_PREFIX}pergunta persistida?'), _data(',menu')]
+        )
+        orchestrator = GraphAgentOrchestrator(executor=executor)
+
+        await orchestrator.run(_data('algo'))
+        quoted = CommandData(
+            text='sim',
+            jid='g@g.us',
+            sender_jid='u@s.whatsapp.net',
+            quoted_text='citação do usuário',
+        )
+        await orchestrator.run(quoted)
+
+        second_turn_data = executor.run.call_args_list[1].args[0]
+        assert second_turn_data.quoted_text == 'citação do usuário'
