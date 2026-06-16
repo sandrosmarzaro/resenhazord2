@@ -5,8 +5,6 @@ from bot.application.agent_executor import AgentExecutor
 from bot.data.agent_examples import AGENT_EXAMPLES
 from bot.domain.constants import (
     CLARIFY_PREFIX,
-    LLM_CLARIFY_MARKER,
-    LLM_SUGGEST_MARKER,
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
@@ -181,32 +179,6 @@ class TestRun:
         assert result.text == ',placar now'
 
     @pytest.mark.anyio
-    async def test_suggest_prefix_routes_to_suggest_command(self, executor, mocker):
-        data = _data('@resenhazord qual a fundação do flamengo')
-        suggest_content = (
-            f'{LLM_SUGGEST_MARKER}Não sei te dizer a data exata, '
-            'mas posso te mandar um time aleatório! Use ,time'
-        )
-        _stub_chain(mocker, content=suggest_content)
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(SUGGEST_PREFIX)
-        assert 'Não sei' in result.text
-        assert 'time' in result.text
-
-    @pytest.mark.anyio
-    async def test_clarify_prefix_routes_to_clarify_command(self, executor, mocker):
-        data = _data('@resenhazord qual a tabela do brasileiro')
-        content = f'{LLM_CLARIFY_MARKER}Você quer ver a tabela de qual competição?'
-        _stub_chain(mocker, content=content)
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'tabela' in result.text.lower()
-
-    @pytest.mark.anyio
     async def test_preserves_media_fields_on_suggest(self, executor, mocker):
         data = CommandData(
             text='make sticker',
@@ -217,53 +189,13 @@ class TestRun:
         )
         _stub_chain(
             mocker,
-            content=f'{LLM_SUGGEST_MARKER}Não posso fazer sticker dessa imagem, use ,carro!',
+            tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,carro!"}'},
         )
 
         result = await executor.run(data)
 
         assert result.media_type == 'image'
         assert result.media_source == 'https://example.com/image.jpg'
-
-    @pytest.mark.anyio
-    async def test_empty_clarify_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord qual a tabela')
-        _stub_chain(mocker, content=LLM_CLARIFY_MARKER)
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'menu' in result.text
-
-    @pytest.mark.anyio
-    async def test_whitespace_clarify_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord qual a tabela')
-        _stub_chain(mocker, content=f'{LLM_CLARIFY_MARKER}   ')
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'menu' in result.text
-
-    @pytest.mark.anyio
-    async def test_empty_suggest_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord me manda')
-        _stub_chain(mocker, content=LLM_SUGGEST_MARKER)
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'menu' in result.text
-
-    @pytest.mark.anyio
-    async def test_whitespace_suggest_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord me manda')
-        _stub_chain(mocker, content=f'{LLM_SUGGEST_MARKER}   ')
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'menu' in result.text
 
 
 class TestProviderInjection:
@@ -273,7 +205,10 @@ class TestProviderInjection:
         provider = mocker.Mock()
         provider.complete = mocker.AsyncMock(
             return_value=LLMResponse(
-                content=f'{LLM_CLARIFY_MARKER} confirma?', provider='x', model='m'
+                content='',
+                provider='x',
+                model='m',
+                tool_call={'name': 'clarify', 'arguments': '{"question": "confirma?"}'},
             )
         )
         executor = AgentExecutor(provider=provider)

@@ -20,8 +20,6 @@ from bot.data.agent_meta_tools import (
 from bot.domain.constants import (
     AGENT_MENU_HINT,
     CLARIFY_PREFIX,
-    LLM_CLARIFY_MARKER,
-    LLM_SUGGEST_MARKER,
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
@@ -87,12 +85,6 @@ class AgentExecutor:
 
         if content.startswith((',', '/')):
             return self._translator.translate(data, content.lstrip(',/').strip('\'"'), '')
-
-        if content.startswith(LLM_CLARIFY_MARKER):
-            return self._clarify(data, content[len(LLM_CLARIFY_MARKER) :].strip())
-
-        if content.startswith(LLM_SUGGEST_MARKER):
-            return self._suggest(data, content[len(LLM_SUGGEST_MARKER) :].strip())
 
         logger.warning('agent_no_tool_call', content=content, tool_call=response.tool_call)
         return self._fallback(data, self._AGENT_UNRESOLVABLE_MSG)
