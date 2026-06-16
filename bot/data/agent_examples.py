@@ -108,6 +108,64 @@ AGENT_EXAMPLES = [
     # Info
     ('jogo do bicho', ',bicho'),
     ('fase da lua', ',lua'),
+    # FIPE
+    ('preço fipe de um carro', ',fipe'),
+    ('quanto custa um carro na tabela fipe', ',fipe'),
+    # Clash Royale deck
+    ('deck de clash royale', ',cr deck'),
+    ('melhor deck do clash royale', ',cr deck'),
+    # League of Legends
+    ('campeão aleatório de league of legends', ',lol'),
+    ('me dá um campeão de lol', ',lol'),
+    ('build de um campeão de lol', ',lol build'),
+    ('itens pra montar no campeão de lol', ',lol build'),
+    # Football player by league
+    ('jogador do brasileirão', ',jogador br'),
+    ('jogador da premier league', ',jogador pl'),
+    ('craque da série a italiana', ',jogador sa'),
+    # Football team by league / full
+    ('time da bundesliga', ',time bl'),
+    ('um time do brasileirão', ',time br'),
+    ('escalação completa com imagem do campo', ',time --full'),
+    # Horoscope by sign
+    ('horóscopo de áries', ',horóscopo áries'),
+    ('previsão do signo de touro', ',horóscopo touro'),
+    # Pokémon vs TCG
+    ('pokémon aleatório', ',pokémon'),
+    ('carta do pokémon tcg', ',pokémontcg'),
+    # Religious texts
+    ('versículo da bíblia', ',bíblia'),
+    ('um trecho da bíblia', ',bíblia'),
+    ('versículo do alcorão', ',alcorão'),
+    ('versículo da torá', ',torá'),
+    # Download / media extraction
+    ('baixar vídeo do youtube', ',dl'),
+    ('baixa esse vídeo do tiktok', ',dl'),
+    ('extrair a imagem do sticker', ',extrair'),
+    ('imagem original da figurinha', ',extrair'),
+    ('baixar a visualização única marcada', ',scarra'),
+    ('salvar o view once', ',scarra'),
+    # Country flag
+    ('bandeira de um país aleatório', ',bandeira'),
+    # Slot machine
+    ('jogar na máquina caça-níqueis', ',jackpot'),
+    ('jogar no tigrinho', ',jackpot'),
+    # Group management
+    ('adicionar um número ao grupo', ',add'),
+    ('banir alguém do grupo', ',ban'),
+    ('marcar todo mundo do grupo', ',grupo'),
+    ('xingar os administradores', ',adm'),
+    ('arquivar essa mídia no drive', ',drive'),
+    ('gerenciar a lista de devs', ',dev'),
+    # Fun / misc
+    ('quantos nargas o borges fumou', ',borges'),
+    ('probabilidade do mateus nascer', ',mateus'),
+    ('foder a pessoa marcada', ',fuck'),
+    # NSFW
+    ('manda um porno', ',porno'),
+    ('porno feito por ia', ',porno --ia'),
+    ('um hentai aleatório', ',hentai'),
+    ('imagem da rule 34', ',rule34'),
     # Unknown - use menu
     ('não sei', _MENU),
 ]
