@@ -54,6 +54,7 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
@@ -79,6 +80,10 @@ def register_all_commands(settings: Settings | None = None) -> None:
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
     _register_configured_commands(registry, settings)
+
+    # After commands are registered, so the graph's inner executor sees the full tool set.
+    if settings.agent_use_graph:
+        GraphAgentOrchestrator.configure()
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:

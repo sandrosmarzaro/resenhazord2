@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     groq_api_key: str = ''
     # Route the agent's LLM calls through LangChain instead of the httpx ProviderChain
     llm_use_langchain: bool = False
+    # Wrap the agent in the LangGraph stateful orchestrator (multi-turn conversation)
+    agent_use_graph: bool = False
 
     # Upstash Vector (RAG few-shot example retrieval)
     upstash_vector_rest_url: str = ''

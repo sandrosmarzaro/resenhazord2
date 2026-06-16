@@ -28,9 +28,24 @@ class GraphAgentOrchestrator:
     DEFAULT_PLATFORM: ClassVar[str] = 'whatsapp'
     RESUME_WINDOW_SECONDS: ClassVar[float] = 90.0
 
+    _instance: ClassVar['GraphAgentOrchestrator | None'] = None
+
     def __init__(self, executor: AgentExecutor | None = None) -> None:
         self._executor = executor or AgentExecutor()
         self._graph = self._build_graph()
+
+    @classmethod
+    def configure(cls) -> 'GraphAgentOrchestrator':
+        cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def configured(cls) -> 'GraphAgentOrchestrator | None':
+        return cls._instance
+
+    @classmethod
+    def reset(cls) -> None:
+        cls._instance = None
 
     async def run(self, data: CommandData) -> CommandData:
         config: RunnableConfig = {'configurable': {'thread_id': self._thread_id(data)}}

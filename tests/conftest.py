@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from bot.application.command_registry import CommandRegistry
 from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
@@ -40,6 +41,7 @@ def _reset_singletons():
     ProviderChain.reset()
     UpstashExampleRetriever.reset()
     LangChainProvider.reset()
+    GraphAgentOrchestrator.reset()
     yield
     CommandRegistry.reset()
     HttpClient.reset()
@@ -47,6 +49,7 @@ def _reset_singletons():
     ProviderChain.reset()
     UpstashExampleRetriever.reset()
     LangChainProvider.reset()
+    GraphAgentOrchestrator.reset()
 
 
 @pytest.fixture
