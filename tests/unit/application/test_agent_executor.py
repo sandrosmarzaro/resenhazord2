@@ -2,15 +2,19 @@ import httpx
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
+from bot.data.agent_examples import AGENT_EXAMPLES
 from bot.domain.constants import (
     CLARIFY_PREFIX,
-    LLM_CLARIFY_MARKER,
-    LLM_SUGGEST_MARKER,
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.providers.base import LLMResponse
+from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
+from tests.fixtures.fake_example_retriever import FakeExampleRetriever
+
+_STATIC_EXAMPLES = AGENT_EXAMPLES[: AgentExecutor.MAX_AGENT_EXAMPLES]
 
 
 @pytest.fixture
@@ -21,14 +25,14 @@ def executor() -> AgentExecutor:
 class TestPromptBuilding:
     @pytest.mark.anyio
     async def test_strips_bot_mention(self, executor):
-        prompt = executor._build_prompt('@resenhazord ver placar')
+        prompt = executor._build_prompt('@resenhazord ver placar', _STATIC_EXAMPLES)
 
         assert '@resenhazord' not in prompt
         assert 'ver placar' in prompt
 
     @pytest.mark.anyio
     async def test_includes_command_list(self, executor):
-        prompt = executor._build_prompt('test')
+        prompt = executor._build_prompt('test', _STATIC_EXAMPLES)
 
         assert 'command_list' in prompt or 'placar' in prompt.lower()
 
@@ -36,6 +40,7 @@ class TestPromptBuilding:
     async def test_includes_quoted_context_block(self, executor):
         prompt = executor._build_prompt(
             'sim',
+            _STATIC_EXAMPLES,
             context='Não sei te dizer..., use ,time',
         )
 
@@ -44,9 +49,45 @@ class TestPromptBuilding:
 
     @pytest.mark.anyio
     async def test_omits_context_block_when_quoted_text_absent(self, executor):
-        prompt = executor._build_prompt('me mande um fato')
+        prompt = executor._build_prompt('me mande um fato', _STATIC_EXAMPLES)
 
         assert 'Contexto da mensagem anterior' not in prompt
+
+
+class TestExampleSelection:
+    @pytest.mark.anyio
+    async def test_returns_static_slice_without_retriever(self, executor):
+        examples = await executor._select_examples('qualquer pedido')
+
+        assert examples == list(_STATIC_EXAMPLES)
+
+    def test_defaults_to_configured_singleton(self):
+        retriever = UpstashExampleRetriever.configure('https://index.upstash.io', 'token')
+
+        executor = AgentExecutor()
+
+        assert executor._retriever is retriever
+
+    @pytest.mark.anyio
+    async def test_uses_retrieved_examples_when_retriever_present(self):
+        retriever = FakeExampleRetriever()
+        retriever.index('quero ver o placar agora', ',score --now')
+        retriever.index('me manda um carro', ',carro')
+        executor = AgentExecutor(retriever=retriever)
+
+        examples = await executor._select_examples('@resenhazord placar agora')
+
+        assert examples == [('quero ver o placar agora', ',score --now')]
+
+    @pytest.mark.anyio
+    async def test_falls_back_to_static_on_retrieval_error(self, mocker):
+        retriever = mocker.Mock()
+        retriever.retrieve = mocker.AsyncMock(side_effect=httpx.ConnectError('upstash down'))
+        executor = AgentExecutor(retriever=retriever)
+
+        examples = await executor._select_examples('placar agora')
+
+        assert examples == list(_STATIC_EXAMPLES)
 
 
 class TestRunProviderFailure:
@@ -138,32 +179,6 @@ class TestRun:
         assert result.text == ',placar now'
 
     @pytest.mark.anyio
-    async def test_suggest_prefix_routes_to_suggest_command(self, executor, mocker):
-        data = _data('@resenhazord qual a fundação do flamengo')
-        suggest_content = (
-            f'{LLM_SUGGEST_MARKER}Não sei te dizer a data exata, '
-            'mas posso te mandar um time aleatório! Use ,time'
-        )
-        _stub_chain(mocker, content=suggest_content)
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(SUGGEST_PREFIX)
-        assert 'Não sei' in result.text
-        assert 'time' in result.text
-
-    @pytest.mark.anyio
-    async def test_clarify_prefix_routes_to_clarify_command(self, executor, mocker):
-        data = _data('@resenhazord qual a tabela do brasileiro')
-        content = f'{LLM_CLARIFY_MARKER}Você quer ver a tabela de qual competição?'
-        _stub_chain(mocker, content=content)
-
-        result = await executor.run(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'tabela' in result.text.lower()
-
-    @pytest.mark.anyio
     async def test_preserves_media_fields_on_suggest(self, executor, mocker):
         data = CommandData(
             text='make sticker',
@@ -174,7 +189,7 @@ class TestRun:
         )
         _stub_chain(
             mocker,
-            content=f'{LLM_SUGGEST_MARKER}Não posso fazer sticker dessa imagem, use ,carro!',
+            tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,carro!"}'},
         )
 
         result = await executor.run(data)
@@ -182,45 +197,147 @@ class TestRun:
         assert result.media_type == 'image'
         assert result.media_source == 'https://example.com/image.jpg'
 
-    @pytest.mark.anyio
-    async def test_empty_clarify_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord qual a tabela')
-        _stub_chain(mocker, content=LLM_CLARIFY_MARKER)
 
-        result = await executor.run(data)
+class TestProviderInjection:
+    @pytest.mark.anyio
+    async def test_injected_provider_bypasses_provider_chain(self, mocker):
+        instance_spy = mocker.patch.object(ProviderChain, 'instance')
+        provider = mocker.Mock()
+        provider.complete = mocker.AsyncMock(
+            return_value=LLMResponse(
+                content='',
+                provider='x',
+                model='m',
+                tool_call={'name': 'clarify', 'arguments': '{"question": "confirma?"}'},
+            )
+        )
+        executor = AgentExecutor(provider=provider)
+
+        await executor.run(_data('@resenhazord algo ambíguo'))
+
+        provider.complete.assert_awaited_once()
+        instance_spy.assert_not_called()
+
+    def test_defaults_to_configured_langchain_provider(self):
+        provider = LangChainProvider.configure('github', '', '')
+
+        executor = AgentExecutor()
+
+        assert executor._provider is provider
+
+
+class TestToolDecision:
+    @pytest.mark.anyio
+    async def test_clarify_tool_call_routes_to_clarify(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'clarify', 'arguments': '{"question": "Qual jogo de cartas?"}'},
+        )
+
+        result = await executor.run(_data('@resenhazord uma carta'))
+
+        assert result.text == f'{CLARIFY_PREFIX}Qual jogo de cartas?'
+
+    @pytest.mark.anyio
+    async def test_suggest_tool_call_routes_to_suggest(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,time"}'},
+        )
+
+        result = await executor.run(_data('@resenhazord fundação do flamengo'))
+
+        assert result.text == f'{SUGGEST_PREFIX}Use ,time'
+
+    @pytest.mark.anyio
+    async def test_clarify_tool_call_without_question_falls_back(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': '{}'})
+
+        result = await executor.run(_data('@resenhazord algo'))
 
         assert result.text.startswith(CLARIFY_PREFIX)
         assert 'menu' in result.text
 
     @pytest.mark.anyio
-    async def test_whitespace_clarify_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord qual a tabela')
-        _stub_chain(mocker, content=f'{LLM_CLARIFY_MARKER}   ')
+    async def test_suggest_tool_call_without_message_falls_back(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'suggest', 'arguments': '{}'})
 
-        result = await executor.run(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'menu' in result.text
-
-    @pytest.mark.anyio
-    async def test_empty_suggest_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord me manda')
-        _stub_chain(mocker, content=LLM_SUGGEST_MARKER)
-
-        result = await executor.run(data)
+        result = await executor.run(_data('@resenhazord algo'))
 
         assert result.text.startswith(CLARIFY_PREFIX)
         assert 'menu' in result.text
 
     @pytest.mark.anyio
-    async def test_whitespace_suggest_marker_falls_back_to_unresolvable(self, executor, mocker):
-        data = _data('@resenhazord me manda')
-        _stub_chain(mocker, content=f'{LLM_SUGGEST_MARKER}   ')
+    async def test_malformed_tool_arguments_fall_back(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': 'not json'})
 
-        result = await executor.run(data)
+        result = await executor.run(_data('@resenhazord algo'))
 
         assert result.text.startswith(CLARIFY_PREFIX)
         assert 'menu' in result.text
+
+    @pytest.mark.anyio
+    async def test_plain_text_command_content_executes(self, executor, mocker):
+        _stub_chain(mocker, content=',menu')
+
+        result = await executor.run(_data('@resenhazord comandos'))
+
+        assert result.text == ',menu'
+
+
+class TestConfidenceGating:
+    @pytest.mark.anyio
+    async def test_low_confidence_command_routes_to_confirm(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.3}'},
+        )
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text.startswith(CLARIFY_PREFIX)
+        assert ',placar now' in result.text
+
+    @pytest.mark.anyio
+    async def test_high_confidence_command_executes(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
+        )
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text == ',placar now'
+
+    @pytest.mark.anyio
+    async def test_confidence_is_not_appended_to_the_command(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
+        )
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert 'confidence' not in result.text
+
+    @pytest.mark.anyio
+    async def test_missing_confidence_defaults_to_execute(self, executor, mocker):
+        _stub_chain(mocker, tool_call={'name': 'placar', 'arguments': '{"now": true}'})
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text == ',placar now'
+
+    @pytest.mark.anyio
+    async def test_non_numeric_confidence_defaults_to_execute(self, executor, mocker):
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": "alta"}'},
+        )
+
+        result = await executor.run(_data('@resenhazord placar'))
+
+        assert result.text == ',placar now'
 
 
 def _data(text: str) -> CommandData:

@@ -10,6 +10,7 @@ from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Platform
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 
 logger = structlog.get_logger()
 
@@ -40,8 +41,8 @@ class DiscordAgentRouter:
             await message.reply(self.GENERIC_ERROR)
 
     async def _run_pipeline(self, message: discord.Message, data: CommandData) -> None:
-        executor = AgentExecutor(CommandRegistry.instance())
-        result = await executor.run(data)
+        agent = GraphAgentOrchestrator.configured() or AgentExecutor(CommandRegistry.instance())
+        result = await agent.run(data)
 
         if result.text.startswith(self._CLARIFY_PREFIX):
             await message.reply(

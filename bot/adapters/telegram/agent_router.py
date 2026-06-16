@@ -12,6 +12,7 @@ from bot.domain.commands.base import Command
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound, TelegramPort
 
 logger = structlog.get_logger()
@@ -89,8 +90,8 @@ class TelegramAgentRouter:
         self, port: TelegramPort, chat_id: int, data: CommandData
     ) -> CommandData | None:
         try:
-            executor = AgentExecutor(CommandRegistry.instance())
-            return await executor.run(data)
+            agent = GraphAgentOrchestrator.configured() or AgentExecutor(CommandRegistry.instance())
+            return await agent.run(data)
         except Exception:
             logger.exception('telegram_agent_error')
             await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)
