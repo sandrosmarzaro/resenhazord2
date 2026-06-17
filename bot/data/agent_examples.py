@@ -108,6 +108,64 @@ AGENT_EXAMPLES = [
     # Info
     ('jogo do bicho', ',bicho'),
     ('fase da lua', ',lua'),
+    # FIPE
+    ('preço fipe de um carro', ',fipe'),
+    ('quanto custa um carro na tabela fipe', ',fipe'),
+    # Clash Royale deck
+    ('deck de clash royale', ',cr deck'),
+    ('melhor deck do clash royale', ',cr deck'),
+    # League of Legends
+    ('campeão aleatório de league of legends', ',lol'),
+    ('me dá um campeão de lol', ',lol'),
+    ('build de um campeão de lol', ',lol build'),
+    ('itens pra montar no campeão de lol', ',lol build'),
+    # Football player by league
+    ('jogador do brasileirão', ',jogador br'),
+    ('jogador da premier league', ',jogador pl'),
+    ('craque da série a italiana', ',jogador sa'),
+    # Football team by league / full
+    ('time da bundesliga', ',time bl'),
+    ('um time do brasileirão', ',time br'),
+    ('escalação completa com imagem do campo', ',time --full'),
+    # Horoscope by sign
+    ('horóscopo de áries', ',horóscopo áries'),
+    ('previsão do signo de touro', ',horóscopo touro'),
+    # Pokémon vs TCG
+    ('pokémon aleatório', ',pokémon'),
+    ('carta do pokémon tcg', ',pokémontcg'),
+    # Religious texts
+    ('versículo da bíblia', ',bíblia'),
+    ('um trecho da bíblia', ',bíblia'),
+    ('versículo do alcorão', ',alcorão'),
+    ('versículo da torá', ',torá'),
+    # Download / media extraction
+    ('baixar vídeo do youtube', ',dl'),
+    ('baixa esse vídeo do tiktok', ',dl'),
+    ('extrair a imagem do sticker', ',extrair'),
+    ('imagem original da figurinha', ',extrair'),
+    ('baixar a visualização única marcada', ',scarra'),
+    ('salvar o view once', ',scarra'),
+    # Country flag
+    ('bandeira de um país aleatório', ',bandeira'),
+    # Slot machine
+    ('jogar na máquina caça-níqueis', ',jackpot'),
+    ('jogar no tigrinho', ',jackpot'),
+    # Group management
+    ('adicionar um número ao grupo', ',add'),
+    ('banir alguém do grupo', ',ban'),
+    ('marcar todo mundo do grupo', ',grupo'),
+    ('xingar os administradores', ',adm'),
+    ('arquivar essa mídia no drive', ',drive'),
+    ('gerenciar a lista de devs', ',dev'),
+    # Fun / misc
+    ('quantos nargas o borges fumou', ',borges'),
+    ('probabilidade do mateus nascer', ',mateus'),
+    ('foder a pessoa marcada', ',fuck'),
+    # NSFW
+    ('manda um porno', ',porno'),
+    ('porno feito por ia', ',porno --ia'),
+    ('um hentai aleatório', ',hentai'),
+    ('imagem da rule 34', ',rule34'),
     # Unknown - use menu
     ('não sei', _MENU),
 ]
@@ -136,18 +194,15 @@ REGRAS DE INFERÊNCIA:
  6. SHOW FLAG: NÃO use --show a menos que o usuário solicite explicitamente
     "view once", "temporal", " visualize" ou similar.
     Por padrão, envie mídias em modo view-once (com --show MUDA o comportamento).
- 7. SE NÃO SOUBER mapear: Responda com "CLARIFY: <pergunta>".
-    Ex: "CLARIFY: Você quer ver a tabela do brasileiro?"
+ 7. SE NÃO SOUBER qual comando: chame a ferramenta `clarify` com uma pergunta
+    em pt-br. Ex: clarify(question="Você quer ver a tabela do brasileiro?").
     Não responda apenas "não entendi".
- 8. NÃO SEI + SUGESTÃO: Se a pergunta é específica mas você encontra um comando
-    SIMILAR, responda CONVERSACIONALMENTE primeiro, SEM executar o comando.
-    Ex: "qual a fundação do flamengo?" → ,time (similar: football team)
-    → "Eu não sei te dizer a data exata, mas posso te mandar um time aleatório se quiser! Use ,time"
-    Ex: "por que o céu é azul?" → ,fato (similar: random fact)
-    → "Não sei responder isso, mas posso te contar um fato aleatório! Use ,fato"
-    Ex: "quem ganhou a champions 2024?" → ,tabela bl (similar: champions table)
-    → "Não tenho essa info, mas posso mostrar a tabela! Use ,tabela bl"
-    O formato deve ser: "SUGGEST: <mensagem conversacional> ,comando"
+ 8. PEDIDO FORA DAS FUNÇÕES com comando SIMILAR: chame a ferramenta `suggest`,
+    respondendo CONVERSACIONALMENTE, SEM executar o comando.
+    Ex: "qual a fundação do flamengo?" →
+    suggest(message="Não sei a data exata, mas posso te mandar um time! Use ,time", command=",time")
+    Ex: "por que o céu é azul?" →
+    suggest(message="Não sei responder, mas posso te contar um fato! Use ,fato", command=",fato")
   9. STICKER type:
      - crop: "centralizada", "centralizado", "cortada", "meio"
      - rounded: "bordas arredondadas", "sem bordas", "cantos arredondados"

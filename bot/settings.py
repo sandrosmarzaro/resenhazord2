@@ -49,9 +49,17 @@ class Settings(BaseSettings):
     # OP.GG MCP
     opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
 
-    # LLM Providers (fallback order: github, mistral, groq, google)
+    # LLM Providers (fallback order: github, mistral, groq)
     github_token: str = ''
     mistral_api_key: str = ''
     groq_api_key: str = ''
+    # Route the agent's LLM calls through LangChain instead of the httpx ProviderChain
+    llm_use_langchain: bool = False
+    # Wrap the agent in the LangGraph stateful orchestrator (multi-turn conversation)
+    agent_use_graph: bool = False
+
+    # Upstash Vector (RAG few-shot example retrieval)
+    upstash_vector_rest_url: str = ''
+    upstash_vector_rest_token: str = ''
 
     model_config = {'env_file': '.env', 'extra': 'ignore'}

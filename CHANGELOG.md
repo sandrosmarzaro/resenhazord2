@@ -2,6 +2,38 @@
 
 <!-- version list -->
 
+## v2.1.0 (2026-06-16)
+
+### Feat
+
+- **agent**: cover every command in the few-shot example bank
+- **agent**: durable Redis checkpointer for the graph orchestrator
+- **agent**: gate command execution on model confidence
+- **agent**: structured clarify/suggest decision via meta-tools
+- **agent**: activate the graph orchestrator behind AGENT_USE_GRAPH
+- **agent**: add hybrid resume window to the graph orchestrator
+- **agent**: add LangGraph stateful orchestrator over AgentExecutor
+- **agent**: flag LangChain provider as the agent LLM layer
+- **agent**: add LangChain provider implementing LLMProviderPort
+- **agent**: add example bank indexing entrypoint
+- **agent**: activate RAG retrieval from Upstash settings
+- **agent**: wire retriever into AgentExecutor behind a flag
+- **agent**: add Upstash Vector retriever adapter behind the port
+- **agent**: build example bank from registry plus hand-authored slang
+- **agent**: add orchestration ports and retriever test seam
+
+### Fix
+
+- **agent**: bypass agent for direct commands in private chat
+- **docker**: install g++ for ml-dtypes build in agent deps
+- **ci**: emit lcov coverage and match artifact action majors
+- **agent**: drop redundant JSONDecodeError from confidence parse guard
+
+### Refactor
+
+- **agent**: delete the legacy CLARIFY/SUGGEST text markers
+- **agent**: inject LLMProviderPort into AgentExecutor
+
 ## v2.0.1 (2026-06-13)
 
 ### Fix

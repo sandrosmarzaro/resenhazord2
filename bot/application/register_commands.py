@@ -54,7 +54,10 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
+from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
+from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
 
@@ -65,10 +68,23 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
     ProviderChain.configure(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
+    if settings.llm_use_langchain:
+        LangChainProvider.configure(
+            settings.github_token, settings.mistral_api_key, settings.groq_api_key
+        )
+    if settings.upstash_vector_rest_url:
+        UpstashExampleRetriever.configure(
+            settings.upstash_vector_rest_url, settings.upstash_vector_rest_token
+        )
 
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
     _register_configured_commands(registry, settings)
+
+    # After commands are registered, so the graph's inner executor sees the full tool set.
+    # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
+    if settings.agent_use_graph:
+        GraphAgentOrchestrator.configure(settings.redis_url)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:
