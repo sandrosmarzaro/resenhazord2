@@ -33,7 +33,6 @@
         "Oracle.oci-vscode-toolkit",
         "SonarSource.sonarlint-vscode",
         "AikidoSecurity.aikido",
-        "codecov.codecov",
         "mikestead.dotenv"
       ]
     }
