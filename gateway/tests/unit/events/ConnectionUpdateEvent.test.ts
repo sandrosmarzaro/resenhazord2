@@ -33,6 +33,18 @@ describe('ConnectionUpdateEvent watchdog wiring', () => {
     expect(disable).toHaveBeenCalledOnce();
   });
 
+  it('disables the watchdog when the session is bad', async () => {
+    const disable = vi.spyOn(ConnectionWatchdog, 'disable').mockImplementation(() => {});
+    const error = new Boom('bad session', { statusCode: DisconnectReason.badSession });
+
+    await ConnectionUpdateEvent.run({
+      connection: 'close',
+      lastDisconnect: { error, date: new Date() },
+    });
+
+    expect(disable).toHaveBeenCalledOnce();
+  });
+
   it('arms the watchdog on a reconnectable close so a stalled reconnect still restarts', async () => {
     const arm = vi.spyOn(ConnectionWatchdog, 'arm').mockImplementation(() => {});
     vi.spyOn(ConnectionUpdateEvent, 'scheduleReconnect').mockResolvedValue();
