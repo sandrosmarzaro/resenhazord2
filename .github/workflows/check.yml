@@ -48,6 +48,8 @@ jobs:
           cache-suffix: ${{ github.job }}
       - run: uv sync --frozen
       - run: uv run bandit -c bandit.toml -r bot/
+      - name: Dependency cooldown (no package younger than 7 days)
+        run: uv run task cooldown:check
 
   test-ts:
     name: TS tests
