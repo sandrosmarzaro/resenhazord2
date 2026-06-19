@@ -1,3 +1,26 @@
 {
-  "recommendations": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint"]
+  // Recommended extensions for the Resenhazord2 stack. VS Code prompts to install
+  // these when the repo is opened; the devcontainer installs them automatically.
+  "recommendations": [
+    // Python core — uv, ruff (lint + format), basedpyright (types), pytest, TOML
+    "ms-python.python",
+    "charliermarsh.ruff",
+    "detachhead.basedpyright",
+    "tamasfe.even-better-toml",
+    // Gateway / TypeScript — eslint, prettier, vitest
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    // Data & infrastructure — Mongo, Docker, Dev Containers, Oracle Cloud
+    "mongodb.mongodb-vscode",
+    "ms-azuretools.vscode-docker",
+    "ms-vscode-remote.remote-containers",
+    "Oracle.oci-vscode-toolkit",
+    // Quality, security & CI — SonarQube, Aikido, Codecov
+    "SonarSource.sonarlint-vscode",
+    "AikidoSecurity.aikido",
+    "codecov.codecov",
+    // Environment files
+    "mikestead.dotenv"
+  ]
 }
