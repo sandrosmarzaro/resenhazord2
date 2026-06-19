@@ -1,29 +1,42 @@
 {
   "name": "Resenhazord2",
-  "dockerFile": "../Dockerfile",
-  "context": "..",
-  "runArgs": ["--env-file", ".env"],
-  "mounts": [
-    "source=${localWorkspaceFolder}/src/auth/session,target=/workspace/src/auth/session,type=bind"
-  ],
+  // A real dev base (git, build tools, non-root vscode user). The production images
+  // are lean Alpine runtimes built --no-dev, so they are not used here.
+  "image": "mcr.microsoft.com/devcontainers/python:3.13-bookworm",
+  "features": {
+    "ghcr.io/va-h/devcontainers-features/uv:1": {},
+    "ghcr.io/shyim/devcontainers-features/bun:0": {},
+    // Lets `docker compose` run the local stack from inside the container.
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  // Install both toolchains' dev dependencies after the container is built.
+  "postCreateCommand": "uv sync && cd gateway && bun install",
+  // Bring up the local all-in-one stack (gateway + bot + rabbitmq) from the single compose.
+  "postStartCommand": "docker compose up -d",
+  "forwardPorts": [8000, 15672],
+  "portsAttributes": {
+    "8000": { "label": "bot (FastAPI)" },
+    "15672": { "label": "RabbitMQ management" }
+  },
   "customizations": {
     "vscode": {
-      "settings": {
-        "terminal.integrated.shell.linux": "/bin/bash"
-      },
       "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "detachhead.basedpyright",
+        "tamasfe.even-better-toml",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "sourcery.sourcery",
-        "mikestead.dotenv",
-        "Gruntfuggly.todo-tree",
-        "donjayamanne.githistory",
-        "mhutchie.git-graph",
-        "eamodio.gitlens",
-        "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "vitest.explorer",
+        "mongodb.mongodb-vscode",
+        "ms-azuretools.vscode-docker",
+        "Oracle.oci-vscode-toolkit",
+        "SonarSource.sonarlint-vscode",
+        "AikidoSecurity.aikido",
+        "codecov.codecov",
+        "mikestead.dotenv"
       ]
     }
   },
-  "remoteUser": "node"
+  "remoteUser": "vscode"
 }
