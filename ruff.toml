@@ -31,6 +31,9 @@ max-complexity = 10
 known-first-party = ["bot"]
 
 [lint.per-file-ignores]
+"scripts/check_dep_cooldown.py" = [
+    "T201", # CLI guard prints its pass/fail report to stdout for CI logs
+]
 "bot/domain/parsers/command_parser.py" = [
     "TC004",   # TYPE_CHECKING imports needed to break circular dependency with commands.base
     "PLC0415", # local imports needed to break circular dependency

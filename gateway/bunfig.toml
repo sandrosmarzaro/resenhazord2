@@ -1,0 +1,5 @@
+# Supply-chain mitigation: only install package versions published at least
+# 7 days ago, so a freshly-compromised release has a review window before it
+# can land here. Bun evaluates this at resolve time.
+[install]
+minimumReleaseAge = 604800

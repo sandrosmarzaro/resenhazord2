@@ -78,6 +78,7 @@ mutate = "mutmut run"
 "mutate:results" = "mutmut results"
 "test:external" = "pytest -m external"
 "index:examples" = "python scripts/index_examples.py"
+"cooldown:check" = "python scripts/check_dep_cooldown.py"
 
 
 [tool.zuban]
