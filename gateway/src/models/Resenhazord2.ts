@@ -6,6 +6,7 @@ import CreateAuthState from '../auth/CreateAuthState.js';
 import BaileysAdapter from '../adapters/BaileysAdapter.js';
 import MessageUpsertEvent from '../events/MessageUpsertEvent.js';
 import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
+import ConnectionWatchdog from '../infra/ConnectionWatchdog.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 import groupMetadataCache from '../cache/index.js';
 import CommandFactory from '../factories/CommandFactory.js';
@@ -37,6 +38,7 @@ export default class Resenhazord2 {
       return;
     }
     this.isConnecting = true;
+    ConnectionWatchdog.arm();
     try {
       this.auth_state = await CreateAuthState.getAuthState();
       this.socket = await CreateSocket.getSocket(this.auth_state.state);
