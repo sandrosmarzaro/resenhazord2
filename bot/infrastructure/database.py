@@ -1,5 +1,3 @@
-"""Async SQLAlchemy engine + session singleton for the per-group config store."""
-
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,

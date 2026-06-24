@@ -1,5 +1,3 @@
-"""SQLAlchemy adapter for the per-group config store (ConfigStorePort, ADR 0012)."""
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
