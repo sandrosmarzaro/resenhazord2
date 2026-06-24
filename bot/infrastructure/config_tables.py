@@ -19,7 +19,6 @@ class ChatRow(Base):
     overrides: Mapped[list['CommandOverrideRow']] = relationship(
         back_populates='chat',
         cascade='all, delete-orphan',
-        lazy='selectin',
     )
 
 
