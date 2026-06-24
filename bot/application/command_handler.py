@@ -7,6 +7,7 @@ import structlog
 
 from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
+from bot.application.config_service import ConfigService
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandScope
 from bot.domain.constants import AGENT_MENU_HINT, CLARIFY_PREFIX, SUGGEST_PREFIX
@@ -14,6 +15,8 @@ from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
+from bot.infrastructure.cached_config_store import CachedConfigStore
+from bot.infrastructure.config_store import SqlConfigStore
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.settings import Settings
 
@@ -25,6 +28,7 @@ logger = structlog.get_logger()
 
 class CommandHandler:
     _DISABLED_MSG: ClassVar[str] = 'Esse comando está desativado. 🚫'
+    _OFF_HERE_MSG: ClassVar[str] = 'Esse comando está desativado neste chat. 🚫'
     _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
     _BATCH_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'\s+(\d+)x\s*$')
     _MAX_BATCH: ClassVar[int] = 5
@@ -39,9 +43,11 @@ class CommandHandler:
         self,
         registry: CommandRegistry | None = None,
         dev_list: DevListService | None = None,
+        config_service: ConfigService | None = None,
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
+        self._config = config_service or ConfigService(CachedConfigStore(SqlConfigStore()))
         self._agent: AgentOrchestratorPort | None = None
         settings = Settings()
         self._bot_numeric: frozenset[str] = frozenset(
@@ -99,6 +105,10 @@ class CommandHandler:
         is_dev = await self._dev_list.is_dev(data.sender_jid)
         if scope == CommandScope.DEV and not is_dev:
             return [Reply.to(data).text(self._DEV_ONLY_MSG)]
+
+        if not await self._config.is_enabled(data, command.config):
+            return [Reply.to(data).text(self._OFF_HERE_MSG)]
+
         if repeat > 1 and not is_dev:
             repeat = 1
 

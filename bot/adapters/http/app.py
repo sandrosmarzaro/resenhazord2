@@ -19,6 +19,7 @@ from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
 from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
+from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
 
@@ -87,6 +88,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     if command_broker is not None:
         await command_broker.close()
     await MongoDBConnection.close()
+    await Database.close()
     logger.info('app_stopped')
 
 

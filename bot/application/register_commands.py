@@ -54,6 +54,7 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.database import Database
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
@@ -67,6 +68,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
         settings = Settings()
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
+    Database.configure(settings.database_url)
     ProviderChain.configure(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
     if settings.llm_use_langchain:
         LangChainProvider.configure(

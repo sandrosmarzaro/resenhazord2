@@ -61,8 +61,10 @@ def registry():
 
 
 @pytest.fixture
-def handler(registry, mock_dev_list):
-    return CommandHandler(registry=registry, dev_list=mock_dev_list)
+def handler(registry, mock_dev_list, mock_config_service):
+    return CommandHandler(
+        registry=registry, dev_list=mock_dev_list, config_service=mock_config_service
+    )
 
 
 class TestScopeEnforcement:
@@ -111,6 +113,39 @@ class TestScopeEnforcement:
         result = await handler.handle(data)
 
         assert result is None
+
+
+class TestPerGroupConfig:
+    @pytest.mark.anyio
+    async def test_command_off_in_chat_returns_off_message(self, registry, mock_dev_list, mocker):
+        config_service = mocker.AsyncMock()
+        config_service.is_enabled.return_value = False
+        handler = CommandHandler(
+            registry=registry, dev_list=mock_dev_list, config_service=config_service
+        )
+        data = GroupCommandDataFactory.build(text=', pub')
+
+        result = await handler.handle(data)
+
+        assert result is not None
+        assert 'neste chat' in result[0].content.text
+
+    @pytest.mark.anyio
+    async def test_consults_config_with_command_config(self, handler, mock_config_service):
+        data = GroupCommandDataFactory.build(text=', pub')
+
+        await handler.handle(data)
+
+        mock_config_service.is_enabled.assert_awaited_once()
+        assert mock_config_service.is_enabled.await_args.args[1].name == 'pub'
+
+    @pytest.mark.anyio
+    async def test_disabled_scope_skips_per_group_check(self, handler, mock_config_service):
+        data = GroupCommandDataFactory.build(text=', off')
+
+        await handler.handle(data)
+
+        mock_config_service.is_enabled.assert_not_called()
 
 
 class TestBatch:
@@ -261,7 +296,11 @@ class TestAgentDetection:
                 resenhazord2_lid='',
             ),
         )
-        handler_with_jid = CommandHandler(registry=handler._registry, dev_list=handler._dev_list)
+        handler_with_jid = CommandHandler(
+            registry=handler._registry,
+            dev_list=handler._dev_list,
+            config_service=handler._config,
+        )
 
         data = CommandData(
             text='hello',
