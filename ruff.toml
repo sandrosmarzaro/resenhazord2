@@ -1,4 +1,4 @@
-target-version = "py313"
+target-version = "py314"
 line-length = 100
 extend-exclude = [
     "Dockerfile",
@@ -22,6 +22,10 @@ ignore = [
     "ARG002", # unused method argument (common in abstract methods and fixtures)
     "PT003",  # pytest fixture scope (style preference)
     "INP001", # implicit namespace packages — intentional, Python 3.3+ namespace packages used
+    "UP037",  # keep quotes on forward refs; unquoted ones NameError when a signature is introspected
+    "TC001",  # don't shuffle type-only imports into TYPE_CHECKING; PEP 649 already defers eval
+    "TC002",  # (same) the runtime import cost is negligible and not worth the ceremony
+    "TC003",  # (same) for stdlib type-only imports
 ]
 
 [lint.mccabe]

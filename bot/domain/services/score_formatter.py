@@ -40,7 +40,7 @@ def format_date_label(match_time: str) -> str:
         if match_date == tomorrow:
             return 'Amanhã'
         return match_date.strftime('%d/%m')
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         return ''
 
 

@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 import time
 from dataclasses import replace
 from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 
 import structlog
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, START, StateGraph
@@ -13,7 +12,6 @@ from bot.application.agent_executor import AgentExecutor
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 
 if TYPE_CHECKING:
-    from langchain_core.runnables import RunnableConfig
     from langgraph.checkpoint.base import BaseCheckpointSaver
 
     from bot.domain.models.command_data import CommandData
