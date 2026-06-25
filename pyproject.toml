@@ -81,6 +81,7 @@ mutate = "mutmut run"
 "mutate:results" = "mutmut results"
 "test:external" = "pytest -m external"
 "index:examples" = "python scripts/index_examples.py"
+"seed:config" = "python scripts/seed_config.py"
 "cooldown:check" = "python scripts/check_dep_cooldown.py"
 
 
