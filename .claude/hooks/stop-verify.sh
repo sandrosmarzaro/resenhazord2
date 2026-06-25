@@ -55,17 +55,19 @@ if [[ -f $CLAUDE_PROJECT_DIR/pyproject.toml ]]; then
   fi
 
   CHECKS_RUN=$((CHECKS_RUN + 1))
-  PYRIGHT_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run basedpyright 2>&1)
+  ZUBAN_OUTPUT=$(cd "$CLAUDE_PROJECT_DIR" && uv run zuban check 2>&1)
   if [[ $? -ne 0 ]]; then
-    ERRORS="${ERRORS}BASEDPYRIGHT FAILED:\n$(echo "$PYRIGHT_OUTPUT" | head -30)\n\n"
+    ERRORS="${ERRORS}ZUBAN FAILED:\n$(echo "$ZUBAN_OUTPUT" | head -30)\n\n"
   fi
 fi
 
 
 # --- Report ---
+# Stop hooks block via exit code 2 with the reason on stderr; Claude reads
+# stderr verbatim. Don't emit JSON here: exit 2 ignores stdout, and the raw
+# newlines in tool output make the JSON string invalid anyway.
 if [[ -n $ERRORS ]]; then
-  SUMMARY="Verification failed ($CHECKS_RUN checks ran). Fix these errors before completing:\n\n${ERRORS}"
-  echo "{\"decision\": \"block\", \"reason\": \"${SUMMARY}\"}"
+  echo -e "Verification failed ($CHECKS_RUN checks ran). Fix these errors before completing:\n\n${ERRORS}" >&2
   exit 2
 fi
 

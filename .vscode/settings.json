@@ -11,7 +11,7 @@
   "eslint.validate": ["javascript", "typescript"],
   "eslint.workingDirectories": [{ "directory": "gateway", "changeProcessCWD": true }],
 
-  // Python — uv venv, basedpyright as the language server, ruff as the formatter.
+  // Python — uv venv, zuban as the language server, ruff as the formatter.
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.languageServer": "None",
   "python.testing.pytestEnabled": true,
