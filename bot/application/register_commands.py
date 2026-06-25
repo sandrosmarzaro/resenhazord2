@@ -11,6 +11,7 @@ from bot.domain.commands.bible import BibleCommand
 from bot.domain.commands.borges import BorgesCommand
 from bot.domain.commands.car import CarCommand
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
+from bot.domain.commands.config import ConfigCommand
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.commands.currency import CurrencyCommand
 from bot.domain.commands.d20 import D20Command
@@ -102,6 +103,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(ClashRoyaleCommand())
     registry.register(CurrencyCommand())
     registry.register(D20Command())
+    registry.register(ConfigCommand())
     registry.register(DevCommand())
     registry.register(DownloadCommand())
     registry.register(ExtractCommand())
