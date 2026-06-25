@@ -128,20 +128,21 @@ Config is read on every message but changes only on a `,config` write.
 
 ## 9. Write path — the `,config` command
 
-A new `PUBLIC`, `group`-aware command in `bot/domain/commands/`, admin-gated:
+An `ADMIN`-scoped, admin-gated command in `bot/domain/commands/config.py`. The target
+of a verb is a single command name **or** a subtype, resolved uniformly (verb-first):
 
 ```
-,config                      -> show this chat's policy + active overrides
-,config on  <command>        -> override enabled  = true
-,config off <command>        -> override enabled  = false
-,config reset <command>      -> delete the override (back to default)
-,config policy open|curated  -> set default_policy
-,config <subtype> on|off     -> batch: write one override per command in the subtype
-,config reset <subtype>      -> delete the overrides for that subtype's commands
+,config                          -> show this chat's policy + active overrides
+,config on    <command|subtype>  -> override enabled = true
+,config off   <command|subtype>  -> override enabled = false
+,config reset <command|subtype>  -> delete the override(s) (back to default)
+,config policy open|curated      -> set default_policy
 ```
 
-Only `PUBLIC` / `NSFW` command names are accepted as targets; anything else returns a
-"not configurable" notice. Writes invalidate the chat's cache entry.
+`ADMIN` scope (not `PUBLIC`) keeps `,config` off the togglable path, so a `CURATED`
+policy can never lock a chat out of its own config. Only `PUBLIC` / `NSFW` command
+names are accepted as targets; anything else returns a "not configurable" notice.
+Writes invalidate the chat's cache entry.
 
 **Subtype shortcuts** are a macro over the *current* set of togglable commands in a
 subtype — they expand to a batch of per-command override writes, then one cache
@@ -168,23 +169,27 @@ own DM.
 
 ## 11. Existing-chat migration
 
-The bot already runs in live chats, and turning on the new layer changes today's
-NSFW behavior asymmetrically:
+**Discovered baseline:** `CommandScope.NSFW` was dead — no command carried it, so the
+Discord channel gate *and* the Telegram `telegram_nsfw_chat_ids` gate fired for
+nothing, and the +18 commands (`porno`, `hentai`, `rule34`, `fuck`) ran **everywhere
+on all three platforms**. Tagging those four with `NSFW` scope (done) activates all
+three gates at once. So the cutover changes NSFW behavior on every platform, not just
+WhatsApp:
 
-- **WhatsApp** — NSFW is *ungated* today; +18 commands run in every chat. The new
-  default-off turns them **off everywhere** until an admin opts in. This is a
-  deliberate, announced change — no seed (there is no prior per-chat state to
-  preserve, and seeding "on everywhere" would defeat the safety default).
-- **Telegram** — NSFW is allowed only for `telegram_nsfw_chat_ids`. Preserve it:
-  seed a `chat` row + `nsfw`-subtype overrides (`enabled = true`) for each.
-- **Discord** — already gated to Discord-native NSFW channels; no change.
+- **WhatsApp** — +18 go **off by default** via the new per-group layer until an admin
+  opts in. No seed: there is no prior per-chat state to preserve, and seeding "on
+  everywhere" would defeat the safety default.
+- **Telegram** — the `telegram_nsfw_chat_ids` gate now actually bites. Preserve those
+  chats: seed a `chat` row + `nsfw`-subtype overrides (`enabled = true`) for each.
+- **Discord** — the native NSFW-channel gate now actually bites. No seed (channel-level,
+  not chat-config).
 - **`resenha_jid`** — seed one `chat` row with `default_policy = CURATED` (the "only
   resenhaz" chat).
 
 The migration is a one-time, idempotent seed script (get-or-create, safe to re-run)
 reading the existing settings allow-lists — not a full enumeration of every chat.
 Every chat not named in those allow-lists adopts the safe default (OPEN, NSFW off)
-the moment it is first seen. Announce the WhatsApp NSFW-off change so admins know to
+the moment it is first seen. Announce the cross-platform NSFW change so admins know to
 run `,config nsfw on`.
 
 ## 12. Rollout phases
@@ -195,11 +200,14 @@ run `,config nsfw on`.
 2. **Resolution + enforcement.** `ConfigService` + the `_dispatch` step + in-process
    cache. NSFW now default-off via the new layer; verify parity with current adapter
    gating, then retire the hard-coded paths.
-3. **`,config` + WhatsApp admin.** The command and the `is_admin` WhatsApp impl.
-   Feature usable end-to-end on WhatsApp groups.
-4. **Curated policy.** `default_policy` writes + deny-by-default resolution.
+3. **`,config` + WhatsApp admin + NSFW tagging.** The `ADMIN`-scoped command, the
+   `is_admin` WhatsApp impl, and tagging the four +18 commands `NSFW` (which also
+   activates the previously-dead Discord/Telegram gates). Usable end-to-end on
+   WhatsApp groups. *(done)*
+4. **Curated policy.** `default_policy` writes + deny-by-default resolution. *(done —
+   `,config policy` + resolution)*
 5. **Migration seed.** Idempotent script seeding the Telegram allow-list and
-   `resenha_jid` (§11); announce the WhatsApp change. Run once at cutover.
+   `resenha_jid` (§11); announce the cross-platform change. Run once at cutover.
 6. **Discord + Telegram `is_admin`.** Extend the port; the table already carries
    `platform`.
 
