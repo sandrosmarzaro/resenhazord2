@@ -12,6 +12,7 @@ _CARRO = ',carro'
 _STIC = ',stic'
 _MUSICA_ROCK = ',música rock'
 _AUDIO_LANG_ZH = ',áudio lang zh'
+_CONFIG = ',config'
 
 AGENT_EXAMPLES = [
     # Score command
@@ -166,6 +167,22 @@ AGENT_EXAMPLES = [
     ('porno feito por ia', ',porno --ia'),
     ('um hentai aleatório', ',hentai'),
     ('imagem da rule 34', ',rule34'),
+    # Config (admin: per-chat command toggles)
+    ('configurar os comandos do grupo', _CONFIG),
+    ('ver a configuração do chat', _CONFIG),
+    ('quais comandos estão ativos aqui', _CONFIG),
+    ('o que está liberado nesse grupo', _CONFIG),
+    ('desativar o porno aqui', ',config off porno'),
+    ('desliga o hentai nesse grupo', ',config off hentai'),
+    ('bloquear os comandos +18', ',config off nsfw'),
+    ('desligar o conteúdo adulto do chat', ',config off nsfw'),
+    ('liberar os comandos +18 aqui', ',config on nsfw'),
+    ('ativar nsfw nesse grupo', ',config on nsfw'),
+    ('desabilitar os downloads nesse grupo', ',config off download'),
+    ('ativar o modo curado', ',config policy curated'),
+    ('só comandos da resenha nesse grupo', ',config policy curated'),
+    ('voltar ao modo aberto', ',config policy open'),
+    ('resetar o porno pro padrão', ',config reset porno'),
     # Unknown - use menu
     ('não sei', _MENU),
 ]
@@ -211,7 +228,13 @@ REGRAS DE INFERÊNCIA:
  10. CONTEXTO DE RESPOSTA: Se o usuário está RESPONDENDO a uma mensagem do bot
     (reply/quotation), use o contexto para inferir o comando correto.
     Ex: se o bot disse "Use ,fato" e o usuário responde "sim" → ",fato"
-    Ex: se o bot sugeriu "Use ,tabela bl" e o usuário diz "sim" → ",tabela bl"{context}
+    Ex: se o bot sugeriu "Use ,tabela bl" e o usuário diz "sim" → ",tabela bl"
+ 11. CONFIG (admin): VERBOS de gestão — "ativar", "desativar", "ligar", "desligar",
+    "bloquear", "liberar", "resetar" — sobre um comando ou tipo mapeiam para ",config".
+    Tipos: "nsfw"/"+18"/"adulto" → nsfw; "download", "group", "random", "info".
+    Ex: "desativar o porno aqui" → ",config off porno" (NÃO ",porno").
+    Ex: "liberar +18 no grupo" → ",config on nsfw".
+    Ex: "modo curado" → ",config policy curated".{context}
 
 {user_context}
 Comando:"""
