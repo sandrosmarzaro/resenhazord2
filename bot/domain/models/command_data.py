@@ -23,6 +23,9 @@ class CommandData:
     message_id: str | None = None
     push_name: str | None = None
     platform: str | None = None
+    # Adapter-stamped admin status (Discord/Telegram). WhatsApp resolves lazily
+    # via group_metadata, so it stays None there. See GroupAdminService.
+    is_admin: bool | None = None
 
     @property
     def has_media(self) -> bool:
