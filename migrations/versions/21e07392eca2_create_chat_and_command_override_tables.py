@@ -1,7 +1,7 @@
 """create chat and command_override tables
 
 Revision ID: 21e07392eca2
-Revises: 
+Revises:
 Create Date: 2026-06-25 16:49:37.851762
 
 """
