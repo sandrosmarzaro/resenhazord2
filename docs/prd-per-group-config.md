@@ -83,7 +83,7 @@ first message seen from it, or the first `,config`/admin action. No enumeration,
 backfill. Because absent rows mean "use code defaults," a chat the bot is already in
 behaves correctly *before* any row exists; the row only has to exist at the moment of
 its first override or policy write. Existing chats therefore need no onboarding step
-for reads (but see §11 for the one-time NSFW seed).
+for reads (but see §11 for the one-time NSFW cutover).
 
 ## 6. Resolution logic
 
@@ -185,18 +185,17 @@ WhatsApp:
 - **WhatsApp** — +18 go **off by default** via the new per-group layer until an admin
   opts in. No seed: there is no prior per-chat state to preserve, and seeding "on
   everywhere" would defeat the safety default.
-- **Telegram** — the `telegram_nsfw_chat_ids` gate now actually bites. Preserve those
-  chats: seed a `chat` row + `nsfw`-subtype overrides (`enabled = true`) for each.
-- **Discord** — the native NSFW-channel gate now actually bites. No seed (channel-level,
-  not chat-config).
-- **`resenha_jid`** — seed one `chat` row with `default_policy = CURATED` (the "only
-  resenhaz" chat).
+- **Telegram** — the `telegram_nsfw_chat_ids` gate now actually bites. Restore those
+  chats with `,config nsfw on` once at cutover.
+- **Discord** — the native NSFW-channel gate now actually bites. Nothing to do
+  (channel-level, not chat-config).
+- **`resenha_jid`** — set it `,config policy curated` once (the "only resenhaz" chat).
 
-The migration is a one-time, idempotent seed script (get-or-create, safe to re-run)
-reading the existing settings allow-lists — not a full enumeration of every chat.
-Every chat not named in those allow-lists adopts the safe default (OPEN, NSFW off)
-the moment it is first seen. Announce the cross-platform NSFW change so admins know to
-run `,config nsfw on`.
+Lazy rows make the reads correct for every chat before any row exists, so the only
+cutover step is configuring the handful of known chats in-chat with `,config` — no
+enumeration, no seed script. Every chat not touched adopts the safe default (OPEN,
+NSFW off) the moment it is first seen. Announce the cross-platform NSFW change so
+admins know to run `,config nsfw on`.
 
 ## 12. Rollout phases
 
@@ -212,9 +211,9 @@ run `,config nsfw on`.
    WhatsApp groups. *(done)*
 4. **Curated policy.** `default_policy` writes + deny-by-default resolution. *(done —
    `,config policy` + resolution)*
-5. **Migration seed.** Idempotent script seeding the Telegram allow-list and
-   `resenha_jid` (§11); announce the cross-platform change. *(script done —
-   `task seed:config`; runs once against Neon at cutover)*
+5. **Cutover config.** Configure the known chats in-chat at cutover (Telegram NSFW
+   allow-list → `,config nsfw on`; `resenha_jid` → `,config policy curated`); announce
+   the cross-platform change (§11). No seed script — lazy rows cover everything else.
 6. **Discord + Telegram `is_admin` + enforcement.** `ConfigService.is_enabled` now runs
    in both adapter handlers; admin is resolved per platform (Discord guild permissions;
    Telegram `getChatMember`) and stamped on `CommandData.is_admin`, which
@@ -231,8 +230,8 @@ phase 3.
 - **NSFW parity regression** — the new default-off must exactly match today's adapter
   gating before the old paths are removed (phase 2 gate).
 - **WhatsApp NSFW goes dark at cutover** — +18 commands stop working in every WhatsApp
-  group until an admin opts in (§11). Mitigated by announcing it, not by silent seed.
-  The migration seed (phase 5) must be idempotent so a re-run never double-writes.
+  group until an admin opts in (§11). Mitigated by announcing it, not by silent
+  enablement. The cutover `,config` writes are upserts, so re-running them is safe.
 - **Admin RPC cost** — WhatsApp `is_admin` adds a `group_metadata` round-trip to
   `,config`; acceptable because `,config` is rare (write path), not the hot path.
 - **Second DB on a 1 GB node** — connection pool sized small; Neon scale-to-zero
