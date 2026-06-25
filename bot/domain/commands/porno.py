@@ -8,7 +8,15 @@ from bs4 import BeautifulSoup
 from bot.data.browser_headers import BROWSER_HEADERS
 from bot.data.nsfw_tags import NSFW_TAGS
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
+from bot.domain.commands.base import (
+    Category,
+    Command,
+    CommandConfig,
+    CommandScope,
+    Flag,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -26,6 +34,7 @@ class PornoCommand(Command):
             name='porno',
             flags=['ia', Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
+            scope=CommandScope.NSFW,
             platforms=[Platform.ALL],
         )
 
