@@ -4,6 +4,7 @@ from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, ParsedCommand
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -128,7 +129,9 @@ class TestPerGroupConfig:
         result = await handler.handle(data)
 
         assert result is not None
-        assert 'neste chat' in result[0].content.text
+        content = result[0].content
+        assert isinstance(content, TextContent)
+        assert 'neste chat' in content.text
 
     @pytest.mark.anyio
     async def test_consults_config_with_command_config(self, handler, mock_config_service):
