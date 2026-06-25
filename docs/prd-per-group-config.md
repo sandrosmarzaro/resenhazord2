@@ -207,9 +207,16 @@ run `,config nsfw on`.
 4. **Curated policy.** `default_policy` writes + deny-by-default resolution. *(done —
    `,config policy` + resolution)*
 5. **Migration seed.** Idempotent script seeding the Telegram allow-list and
-   `resenha_jid` (§11); announce the cross-platform change. Run once at cutover.
-6. **Discord + Telegram `is_admin`.** Extend the port; the table already carries
-   `platform`.
+   `resenha_jid` (§11); announce the cross-platform change. *(script done —
+   `task seed:config`; runs once against Neon at cutover)*
+6. **Discord + Telegram `is_admin` + enforcement.** Extend the admin port and wire
+   `ConfigService` into the Discord/Telegram handlers, which today call `run` directly
+   and so honor only their native NSFW gates, not `,config` overrides/CURATED. The
+   table already carries `platform`.
+
+The agent few-shot index (`task index:examples`) is rebuilt whenever commands or
+`AGENT_EXAMPLES` change; the `,config` phrasings were added and indexed alongside
+phase 3.
 
 ## 13. Risks
 
