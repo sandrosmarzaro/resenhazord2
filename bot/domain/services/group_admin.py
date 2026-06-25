@@ -7,10 +7,8 @@ class GroupAdminService:
     async def is_authorized(self, data: CommandData, whatsapp: WhatsAppPort | None) -> bool:
         if not data.is_group:
             return True
-        # Discord/Telegram resolve admin in the adapter and stamp it on the data.
         if data.is_admin is not None:
             return data.is_admin
-        # WhatsApp resolves lazily here via group_metadata (no per-message cost).
         if data.platform != Platform.WHATSAPP or whatsapp is None:
             return False
         metadata = await whatsapp.group_metadata(data.jid)

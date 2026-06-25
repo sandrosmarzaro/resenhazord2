@@ -1,6 +1,3 @@
-# The bot is a single consumer on the core node, so a process-local cache stays
-# coherent. If a second worker is ever added, swap invalidation for Upstash pub/sub.
-
 from time import monotonic
 from typing import ClassVar
 

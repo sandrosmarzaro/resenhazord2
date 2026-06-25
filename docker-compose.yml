@@ -44,7 +44,6 @@ services:
       dockerfile: Dockerfile
     env_file: .env
     environment:
-      # Reach the broker and Postgres by service name; .env's localhost only works on the host.
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DATABASE_URL: postgresql+asyncpg://resenha:resenha@postgres:5432/resenhazord2
     depends_on:
