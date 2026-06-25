@@ -111,9 +111,15 @@ INTERNAL -> official chat only (code)
 [NEW] per-group effective check for PUBLIC | NSFW
 ```
 
-A new `ConfigService` (domain) backed by a `ConfigStorePort` (SQLAlchemy adapter in
-`bot/infrastructure/`) answers `effective_enabled`. A disabled command replies with a
-short "command off here" notice, mirroring the existing `_DISABLED_MSG` pattern.
+A new `ConfigService` (application) backed by a `ConfigStorePort` (SQLAlchemy adapter
+in `bot/infrastructure/`) answers `is_enabled`. A disabled command replies with the
+shared `COMMAND_OFF_IN_CHAT` notice.
+
+The Discord and Telegram adapters call `Command.run` directly rather than through
+`_dispatch`, so the same `ConfigService.is_enabled` check is applied in
+`DiscordInteractionHandler.handle` and `TelegramUpdateHandler.handle` before running.
+All three platform paths now honour overrides + CURATED; the infra scopes stay code-
+locked on each. *(done — phase 6)*
 
 ## 8. Read caching
 
@@ -209,10 +215,10 @@ run `,config nsfw on`.
 5. **Migration seed.** Idempotent script seeding the Telegram allow-list and
    `resenha_jid` (§11); announce the cross-platform change. *(script done —
    `task seed:config`; runs once against Neon at cutover)*
-6. **Discord + Telegram `is_admin` + enforcement.** Extend the admin port and wire
-   `ConfigService` into the Discord/Telegram handlers, which today call `run` directly
-   and so honor only their native NSFW gates, not `,config` overrides/CURATED. The
-   table already carries `platform`.
+6. **Discord + Telegram `is_admin` + enforcement.** `ConfigService.is_enabled` now runs
+   in both adapter handlers; admin is resolved per platform (Discord guild permissions;
+   Telegram `getChatMember`) and stamped on `CommandData.is_admin`, which
+   `GroupAdminService` trusts for non-WhatsApp platforms. *(done)*
 
 The agent few-shot index (`task index:examples`) is rebuilt whenever commands or
 `AGENT_EXAMPLES` change; the `,config` phrasings were added and indexed alongside
