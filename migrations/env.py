@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 import bot.infrastructure.config_tables  # noqa: F401  (register tables on Base.metadata)
-from bot.infrastructure.database import Base
+from bot.infrastructure.models import Base
 from bot.settings import Settings
 
 # this is the Alembic Config object, which provides

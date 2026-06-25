@@ -4,7 +4,8 @@ from testcontainers.postgres import PostgresContainer
 
 from bot.domain.models.chat_config import ChatKey, ChatPolicy, ChatType
 from bot.infrastructure.config_store import SqlConfigStore
-from bot.infrastructure.database import Base, Database
+from bot.infrastructure.database import Database
+from bot.infrastructure.models import Base
 
 
 @pytest.fixture(scope='module')

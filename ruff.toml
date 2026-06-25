@@ -1,4 +1,7 @@
-target-version = "py314"
+# Pinned a minor behind requires-python: py314 would force a project-wide TC001/UP037
+# annotation refactor (moving runtime-needed imports into TYPE_CHECKING). Bump later,
+# deliberately, as its own change.
+target-version = "py313"
 line-length = 100
 extend-exclude = [
     "Dockerfile",
