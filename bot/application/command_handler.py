@@ -16,7 +16,6 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
 from bot.infrastructure.cached_config_store import CachedConfigStore
-from bot.infrastructure.config_store import SqlConfigStore
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.settings import Settings
 
@@ -47,7 +46,7 @@ class CommandHandler:
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
-        self._config = config_service or ConfigService(CachedConfigStore(SqlConfigStore()))
+        self._config = config_service or ConfigService(CachedConfigStore.instance())
         self._agent: AgentOrchestratorPort | None = None
         settings = Settings()
         self._bot_numeric: frozenset[str] = frozenset(

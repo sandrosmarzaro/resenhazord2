@@ -2,17 +2,30 @@
 # coherent. If a second worker is ever added, swap invalidation for Upstash pub/sub.
 
 from time import monotonic
+from typing import ClassVar
 
 from bot.domain.models.chat_config import ChatConfig, ChatKey, ChatPolicy
+from bot.infrastructure.config_store import SqlConfigStore
 from bot.ports.config_store_port import ConfigStorePort
 
 
 class CachedConfigStore:
     _TTL_SECONDS = 60.0
+    _instance: ClassVar['CachedConfigStore | None'] = None
 
     def __init__(self, store: ConfigStorePort) -> None:
         self._store = store
         self._cache: dict[tuple[str, str], tuple[float, ChatConfig]] = {}
+
+    @classmethod
+    def instance(cls) -> 'CachedConfigStore':
+        if cls._instance is None:
+            cls._instance = cls(SqlConfigStore())
+        return cls._instance
+
+    @classmethod
+    def reset(cls) -> None:
+        cls._instance = None
 
     async def load(self, platform: str, native_id: str) -> ChatConfig:
         cache_key = (platform, native_id)
