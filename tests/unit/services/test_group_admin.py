@@ -43,6 +43,18 @@ class TestWhatsAppGroup:
         assert authorized is False
 
 
+class TestPreResolvedAdmin:
+    @pytest.mark.anyio
+    async def test_uses_is_admin_flag_when_present(self, mocker):
+        data = GroupCommandDataFactory(platform='telegram', is_admin=True)
+        whatsapp = mocker.AsyncMock()
+
+        authorized = await GroupAdminService().is_authorized(data, whatsapp)
+
+        assert authorized is True
+        whatsapp.group_metadata.assert_not_called()
+
+
 class TestUnsupported:
     @pytest.mark.anyio
     async def test_non_whatsapp_group_is_rejected(self, mocker):

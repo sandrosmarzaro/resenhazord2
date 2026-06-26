@@ -118,6 +118,22 @@ class TestReset:
         store.clear_override.assert_awaited_once()
         assert store.clear_override.await_args.args[1] == 'hentai'
 
+    @pytest.mark.anyio
+    async def test_reset_unknown_token_clears_nothing(self, editor, store, data):
+        response = await editor.apply(data, 'reset nonsense')
+
+        assert 'não reconheço' in response.lower()
+        store.clear_override.assert_not_called()
+
+
+class TestUnknownVerb:
+    @pytest.mark.anyio
+    async def test_unknown_verb_returns_help(self, editor, store, data):
+        response = await editor.apply(data, 'frobnicate hentai')
+
+        assert 'use:' in response.lower()
+        store.set_override.assert_not_called()
+
 
 class TestPolicy:
     @pytest.mark.anyio

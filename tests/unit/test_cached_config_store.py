@@ -53,6 +53,19 @@ class TestWriteInvalidation:
         store.set_override.assert_awaited_once_with(group_key(), 'oi', enabled=False)
 
     @pytest.mark.anyio
+    async def test_clear_override_invalidates_and_delegates(self, mocker):
+        store = mocker.AsyncMock()
+        store.load.return_value = ChatConfig()
+        cached = CachedConfigStore(store)
+
+        await cached.load('whatsapp', '120@g.us')
+        await cached.clear_override(group_key(), 'oi')
+        await cached.load('whatsapp', '120@g.us')
+
+        assert store.load.await_count == 2
+        store.clear_override.assert_awaited_once_with(group_key(), 'oi')
+
+    @pytest.mark.anyio
     async def test_set_policy_invalidates(self, mocker):
         store = mocker.AsyncMock()
         store.load.return_value = ChatConfig()
