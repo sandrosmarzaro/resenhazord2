@@ -45,7 +45,7 @@ services:
     env_file: .env
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      DATABASE_URL: postgresql+asyncpg://resenha:resenha@postgres:5432/resenhazord2
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-resenha}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-resenhazord2}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -97,9 +97,9 @@ services:
     container_name: postgres
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: resenha
-      POSTGRES_PASSWORD: resenha
-      POSTGRES_DB: resenhazord2
+      POSTGRES_USER: ${POSTGRES_USER:-resenha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-resenhazord2}
     networks:
       - bot-network
     restart: unless-stopped
