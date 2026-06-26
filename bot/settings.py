@@ -11,8 +11,9 @@ class Settings(BaseSettings):
     mongodb_uri: str = 'mongodb://localhost:27017/resenhazord2'
     mongodb_db_name: str = 'resenhazord2'
 
-    # Postgres — per-group command config (core node only)
-    database_url: str = 'postgresql+asyncpg://resenha:resenha@localhost:5432/resenhazord2'
+    # Postgres — per-group command config (core node only).
+    # Password-less fallback; real deployments inject DATABASE_URL from the environment.
+    database_url: str = 'postgresql+asyncpg://resenha@localhost:5432/resenhazord2'
 
     # Redis
     redis_url: str | None = None
