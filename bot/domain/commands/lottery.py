@@ -85,7 +85,7 @@ class LotteryCommand(Command):
             published = [d for d in draws if d['published']]
             if published:
                 return [self._format_draw(data, published[-1], yesterday=True)]
-        except (httpx.HTTPError, ValueError, KeyError):
+        except httpx.HTTPError, ValueError, KeyError:
             logger.warning('bicho_yesterday_fetch_failed', date=date_str)
         return [Reply.to(data).text('Nenhum sorteio publicado ainda hoje. 🎲')]
 

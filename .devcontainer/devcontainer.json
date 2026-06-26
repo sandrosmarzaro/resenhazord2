@@ -23,7 +23,7 @@
       "extensions": [
         "ms-python.python",
         "charliermarsh.ruff",
-        "detachhead.basedpyright",
+        "zuban.zubanls",
         "tamasfe.even-better-toml",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",

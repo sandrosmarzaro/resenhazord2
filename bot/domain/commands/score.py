@@ -1,7 +1,5 @@
 """Live football matches from Transfermarkt."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, ClassVar
 
 from bot.domain.builders.reply import Reply
