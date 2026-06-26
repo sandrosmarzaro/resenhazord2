@@ -349,6 +349,26 @@ class TestBrandLogoFallback:
 
         assert isinstance(messages[0].content, TextContent)
 
+    @pytest.mark.anyio
+    async def test_text_only_when_image_lookup_raises(self, command, respx_mock):
+        respx_mock.get(url__regex=r'.*/fipe/api/v1/carros/marcas/\d+/modelos$').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos$').mock(
+            return_value=httpx.Response(200, json=MOCK_YEARS)
+        )
+        respx_mock.get(url__regex=r'.*/modelos/\d+/anos/[^/]+$').mock(
+            return_value=httpx.Response(200, json=MOCK_DETAILS)
+        )
+        respx_mock.get(url__startswith='https://en.wikipedia.org/w/api.php').mock(
+            return_value=httpx.Response(200, content=b'not json')
+        )
+
+        data = GroupCommandDataFactory.build(text=',carro')
+        messages = await command.run(data)
+
+        assert isinstance(messages[0].content, TextContent)
+
 
 class TestYearRetryLogic:
     @pytest.mark.anyio

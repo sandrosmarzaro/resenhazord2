@@ -1,7 +1,5 @@
 from datetime import datetime
-
-# uuid7 is a 3.14 stdlib addition; basedpyright's bundled typeshed lags it.
-from uuid import UUID, uuid7  # pyright: ignore[reportAttributeAccessIssue]
+from uuid import UUID, uuid7
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column

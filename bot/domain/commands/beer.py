@@ -66,7 +66,7 @@ class BeerCommand(Command):
         page = random.randint(1, self.MAX_PAGE)
         try:
             return await self._fetch_beer_from_page(page)
-        except (ValueError, httpx.HTTPError):
+        except ValueError, httpx.HTTPError:
             retry_page = random.randint(1, self.RETRY_MAX_PAGE)
             return await self._fetch_beer_from_page(retry_page)
 

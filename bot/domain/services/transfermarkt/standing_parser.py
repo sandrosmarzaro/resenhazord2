@@ -120,7 +120,7 @@ class StandingParser(RowParser):
                 'goal_diff': int(cells[5]),
                 'points': int(cells[6]),
             }
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             logger.warning('standing_row_parse_error', team=team)
             return None
 

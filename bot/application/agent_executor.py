@@ -110,7 +110,7 @@ class AgentExecutor:
     def _confidence(arguments: str) -> float:
         try:
             return float(json.loads(arguments).get(CONFIDENCE_ARG, 1.0))
-        except (TypeError, ValueError):  # JSONDecodeError is a ValueError subclass
+        except TypeError, ValueError:  # JSONDecodeError is a ValueError subclass
             return 1.0
 
     @staticmethod

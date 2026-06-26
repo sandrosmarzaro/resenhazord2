@@ -1,13 +1,31 @@
 {
+  // Default formatter for everything the gateway/web side owns (JS/TS/JSON/MD).
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
+
+  // ESLint — flat config, lint TS too, run from the gateway workspace.
   "eslint.useFlatConfig": true,
-  "eslint.validate": [
-    "javascript"
-  ],
+  "eslint.validate": ["javascript", "typescript"],
+  "eslint.workingDirectories": [{ "directory": "gateway", "changeProcessCWD": true }],
+
+  // Python — uv venv, zuban as the language server, ruff as the formatter.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.languageServer": "None",
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // SonarQube Cloud connected mode.
   "sonarlint.connectedMode.project": {
     "connectionId": "smarzaro",
     "projectKey": "resenhazord2"

@@ -78,7 +78,7 @@ class HentaiCommand(Command):
     async def _fetch_default(self) -> HentaiGallery:
         try:
             return await HitomiScraper.fetch()
-        except (httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError):
+        except httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError:
             return await self._nhentai.fetch()
 
     @classmethod

@@ -9,8 +9,6 @@ this auditor gates the committed lockfile instead — it checks release ages wit
 re-resolving, sidestepping the LangChain version cascade. See docs/security.md.
 """
 
-from __future__ import annotations
-
 import concurrent.futures
 import datetime
 import json
@@ -50,7 +48,7 @@ def _age_in_days(package: tuple[str, str]) -> tuple[str, str, int] | None:
     try:
         with urllib.request.urlopen(url, timeout=PYPI_TIMEOUT_SECONDS) as response:
             payload = json.load(response)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+    except urllib.error.URLError, TimeoutError, json.JSONDecodeError:
         return None
     files: list[dict[str, str]] = payload.get('urls') or []
     if not files:

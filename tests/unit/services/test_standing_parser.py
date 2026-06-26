@@ -76,6 +76,26 @@ class TestParseFullTabelle:
         result = StandingParser.parse_full_tabelle('<p>No data</p>')
         assert result == []
 
+    def test_skips_row_with_non_numeric_cells(self):
+        bad_row = (
+            '<tr>'
+            '<td>1</td>'
+            '<td class="no-border-links"><a href="/verein/281/">Flamengo</a></td>'
+            '<td class="zentriert">abc</td>'
+            '<td class="zentriert">0</td>'
+            '<td class="zentriert">0</td>'
+            '<td class="zentriert">1</td>'
+            '<td class="zentriert">1:0</td>'
+            '<td class="zentriert">1</td>'
+            '<td class="zentriert">1</td>'
+            '</tr>'
+        )
+        html = _standing_table_html(bad_row)
+
+        result = StandingParser.parse_full_tabelle(html)
+
+        assert result == []
+
 
 class TestExtractCenteredCells:
     def test_extracts_cells_excluding_no_border_rechts(self):
