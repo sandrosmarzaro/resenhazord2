@@ -27,3 +27,4 @@ mutants/
 *.key.pub
 *.pem
 ssh-key-*
+secrets/
