@@ -105,7 +105,6 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(D20Command())
     registry.register(ConfigCommand())
     registry.register(DevCommand())
-    registry.register(DownloadCommand())
     registry.register(ExtractCommand())
     registry.register(FactCommand())
     registry.register(FipeCommand())
@@ -141,6 +140,7 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
     registry.register(BanCommand(bot_jid=settings.resenhazord2_jid))
     registry.register(BibleCommand(biblia_token=settings.biblia_token))
     registry.register(CountryFlagCommand(api_key=settings.restcountries_api_key))
+    registry.register(DownloadCommand(cookies_path=settings.ytdlp_cookies))
     registry.register(
         DriveCommand(
             discord=DiscordService(settings.discord_token, settings.discord_drive_guild_id)
