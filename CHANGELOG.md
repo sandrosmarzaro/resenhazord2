@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v2.2.1 (2026-06-30)
+
+### Fix
+
+- **database**: pre-ping pooled connections to survive Neon idle close
+
 ## v2.2.0 (2026-06-30)
 
 ### Feat

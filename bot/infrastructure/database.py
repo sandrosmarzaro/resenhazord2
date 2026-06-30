@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import (
 
 class Database:
     _POOL_SIZE = 5
+    # Neon scales to zero and closes idle connections; pre-ping discards a dead
+    # pooled connection and reconnects, recycle drops connections past the cutoff.
+    _POOL_RECYCLE_SECONDS = 300
 
     _engine: AsyncEngine | None = None
     _sessionmaker: async_sessionmaker[AsyncSession] | None = None
@@ -20,7 +23,13 @@ class Database:
     @classmethod
     def engine(cls) -> AsyncEngine:
         if cls._engine is None:
-            cls._engine = create_async_engine(cls._url, pool_size=cls._POOL_SIZE, max_overflow=0)
+            cls._engine = create_async_engine(
+                cls._url,
+                pool_size=cls._POOL_SIZE,
+                max_overflow=0,
+                pool_pre_ping=True,
+                pool_recycle=cls._POOL_RECYCLE_SECONDS,
+            )
         return cls._engine
 
     @classmethod
