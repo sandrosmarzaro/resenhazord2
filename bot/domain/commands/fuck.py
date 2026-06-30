@@ -1,7 +1,14 @@
 import structlog
 
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
+from bot.domain.commands.base import (
+    ArgType,
+    Category,
+    Command,
+    CommandConfig,
+    CommandScope,
+    ParsedCommand,
+)
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -20,6 +27,7 @@ class FuckCommand(Command):
             args_label='@número',
             group_only=True,
             category=Category.GROUP,
+            scope=CommandScope.NSFW,
         )
 
     @property

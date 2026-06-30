@@ -6,6 +6,8 @@ from faker import Faker
 from pydantic import BaseModel
 
 from bot.application.command_registry import CommandRegistry
+from bot.infrastructure.cached_config_store import CachedConfigStore
+from bot.infrastructure.database import Database
 from bot.infrastructure.http_client import HttpClient
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
@@ -38,6 +40,8 @@ def _reset_singletons():
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
+    Database.reset()
+    CachedConfigStore.reset()
     ProviderChain.reset()
     UpstashExampleRetriever.reset()
     LangChainProvider.reset()
@@ -46,10 +50,19 @@ def _reset_singletons():
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
+    Database.reset()
+    CachedConfigStore.reset()
     ProviderChain.reset()
     UpstashExampleRetriever.reset()
     LangChainProvider.reset()
     GraphAgentOrchestrator.reset()
+
+
+@pytest.fixture
+def mock_config_service(mocker):
+    service = mocker.AsyncMock()
+    service.is_enabled.return_value = True
+    return service
 
 
 @pytest.fixture

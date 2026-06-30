@@ -3,12 +3,14 @@ from telegram.constants import ChatType
 
 from bot.adapters.telegram.agent_router import TelegramAgentRouter
 from bot.domain.commands.base import CommandScope, Platform
+from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.exceptions import BotError
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from bot.ports.telegram_port import TelegramKind
 from tests.unit.adapters.telegram.conftest import (
     DEFAULT_CHAT_ID,
+    DEFAULT_USER_ID,
     make_strategy,
     make_update,
     patch_registry,
@@ -163,3 +165,42 @@ class TestErrorHandling:
         await handler.handle(port, make_update('just some text', chat_type=ChatType.GROUP))
 
         port.send.assert_not_called()
+
+
+class TestPerGroupConfig:
+    @pytest.mark.anyio
+    async def test_disabled_in_chat_replies_and_skips(
+        self, handler, port, mocker, mock_config_service
+    ):
+        mock_config_service.is_enabled.return_value = False
+        strategy = make_strategy(mocker, messages=[_ok_message()])
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/d20'))
+
+        sent = port.send.call_args.args[0]
+        assert sent.kind == TelegramKind.TEXT
+        assert sent.text == COMMAND_OFF_IN_CHAT
+        strategy.run.assert_not_called()
+        port.react.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_admin_scope_stamps_is_admin_in_group(self, handler, port, mocker):
+        port.is_chat_admin.return_value = True
+        strategy = make_strategy(mocker, messages=[_ok_message()], scope=CommandScope.ADMIN)
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/config', chat_type=ChatType.GROUP))
+
+        port.is_chat_admin.assert_awaited_once_with(DEFAULT_CHAT_ID, DEFAULT_USER_ID)
+        assert strategy.run.call_args.args[0].is_admin is True
+
+    @pytest.mark.anyio
+    async def test_non_admin_scope_skips_admin_lookup(self, handler, port, mocker):
+        strategy = make_strategy(mocker, messages=[_ok_message()], scope=CommandScope.PUBLIC)
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/d20', chat_type=ChatType.GROUP))
+
+        port.is_chat_admin.assert_not_called()
+        assert strategy.run.call_args.args[0].is_admin is None

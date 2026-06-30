@@ -8,8 +8,11 @@ from bot.adapters.telegram.agent_router import TelegramAgentRouter
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.adapters.telegram.typing_loop import TypingLoop
 from bot.application.command_registry import CommandRegistry
+from bot.application.config_service import ConfigService
 from bot.domain.commands.base import Command, CommandScope, Platform
+from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound, TelegramPort
 
 logger = structlog.get_logger()
@@ -27,11 +30,13 @@ class TelegramUpdateHandler:
         bot_username: str,
         nsfw_chat_ids: frozenset[int],
         renderer: TelegramResponseRenderer | None = None,
+        config_service: ConfigService | None = None,
     ) -> None:
         self._bot_username = bot_username.lower()
         self._nsfw_chat_ids = nsfw_chat_ids
         self._renderer = renderer or TelegramResponseRenderer()
         self._router = TelegramAgentRouter(self._renderer)
+        self._config = config_service or ConfigService(CachedConfigStore.instance())
         self._name_map: dict[str, str] = {}
 
     def register_name(self, telegram_name: str, registry_text: str) -> None:
@@ -60,10 +65,24 @@ class TelegramUpdateHandler:
             await self._reply_text(port, chat.id, block)
             return
 
-        data = self._build_command_data(message, chat, user, text)
+        is_admin = await self._resolve_admin(port, strategy, chat, user)
+        data = self._build_command_data(message, chat, user, text, is_admin=is_admin)
+        if not await self._config.is_enabled(data, strategy.config):
+            await self._reply_text(port, chat.id, COMMAND_OFF_IN_CHAT)
+            return
+
         await TelegramAgentRouter.safe_react(port, chat.id, message.message_id)
         async with TypingLoop.keep_typing(port, chat.id):
             await self._router.run_and_reply(port, strategy, data, chat.id, command_name)
+
+    async def _resolve_admin(
+        self, port: TelegramPort, strategy: Command, chat: Chat, user: User
+    ) -> bool | None:
+        if strategy.config.scope != CommandScope.ADMIN:
+            return None
+        if chat.type not in self.GROUP_CHAT_TYPES:
+            return None
+        return await port.is_chat_admin(chat.id, user.id)
 
     async def _maybe_route_agent(
         self,
@@ -118,7 +137,7 @@ class TelegramUpdateHandler:
 
     @classmethod
     def _build_command_data(
-        cls, message: Message, chat: Chat, user: User, text: str
+        cls, message: Message, chat: Chat, user: User, text: str, *, is_admin: bool | None = None
     ) -> CommandData:
         return CommandData(
             text=text,
@@ -128,6 +147,7 @@ class TelegramUpdateHandler:
             is_group=chat.type in cls.GROUP_CHAT_TYPES,
             push_name=user.full_name,
             platform=Platform.TELEGRAM,
+            is_admin=is_admin,
         )
 
     @staticmethod

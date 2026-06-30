@@ -11,6 +11,7 @@ from bot.domain.commands.bible import BibleCommand
 from bot.domain.commands.borges import BorgesCommand
 from bot.domain.commands.car import CarCommand
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
+from bot.domain.commands.config import ConfigCommand
 from bot.domain.commands.country_flag import CountryFlagCommand
 from bot.domain.commands.currency import CurrencyCommand
 from bot.domain.commands.d20 import D20Command
@@ -54,6 +55,7 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.database import Database
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
@@ -67,6 +69,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
         settings = Settings()
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
+    Database.configure(settings.database_url)
     ProviderChain.configure(settings.github_token, settings.mistral_api_key, settings.groq_api_key)
     if settings.llm_use_langchain:
         LangChainProvider.configure(
@@ -100,6 +103,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(ClashRoyaleCommand())
     registry.register(CurrencyCommand())
     registry.register(D20Command())
+    registry.register(ConfigCommand())
     registry.register(DevCommand())
     registry.register(DownloadCommand())
     registry.register(ExtractCommand())

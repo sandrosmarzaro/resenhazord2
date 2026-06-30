@@ -95,3 +95,30 @@ class TestReact:
         assert kwargs['chat_id'] == 7
         assert kwargs['message_id'] == 42
         assert kwargs['reaction'][0].emoji == '\U0001f44d'
+
+
+class TestIsChatAdmin:
+    @pytest.mark.anyio
+    async def test_true_for_administrator(self, adapter, bot, mocker):
+        from telegram.constants import ChatMemberStatus
+
+        bot.get_chat_member.return_value = mocker.MagicMock(status=ChatMemberStatus.ADMINISTRATOR)
+
+        assert await adapter.is_chat_admin(10, 20) is True
+        bot.get_chat_member.assert_awaited_once_with(10, 20)
+
+    @pytest.mark.anyio
+    async def test_true_for_owner(self, adapter, bot, mocker):
+        from telegram.constants import ChatMemberStatus
+
+        bot.get_chat_member.return_value = mocker.MagicMock(status=ChatMemberStatus.OWNER)
+
+        assert await adapter.is_chat_admin(10, 20) is True
+
+    @pytest.mark.anyio
+    async def test_false_for_regular_member(self, adapter, bot, mocker):
+        from telegram.constants import ChatMemberStatus
+
+        bot.get_chat_member.return_value = mocker.MagicMock(status=ChatMemberStatus.MEMBER)
+
+        assert await adapter.is_chat_admin(10, 20) is False

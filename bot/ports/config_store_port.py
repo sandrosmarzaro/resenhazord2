@@ -1,0 +1,13 @@
+from typing import Protocol
+
+from bot.domain.models.chat_config import ChatConfig, ChatKey, ChatPolicy
+
+
+class ConfigStorePort(Protocol):
+    async def load(self, platform: str, native_id: str) -> ChatConfig: ...
+
+    async def set_override(self, key: ChatKey, command_name: str, *, enabled: bool) -> None: ...
+
+    async def clear_override(self, key: ChatKey, command_name: str) -> None: ...
+
+    async def set_policy(self, key: ChatKey, policy: ChatPolicy) -> None: ...

@@ -2,12 +2,15 @@ from io import BytesIO
 from typing import Any, ClassVar
 
 from telegram import Bot, InputFile, ReactionTypeEmoji
-from telegram.constants import ChatAction, ParseMode
+from telegram.constants import ChatAction, ChatMemberStatus, ParseMode
 
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound
 
 
 class TelegramBotAdapter:
+    _ADMIN_STATUSES: ClassVar[frozenset[str]] = frozenset(
+        {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
+    )
     _MEDIA_KWARG: ClassVar[dict[TelegramKind, str]] = {
         TelegramKind.PHOTO: 'photo',
         TelegramKind.VIDEO: 'video',
@@ -38,6 +41,10 @@ class TelegramBotAdapter:
         await self._bot.set_message_reaction(
             chat_id=chat_id, message_id=message_id, reaction=[ReactionTypeEmoji(emoji=emoji)]
         )
+
+    async def is_chat_admin(self, chat_id: int, user_id: int) -> bool:
+        member = await self._bot.get_chat_member(chat_id, user_id)
+        return member.status in self._ADMIN_STATUSES
 
     async def _send_media(self, outbound: TelegramOutbound) -> None:
         method = getattr(self._bot, f'send_{outbound.kind.value}')
