@@ -2,6 +2,7 @@ import { isBoom } from '@hapi/boom';
 import { DisconnectReason } from '@whiskeysockets/baileys';
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
+import ConnectionWatchdog from '../infra/ConnectionWatchdog.js';
 import { Sentry } from '../infra/Sentry.js';
 import logger from '../infra/Logger.js';
 
@@ -33,6 +34,7 @@ export default class ConnectionUpdateEvent {
     } else if (connection === 'connecting') {
       logger.debug({ event: 'connecting' });
     } else if (connection === 'open') {
+      ConnectionWatchdog.disarm();
       logger.info({ event: 'connection_opened' });
       Sentry.addBreadcrumb({
         category: 'whatsapp.connection',
@@ -70,15 +72,19 @@ export default class ConnectionUpdateEvent {
     if (statusCode === DisconnectReason.loggedOut) {
       logger.warn({ event: 'logged_out' });
       Sentry.captureMessage('Bot logged out', 'warning');
+      ConnectionWatchdog.disable();
       ConnectionUpdateEvent.reset();
       return;
     }
 
     if (statusCode === DisconnectReason.badSession) {
       logger.warn({ event: 'bad_session' });
+      ConnectionWatchdog.disable();
       ConnectionUpdateEvent.reset();
       return;
     }
+
+    ConnectionWatchdog.arm();
 
     const shouldReconnect =
       !statusCode ||

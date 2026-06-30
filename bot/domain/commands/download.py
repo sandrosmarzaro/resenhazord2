@@ -27,6 +27,10 @@ logger = structlog.get_logger()
 class DownloadCommand(Command):
     URL_REGEX = re.compile(r'https?://\S+')
 
+    def __init__(self, cookies_path: str = '') -> None:
+        super().__init__()
+        self._cookies_path = cookies_path
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -49,7 +53,7 @@ class DownloadCommand(Command):
         url = match.group(0) if match else parsed.rest
 
         try:
-            video_buffer, title = await YtDlpService.download(url)
+            video_buffer, title = await YtDlpService.download(url, self._cookies_path)
         except RuntimeError as e:
             raise DownloadError(self._match_error(str(e)), detail=str(e)) from e
         except DownloadError:

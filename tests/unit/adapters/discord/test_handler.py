@@ -1,13 +1,13 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
+import discord
 import httpx
 import pytest
 
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.application.message_preprocess import preprocess_messages
 from bot.domain.commands.base import ArgType, Command, CommandConfig, CommandScope, OptionDef
+from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.exceptions import BotError
 from bot.domain.models.contents.audio_content import AudioBufferContent, AudioContent
 from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
@@ -44,8 +44,8 @@ def make_strategy(mocker, messages: list[BotMessage]):
 
 
 @pytest.fixture
-def handler():
-    return DiscordInteractionHandler()
+def handler(mock_config_service):
+    return DiscordInteractionHandler(config_service=mock_config_service)
 
 
 @pytest.fixture
@@ -512,3 +512,57 @@ class TestPreprocessMessages:
         result = await preprocess_messages([original])
 
         assert result[0] is original
+
+
+class TestPerGroupConfig:
+    @pytest.mark.anyio
+    async def test_disabled_in_chat_blocks_and_notifies(
+        self, handler, port, mocker, mock_config_service
+    ):
+        mock_config_service.is_enabled.return_value = False
+        interaction = make_interaction(mocker)
+        strategy = make_strategy(
+            mocker, [BotMessage(jid='111', content=TextContent(text='roll: 7'))]
+        )
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        port.send_followup.assert_awaited_once_with(COMMAND_OFF_IN_CHAT)
+        strategy.run.assert_not_called()
+
+
+class TestAdminStamping:
+    def _member(self, mocker, *, administrator: bool, manage_guild: bool):
+        member = mocker.MagicMock(spec=discord.Member)
+        member.id = 42
+        member.display_name = 'Admin'
+        member.guild_permissions.administrator = administrator
+        member.guild_permissions.manage_guild = manage_guild
+        return member
+
+    def test_guild_admin_is_stamped_true(self, mocker):
+        interaction = make_interaction(mocker)
+        interaction.user = self._member(mocker, administrator=True, manage_guild=False)
+
+        data = DiscordInteractionHandler._build_command_data(interaction, ',config')
+
+        assert data.is_admin is True
+
+    def test_guild_non_admin_is_stamped_false(self, mocker):
+        interaction = make_interaction(mocker)
+        interaction.user = self._member(mocker, administrator=False, manage_guild=False)
+
+        data = DiscordInteractionHandler._build_command_data(interaction, ',config')
+
+        assert data.is_admin is False
+
+    def test_dm_has_no_admin(self, mocker):
+        interaction = make_interaction(mocker, guild_id=None)
+
+        data = DiscordInteractionHandler._build_command_data(interaction, ',config')
+
+        assert data.is_admin is None

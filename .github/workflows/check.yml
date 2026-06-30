@@ -48,6 +48,8 @@ jobs:
           cache-suffix: ${{ github.job }}
       - run: uv sync --frozen
       - run: uv run bandit -c bandit.toml -r bot/
+      - name: Dependency cooldown (no package younger than 7 days)
+        run: uv run task cooldown:check
 
   test-ts:
     name: TS tests
@@ -149,7 +151,10 @@ jobs:
           # (conftest imports bot.application etc.). Narrowing it copies only the
           # changed files' import closure, which is incomplete and crashes the
           # baseline run. Instead, only RUN mutants for the changed mutable files.
-          EXCLUDE='^bot/(infrastructure|adapters|ports)/|^bot/(main|settings)\.py$|^bot/domain/services/discord\.py$'
+          # bot/data holds pure lookup tables (no logic) and yields no mutants, which
+          # makes mutmut abort when a data file is the only changed mutable file.
+          # Keep this list in sync with do_not_mutate in setup.cfg.
+          EXCLUDE='^bot/(infrastructure|adapters|ports|data)/|^bot/(main|settings)\.py$|^bot/domain/services/discord\.py$'
           CHANGED=$(git diff --name-only origin/develop...HEAD -- 'bot/**.py' | { grep -vE "$EXCLUDE" || true; })
           if [ -z "$CHANGED" ]; then
             echo "No mutable Python files changed in bot/, skipping mutation testing"

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -38,10 +36,11 @@ def port(mocker):
 
 
 @pytest.fixture
-def handler() -> TelegramUpdateHandler:
+def handler(mock_config_service) -> TelegramUpdateHandler:
     return TelegramUpdateHandler(
         bot_username=DEFAULT_BOT_USERNAME,
         nsfw_chat_ids=frozenset({99}),
+        config_service=mock_config_service,
     )
 
 

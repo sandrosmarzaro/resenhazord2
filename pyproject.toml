@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "resenhazord2-core"
-version = "2.1.0"
+version = "2.2.0"
 description = "Python core for Resenhazord2 WhatsApp bot"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.115.0",
     "httpx>=0.28.0",
@@ -32,6 +32,9 @@ dependencies = [
     "langchain-mistralai>=1.1.5",
     "langgraph>=1.2.5",
     "langgraph-checkpoint-redis>=0.4.1",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
 ]
 
 [dependency-groups]
@@ -78,6 +81,8 @@ mutate = "mutmut run"
 "mutate:results" = "mutmut results"
 "test:external" = "pytest -m external"
 "index:examples" = "python scripts/index_examples.py"
+"db:upgrade" = "alembic upgrade head"
+"cooldown:check" = "python scripts/check_dep_cooldown.py"
 
 
 [tool.zuban]
@@ -85,7 +90,7 @@ exclude = ["tests/"]
 
 [tool.commitizen]
 name = "cz_customize"
-version = "2.1.0"
+version = "2.2.0"
 tag_format = "v$version"
 version_files = ["pyproject.toml:version"]
 changelog_file = "CHANGELOG.md"

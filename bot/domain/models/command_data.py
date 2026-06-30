@@ -23,6 +23,7 @@ class CommandData:
     message_id: str | None = None
     push_name: str | None = None
     platform: str | None = None
+    is_admin: bool | None = None
 
     @property
     def has_media(self) -> bool:

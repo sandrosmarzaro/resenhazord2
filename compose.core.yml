@@ -9,6 +9,11 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file: .env
+    # yt-dlp cookies for login-gated sources (Instagram). Place the Netscape-format
+    # file at ./secrets/cookies.txt and set YTDLP_COOKIES=/secrets/cookies.txt in .env.
+    # rw lets yt-dlp persist rotated session cookies, extending login validity.
+    volumes:
+      - ./secrets:/secrets
     networks:
       - resenha-network
     restart: unless-stopped

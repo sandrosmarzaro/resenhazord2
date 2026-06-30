@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     mongodb_uri: str = 'mongodb://localhost:27017/resenhazord2'
     mongodb_db_name: str = 'resenhazord2'
 
+    # Postgres — per-group command config (core node only).
+    # Injected from the environment (.env locally, compose in prod); empty until
+    # set, so no connection string or credential lives in the source.
+    database_url: str = ''
+
     # Redis
     redis_url: str | None = None
 
@@ -34,6 +39,10 @@ class Settings(BaseSettings):
     telegram_nsfw_chat_ids: str = ''
 
     nhentai_mirror_url: str = 'https://nhentai.to'
+
+    # yt-dlp cookies file (Netscape format) for login-gated sources (Instagram, etc.).
+    # Empty = no auth; path is in-container, mounted as a secret on the core node.
+    ytdlp_cookies: str = ''
 
     bnet_id: str = ''
     bnet_secret: str = ''

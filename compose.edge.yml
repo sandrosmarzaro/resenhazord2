@@ -19,6 +19,10 @@ services:
     networks:
       - resenha-network
     restart: unless-stopped
+    # Cap the gateway so a Baileys reconnect-storm or leak OOM-kills this container
+    # (restart: unless-stopped then recovers) instead of starving the ~1 GB host into the
+    # SSH-dead freeze. Pairs with the connection watchdog (mute-stall) and the host swap.
+    mem_limit: 384m
     dns:
       - 1.1.1.1
       - 8.8.8.8

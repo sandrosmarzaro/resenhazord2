@@ -3,7 +3,15 @@ import structlog
 
 from bot.data.hentai_gallery import HentaiGallery
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
+from bot.domain.commands.base import (
+    Category,
+    Command,
+    CommandConfig,
+    CommandScope,
+    Flag,
+    ParsedCommand,
+    Platform,
+)
 from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -28,6 +36,7 @@ class HentaiCommand(Command):
             name='hentai',
             flags=[Flag.DM, Flag.SHOW, 'hitomi', 'nhentai'],
             category=Category.RANDOM,
+            scope=CommandScope.NSFW,
             platforms=[Platform.ALL],
         )
 
@@ -69,7 +78,7 @@ class HentaiCommand(Command):
     async def _fetch_default(self) -> HentaiGallery:
         try:
             return await HitomiScraper.fetch()
-        except (httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError):
+        except httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError:
             return await self._nhentai.fetch()
 
     @classmethod

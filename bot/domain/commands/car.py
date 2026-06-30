@@ -68,14 +68,14 @@ class CarCommand(Command):
             wiki_name = self._wiki_model_name(model['nome'])
             try:
                 thumb = await self._find_image(brand.name, wiki_name, base_name, parsed)
-            except (httpx.HTTPError, KeyError, ValueError):
+            except httpx.HTTPError, KeyError, ValueError:
                 logger.warning('carro_image_search_failed', brand=brand.name, model=model['nome'])
                 thumb = None
 
             if not thumb:
                 try:
                     thumb = await self._fetch_brand_logo(brand.name)
-                except (httpx.HTTPError, KeyError, ValueError):
+                except httpx.HTTPError, KeyError, ValueError:
                     thumb = None
 
             if not thumb:

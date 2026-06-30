@@ -3,10 +3,13 @@ import structlog
 
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.application.command_registry import CommandRegistry
+from bot.application.config_service import ConfigService
 from bot.application.message_preprocess import preprocess_messages
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, OptionDef, Platform
+from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.ports.discord_port import DiscordPort
 
 logger = structlog.get_logger()
@@ -15,8 +18,13 @@ logger = structlog.get_logger()
 class DiscordInteractionHandler:
     COMMAND_PREFIX = ','
 
-    def __init__(self, renderer: DiscordResponseRenderer | None = None) -> None:
+    def __init__(
+        self,
+        renderer: DiscordResponseRenderer | None = None,
+        config_service: ConfigService | None = None,
+    ) -> None:
         self._renderer = renderer or DiscordResponseRenderer()
+        self._config = config_service or ConfigService(CachedConfigStore.instance())
         self._name_map: dict[str, str] = {}
 
     def register_name(self, discord_name: str, registry_text: str) -> None:
@@ -44,6 +52,9 @@ class DiscordInteractionHandler:
             return
 
         data = self._build_command_data(interaction, text)
+        if not await self._config.is_enabled(data, strategy.config):
+            await port.send_followup(COMMAND_OFF_IN_CHAT)
+            return
         await self._run_and_reply(port, strategy, data, command_name)
 
     @staticmethod
@@ -130,4 +141,13 @@ class DiscordInteractionHandler:
             is_group=interaction.guild_id is not None,
             push_name=interaction.user.display_name,
             platform=Platform.DISCORD,
+            is_admin=DiscordInteractionHandler._resolve_admin(interaction),
         )
+
+    @staticmethod
+    def _resolve_admin(interaction: discord.Interaction) -> bool | None:
+        member = interaction.user
+        if interaction.guild_id is None or not isinstance(member, discord.Member):
+            return None
+        permissions = member.guild_permissions
+        return permissions.administrator or permissions.manage_guild
