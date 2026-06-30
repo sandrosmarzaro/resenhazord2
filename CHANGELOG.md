@@ -2,6 +2,41 @@
 
 <!-- version list -->
 
+## v2.2.0 (2026-06-30)
+
+### Feat
+
+- **download**: pass yt-dlp cookies for login-gated sources
+- **telegram**: enforce per-group config and resolve admin
+- **discord**: enforce per-group config and resolve admin
+- **config**: add idempotent migration seed script
+- **agent**: add ,config few-shot examples and disambiguation rule
+- **commands**: tag porno/hentai/rule34/fuck as NSFW scope
+- **config**: add ,config admin command
+- **config**: add admin check and config editor services
+- **config**: enforce per-group config in command dispatch
+- **config**: add ConfigService resolution and TTL cache store
+- **config**: add ConfigStorePort and SQLAlchemy adapter
+- **config**: wire Alembic and add initial config schema migration
+- **config**: add config domain model, async engine, ORM tables
+- **config**: add Postgres deps, settings, and local compose service
+
+### Fix
+
+- **security**: drop hardcoded db credentials from settings default
+- **security**: drop hardcoded postgres password from settings default
+- **security**: parameterize postgres credentials in compose
+- **config**: clear basedpyright errors on the config models
+- **sentry**: drop handled provider and broker noise
+- **deploy**: cap gateway container memory on edge
+- **gateway**: restart on stalled WhatsApp connection
+
+### Refactor
+
+- **compose**: source postgres creds from env_file
+- drop redundant future annotations for python 3.14
+- **config**: timestamped uuidv7 base for sql models
+
 ## v2.1.0 (2026-06-16)
 
 ### Feat
