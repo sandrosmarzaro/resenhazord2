@@ -114,6 +114,42 @@ class TestRun:
         assert messages[0].content.caption == 'Vídeo'
 
 
+class TestCookies:
+    @pytest.mark.anyio
+    async def test_passes_cookies_to_both_subprocesses(self, mock_subprocess):
+        command = DownloadCommand(cookies_path='/secrets/cookies.txt')
+        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/reel/abc')
+        mock_exec = mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Reel\n', b'', 0),
+                (b'video-data', b'', 0),
+            ],
+        )
+
+        await command.run(data)
+
+        for call in mock_exec.call_args_list:
+            assert '--cookies' in call[0]
+            assert '/secrets/cookies.txt' in call[0]
+
+    @pytest.mark.anyio
+    async def test_omits_cookies_when_unset(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
+        mock_exec = mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'data', b'', 0),
+            ],
+        )
+
+        await command.run(data)
+
+        for call in mock_exec.call_args_list:
+            assert '--cookies' not in call[0]
+
+
 class TestErrors:
     @pytest.mark.anyio
     async def test_generic_ytdlp_error(self, command, mock_subprocess):

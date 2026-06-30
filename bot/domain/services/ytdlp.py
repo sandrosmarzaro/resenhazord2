@@ -7,9 +7,12 @@ class YtDlpService:
     MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
 
     @classmethod
-    async def download(cls, url: str) -> tuple[bytes, str]:
+    async def download(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
+        cookies = ['--cookies', cookies_path] if cookies_path else []
+
         title_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
+            *cookies,
             '--playlist-items',
             '1',
             '--print',
@@ -23,6 +26,7 @@ class YtDlpService:
 
         video_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
+            *cookies,
             '--playlist-items',
             '1',
             '-f',
