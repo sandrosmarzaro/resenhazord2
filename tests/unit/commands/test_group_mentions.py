@@ -299,6 +299,24 @@ class TestExit:
         assert targets.indices == [1, 3]
 
     @pytest.mark.anyio
+    async def test_exit_by_ordinal_indices(self, command, mock_service):
+        mock_service.exit.return_value = {
+            'ok': True,
+            'group_name': 'devs',
+            'self_only': False,
+        }
+        data = GroupCommandDataFactory.build(
+            text=',grupo exit devs 1º 3º',
+            jid=CHAT_JID,
+            sender_jid=SENDER_JID,
+        )
+
+        await command.run(data)
+
+        targets = mock_service.exit.call_args[0][3]
+        assert targets.indices == [1, 3]
+
+    @pytest.mark.anyio
     async def test_exit_by_mention_passes_mentioned_jids(self, command, mock_service):
         mock_service.exit.return_value = {
             'ok': True,

@@ -145,7 +145,8 @@ class GroupMentionsCommand(Command):
         group_name = parts[0].lower() if parts else ''
         if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
-        indices = [int(p) for p in parts[1:] if p.isdigit()]
+        numbers = [part.rstrip('º') for part in parts[1:]]
+        indices = [int(number) for number in numbers if number.isdigit()]
         targets = RemovalTargets(indices=indices, mentioned=data.mentioned_jids)
 
         result = await self._service.exit(data.jid, group_name, data.sender_jid, targets)
