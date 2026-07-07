@@ -23,10 +23,12 @@ MENU_GRUPO = """\t\t\t📝 *COMANDOS DE GRUPO* 📝
 > Adiciona pessoas no grupo val (admin)
 
 🚷 _Sair_
-- *,grupo exit*
+- *,grupo exit* val
 > Saia do grupo val
-- *,grupo exit* @fulano @ciclano
+- *,grupo exit* val @fulano @ciclano
 > Tire pessoas do grupo val (admin)
+- *,grupo exit* val 1º 3º
+> Tire pessoas por posição na lista (admin)
 
 📚 Listagem
 - *,grupo list*

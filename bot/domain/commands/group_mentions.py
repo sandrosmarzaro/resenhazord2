@@ -49,12 +49,11 @@ class GroupMentionsCommand(Command):
         return 'Comando complexo. Use *,menu grupo* para detalhes.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        rest = parsed.rest
-        for keyword, handler in self._handlers.items():
-            if re.search(keyword, rest, re.IGNORECASE):
-                sub_rest = re.sub(keyword, '', rest, count=1, flags=re.IGNORECASE)
-                sub_rest = sub_rest.replace('\n', '').strip()
-                return await handler(data, sub_rest)
+        rest = parsed.rest.strip()
+        keyword, _, sub_rest = rest.partition(' ')
+        handler = self._handlers.get(keyword.lower())
+        if handler:
+            return await handler(data, sub_rest.strip())
         return await self._handle_mention(data, rest)
 
     def _validate_group_name(self, data: CommandData, name: str) -> BotMessage | None:
@@ -118,7 +117,7 @@ class GroupMentionsCommand(Command):
         result = await self._service.list_one(data.jid, group_name)
         if not result['ok']:
             return [Reply.to(data).text(result['message'])]
-        lines = [f'- {i + 1}: @{strip_jid(p)}' for i, p in enumerate(result['participants'])]
+        lines = [f'- {i + 1}º @{strip_jid(p)}' for i, p in enumerate(result['participants'])]
         return [
             Reply.to(data).text_with(
                 f'📜 *{group_name.upper()}* 📜\n\n' + '\n'.join(lines),
@@ -145,7 +144,8 @@ class GroupMentionsCommand(Command):
         group_name = parts[0].lower() if parts else ''
         if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
-        indices = [int(p) for p in parts[1:] if p.isdigit()]
+        numbers = [part.rstrip('º') for part in parts[1:]]
+        indices = [int(number) for number in numbers if number.isdigit()]
         targets = RemovalTargets(indices=indices, mentioned=data.mentioned_jids)
 
         result = await self._service.exit(data.jid, group_name, data.sender_jid, targets)
