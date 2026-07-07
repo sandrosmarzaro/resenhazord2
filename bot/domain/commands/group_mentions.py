@@ -118,7 +118,7 @@ class GroupMentionsCommand(Command):
         result = await self._service.list_one(data.jid, group_name)
         if not result['ok']:
             return [Reply.to(data).text(result['message'])]
-        lines = [f'- {i + 1}: @{strip_jid(p)}' for i, p in enumerate(result['participants'])]
+        lines = [f'- {i + 1}º @{strip_jid(p)}' for i, p in enumerate(result['participants'])]
         return [
             Reply.to(data).text_with(
                 f'📜 *{group_name.upper()}* 📜\n\n' + '\n'.join(lines),

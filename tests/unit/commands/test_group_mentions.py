@@ -210,7 +210,8 @@ class TestList:
         messages = await command.run(data)
 
         assert 'DEVS' in messages[0].content.text
-        assert '@5511999990000' in messages[0].content.text
+        assert '1º @5511999990000' in messages[0].content.text
+        assert '2º @5511999990001' in messages[0].content.text
         assert messages[0].content.mentions is not None
 
 
