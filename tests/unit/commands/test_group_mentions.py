@@ -338,6 +338,24 @@ class TestExit:
         assert targets.mentioned == [target_jid]
 
     @pytest.mark.anyio
+    async def test_exit_when_arg_collides_with_other_keyword(self, command, mock_service):
+        mock_service.exit.return_value = {
+            'ok': False,
+            'message': 'Não existe um grupo com o nome *list* 😔',
+        }
+        data = GroupCommandDataFactory.build(
+            text=',grupo exit list',
+            jid=CHAT_JID,
+            sender_jid=SENDER_JID,
+        )
+
+        await command.run(data)
+
+        mock_service.exit.assert_called_once()
+        mock_service.list_one.assert_not_called()
+        assert mock_service.exit.call_args[0][1] == 'list'
+
+    @pytest.mark.anyio
     async def test_exit_no_name(self, command, mock_service):
         data = GroupCommandDataFactory.build(text=',grupo exit', jid=CHAT_JID)
 
