@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v2.3.0 (2026-07-07)
+
+### Feat
+
+- **commands**: emphasize position in participant list
+
+### Fix
+
+- **commands**: dispatch grupo subcommand by first token
+- **commands**: accept º-suffixed indices in grupo exit
+
 ## v2.2.2 (2026-07-07)
 
 ### Fix
