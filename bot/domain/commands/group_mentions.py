@@ -49,12 +49,11 @@ class GroupMentionsCommand(Command):
         return 'Comando complexo. Use *,menu grupo* para detalhes.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        rest = parsed.rest
-        for keyword, handler in self._handlers.items():
-            if re.search(keyword, rest, re.IGNORECASE):
-                sub_rest = re.sub(keyword, '', rest, count=1, flags=re.IGNORECASE)
-                sub_rest = sub_rest.replace('\n', '').strip()
-                return await handler(data, sub_rest)
+        rest = parsed.rest.strip()
+        keyword, _, sub_rest = rest.partition(' ')
+        handler = self._handlers.get(keyword.lower())
+        if handler:
+            return await handler(data, sub_rest.strip())
         return await self._handle_mention(data, rest)
 
     def _validate_group_name(self, data: CommandData, name: str) -> BotMessage | None:
