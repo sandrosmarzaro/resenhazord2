@@ -1,6 +1,7 @@
 import structlog
 
 from bot.domain.jid import normalize_jid
+from bot.domain.models.removal_targets import RemovalTargets
 from bot.infrastructure.mongodb import MongoDBConnection
 
 logger = structlog.get_logger()
@@ -14,17 +15,13 @@ def _matching_participants(sender_jid: str, participants: list[str]) -> list[str
     return [p for p in participants if normalize_jid(p) == normalized_sender]
 
 
-def _participants_by_indices(participants: list[str], indices: list[int]) -> list[str]:
-    return [participants[i - 1] for i in indices if 0 < i <= len(participants)]
-
-
 class ExitMentionList:
     async def execute(
         self,
         chat_jid: str,
         group_name: str,
         sender_jid: str,
-        indices: list[int],
+        targets: RemovalTargets,
     ) -> dict:
         try:
             col = MongoDBConnection.collection(COLLECTION_NAME)
@@ -39,7 +36,7 @@ class ExitMentionList:
                 }
             participants = group_doc['groups'][0]['participants']
 
-            if not indices:
+            if targets.is_self_exit:
                 stored_jids = _matching_participants(sender_jid, participants)
                 if not stored_jids:
                     return {
@@ -53,12 +50,12 @@ class ExitMentionList:
                 )
                 return {'ok': True, 'group_name': group_name, 'self_only': True}
 
-            to_remove = _participants_by_indices(participants, indices)
+            to_remove = targets.resolve(participants)
 
             if not to_remove:
                 return {
                     'ok': False,
-                    'message': 'Nenhum participante encontrado para os índices fornecidos 😔',
+                    'message': 'Nenhum participante encontrado para remover 😔',
                 }
 
             await col.update_one(

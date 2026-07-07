@@ -1,5 +1,6 @@
 """Facade for group mention list operations — delegates to single-responsibility classes."""
 
+from bot.domain.models.removal_targets import RemovalTargets
 from bot.domain.services.mentions.add_to_mention_list import AddToMentionList
 from bot.domain.services.mentions.create_mention_list import CreateMentionList
 from bot.domain.services.mentions.delete_mention_list import DeleteMentionList
@@ -48,9 +49,9 @@ class GroupMentionsService:
         chat_jid: str,
         group_name: str,
         sender_jid: str,
-        indices: list[int],
+        targets: RemovalTargets,
     ) -> dict:
-        return await ExitMentionList().execute(chat_jid, group_name, sender_jid, indices)
+        return await ExitMentionList().execute(chat_jid, group_name, sender_jid, targets)
 
     async def mention(self, chat_jid: str, group_name: str) -> dict:
         return await MentionGroup().execute(chat_jid, group_name)

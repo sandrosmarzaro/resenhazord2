@@ -1,10 +1,13 @@
 import pytest
 
+from bot.domain.models.removal_targets import RemovalTargets
+from bot.domain.services.group_mentions import GroupMentionsService
 from bot.domain.services.mentions.exit_mention_list import ExitMentionList
 from bot.domain.services.mentions.mention_group import MentionGroup
 
 CHAT_JID = '120363044041082732@g.us'
 SENDER_JID = '5511999990000@s.whatsapp.net'
+OTHER_JID = '5511999990001@s.whatsapp.net'
 GROUP_NAME = 'test'
 
 
@@ -93,10 +96,10 @@ def mock_collection(mocker):
     return collection
 
 
-class TestExitMentionList:
+class TestExitSelf:
     @pytest.mark.anyio
     async def test_exit_self_removes_sender(self, mock_collection):
-        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, SENDER_JID, [])
+        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets())
 
         assert result['ok'] is True
 
@@ -108,7 +111,9 @@ class TestExitMentionList:
         """Sender JID has device suffix (:1) but stored JID does not."""
         sender_with_device = '5511999990000:1@s.whatsapp.net'
 
-        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, sender_with_device, [])
+        result = await ExitMentionList().execute(
+            CHAT_JID, GROUP_NAME, sender_with_device, RemovalTargets()
+        )
 
         assert result['ok'] is True
         mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
@@ -120,44 +125,115 @@ class TestExitMentionList:
         mock_collection._docs[CHAT_JID]['groups'][0]['participants'] = [
             SENDER_JID,
             SENDER_JID,
-            '5511999990001@s.whatsapp.net',
+            OTHER_JID,
         ]
 
-        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, SENDER_JID, [])
+        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets())
 
         assert result['ok'] is True
         mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
         assert SENDER_JID not in mention_result['participants']
-        assert '5511999990001@s.whatsapp.net' in mention_result['participants']
+        assert OTHER_JID in mention_result['participants']
 
     @pytest.mark.anyio
     async def test_exit_self_not_in_group_fails(self, mock_collection):
         """Sender is not a participant of the group."""
         stranger = '5511999999999@s.whatsapp.net'
 
-        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, stranger, [])
+        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, stranger, RemovalTargets())
 
         assert result['ok'] is False
         assert 'não está no grupo' in result['message']
 
+
+class TestExitByIndices:
     @pytest.mark.anyio
     async def test_exit_by_indices_removes_participants(self, mock_collection):
-        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, SENDER_JID, [2])
+        result = await ExitMentionList().execute(
+            CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets(indices=[2])
+        )
 
         assert result['ok'] is True
 
         mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
-        assert '5511999990001@s.whatsapp.net' not in mention_result['participants']
+        assert OTHER_JID not in mention_result['participants']
         assert SENDER_JID in mention_result['participants']
 
     @pytest.mark.anyio
-    async def test_exit_nonexistent_group_fails(self, mock_collection):
-        result = await ExitMentionList().execute(CHAT_JID, 'nonexistent', SENDER_JID, [])
+    async def test_exit_invalid_indices_fails(self, mock_collection):
+        result = await ExitMentionList().execute(
+            CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets(indices=[99])
+        )
 
         assert result['ok'] is False
+
+
+class TestExitByMention:
+    @pytest.mark.anyio
+    async def test_exit_by_mention_removes_target(self, mock_collection):
+        result = await ExitMentionList().execute(
+            CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets(mentioned=[OTHER_JID])
+        )
+
+        assert result['ok'] is True
+        assert result['self_only'] is False
+        mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
+        assert OTHER_JID not in mention_result['participants']
 
     @pytest.mark.anyio
-    async def test_exit_invalid_indices_fails(self, mock_collection):
-        result = await ExitMentionList().execute(CHAT_JID, GROUP_NAME, SENDER_JID, [99])
+    async def test_exit_by_mention_when_sender_not_in_group(self, mock_collection):
+        """Sender removing someone else while not a participant themselves."""
+        stranger = '5511999999999@s.whatsapp.net'
+
+        result = await ExitMentionList().execute(
+            CHAT_JID, GROUP_NAME, stranger, RemovalTargets(mentioned=[OTHER_JID])
+        )
+
+        assert result['ok'] is True
+        mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
+        assert OTHER_JID not in mention_result['participants']
+
+    @pytest.mark.anyio
+    async def test_exit_by_mention_normalizes_device_suffix(self, mock_collection):
+        mentioned_with_device = '5511999990001:7@s.whatsapp.net'
+
+        result = await ExitMentionList().execute(
+            CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets(mentioned=[mentioned_with_device])
+        )
+
+        assert result['ok'] is True
+        mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
+        assert OTHER_JID not in mention_result['participants']
+
+    @pytest.mark.anyio
+    async def test_exit_by_mention_unknown_person_fails(self, mock_collection):
+        outsider = '5511900000000@s.whatsapp.net'
+
+        result = await ExitMentionList().execute(
+            CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets(mentioned=[outsider])
+        )
 
         assert result['ok'] is False
+        assert 'Nenhum participante' in result['message']
+
+
+class TestExitErrors:
+    @pytest.mark.anyio
+    async def test_exit_nonexistent_group_fails(self, mock_collection):
+        result = await ExitMentionList().execute(
+            CHAT_JID, 'nonexistent', SENDER_JID, RemovalTargets()
+        )
+
+        assert result['ok'] is False
+
+
+class TestExitFacade:
+    @pytest.mark.anyio
+    async def test_facade_exit_removes_mentioned_target(self, mock_collection):
+        result = await GroupMentionsService().exit(
+            CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets(mentioned=[OTHER_JID])
+        )
+
+        assert result['ok'] is True
+        mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
+        assert OTHER_JID not in mention_result['participants']
