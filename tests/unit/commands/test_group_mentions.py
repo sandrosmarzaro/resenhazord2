@@ -1,6 +1,7 @@
 import pytest
 
 from bot.domain.commands.group_mentions import GroupMentionsCommand
+from bot.domain.models.removal_targets import RemovalTargets
 from bot.domain.services.group_mentions import GroupMentionsService
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
@@ -293,8 +294,29 @@ class TestExit:
 
         assert 'Participantes removidos' in messages[0].content.text
         mock_service.exit.assert_called_once()
-        call_args = mock_service.exit.call_args
-        assert call_args[0][3] == [1, 3]  # indices
+        targets = mock_service.exit.call_args[0][3]
+        assert targets.indices == [1, 3]
+
+    @pytest.mark.anyio
+    async def test_exit_by_mention_passes_mentioned_jids(self, command, mock_service):
+        mock_service.exit.return_value = {
+            'ok': True,
+            'group_name': 'devs',
+            'self_only': False,
+        }
+        target_jid = '5511988887777@s.whatsapp.net'
+        data = GroupCommandDataFactory.build(
+            text=',grupo exit devs @5511988887777',
+            jid=CHAT_JID,
+            sender_jid=SENDER_JID,
+            mentioned_jids=[target_jid],
+        )
+
+        messages = await command.run(data)
+
+        assert 'Participantes removidos' in messages[0].content.text
+        targets = mock_service.exit.call_args[0][3]
+        assert targets.mentioned == [target_jid]
 
     @pytest.mark.anyio
     async def test_exit_no_name(self, command, mock_service):
@@ -423,7 +445,7 @@ class TestCaseInsensitive:
 
         await command.run(data)
 
-        mock_service.exit.assert_called_once_with(CHAT_JID, 'devs', SENDER_JID, [])
+        mock_service.exit.assert_called_once_with(CHAT_JID, 'devs', SENDER_JID, RemovalTargets())
 
     @pytest.mark.anyio
     async def test_rename_lowercases_group_names(self, command, mock_service):

@@ -6,6 +6,7 @@ from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, 
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.models.removal_targets import RemovalTargets
 from bot.domain.services.group_mentions import GroupMentionsService
 
 SubHandler = Callable[[CommandData, str], Awaitable[list[BotMessage]]]
@@ -145,8 +146,9 @@ class GroupMentionsCommand(Command):
         if not group_name:
             return [Reply.to(data).text(_MISSING_NAME)]
         indices = [int(p) for p in parts[1:] if p.isdigit()]
+        targets = RemovalTargets(indices=indices, mentioned=data.mentioned_jids)
 
-        result = await self._service.exit(data.jid, group_name, data.sender_jid, indices)
+        result = await self._service.exit(data.jid, group_name, data.sender_jid, targets)
         if not result['ok']:
             return [Reply.to(data).text(result['message'])]
         if result['self_only']:
