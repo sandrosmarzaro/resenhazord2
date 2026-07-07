@@ -1,6 +1,7 @@
 import pytest
 
 from bot.domain.models.removal_targets import RemovalTargets
+from bot.domain.services.group_mentions import GroupMentionsService
 from bot.domain.services.mentions.exit_mention_list import ExitMentionList
 from bot.domain.services.mentions.mention_group import MentionGroup
 
@@ -224,3 +225,15 @@ class TestExitErrors:
         )
 
         assert result['ok'] is False
+
+
+class TestExitFacade:
+    @pytest.mark.anyio
+    async def test_facade_exit_removes_mentioned_target(self, mock_collection):
+        result = await GroupMentionsService().exit(
+            CHAT_JID, GROUP_NAME, SENDER_JID, RemovalTargets(mentioned=[OTHER_JID])
+        )
+
+        assert result['ok'] is True
+        mention_result = await MentionGroup().execute(CHAT_JID, GROUP_NAME)
+        assert OTHER_JID not in mention_result['participants']
