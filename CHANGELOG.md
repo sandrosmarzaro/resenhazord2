@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v2.2.2 (2026-07-07)
+
+### Fix
+
+- **commands**: remove others from mention list by @mention
+
 ## v2.2.1 (2026-06-30)
 
 ### Fix
