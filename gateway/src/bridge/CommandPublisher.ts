@@ -1,4 +1,4 @@
-import type { WAMessage } from '@whiskeysockets/baileys';
+import type { WAMessage, WAMessageKey } from '@whiskeysockets/baileys';
 import type { CommandData } from '../types/command.js';
 import type BrokerPort from '../ports/BrokerPort.js';
 import type MediaHandler from './MediaHandler.js';
@@ -34,7 +34,7 @@ export default class CommandPublisher {
     return {
       text: data.text,
       jid: data.key.remoteJid!,
-      sender_jid: (data.key.participant ?? data.key.remoteJid)!,
+      sender_jid: this.senderJid(data.key),
       participant: data.key.participant ?? null,
       is_group: data.key.remoteJid?.includes('g.us') ?? false,
       expiration: data.expiration ?? null,
@@ -49,6 +49,16 @@ export default class CommandPublisher {
       media_caption: mediaInfo?.caption ?? null,
       ...(mediaBuffer ? { media_buffer_b64: mediaBuffer.toString('base64') } : {}),
     };
+  }
+
+  private senderJid(key: WAMessageKey): string {
+    // Lid-addressed groups put the LID in `participant`; the phone-number JID we
+    // store and mention lives in `participantAlt`. Prefer the PN so sender matching
+    // survives WhatsApp's lid migration.
+    if (key.addressingMode === 'lid' && key.participantAlt) {
+      return key.participantAlt;
+    }
+    return (key.participant ?? key.remoteJid)!;
   }
 
   private mentionedJids(data: CommandData): string[] {
