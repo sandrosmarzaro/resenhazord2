@@ -46,6 +46,8 @@ services:
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    # Apply pending migrations before serving, then hand PID 1 to uvicorn.
+    command: sh -c "alembic upgrade head && exec uvicorn bot.main:app --host 0.0.0.0 --port 8000"
     depends_on:
       rabbitmq:
         condition: service_healthy

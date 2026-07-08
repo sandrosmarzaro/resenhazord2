@@ -55,6 +55,67 @@ describe('CommandPublisher', () => {
     });
   });
 
+  describe('sender_jid addressing', () => {
+    it('uses the phone-number JID (participantAlt) in lid-addressed groups', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',grupo exit test' });
+      data.key.participant = '253278650671105@lid';
+      data.key.participantAlt = '5528999223882@s.whatsapp.net';
+      data.key.addressingMode = 'lid';
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.sender_jid).toBe('5528999223882@s.whatsapp.net');
+    });
+
+    it('keeps participant as sender_jid when not lid-addressed', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',grupo exit test' });
+      data.key.participant = '5528999223882@s.whatsapp.net';
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.sender_jid).toBe('5528999223882@s.whatsapp.net');
+    });
+
+    it('falls back to participant when lid-addressed without participantAlt', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',grupo exit test' });
+      data.key.participant = '253278650671105@lid';
+      data.key.addressingMode = 'lid';
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.sender_jid).toBe('253278650671105@lid');
+    });
+
+    it('falls back to remoteJid when there is no participant', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',grupo exit test' });
+      data.key.participant = undefined;
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.sender_jid).toBe(data.key.remoteJid);
+    });
+  });
+
   describe('with media', () => {
     it('downloads the media and inlines it as base64', async () => {
       const broker = makeBroker();
