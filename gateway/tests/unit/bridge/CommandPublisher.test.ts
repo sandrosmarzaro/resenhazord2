@@ -85,6 +85,21 @@ describe('CommandPublisher', () => {
       const envelope = publishedEnvelope(broker);
       expect(envelope.data.sender_jid).toBe('5528999223882@s.whatsapp.net');
     });
+
+    it('falls back to participant when lid-addressed without participantAlt', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',grupo exit test' });
+      data.key.participant = '253278650671105@lid';
+      data.key.addressingMode = 'lid';
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.sender_jid).toBe('253278650671105@lid');
+    });
   });
 
   describe('with media', () => {
