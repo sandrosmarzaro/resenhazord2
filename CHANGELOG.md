@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v2.3.1 (2026-07-07)
+
+### Fix
+
+- **gateway**: use phone-number JID for sender in lid-addressed groups
+
 ## v2.3.0 (2026-07-07)
 
 ### Feat
