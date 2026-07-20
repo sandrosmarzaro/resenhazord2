@@ -1,6 +1,6 @@
 import structlog
 
-from bot.domain.jid import normalize_jid
+from bot.domain.jid import normalize_jid, normalize_jids
 from bot.infrastructure.mongodb import MongoDBConnection
 
 logger = structlog.get_logger()
@@ -35,7 +35,7 @@ class AddToMentionList:
                 )
                 return {'ok': True, 'group_name': group_name, 'self_only': True}
 
-            normalized = [normalize_jid(p) for p in participants]
+            normalized = normalize_jids(participants)
             await col.update_one(
                 {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
                 {'$addToSet': {'groups.$.participants': {'$each': normalized}}},

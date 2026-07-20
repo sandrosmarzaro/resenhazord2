@@ -67,6 +67,23 @@ class TestCreateMentionList:
         ]
 
     @pytest.mark.anyio
+    async def test_skips_null_mentioned_jids(self, mock_collection):
+        result = await CreateMentionList().execute(
+            CHAT_JID,
+            SENDER_JID,
+            GROUP_NAME,
+            [None, '5511999990001:2@s.whatsapp.net'],
+        )
+
+        assert result['ok'] is True
+
+        _, doc = mock_collection.calls[2]
+        assert doc['groups'][0]['participants'] == [
+            '5511999990000@s.whatsapp.net',
+            '5511999990001@s.whatsapp.net',
+        ]
+
+    @pytest.mark.anyio
     async def test_rejects_duplicate_group(self, mock_collection):
         mock_collection.docs[CHAT_JID] = {
             '_id': CHAT_JID,
@@ -108,6 +125,27 @@ class TestAddToMentionList:
         )
 
         assert result['ok'] is True
+        _, _, update = mock_collection.calls[1]
+        assert update['$addToSet']['groups.$.participants']['$each'] == [
+            '5511999990001@s.whatsapp.net',
+        ]
+
+    @pytest.mark.anyio
+    async def test_skips_null_mentioned_jids(self, mock_collection):
+        mock_collection.docs[CHAT_JID] = {
+            '_id': CHAT_JID,
+            'groups': [{'name': GROUP_NAME, 'participants': []}],
+        }
+
+        result = await AddToMentionList().execute(
+            CHAT_JID,
+            GROUP_NAME,
+            SENDER_JID,
+            [None, '5511999990001:2@s.whatsapp.net'],
+        )
+
+        assert result['ok'] is True
+
         _, _, update = mock_collection.calls[1]
         assert update['$addToSet']['groups.$.participants']['$each'] == [
             '5511999990001@s.whatsapp.net',

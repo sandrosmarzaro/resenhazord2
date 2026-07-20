@@ -1,6 +1,6 @@
 import structlog
 
-from bot.domain.jid import normalize_jid
+from bot.domain.jid import normalize_jid, normalize_jids
 from bot.infrastructure.mongodb import MongoDBConnection
 
 logger = structlog.get_logger()
@@ -26,7 +26,7 @@ class CreateMentionList:
                 }
 
             participants = list(
-                dict.fromkeys([normalize_jid(sender_jid), *(normalize_jid(m) for m in mentioned)])
+                dict.fromkeys([normalize_jid(sender_jid), *normalize_jids(mentioned)])
             )
             has_doc = await col.find_one({'_id': chat_jid})
             if not has_doc:
