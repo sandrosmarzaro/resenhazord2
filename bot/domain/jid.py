@@ -1,6 +1,7 @@
 """JID (Jabber ID) utilities for WhatsApp identifiers."""
 
 import re
+from collections.abc import Iterable
 
 _JID_SUFFIX_RE = re.compile(r'@lid|@s\.whatsapp\.net', re.IGNORECASE)
 _DEVICE_SUFFIX_RE = re.compile(r':\d+(?=@)')
@@ -20,3 +21,12 @@ def normalize_jid(jid: str) -> str:
     matched regardless of which device sent the message.
     """
     return _DEVICE_SUFFIX_RE.sub('', jid)
+
+
+def normalize_jids(jids: Iterable[str | None]) -> list[str]:
+    """Normalise a batch of JIDs, dropping the empty ones.
+
+    WhatsApp mention lists arrive from the gateway and may carry null entries;
+    storing one poisons every later render of that mention group.
+    """
+    return [normalize_jid(jid) for jid in jids if jid]

@@ -3,6 +3,7 @@ import { DisconnectReason } from '@whiskeysockets/baileys';
 import type { BaileysEventMap } from '@whiskeysockets/baileys';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import ConnectionWatchdog from '../infra/ConnectionWatchdog.js';
+import ConnectionState from '../infra/ConnectionState.js';
 import { Sentry } from '../infra/Sentry.js';
 import logger from '../infra/Logger.js';
 
@@ -35,6 +36,7 @@ export default class ConnectionUpdateEvent {
       logger.debug({ event: 'connecting' });
     } else if (connection === 'open') {
       ConnectionWatchdog.disarm();
+      await ConnectionState.markOpen();
       logger.info({ event: 'connection_opened' });
       Sentry.addBreadcrumb({
         category: 'whatsapp.connection',
@@ -52,6 +54,8 @@ export default class ConnectionUpdateEvent {
       clearTimeout(ConnectionUpdateEvent.reconnectTimer);
       ConnectionUpdateEvent.reconnectTimer = null;
     }
+
+    await ConnectionState.markClosed();
 
     const error = lastDisconnect?.error;
     const statusCode = error && isBoom(error) ? error.output?.statusCode : null;
@@ -71,7 +75,11 @@ export default class ConnectionUpdateEvent {
 
     if (statusCode === DisconnectReason.loggedOut) {
       logger.warn({ event: 'logged_out' });
-      Sentry.captureMessage('Bot logged out', 'warning');
+      // Terminal: nothing reconnects until a human scans a new QR, so page instead of warn.
+      Sentry.captureMessage(
+        'Bot logged out; re-pair required before it can receive messages',
+        'fatal',
+      );
       ConnectionWatchdog.disable();
       ConnectionUpdateEvent.reset();
       return;
