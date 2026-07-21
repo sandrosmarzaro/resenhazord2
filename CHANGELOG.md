@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.3.2 (2026-07-20)
+
+### Fix
+
+- **gateway**: move the connection marker out of /tmp
+- **gateway**: make the healthcheck reflect the WhatsApp connection
+- **mentions**: drop null jids before storing mention participants
+
 ## v2.3.1 (2026-07-07)
 
 ### Fix
