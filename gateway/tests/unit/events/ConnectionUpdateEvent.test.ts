@@ -1,14 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Boom } from '@hapi/boom';
 import { DisconnectReason } from '@whiskeysockets/baileys';
+import type { MongoDBAuthResult } from '../../../src/auth/MongoDBAuthState.js';
 import ConnectionUpdateEvent from '../../../src/events/ConnectionUpdateEvent.js';
 import ConnectionWatchdog from '../../../src/infra/ConnectionWatchdog.js';
 import ConnectionState from '../../../src/infra/ConnectionState.js';
+import Resenhazord2 from '../../../src/models/Resenhazord2.js';
 import { Sentry } from '../../../src/infra/Sentry.js';
+
+// Baileys builds a far larger AuthenticationState at runtime; these fixtures carry only
+// the two fields that decide whether a pairing still exists.
+function authStateWith(creds: { registered: boolean; me?: { id: string } }): MongoDBAuthResult {
+  return { state: { creds }, saveCreds: vi.fn() } as unknown as MongoDBAuthResult;
+}
+
+const pairedAuthState = () =>
+  authStateWith({ registered: true, me: { id: '5511999999999:1@s.whatsapp.net' } });
+
+const unpairedAuthState = () => authStateWith({ registered: false });
 
 describe('ConnectionUpdateEvent watchdog wiring', () => {
   beforeEach(() => {
     ConnectionUpdateEvent.reset();
+    Resenhazord2.auth_state = pairedAuthState();
   });
 
   afterEach(() => {
@@ -69,21 +83,9 @@ describe('ConnectionUpdateEvent watchdog wiring', () => {
     });
 
     expect(capture).toHaveBeenCalledWith(
-      'Bot logged out; re-pair required before it can receive messages',
+      'WhatsApp session unpaired; re-pair required before the bot can receive messages',
       'fatal',
     );
-  });
-
-  it('disables the watchdog when the session is bad', async () => {
-    const disable = vi.spyOn(ConnectionWatchdog, 'disable').mockImplementation(() => {});
-    const error = new Boom('bad session', { statusCode: DisconnectReason.badSession });
-
-    await ConnectionUpdateEvent.run({
-      connection: 'close',
-      lastDisconnect: { error, date: new Date() },
-    });
-
-    expect(disable).toHaveBeenCalledOnce();
   });
 
   it('arms the watchdog on a reconnectable close so a stalled reconnect still restarts', async () => {
@@ -97,5 +99,59 @@ describe('ConnectionUpdateEvent watchdog wiring', () => {
     });
 
     expect(arm).toHaveBeenCalledOnce();
+  });
+});
+
+// Baileys defaults to 500 for every websocket or stream error it cannot classify
+// (`getCodeFromWSError`, `getErrorCodeFromStreamError`), so the status code alone never
+// proves the pairing died. Prod sat mute for 26h on 2026-07-24 because of that.
+describe('ConnectionUpdateEvent unclassified 500 close', () => {
+  beforeEach(() => {
+    ConnectionUpdateEvent.reset();
+    vi.spyOn(ConnectionState, 'markClosed').mockResolvedValue();
+    vi.spyOn(ConnectionWatchdog, 'arm').mockImplementation(() => {});
+    vi.spyOn(Sentry, 'captureMessage').mockReturnValue('');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const transportError = () =>
+    new Boom(
+      "WebSocket Error (WebSocket connection to 'wss://web.whatsapp.com/ws/chat' failed: Expected 101 status code)",
+      { statusCode: DisconnectReason.badSession },
+    );
+
+  it('reconnects while the stored credentials are still paired', async () => {
+    Resenhazord2.auth_state = pairedAuthState();
+    const disable = vi.spyOn(ConnectionWatchdog, 'disable').mockImplementation(() => {});
+    const scheduleReconnect = vi
+      .spyOn(ConnectionUpdateEvent, 'scheduleReconnect')
+      .mockResolvedValue();
+
+    await ConnectionUpdateEvent.run({
+      connection: 'close',
+      lastDisconnect: { error: transportError(), date: new Date() },
+    });
+
+    expect(scheduleReconnect).toHaveBeenCalledOnce();
+    expect(disable).not.toHaveBeenCalled();
+  });
+
+  it('gives up once the stored credentials confirm the pairing is gone', async () => {
+    Resenhazord2.auth_state = unpairedAuthState();
+    const disable = vi.spyOn(ConnectionWatchdog, 'disable').mockImplementation(() => {});
+    const scheduleReconnect = vi
+      .spyOn(ConnectionUpdateEvent, 'scheduleReconnect')
+      .mockResolvedValue();
+
+    await ConnectionUpdateEvent.run({
+      connection: 'close',
+      lastDisconnect: { error: transportError(), date: new Date() },
+    });
+
+    expect(disable).toHaveBeenCalledOnce();
+    expect(scheduleReconnect).not.toHaveBeenCalled();
   });
 });

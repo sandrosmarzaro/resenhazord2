@@ -23,8 +23,8 @@ export default class ConnectionWatchdog {
     this.clearTimer();
   }
 
-  // Terminal states (logged out, bad session) need a human to re-pair: restarting would
-  // only reload the same dead credentials, so silence the watchdog until the next boot.
+  // An unpaired session needs a human to re-pair: restarting would only reload the same
+  // dead credentials, so silence the watchdog until the next boot.
   static disable(): void {
     this.disabled = true;
     this.clearTimer();
