@@ -16,6 +16,7 @@ export default class ConnectionUpdateEvent {
     DisconnectReason.timedOut,
     DisconnectReason.restartRequired,
     DisconnectReason.unavailableService,
+    DisconnectReason.badSession,
   ]);
 
   static reconnectAttempts = 0;
@@ -73,20 +74,13 @@ export default class ConnectionUpdateEvent {
       reconnectAttempts: ConnectionUpdateEvent.reconnectAttempts,
     });
 
-    if (statusCode === DisconnectReason.loggedOut) {
-      logger.warn({ event: 'logged_out' });
+    if (ConnectionUpdateEvent.isUnpaired(statusCode)) {
+      logger.warn({ event: 'session_unpaired', statusCode });
       // Terminal: nothing reconnects until a human scans a new QR, so page instead of warn.
       Sentry.captureMessage(
-        'Bot logged out; re-pair required before it can receive messages',
+        'WhatsApp session unpaired; re-pair required before the bot can receive messages',
         'fatal',
       );
-      ConnectionWatchdog.disable();
-      ConnectionUpdateEvent.reset();
-      return;
-    }
-
-    if (statusCode === DisconnectReason.badSession) {
-      logger.warn({ event: 'bad_session' });
       ConnectionWatchdog.disable();
       ConnectionUpdateEvent.reset();
       return;
@@ -105,6 +99,21 @@ export default class ConnectionUpdateEvent {
       logger.warn({ event: 'reconnect_skipped', statusCode });
       ConnectionUpdateEvent.reset();
     }
+  }
+
+  // Baileys falls back to 500 for every websocket or stream error it cannot classify
+  // (`getCodeFromWSError`, `getErrorCodeFromStreamError`), so that code alone never proves
+  // the pairing died — only the stored credentials do. Trusting it left prod mute for 26h
+  // on 2026-07-24 after a transient "Expected 101 status code" from web.whatsapp.com.
+  private static isUnpaired(statusCode: number | null): boolean {
+    if (statusCode === DisconnectReason.loggedOut) {
+      return true;
+    }
+    if (statusCode !== DisconnectReason.badSession) {
+      return false;
+    }
+    const credentials = Resenhazord2.auth_state?.state.creds;
+    return !credentials?.registered || !credentials.me;
   }
 
   static async scheduleReconnect(): Promise<void> {
