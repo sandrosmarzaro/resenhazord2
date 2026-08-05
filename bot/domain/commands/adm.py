@@ -19,7 +19,7 @@ class AdmCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Xingue aleatoriamente todos os administradores do grupo.'
+        return 'Manda uma zoeira aleatória pros administradores do grupo.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         metadata = await self.whatsapp.group_metadata(data.jid)

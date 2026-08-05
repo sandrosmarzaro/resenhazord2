@@ -32,7 +32,7 @@ class FuckCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Foda a pessoa mencionada mandando uma foto de pornozão pra ela.'
+        return 'Marca alguém e recebe um conteúdo adulto (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         sender = data.participant or data.sender_jid
