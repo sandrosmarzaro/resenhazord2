@@ -77,7 +77,7 @@ class FootballTeamCommand(Command):
         clubs = list(squad_values.values())
         if not clubs:
             logger.warning('squad_values_empty', league=league.tm_id)
-            return [Reply.to(data).text('Nenhum time encontrado. Tente novamente! ⚽')]
+            return [Reply.to(data).text('Não achei esse time. Tenta de novo! ⚽')]
 
         clubs = self._apply_top_filter(top_str, clubs, standings)
         return await self._reply_random_team(data, clubs, standings, sports_teams, league)
@@ -128,7 +128,7 @@ class FootballTeamCommand(Command):
         top_club = await GlobalTopTeam.fetch(top_n)
         if not top_club:
             return [
-                Reply.to(data).text('Não foi possível buscar ranking global. Tente novamente! ⚽')
+                Reply.to(data).text('Ops, não consegui buscar o ranking agora! ⚽')
             ]
 
         league_code = GlobalTopTeam.find_league(top_club)

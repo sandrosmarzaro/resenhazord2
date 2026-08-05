@@ -270,4 +270,4 @@ class TestBooster:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro ao montar o booster' in messages[0].content.text
+        assert 'não consegui montar o booster' in messages[0].content.text
