@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.magic_the_gathering import MagicTheGatheringCommand
-from bot.domain.models.message import ImageBufferContent, ImageContent
+from bot.domain.models.message import ImageBufferContent, ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 MOCK_CARD = {
@@ -72,6 +72,16 @@ class TestSingleCard:
         assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
         assert messages[0].content.url == MOCK_CARD['imageUrl']
+
+    @pytest.mark.anyio
+    async def test_returns_error_text_on_failure(self, command, cards_route):
+        data = GroupCommandDataFactory.build(text=', mtg')
+        cards_route.mock(side_effect=Exception('Network error'))
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert isinstance(messages[0].content, TextContent)
+        assert 'não achei essa carta de MTG' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_caption_contains_name_type_and_rarity(self, command, cards_route, respx_mock):

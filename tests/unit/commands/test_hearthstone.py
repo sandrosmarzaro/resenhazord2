@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import httpx
 import pytest
 
@@ -165,6 +167,21 @@ class TestSingleCard:
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'Battle.net' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_returns_text_when_card_has_no_image(self, command, oauth_route, cards_route):
+        data = GroupCommandDataFactory.build(text=', hs')
+        cards_route.mock(
+            side_effect=[
+                httpx.Response(HTTPStatus.OK, json={'pageCount': 10, 'cards': []}),
+                httpx.Response(HTTPStatus.OK, json={'cards': [{**MOCK_CARD, 'image': ''}]}),
+            ]
+        )
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert isinstance(messages[0].content, TextContent)
+        assert 'não tem imagem' in messages[0].content.text
 
 
 class TestCaptionEdgeCases:
