@@ -44,7 +44,7 @@ class HoroscopeCommand(Command):
         normalized = self._strip_accents(sign_input)
         api_name = SIGN_LOOKUP.get(sign_input) or SIGN_LOOKUP.get(normalized)
         if not api_name:
-            return [Reply.to(data).text(f'Signo inválido! 🤔\n\n{SIGN_LIST_TEXT}')]
+            return [Reply.to(data).text(f'Signo inválido! 🙂\n\n{SIGN_LIST_TEXT}')]
         sign = SIGNS[api_name]
 
         response = await HttpClient.get(self.API_URL, params={'sign': api_name})
