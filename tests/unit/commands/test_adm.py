@@ -53,7 +53,7 @@ class TestExecute:
 
         assert len(messages) == 1
         text = messages[0].content.text
-        assert 'Vai se foder administração!' in text
+        assert 'Fala, administração!' in text
         assert '@5511999990000' in text
         assert '@5511999990001' in text
         assert '@5511999990002' not in text

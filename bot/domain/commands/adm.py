@@ -28,5 +28,5 @@ class AdmCommand(Command):
         admin_mentions = [f'@{strip_jid(a["id"])} ' for a in admins]
         swearing = random.choice(SWEARINGS)
         logger.info('adm_command', jid=data.jid, admin_count=len(admins))
-        text = f'Vai se foder administração! 🖕\nVocê é {swearing}\n{"".join(admin_mentions)}'
+        text = f'Fala, administração! 😏\nVocê é {swearing}\n{"".join(admin_mentions)}'
         return [Reply.to(data).text_with(text, admin_jids)]
