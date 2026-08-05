@@ -99,7 +99,7 @@ class TestRun:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro' in messages[0].content.text
+        assert 'Ops' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_handles_missing_optional_fields(self, command, respx_mock):

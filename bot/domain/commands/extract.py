@@ -27,7 +27,7 @@ class ExtractCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         if data.media_type != 'sticker' or data.media_source != 'quoted':
-            return [Reply.to(data).text('Responda a um sticker para extrair a imagem! 🤦\u200d♂️')]
+            return [Reply.to(data).text('Responda a um sticker pra eu extrair a imagem! 😊')]
 
         logger.info(
             'extrair_command',

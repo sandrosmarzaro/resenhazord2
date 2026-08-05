@@ -58,7 +58,7 @@ class MusicCommand(Command):
             return await self._run_deezer(data, parsed)
         except Exception:
             logger.exception('music_command_error')
-            return [Reply.to(data).text('Erro ao buscar música. Tente novamente mais tarde! 🎵')]
+            return [Reply.to(data).text('Ops, não consegui buscar música agora! 🎵')]
 
     async def _run_deezer(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         tag, genre_id = self._parse_deezer_genre(parsed.rest)
@@ -69,7 +69,7 @@ class MusicCommand(Command):
         )
         tracks: list[dict[str, Any]] = res.json().get('data') or []
         if not tracks:
-            return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
+            return [Reply.to(data).text('Não encontrei músicas desse gênero. Tenta outro! 🎵')]
 
         track = random.choice(tracks)
         duration = self._format_duration(track['duration'])
@@ -103,7 +103,7 @@ class MusicCommand(Command):
         )
         tracks: list[dict[str, Any]] = res.json().get('results') or []
         if not tracks:
-            return [Reply.to(data).text('Não encontrei músicas para esse gênero. Tente outro! 🎵')]
+            return [Reply.to(data).text('Não encontrei músicas desse gênero. Tenta outro! 🎵')]
 
         track = random.choice(tracks)
         duration = self._format_duration(track['duration'])

@@ -44,7 +44,7 @@ class FootballStandingsCommand(Command):
         standings = await TransfermarktService.fetch_full_standings(league)
 
         if not standings:
-            return [Reply.to(data).text('Tabela nao encontrada. Tente novamente! ')]
+            return [Reply.to(data).text('Ops, não achei essa tabela agora! ⚽')]
 
         zones = LEAGUE_ZONES.get(liga_code, [])
 

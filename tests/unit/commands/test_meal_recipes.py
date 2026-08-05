@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.meal_recipes import MealRecipesCommand
-from bot.domain.models.message import ImageContent
+from bot.domain.models.message import ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 MEAL_API_URL = 'https://www.themealdb.com/api/json/v1/1/random.php'
@@ -189,3 +189,15 @@ class TestRun:
         caption = messages[0].content.caption
         assert caption is not None
         assert 'Desconhecido' in caption
+
+
+class TestErrors:
+    @pytest.mark.anyio
+    async def test_returns_error_text_on_failure(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=',comida')
+        respx_mock.get(MEAL_API_URL).mock(side_effect=Exception('Network error'))
+        messages = await command.run(data)
+
+        assert len(messages) == 1
+        assert isinstance(messages[0].content, TextContent)
+        assert 'não achei essa receita' in messages[0].content.text

@@ -102,7 +102,7 @@ class TestExecute:
         messages = await command.run(data)
 
         assert 'Valor inválido' in messages[0].content.text
-        assert '🤷‍♂️' in messages[0].content.text
+        assert '🙂' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_shows_all_12_currencies(self, command, respx_mock):

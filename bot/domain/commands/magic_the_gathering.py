@@ -47,9 +47,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
             return [Reply.to(data).image(card['imageUrl'], caption)]
         except Exception:
             logger.exception('mtg_fetch_error')
-            return [
-                Reply.to(data).text('Erro ao buscar carta de MTG. Tente novamente mais tarde! 🃏')
-            ]
+            return [Reply.to(data).text('Ops, não achei essa carta de MTG agora! 🃏')]
 
     @staticmethod
     def _build_caption(card: dict) -> str:

@@ -40,7 +40,7 @@ class PornoCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Receba um porno aleatório real ou feito por IA.'
+        return 'Recebe um conteúdo adulto aleatório, real ou por IA (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         if 'ia' in parsed.flags:

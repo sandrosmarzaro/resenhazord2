@@ -48,7 +48,7 @@ class CountryFlagCommand(Command):
             return [Reply.to(data).image(flag_png, caption)]
         except Exception:
             logger.exception('country_flag_fetch_error')
-            return [Reply.to(data).text('Erro ao buscar bandeira. Tente novamente mais tarde! 🌍')]
+            return [Reply.to(data).text('Ops, não achei essa bandeira agora! 🌍')]
 
     @staticmethod
     def _has_flag(country: dict) -> bool:

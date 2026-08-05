@@ -42,7 +42,7 @@ class HentaiCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Envia um hentai aleatório com informações do Hitomi.la.'
+        return 'Recebe um hentai aleatório com infos do Hitomi.la (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         fetch_fn = self._select_source(parsed)

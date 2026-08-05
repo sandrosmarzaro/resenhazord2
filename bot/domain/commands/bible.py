@@ -58,7 +58,7 @@ class BibleCommand(Command):
 
         book = self.VERSE_PATTERN.sub('', rest).strip()
         if not book:
-            return [Reply.to(data).text('Por favor, digite o nome do livro da bíblia... 😔')]
+            return [Reply.to(data).text('Por favor, digite o nome do livro da bíblia 🙂')]
 
         chapter_match = re.search(r'(\d{1,3}):', rest)
         chapter = chapter_match.group(1) if chapter_match else ''

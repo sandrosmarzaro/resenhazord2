@@ -66,7 +66,7 @@ class AnimalCommand(Command):
             return [Reply.to(data).image_buffer(buffer, caption)]
         except Exception:
             logger.exception('animal_command_error')
-            return [Reply.to(data).text('Erro ao buscar animal. Tente novamente mais tarde! 🐾')]
+            return [Reply.to(data).text('Ops, não achei nenhum bichinho agora! 🐾')]
 
     async def _fetch_with_rate_limit(self, wiki_title: str) -> dict | None:
         for _ in range(self.MAX_RETRIES + 1):
