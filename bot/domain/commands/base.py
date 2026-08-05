@@ -109,7 +109,7 @@ class Command(ABC):
 
     async def run(self, data: CommandData) -> list[BotMessage]:
         if self.config.group_only and not data.is_group:
-            return [Reply.to(data).text('Esse comando só funciona em grupo! 🤦‍♂️')]
+            return [Reply.to(data).text('Ah, esse comando só funciona em grupo! 😊')]
         parsed = self.parser.parse(data.text)
         messages = await self.execute(data, parsed)
         return self._apply_flags(data, parsed, messages)
