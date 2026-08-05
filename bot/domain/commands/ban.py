@@ -63,7 +63,7 @@ class BanCommand(Command):
                 logger.exception('ban_random_error', jid=data.jid)
                 break
             phone = strip_jid(target['id'])
-            messages.append(Reply.to(data).text_with(f'Se fudeu! @{phone} 🖕', [target['id']]))
+            messages.append(Reply.to(data).text_with(f'Já era! @{phone} 👋😅', [target['id']]))
             break
         return messages
 
@@ -87,5 +87,5 @@ class BanCommand(Command):
                 logger.exception('ban_mentioned_error', jid=data.jid, target=jid)
                 continue
             phone = strip_jid(jid)
-            messages.append(Reply.to(data).text_with(f'Se fudeu! @{phone} 🖕', [jid]))
+            messages.append(Reply.to(data).text_with(f'Já era! @{phone} 👋😅', [jid]))
         return messages

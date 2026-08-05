@@ -47,7 +47,7 @@ class TestNoViewOnce:
         messages = await command.run(data)
 
         assert len(messages) == 1
-        assert 'mensagem única' in messages[0].content.text
+        assert 'visualização única' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_non_view_once_media(self, command):
@@ -60,7 +60,7 @@ class TestNoViewOnce:
         messages = await command.run(data)
 
         assert len(messages) == 1
-        assert 'mensagem única' in messages[0].content.text
+        assert 'visualização única' in messages[0].content.text
 
 
 class TestImageViewOnce:
