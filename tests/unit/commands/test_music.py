@@ -161,7 +161,7 @@ class TestDeezer:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro ao buscar' in messages[0].content.text
+        assert 'não consegui buscar música' in messages[0].content.text
 
 
 class TestJamendo:
@@ -255,7 +255,7 @@ class TestJamendo:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro ao buscar' in messages[0].content.text
+        assert 'não consegui buscar música' in messages[0].content.text
 
 
 class TestDuration:

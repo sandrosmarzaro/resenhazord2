@@ -495,7 +495,7 @@ class TestErrorHandling:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro ao buscar carro' in messages[0].content.text
+        assert 'não achei esse carro' in messages[0].content.text
 
 
 class TestYearFormatting:

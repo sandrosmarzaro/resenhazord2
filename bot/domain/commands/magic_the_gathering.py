@@ -48,7 +48,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
         except Exception:
             logger.exception('mtg_fetch_error')
             return [
-                Reply.to(data).text('Erro ao buscar carta de MTG. Tente novamente mais tarde! 🃏')
+                Reply.to(data).text('Ops, não achei essa carta de MTG agora! 🃏')
             ]
 
     @staticmethod
