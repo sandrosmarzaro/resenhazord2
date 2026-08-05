@@ -65,4 +65,4 @@ class PuppyCommand(Command):
             return await self._fetch_cat(data)
         except Exception:
             logger.exception('puppy_fetch_error')
-            return [Reply.to(data).text('Erro ao buscar imagem. Tente novamente mais tarde! 🐾')]
+            return [Reply.to(data).text('Ops, não consegui pegar a imagem agora! 🐾')]
