@@ -127,9 +127,7 @@ class FootballTeamCommand(Command):
     async def _global_top_team(self, data: CommandData, top_n: int) -> list[BotMessage]:
         top_club = await GlobalTopTeam.fetch(top_n)
         if not top_club:
-            return [
-                Reply.to(data).text('Ops, não consegui buscar o ranking agora! ⚽')
-            ]
+            return [Reply.to(data).text('Ops, não consegui buscar o ranking agora! ⚽')]
 
         league_code = GlobalTopTeam.find_league(top_club)
         if league_code is None:

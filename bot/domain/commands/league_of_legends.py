@@ -96,9 +96,7 @@ class LeagueOfLegendsCommand(Command):
             return [Reply.to(data).image(splash_url, '\n'.join(lines))]
         except Exception:
             logger.exception('lol_fetch_error')
-            return [
-                Reply.to(data).text('Ops, não achei esse campeão agora! 🎮')
-            ]
+            return [Reply.to(data).text('Ops, não achei esse campeão agora! 🎮')]
 
     async def _fetch_opgg_build(self, champion_name: str) -> list[str] | None:
         try:
