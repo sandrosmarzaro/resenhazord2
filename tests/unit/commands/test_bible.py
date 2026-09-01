@@ -102,6 +102,14 @@ class TestRun:
         assert 'Por favor, digite o nome' in messages[0].content.text
 
     @pytest.mark.anyio
+    async def test_api_down_returns_friendly_message(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bíblia')
+        respx_mock.get(url__regex=r'.*/verses/.*/random').mock(return_value=httpx.Response(500))
+        messages = await command.run(data)
+
+        assert 'fora do ar' in messages[0].content.text
+
+    @pytest.mark.anyio
     async def test_verse_range(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1-3')
         respx_mock.get(url__regex=r'.*/books$').mock(

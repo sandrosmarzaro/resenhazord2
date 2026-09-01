@@ -1,5 +1,8 @@
 import re
 
+import httpx
+import structlog
+
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     ArgType,
@@ -13,6 +16,8 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
+
+logger = structlog.get_logger()
 
 
 class BibleCommand(Command):
@@ -46,6 +51,17 @@ class BibleCommand(Command):
         return {'Authorization': f'Bearer {self._biblia_token}'}
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        try:
+            return await self._lookup(data, parsed)
+        except httpx.HTTPError:
+            logger.exception('bible_command_error')
+            return [
+                Reply.to(data).text(
+                    'A API da bíblia está fora do ar agora... 😔 Tenta de novo daqui a pouco 🙏'
+                )
+            ]
+
+    async def _lookup(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         rest = parsed.rest.strip()
         version = parsed.options.get('version', 'nvi')
         headers = self._auth_headers()
