@@ -29,7 +29,7 @@ class TestInitOtel:
         span_setter = mocker.patch('bot.infrastructure.otel.trace.set_tracer_provider')
         settings = Settings(otel_exporter_otlp_endpoint='')
 
-        init_otel(settings)
+        init_otel(settings, mocker.Mock())
 
         span_setter.assert_not_called()
 
@@ -40,13 +40,18 @@ class TestInitOtel:
         span_setter = mocker.patch('bot.infrastructure.otel.trace.set_tracer_provider')
         meter_setter = mocker.patch('bot.infrastructure.otel.metrics.set_meter_provider')
         log_setter = mocker.patch('bot.infrastructure.otel.set_logger_provider')
+        fastapi_inst = mocker.patch('bot.infrastructure.otel.FastAPIInstrumentor')
+        mocker.patch('bot.infrastructure.otel.HTTPXClientInstrumentor')
+        mocker.patch('bot.infrastructure.otel.AioPikaInstrumentor')
+        app = mocker.Mock()
         settings = Settings(
             otel_exporter_otlp_endpoint=endpoint,
             otel_exporter_otlp_headers='Authorization=Basic abc',
         )
 
-        init_otel(settings)
+        init_otel(settings, app)
 
         span_setter.assert_called_once()
         meter_setter.assert_called_once()
         log_setter.assert_called_once()
+        fastapi_inst.instrument_app.assert_called_once_with(app)

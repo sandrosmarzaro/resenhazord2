@@ -7,12 +7,17 @@ exporter needs the per-signal path (`/v1/traces` etc.) spelled out when the
 endpoint is passed explicitly rather than read from the environment.
 """
 
+from typing import TYPE_CHECKING
+
 import structlog
 from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.aio_pika import AioPikaInstrumentor
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
@@ -23,13 +28,16 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from bot.settings import Settings
 
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+
 logger = structlog.get_logger()
 
 _NAMESPACE = 'resenhazord2'
 _NODE = 'core'
 
 
-def init_otel(settings: Settings) -> None:
+def init_otel(settings: Settings, app: 'FastAPI') -> None:
     endpoint = settings.otel_exporter_otlp_endpoint.rstrip('/')
     if not endpoint:
         return
@@ -46,7 +54,17 @@ def init_otel(settings: Settings) -> None:
     _init_traces(endpoint, headers, resource)
     _init_metrics(endpoint, headers, resource)
     _init_logs(endpoint, headers, resource)
+    _instrument(app)
     logger.info('otel_initialized', endpoint=endpoint, service=settings.otel_service_name)
+
+
+def _instrument(app: 'FastAPI') -> None:
+    # FastAPI is instrumented by instance (the app is already built at import time,
+    # so the global patch would miss it); httpx and aio-pika patch their libraries
+    # globally, covering the outbound API calls and the broker publish/consume path.
+    FastAPIInstrumentor.instrument_app(app)
+    HTTPXClientInstrumentor().instrument()  # type: ignore[union-attr]
+    AioPikaInstrumentor().instrument()  # type: ignore[union-attr]
 
 
 def _init_traces(endpoint: str, headers: dict[str, str], resource: Resource) -> None:
