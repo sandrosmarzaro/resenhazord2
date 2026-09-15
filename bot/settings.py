@@ -7,6 +7,15 @@ class Settings(BaseSettings):
     # Sentry
     sentry_dsn: str | None = None
 
+    # OpenTelemetry -> Grafana Cloud (LGTM). Empty endpoint disables all export
+    # (init_otel is a no-op), the way sentry_dsn gates Sentry. Read through here
+    # rather than the SDK's implicit env lookup so it behaves the same under
+    # docker env_file and a local .env (pydantic loads .env into Settings, not
+    # os.environ).
+    otel_exporter_otlp_endpoint: str = ''
+    otel_exporter_otlp_headers: str = ''
+    otel_service_name: str = 'bot'
+
     # MongoDB
     mongodb_uri: str = 'mongodb://localhost:27017/resenhazord2'
     mongodb_db_name: str = 'resenhazord2'
