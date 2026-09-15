@@ -132,6 +132,37 @@ class TestRetry:
         assert 'commands.retry' not in queues
 
     @pytest.mark.anyio
+    async def test_download_error_dlq_logs_at_warning(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = DownloadError('video gone')
+        logger = mocker.patch('bot.adapters.broker.command_consumer.logger')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        logger.warning.assert_called_once_with(
+            'command_retries_exhausted', attempts=1, error='video gone'
+        )
+        logger.error.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_exhausted_external_error_dlq_logs_at_error(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('still down')
+        logger = mocker.patch('bot.adapters.broker.command_consumer.logger')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver(
+            'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+        )
+
+        logger.error.assert_called_once_with(
+            'command_retries_exhausted', attempts=CommandConsumer.MAX_ATTEMPTS, error='still down'
+        )
+
+    @pytest.mark.anyio
     async def test_validation_error_replies_without_retry(self, mocker):
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()

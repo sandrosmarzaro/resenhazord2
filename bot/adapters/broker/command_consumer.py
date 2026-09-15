@@ -76,7 +76,12 @@ class CommandConsumer:
             await self._broker.publish(self.RETRY_QUEUE, json.dumps(envelope).encode())
             logger.warning('command_retry_scheduled', attempts=attempts, error=str(error))
             return
-        logger.error('command_retries_exhausted', attempts=attempts, error=str(error))
+        # A permanently-failed download (blocked/private/unsupported URL) is an
+        # expected user outcome already answered with a friendly reply, not an
+        # incident — log it below Sentry's error capture. A non-download error
+        # exhausting the full ladder is a real outage and stays at error level.
+        log = logger.warning if isinstance(error, DownloadError) else logger.error
+        log('command_retries_exhausted', attempts=attempts, error=str(error))
         await self._broker.publish(self.DLQ_QUEUE, json.dumps(envelope).encode())
         await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
 
