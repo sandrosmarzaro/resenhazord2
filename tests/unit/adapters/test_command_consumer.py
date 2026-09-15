@@ -205,3 +205,35 @@ class TestErrors:
 
         _, body = broker.published[0]
         assert json.loads(body) == {'id': 'corr-1', 'messages': []}
+
+
+class TestTracePropagation:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_extracts_parent_context_from_envelope(self, mocker):
+        extract = mocker.patch('bot.adapters.broker.command_consumer.extract_trace_context')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        extract.assert_called_once()
+        assert extract.call_args.args[0]['id'] == 'corr-1'
+
+    @pytest.mark.anyio
+    async def test_injects_trace_context_into_reply(self, mocker):
+        inject = mocker.patch('bot.adapters.broker.command_consumer.inject_trace_context')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        inject.assert_called_once()
+        assert 'messages' in inject.call_args.args[0]
