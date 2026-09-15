@@ -9,6 +9,6 @@ from bot.settings import Settings
 settings = Settings()
 configure_logging()
 init_sentry(settings.sentry_dsn)
-init_otel(settings)
+init_otel(settings, app)
 
 __all__ = ['app']
