@@ -2,8 +2,19 @@
 
 Ready-to-use PromQL and alert specs for Grafana Cloud, built on the signals shipped
 in phases 0–4 ([PRD](prd-observability-otel-lgtm.md)). Metric names below were captured
-from the live Alloy pipeline, not guessed. Build these as panels in a **"Resenhazord2"**
-dashboard (Grafana → Dashboards → New) and the alerts under Alerting → Alert rules.
+from the live Alloy pipeline, not guessed.
+
+## Import the dashboard
+
+An importable dashboard covering every signal below lives at
+[`observability/grafana/resenhazord2-dashboard.json`](../observability/grafana/resenhazord2-dashboard.json)
+(RED by outcome, p50/p95 latency, retries/DLQ, host memory/CPU/swap/load).
+
+Grafana → Dashboards → New → **Import** → upload the JSON → pick your Grafana Cloud
+Prometheus data source when prompted. It's a starter — refine panels in the UI. If a
+panel shows **"No data"**, confirm the metric name in Grafana's metric browser: OTLP→
+Prometheus naming can vary slightly by Grafana version, and the queries here use the
+names captured from Alloy (see the table below). The alerts stay manual (below).
 
 ## Metric reference
 
