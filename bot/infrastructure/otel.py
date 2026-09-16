@@ -7,6 +7,7 @@ exporter needs the per-signal path (`/v1/traces` etc.) spelled out when the
 endpoint is passed explicitly rather than read from the environment.
 """
 
+import logging
 from typing import TYPE_CHECKING
 
 import structlog
@@ -18,7 +19,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.instrumentation.aio_pika import AioPikaInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
@@ -85,6 +86,10 @@ def _init_logs(endpoint: str, headers: dict[str, str], resource: Resource) -> No
     exporter = OTLPLogExporter(endpoint=f'{endpoint}/v1/logs', headers=headers)
     provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
     set_logger_provider(provider)
+    # Bridge stdlib logging (where structlog emits) into the OTel logs pipeline, so
+    # every log ships to Loki as a structured record with the active trace's id
+    # attached — logs and traces cross-link in Grafana. Sentry stays untouched.
+    logging.getLogger().addHandler(LoggingHandler(logger_provider=provider))
 
 
 def _parse_headers(raw: str) -> dict[str, str]:

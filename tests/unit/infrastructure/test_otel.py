@@ -43,6 +43,8 @@ class TestInitOtel:
         fastapi_inst = mocker.patch('bot.infrastructure.otel.FastAPIInstrumentor')
         mocker.patch('bot.infrastructure.otel.HTTPXClientInstrumentor')
         mocker.patch('bot.infrastructure.otel.AioPikaInstrumentor')
+        mocker.patch('bot.infrastructure.otel.LoggingHandler')
+        mocker.patch('bot.infrastructure.otel.logging.getLogger')
         app = mocker.Mock()
         settings = Settings(
             otel_exporter_otlp_endpoint=endpoint,
@@ -55,3 +57,21 @@ class TestInitOtel:
         meter_setter.assert_called_once()
         log_setter.assert_called_once()
         fastapi_inst.instrument_app.assert_called_once_with(app)
+
+    def test_bridges_stdlib_logging_into_otel(self, mocker):
+        mocker.patch('bot.infrastructure.otel.trace.set_tracer_provider')
+        mocker.patch('bot.infrastructure.otel.metrics.set_meter_provider')
+        mocker.patch('bot.infrastructure.otel.set_logger_provider')
+        mocker.patch('bot.infrastructure.otel.FastAPIInstrumentor')
+        mocker.patch('bot.infrastructure.otel.HTTPXClientInstrumentor')
+        mocker.patch('bot.infrastructure.otel.AioPikaInstrumentor')
+        handler = mocker.patch('bot.infrastructure.otel.LoggingHandler')
+        root = mocker.patch('bot.infrastructure.otel.logging.getLogger').return_value
+        settings = Settings(
+            otel_exporter_otlp_endpoint='https://otlp.example/otlp',
+            otel_exporter_otlp_headers='Authorization=Basic abc',
+        )
+
+        init_otel(settings, mocker.Mock())
+
+        root.addHandler.assert_called_once_with(handler.return_value)
