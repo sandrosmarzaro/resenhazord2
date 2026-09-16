@@ -45,11 +45,23 @@ prometheus.exporter.unix "host" {
 
 prometheus.scrape "host" {
 	targets         = prometheus.exporter.unix.host.targets
-	forward_to      = [otelcol.receiver.prometheus.host.receiver]
+	forward_to      = [otelcol.receiver.prometheus.scraped.receiver]
 	scrape_interval = "30s"
 }
 
-otelcol.receiver.prometheus "host" {
+// RabbitMQ queue metrics from the edge, scraped over the VCN private subnet
+// (Oracle security list opens 15692 edge->core). /metrics/per-object gives
+// per-queue depth. Empty RABBITMQ_METRICS_ADDR = the scrape target is unset and
+// the job simply reports down, no host impact.
+prometheus.scrape "rabbitmq" {
+	targets         = [{"__address__" = sys.env("RABBITMQ_METRICS_ADDR"), "instance" = "edge-rabbitmq"}]
+	metrics_path    = "/metrics/per-object"
+	forward_to      = [otelcol.receiver.prometheus.scraped.receiver]
+	scrape_interval = "30s"
+	job_name        = "rabbitmq"
+}
+
+otelcol.receiver.prometheus "scraped" {
 	output {
 		metrics = [otelcol.exporter.otlphttp.grafana.input]
 	}

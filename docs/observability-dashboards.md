@@ -85,13 +85,34 @@ infra/flow gaps that led to the freezes.
 | Swap thrashing | `100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes) > 80` | 10m | Sustained swap pressure precedes the freeze |
 | Command error surge | `sum(rate(traces_span_metrics_calls_total{command_outcome!="success"}[5m])) / sum(rate(traces_span_metrics_calls_total[5m])) > 0.3` | 10m | A broad upstream/logic failure, not one bad URL |
 | Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after the retry ladder |
+| Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 100` | 5m | The bot is falling behind / stalled consuming |
 
-## Not covered yet — RabbitMQ queue depth
+## RabbitMQ queue metrics
 
-There is no queue-depth metric: nothing scrapes RabbitMQ. `command_retries_total` /
-`command_dlq_total` are the current proxy for broker trouble. True depth needs the
-RabbitMQ Prometheus plugin (or an exporter) on the **edge**, scraped by an Alloy there —
-a follow-up, out of the current hybrid scope (the edge has no collector).
+The edge RabbitMQ runs its bundled `rabbitmq_prometheus` plugin (enabled via
+[`observability/rabbitmq/enabled_plugins`](../observability/rabbitmq/enabled_plugins)),
+exposing `/metrics` on **15692**. The **core** Alloy scrapes it over the VCN private
+subnet — no collector on the memory-tight edge. To turn it on:
+
+1. Open **15692 edge → core** on the Oracle security list (like 5672 already is).
+2. Set `RABBITMQ_METRICS_ADDR=<edge_private_ip>:15692` in the core `.env`.
+3. Redeploy: `docker compose -f compose.edge.yml up -d` (plugin + port) and
+   `docker compose -f compose.core.yml up -d` (Alloy scrape).
+
+Useful metrics (per-object endpoint, `queue` label): `rabbitmq_queue_messages_ready`
+(backlog), `rabbitmq_queue_messages_unacked`, `rabbitmq_queue_messages_published_total`,
+`rabbitmq_queue_messages_delivered_total`. Our queues: `commands`, `commands.retry`,
+`commands.dlq`, `replies`, `group_events`.
+
+### Queue depth (ready) by queue
+```promql
+sum by (queue) (rabbitmq_queue_messages_ready)
+```
+
+### Dead-letter / retry backlog
+```promql
+rabbitmq_queue_messages{queue=~"commands.dlq|commands.retry"}
+```
 
 ## Cross-linking logs ↔ traces
 
