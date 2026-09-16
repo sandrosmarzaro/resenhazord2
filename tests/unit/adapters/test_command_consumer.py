@@ -237,3 +237,67 @@ class TestTracePropagation:
 
         inject.assert_called_once()
         assert 'messages' in inject.call_args.args[0]
+
+
+class TestMetrics:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @staticmethod
+    def _span(mocker):
+        tracer = mocker.patch('bot.adapters.broker.command_consumer._tracer')
+        return tracer.start_as_current_span.return_value.__enter__.return_value
+
+    @pytest.mark.anyio
+    async def test_success_tags_span_with_success_outcome(self, mocker):
+        span = self._span(mocker)
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        span.set_attribute.assert_called_once_with('command.outcome', 'success')
+
+    @pytest.mark.anyio
+    async def test_bot_error_tags_span_with_bot_error_outcome(self, mocker):
+        span = self._span(mocker)
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = BotError('nope')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        span.set_attribute.assert_called_once_with('command.outcome', 'bot_error')
+
+    @pytest.mark.anyio
+    async def test_scheduled_retry_tags_external_outcome_and_counts_retry(self, mocker):
+        span = self._span(mocker)
+        retry = mocker.patch('bot.adapters.broker.command_consumer.record_retry')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('api down')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        span.set_attribute.assert_called_once_with('command.outcome', 'external_error')
+        retry.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_exhausted_retries_count_dlq(self, mocker):
+        self._span(mocker)
+        dlq = mocker.patch('bot.adapters.broker.command_consumer.record_dlq')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('still down')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver(
+            'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+        )
+
+        dlq.assert_called_once()
