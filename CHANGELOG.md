@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v2.5.0 (2026-09-16)
+
+### Feat
+
+- **observability**: RabbitMQ queue metrics via the edge prometheus plugin
+- **observability**: importable Grafana dashboard for all signals
+- **gateway**: open the trace on the edge and carry it in the envelope (Phase 4)
+- **observability**: ship structlog logs to Loki via OTel (Phase 3)
+
 ## v2.4.0 (2026-09-16)
 
 ### Feat

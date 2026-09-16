@@ -85,8 +85,11 @@ continuous trace edge↔core per command.
 - **Phase 4 — Gateway (edge):** Bun/OTel spike as a gate; if it passes, instrument
   the gateway (publish-side `traceparent`, metrics, logs) with a minimal memory
   footprint; decide edge host-metrics separately.
-- **Phase 5 — Dashboards + alerts:** Grafana dashboards (RED, queue, host
-  memory/OOM) and infra alerts.
+- **Phase 5 — Dashboards + alerts:** ready-to-use PromQL panels (RED by outcome,
+  retry/DLQ, host memory/swap/CPU) and infra alert specs (memory low, swap
+  thrashing, error surge, dead-letters) in [observability-dashboards.md](observability-dashboards.md),
+  built on captured (not guessed) metric names. Queue depth is a noted follow-up
+  (needs a RabbitMQ exporter on the edge).
 
 ## Risks / open spikes
 
