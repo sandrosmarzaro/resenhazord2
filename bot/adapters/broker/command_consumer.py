@@ -14,6 +14,7 @@ from bot.domain.commands.base import Platform
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.infrastructure.metrics import record_dlq, record_retry
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
 
@@ -64,18 +65,25 @@ class CommandConsumer:
         # envelope (not AMQP headers), so the whole command — and any span it
         # spawns — hangs under the originating gateway span.
         parent = extract_trace_context(envelope)
-        with _tracer.start_as_current_span('command.handle', context=parent):
+        outcome = 'success'
+        # RED (rate/errors/duration) is derived from this span by the spanmetrics
+        # connector in the core Alloy collector, split by the command.outcome
+        # attribute — so no manual count/latency here.
+        with _tracer.start_as_current_span('command.handle', context=parent) as span:
             try:
                 messages = await self._command_handler.handle(command_data)
             except ExternalServiceError as error:
+                outcome = 'external_error'
                 await self._retry_or_fail(envelope, command_data, error)
-                return
             except BotError as error:
+                outcome = 'bot_error'
                 await self._publish_reply(
                     envelope, [Reply.to(command_data).text(error.user_message)]
                 )
-                return
-            await self._publish_reply(envelope, messages or [])
+            else:
+                await self._publish_reply(envelope, messages or [])
+            finally:
+                span.set_attribute('command.outcome', outcome)
 
     async def _retry_or_fail(
         self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError
@@ -85,6 +93,7 @@ class CommandConsumer:
             envelope['attempts'] = attempts
             await self._broker.publish(self.RETRY_QUEUE, json.dumps(envelope).encode())
             logger.warning('command_retry_scheduled', attempts=attempts, error=str(error))
+            record_retry()
             return
         # A permanently-failed download (blocked/private/unsupported URL) is an
         # expected user outcome already answered with a friendly reply, not an
@@ -92,6 +101,7 @@ class CommandConsumer:
         # exhausting the full ladder is a real outage and stays at error level.
         log = logger.warning if isinstance(error, DownloadError) else logger.error
         log('command_retries_exhausted', attempts=attempts, error=str(error))
+        record_dlq()
         await self._broker.publish(self.DLQ_QUEUE, json.dumps(envelope).encode())
         await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
 
