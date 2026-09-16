@@ -45,10 +45,12 @@ services:
     networks:
       - resenha-network
     restart: unless-stopped
-    # AMQP exposed for the core node over the VCN private subnet (Oracle security list
-    # opens 5672 only from VM-B). Management UI stays bound to localhost.
+    # AMQP + Prometheus metrics exposed for the core node over the VCN private subnet
+    # (Oracle security list opens 5672 and 15692 only from VM-B). Management UI stays
+    # bound to localhost.
     ports:
       - "5672:5672"
+      - "15692:15692"
       - "127.0.0.1:15672:15672"
     mem_limit: 400m
     # No RABBITMQ_VM_MEMORY_HIGH_WATERMARK env: rabbitmq:3.13 rejects that deprecated
@@ -56,6 +58,8 @@ services:
     # safer choice on this 1 GB node (blocks publishers before the host OOMs).
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+      # Enable the bundled rabbitmq_prometheus plugin (exposes /metrics on 15692).
+      - ./observability/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     logging:
       driver: json-file
       options:
