@@ -29,6 +29,11 @@
     "prepare": "echo 'hooks managed by pre-commit'"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
+    "@opentelemetry/resources": "^2.11.0",
+    "@opentelemetry/sdk-trace-base": "^2.11.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "@sentry/bun": "^10.59.0",
     "@upstash/redis": "^1.38.0",
     "@whiskeysockets/baileys": "7.0.0-rc13",
