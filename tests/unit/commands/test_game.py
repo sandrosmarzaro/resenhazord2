@@ -224,7 +224,7 @@ class TestRawgFallback:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro ao buscar' in messages[0].content.text
+        assert 'não achei esse jogo' in messages[0].content.text
 
 
 class TestBothSourcesFail:
@@ -240,7 +240,7 @@ class TestBothSourcesFail:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro ao buscar jogo' in messages[0].content.text
+        assert 'não achei esse jogo' in messages[0].content.text
 
 
 class TestRawgOption:
@@ -264,7 +264,7 @@ class TestRawgOption:
         messages = await command.run(data)
 
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro ao buscar jogo' in messages[0].content.text
+        assert 'não achei esse jogo' in messages[0].content.text
 
 
 class TestCaption:

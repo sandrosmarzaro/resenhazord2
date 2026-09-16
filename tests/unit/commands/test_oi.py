@@ -44,14 +44,15 @@ class TestRun:
         assert data.participant in messages[0].content.mentions
 
     @pytest.mark.anyio
-    async def test_uses_sender_jid_in_private_chat(self, command):
-        data = PrivateCommandDataFactory.build(text=', oi')
+    async def test_greets_by_name_without_mention_in_private_chat(self, command):
+        data = PrivateCommandDataFactory.build(text=', oi', push_name='Ana')
 
         messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert data.sender_jid in messages[0].content.mentions
+        assert messages[0].content.mentions == []
+        assert 'Ana' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_includes_expiration(self, command):
@@ -78,7 +79,7 @@ class TestRun:
         messages = await command.run(data)
 
         assert '<@123456789>' in messages[0].content.text
-        assert 'Vai se foder' in messages[0].content.text
+        assert 'Oi' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_telegram_uses_push_name(self, command):
@@ -87,7 +88,7 @@ class TestRun:
         messages = await command.run(data)
 
         assert 'João' in messages[0].content.text
-        assert 'Vai se foder' in messages[0].content.text
+        assert 'Oi' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_whatsapp_text_contains_sender_phone(self, command):

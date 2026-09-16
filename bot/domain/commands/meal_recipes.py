@@ -32,7 +32,7 @@ class MealRecipesCommand(Command):
             return await self._fetch_and_build(data)
         except Exception:
             logger.exception('meal_recipes_error')
-            return [Reply.to(data).text('Erro ao buscar receita. Tente novamente mais tarde! 🍽️')]
+            return [Reply.to(data).text('Ops, não achei essa receita agora! 🍽️')]
 
     async def _fetch_and_build(self, data: CommandData) -> list[BotMessage]:
         url = 'https://www.themealdb.com/api/json/v1/1/random.php'

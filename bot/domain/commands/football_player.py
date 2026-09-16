@@ -68,7 +68,7 @@ class FootballPlayerCommand(Command):
             players = self._trim_last_page(players, top_str, max_page)
 
         if not players:
-            return [Reply.to(data).text('Nenhum jogador encontrado. Tente novamente! ⚽')]
+            return [Reply.to(data).text('Não achei esse jogador. Tenta de novo! ⚽')]
 
         player = random.choice(players)
         details = await self._fetch_details(player.profile_url)

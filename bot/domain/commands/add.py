@@ -79,7 +79,7 @@ class AddCommand(Command):
                     )
                 except Exception:
                     logger.exception('add_random_phone_error', jid=data.jid, phone=phone)
-                    return [Reply.to(data).text(f'Não consegui adicionar o número {phone} 😔')]
+                    return [Reply.to(data).text(f'Ops, não consegui adicionar o número {phone} 😅')]
                 return []
 
     async def _add_phone(self, data: CommandData, phone: str) -> list[BotMessage]:
@@ -90,5 +90,5 @@ class AddCommand(Command):
             await self.whatsapp.group_participants_update(data.jid, [jid], 'add')
         except Exception:
             logger.exception('add_phone_error', jid=data.jid, phone=phone)
-            return [Reply.to(data).text(f'Não consegui adicionar o número {phone} 😔')]
+            return [Reply.to(data).text(f'Ops, não consegui adicionar o número {phone} 😅')]
         return []

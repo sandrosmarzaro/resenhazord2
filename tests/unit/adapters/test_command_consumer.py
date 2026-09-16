@@ -132,6 +132,37 @@ class TestRetry:
         assert 'commands.retry' not in queues
 
     @pytest.mark.anyio
+    async def test_download_error_dlq_logs_at_warning(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = DownloadError('video gone')
+        logger = mocker.patch('bot.adapters.broker.command_consumer.logger')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        logger.warning.assert_called_once_with(
+            'command_retries_exhausted', attempts=1, error='video gone'
+        )
+        logger.error.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_exhausted_external_error_dlq_logs_at_error(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('still down')
+        logger = mocker.patch('bot.adapters.broker.command_consumer.logger')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver(
+            'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+        )
+
+        logger.error.assert_called_once_with(
+            'command_retries_exhausted', attempts=CommandConsumer.MAX_ATTEMPTS, error='still down'
+        )
+
+    @pytest.mark.anyio
     async def test_validation_error_replies_without_retry(self, mocker):
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
@@ -174,3 +205,99 @@ class TestErrors:
 
         _, body = broker.published[0]
         assert json.loads(body) == {'id': 'corr-1', 'messages': []}
+
+
+class TestTracePropagation:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_extracts_parent_context_from_envelope(self, mocker):
+        extract = mocker.patch('bot.adapters.broker.command_consumer.extract_trace_context')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        extract.assert_called_once()
+        assert extract.call_args.args[0]['id'] == 'corr-1'
+
+    @pytest.mark.anyio
+    async def test_injects_trace_context_into_reply(self, mocker):
+        inject = mocker.patch('bot.adapters.broker.command_consumer.inject_trace_context')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        inject.assert_called_once()
+        assert 'messages' in inject.call_args.args[0]
+
+
+class TestMetrics:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @staticmethod
+    def _span(mocker):
+        tracer = mocker.patch('bot.adapters.broker.command_consumer._tracer')
+        return tracer.start_as_current_span.return_value.__enter__.return_value
+
+    @pytest.mark.anyio
+    async def test_success_tags_span_with_success_outcome(self, mocker):
+        span = self._span(mocker)
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        span.set_attribute.assert_called_once_with('command.outcome', 'success')
+
+    @pytest.mark.anyio
+    async def test_bot_error_tags_span_with_bot_error_outcome(self, mocker):
+        span = self._span(mocker)
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = BotError('nope')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        span.set_attribute.assert_called_once_with('command.outcome', 'bot_error')
+
+    @pytest.mark.anyio
+    async def test_scheduled_retry_tags_external_outcome_and_counts_retry(self, mocker):
+        span = self._span(mocker)
+        retry = mocker.patch('bot.adapters.broker.command_consumer.record_retry')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('api down')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        span.set_attribute.assert_called_once_with('command.outcome', 'external_error')
+        retry.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_exhausted_retries_count_dlq(self, mocker):
+        self._span(mocker)
+        dlq = mocker.patch('bot.adapters.broker.command_consumer.record_dlq')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('still down')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver(
+            'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+        )
+
+        dlq.assert_called_once()

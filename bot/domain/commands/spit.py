@@ -24,7 +24,7 @@ class SpitCommand(Command):
         if data.media_source != 'view_once' or data.media_type not in self.SUPPORTED_MEDIA:
             return [
                 Reply.to(data).text(
-                    'Burro burro! Você precisa marcar uma mensagem única pra eu escarrar! 🤦\u200d♂️'
+                    'Ei, marca uma mensagem de visualização única pra eu escarrar! 😝'
                 )
             ]
 

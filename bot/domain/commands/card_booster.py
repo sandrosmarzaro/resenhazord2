@@ -62,4 +62,4 @@ class CardBoosterCommand(Command):
             return [Reply.to(data).image_buffer(grid_buffer, caption)]
         except Exception:
             logger.exception('booster_error', command=type(self).__name__)
-            return [Reply.to(data).text('Erro ao montar o booster. Tente novamente mais tarde! 🃏')]
+            return [Reply.to(data).text('Ops, não consegui montar o booster agora! 🃏')]

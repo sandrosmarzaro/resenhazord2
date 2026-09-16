@@ -9,6 +9,11 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file: .env
+    # Ship telemetry to the local Alloy collector instead of straight to Grafana
+    # Cloud (hybrid egress): Alloy holds the credential and derives RED + host
+    # metrics. Overrides the direct endpoint in .env.
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318
     # Apply pending migrations before serving, then hand PID 1 to uvicorn.
     command: sh -c "alembic upgrade head && exec uvicorn bot.main:app --host 0.0.0.0 --port 8000"
     # yt-dlp cookies for login-gated sources (Instagram). Place the Netscape-format
@@ -32,6 +37,36 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+  # Core-node OTel collector (hybrid egress): receives OTLP from the bot, derives
+  # RED from the command.handle spans (spanmetrics), scrapes host RAM/CPU/swap, and
+  # is the single egress to Grafana Cloud — holding the one credential. ~55 MB idle.
+  # The edge gateway stays OTLP-direct (no memory headroom for a collector there).
+  alloy:
+    container_name: alloy
+    image: grafana/alloy:v1.19.2
+    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    environment:
+      - GRAFANA_CLOUD_OTLP_ENDPOINT=${GRAFANA_CLOUD_OTLP_ENDPOINT}
+      - GRAFANA_CLOUD_OTLP_AUTH=${GRAFANA_CLOUD_OTLP_AUTH}
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # Host filesystem, read-only, for node_exporter (RAM/CPU/swap).
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    # UI/metrics bound to localhost only, like the RabbitMQ management port.
+    ports:
+      - "127.0.0.1:12345:12345"
+    networks:
+      - resenha-network
+    restart: unless-stopped
+    mem_limit: 150m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   resenha-network:

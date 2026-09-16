@@ -65,7 +65,7 @@ class TestBanRandom:
         messages = await command.run(data)
 
         assert len(messages) == 1
-        assert 'Se fudeu!' in messages[0].content.text
+        assert 'Já era!' in messages[0].content.text
         assert '@5511999990001' in messages[0].content.text
         mock_whatsapp.group_participants_update.assert_called_once_with(
             self.CHAT_JID, [target_jid], 'remove'

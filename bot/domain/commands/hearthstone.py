@@ -71,7 +71,7 @@ class HearthstoneCommand(CardBoosterCommand):
 
         image_url = self._safe_text(card.get('image', ''))
         if not image_url:
-            return [Reply.to(data).text('Essa carta não tem imagem. Tente novamente.')]
+            return [Reply.to(data).text('Essa carta não tem imagem 😅 Tenta outra!')]
 
         return [Reply.to(data).image(image_url, caption)]
 

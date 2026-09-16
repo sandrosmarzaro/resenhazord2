@@ -133,7 +133,7 @@ class TestAddSpecificPhone:
 
         messages = await command.run(data)
 
-        assert any('Não consegui' in m.content.text for m in messages)
+        assert any('não consegui' in m.content.text for m in messages)
 
 
 class TestAddRandomPhone:
@@ -186,4 +186,4 @@ class TestAddRandomPhone:
 
         messages = await command.run(data)
 
-        assert any('Não consegui' in m.content.text for m in messages)
+        assert any('não consegui' in m.content.text for m in messages)

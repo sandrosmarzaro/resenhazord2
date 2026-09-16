@@ -60,7 +60,7 @@ class FipeCommand(Command):
             return [Reply.to(data).text(text)]
         except Exception:
             logger.exception('fipe_command_error')
-            return [Reply.to(data).text('Erro ao consultar tabela FIPE. Tente novamente! 🚗')]
+            return [Reply.to(data).text('Ops, não consegui consultar a FIPE agora! 🚗')]
 
     async def _fetch_details(self, base: str, model_code: int, years: list[dict]) -> dict | None:
         shuffled = years.copy()

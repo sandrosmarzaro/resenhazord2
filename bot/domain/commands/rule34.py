@@ -36,7 +36,7 @@ class Rule34Command(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Receba uma imagem aleatória da Rule 34.'
+        return 'Recebe uma imagem aleatória da Rule 34 (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         response = await HttpClient.get(

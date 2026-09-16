@@ -60,7 +60,7 @@ class BeerCommand(Command):
             return [Reply.to(data).image(beer['image_url'], '\n'.join(lines))]
         except Exception:
             logger.exception('beer_fetch_error')
-            return [Reply.to(data).text('Erro ao buscar cerveja. Tente novamente mais tarde! 🍺')]
+            return [Reply.to(data).text('Ops, não achei uma cerveja agora! 🍺')]
 
     async def _get_random_beer(self) -> dict:
         page = random.randint(1, self.MAX_PAGE)

@@ -43,11 +43,11 @@ class AudioCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         language = (parsed.options.get('lang') or self.DEFAULT_LANGUAGE).lower()
         if language not in LANGUAGES:
-            return [Reply.to(data).text('Burro burro! O idioma 🏳️‍🌈 não existe!')]
+            return [Reply.to(data).text('Opa, esse idioma eu ainda não conheço! 🌍')]
 
         text = parsed.rest.strip() or (data.quoted_text or '').strip()
         if not text:
-            return [Reply.to(data).text('Burro burro! Cadê o texto? 🤨')]
+            return [Reply.to(data).text('Cadê o texto pra eu falar? 🤔')]
 
         chunks = self._split_long_text(text)
         urls = [

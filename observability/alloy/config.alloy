@@ -1,0 +1,66 @@
+// Grafana Alloy — core-node collector (PRD: hybrid egress).
+// The bot exports OTLP here; Alloy derives RED from spans (spanmetrics),
+// scrapes host metrics, and is the single egress to Grafana Cloud (holds the
+// credential). The edge gateway stays OTLP-direct.
+
+otelcol.receiver.otlp "in" {
+	grpc {
+		endpoint = "0.0.0.0:4317"
+	}
+
+	http {
+		endpoint = "0.0.0.0:4318"
+	}
+
+	output {
+		traces  = [otelcol.connector.spanmetrics.red.input, otelcol.exporter.otlphttp.grafana.input]
+		metrics = [otelcol.exporter.otlphttp.grafana.input]
+		logs    = [otelcol.exporter.otlphttp.grafana.input]
+	}
+}
+
+// RED (rate/errors/duration) derived from spans, split by command.outcome.
+otelcol.connector.spanmetrics "red" {
+	dimension {
+		name = "command.outcome"
+	}
+
+	histogram {
+		explicit { }
+	}
+
+	output {
+		metrics = [otelcol.exporter.otlphttp.grafana.input]
+	}
+}
+
+// Host metrics (RAM/CPU/swap) via node_exporter, routed into the OTLP pipeline
+// so everything egresses through one endpoint and one credential. Paths point at
+// the host filesystem mounted read-only by the compose service.
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/rootfs"
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	forward_to      = [otelcol.receiver.prometheus.host.receiver]
+	scrape_interval = "30s"
+}
+
+otelcol.receiver.prometheus "host" {
+	output {
+		metrics = [otelcol.exporter.otlphttp.grafana.input]
+	}
+}
+
+otelcol.exporter.otlphttp "grafana" {
+	client {
+		endpoint = sys.env("GRAFANA_CLOUD_OTLP_ENDPOINT")
+
+		headers = {
+			"Authorization" = sys.env("GRAFANA_CLOUD_OTLP_AUTH"),
+		}
+	}
+}

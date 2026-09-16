@@ -69,7 +69,7 @@ class GameCommand(Command):
             except Exception:
                 logger.exception('game_source_error', source=source.__class__.__name__)
                 continue
-        return [Reply.to(data).text('Erro ao buscar jogo. Tente novamente mais tarde! 🎮')]
+        return [Reply.to(data).text('Ops, não achei esse jogo agora! 🎮')]
 
     @staticmethod
     def _build_caption(game: GameInfo) -> str:

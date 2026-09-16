@@ -138,7 +138,7 @@ class TestRun:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro' in messages[0].content.text
+        assert 'Ops' in messages[0].content.text
 
     @pytest.mark.anyio
     async def test_skips_countries_without_flag(self, command, respx_mock):
@@ -167,7 +167,7 @@ class TestRun:
         messages = await command.run(data)
 
         assert isinstance(messages[0].content, TextContent)
-        assert 'Erro' in messages[0].content.text
+        assert 'Ops' in messages[0].content.text
 
 
 class TestDetailFlag:

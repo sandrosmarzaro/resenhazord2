@@ -89,7 +89,7 @@ class CarCommand(Command):
             return [Reply.to(data).image_buffer(buffer, caption)]
         except Exception:
             logger.exception('carro_command_error')
-            return [Reply.to(data).text('Erro ao buscar carro. Tente novamente mais tarde! 🚗')]
+            return [Reply.to(data).text('Ops, não achei esse carro agora! 🚗')]
 
     async def _fetch_details(self, base: str, model_code: int, years: list[dict]) -> dict | None:
         shuffled = years.copy()

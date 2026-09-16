@@ -38,7 +38,7 @@ class CurrencyCommand(Command):
             try:
                 amount = float(amount_str.replace(',', '.'))
             except ValueError:
-                return [Reply.to(data).text('Valor inválido! Use um número. 🤷‍♂️')]
+                return [Reply.to(data).text('Valor inválido! Manda um número 🙂')]
 
         response = await HttpClient.get(self.API_URL)
         response.raise_for_status()

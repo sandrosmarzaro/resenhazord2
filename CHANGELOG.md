@@ -2,6 +2,32 @@
 
 <!-- version list -->
 
+## v2.4.0 (2026-09-16)
+
+### Feat
+
+- **observability**: Grafana Alloy collector on the core node (Phase 2 step B)
+- **observability**: tag command outcome on the span, count retry/DLQ (Phase 2 step A)
+- **observability**: propagate trace context through the broker envelope (Phase 1 step 2)
+- **observability**: auto-instrument FastAPI, httpx, aio-pika (Phase 1 step 1)
+- **observability**: OpenTelemetry foundation exporting to Grafana Cloud
+- **commands**: soften menu descriptions for adm and nsfw commands
+- **commands**: warm validation copy in currency, add, horoscope, bible, hearthstone
+- **commands**: warm error copy in booster, fipe, football trio
+- **commands**: warm error copy in car, lol, music, mtg, meal_recipes
+- **commands**: warm error copy in animal, beer, puppy, country_flag, game
+- **commands**: soften ,adm opener, keep the roast list
+- **commands**: soften harsh replies in ban, audio, spit, extract
+- **commands**: friendly ,oi greeting and fix private-chat mention
+
+### Fix
+
+- **broker**: log permanent download failures below Sentry error level
+- **deps**: bump cryptography 49 -> 50 for PYSEC-2026-3552
+- **deps**: bump six packages to patch known CVEs
+- **commands**: handle bible API outage gracefully
+- **gateway**: confirm credentials before giving up on a 500 close
+
 ## v2.3.2 (2026-07-20)
 
 ### Fix
