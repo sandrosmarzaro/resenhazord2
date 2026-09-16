@@ -3,8 +3,11 @@ import { describe, it, expect, vi } from 'vitest';
 import CommandPublisher from '../../../src/bridge/CommandPublisher.js';
 import type BrokerPort from '../../../src/ports/BrokerPort.js';
 import type MediaHandler from '../../../src/bridge/MediaHandler.js';
+import { injectPublishTrace } from '../../../src/infra/Otel.js';
 import { createMockBrokerPort } from '../../fixtures/factories/MockBrokerPort.js';
 import { GroupCommandData } from '../../fixtures/index.js';
+
+vi.mock('../../../src/infra/Otel.js', () => ({ injectPublishTrace: vi.fn() }));
 
 function makeBroker(): BrokerPort {
   return createMockBrokerPort();
@@ -35,6 +38,22 @@ describe('CommandPublisher', () => {
       expect(envelope.data.jid).toBe(data.key.remoteJid);
       expect(envelope.data.is_group).toBe(true);
       expect(envelope.data.media_buffer_b64).toBeUndefined();
+    });
+
+    it('opens a publish trace on the envelope for edge->core continuity', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',ping' });
+      vi.mocked(injectPublishTrace).mockClear();
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      expect(injectPublishTrace).toHaveBeenCalledOnce();
+      const carrier = (injectPublishTrace as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(carrier).toHaveProperty('id');
+      expect(carrier).toHaveProperty('data');
     });
 
     it('carries mentions and the quoted text', async () => {

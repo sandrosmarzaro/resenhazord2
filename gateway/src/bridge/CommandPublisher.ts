@@ -4,6 +4,7 @@ import type BrokerPort from '../ports/BrokerPort.js';
 import type MediaHandler from './MediaHandler.js';
 import type { MediaInfo } from './MediaHandler.js';
 import logger from '../infra/Logger.js';
+import { injectPublishTrace } from '../infra/Otel.js';
 
 interface ConversationMentionShape {
   conversationMessage?: { contextInfo?: { mentionedJid?: string[] } };
@@ -21,7 +22,13 @@ export default class CommandPublisher {
     const id = crypto.randomUUID();
     const mediaInfo = this.mediaHandler.detectMedia(data);
     const mediaBuffer = mediaInfo ? await this.download(data, mediaInfo) : null;
-    const envelope = { id, data: this.buildData(data, mediaInfo, mediaBuffer) };
+    const envelope: Record<string, unknown> = {
+      id,
+      data: this.buildData(data, mediaInfo, mediaBuffer),
+    };
+    // Open the trace here and carry it in the envelope so the core bot's command
+    // handling hangs under this gateway span (edge -> core).
+    injectPublishTrace(envelope);
     await this.broker.publish(CommandPublisher.QUEUE, Buffer.from(JSON.stringify(envelope)));
     return id;
   }
