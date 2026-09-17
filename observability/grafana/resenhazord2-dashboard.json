@@ -75,7 +75,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\", command_outcome!=\"success\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\"}[5m])), 0.0001)"
+          "expr": "(sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\", command_outcome!=\"success\"}[5m])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\"}[5m])) or vector(0), 0.0001)"
         }
       ]
     },
@@ -179,13 +179,13 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(command_retries_total[5m]))",
+          "expr": "sum(rate(command_retries_total[5m])) or vector(0)",
           "legendFormat": "retries/s"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(command_dlq_total[5m]))",
+          "expr": "sum(rate(command_dlq_total[5m])) or vector(0)",
           "legendFormat": "dead-letters/s"
         }
       ]
@@ -333,13 +333,13 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(rabbitmq_queue_messages_published_total[5m]))",
+          "expr": "sum(rate(rabbitmq_global_messages_received_total[5m]))",
           "legendFormat": "published/s"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(rabbitmq_queue_messages_delivered_total[5m]))",
+          "expr": "sum(rate(rabbitmq_global_messages_delivered_total[5m]))",
           "legendFormat": "delivered/s"
         }
       ]
