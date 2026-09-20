@@ -370,6 +370,45 @@ class TestObservability:
 
         record.assert_called_once_with('unavailable', '', '')
 
+    @pytest.mark.anyio
+    async def test_records_clarify_outcome(self, executor, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': '{"question": "qual?"}'})
+
+        await executor.run(_data('@resenhazord algo'))
+
+        record.assert_called_once_with('clarify', 'github', '')
+
+    @pytest.mark.anyio
+    async def test_records_suggest_outcome(self, executor, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        _stub_chain(mocker, tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,fato!"}'})
+
+        await executor.run(_data('@resenhazord por que o céu é azul'))
+
+        record.assert_called_once_with('suggest', 'github', '')
+
+    @pytest.mark.anyio
+    async def test_records_confirm_outcome_on_low_confidence(self, executor, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.2}'},
+        )
+
+        await executor.run(_data('@resenhazord placar'))
+
+        record.assert_called_once_with('confirm', 'github', '')
+
+    @pytest.mark.anyio
+    async def test_records_unresolvable_outcome(self, executor, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        _stub_chain(mocker, content='gibberish that matches nothing')
+
+        await executor.run(_data('@resenhazord blah'))
+
+        record.assert_called_once_with('unresolvable', 'github', '')
+
 
 class _FakePromptRegistry:
     def __init__(self, system_prompt: SystemPrompt) -> None:

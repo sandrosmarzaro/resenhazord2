@@ -6,7 +6,6 @@ from typing import ClassVar
 
 import httpx
 import structlog
-from opentelemetry import trace
 
 from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
@@ -103,10 +102,6 @@ class AgentExecutor:
 
     @staticmethod
     def _record(result: CommandData, outcome: str, provider: str, version: str) -> CommandData:
-        span = trace.get_current_span()
-        span.set_attribute('agent.outcome', outcome)
-        span.set_attribute('agent.provider', provider)
-        span.set_attribute('agent.prompt.version', version)
         record_agent_mapping(outcome, provider, version)
         return result
 

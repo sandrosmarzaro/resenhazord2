@@ -9,7 +9,7 @@ histogram for those. The meter resolves to the global provider `init_otel`
 installs (a proxy until then), so recording is a no-op when OTel is disabled.
 """
 
-from opentelemetry import metrics
+from opentelemetry import metrics, trace
 
 _meter = metrics.get_meter(__name__)
 
@@ -37,11 +37,14 @@ def record_dlq() -> None:
 
 
 def record_agent_mapping(outcome: str, provider: str, prompt_version: str) -> None:
-    _agent_mappings.add(
-        1,
-        {
-            'agent.outcome': outcome,
-            'agent.provider': provider,
-            'agent.prompt.version': prompt_version,
-        },
-    )
+    dimensions = {
+        'agent.outcome': outcome,
+        'agent.provider': provider,
+        'agent.prompt.version': prompt_version,
+    }
+    _agent_mappings.add(1, dimensions)
+    # Stamp the same dimensions on the enclosing command.handle span so a single
+    # trace can be tied to the prompt version and outcome that produced it.
+    span = trace.get_current_span()
+    for key, value in dimensions.items():
+        span.set_attribute(key, value)

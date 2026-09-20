@@ -1,3 +1,7 @@
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
 from bot.infrastructure.metrics import record_agent_mapping, record_dlq, record_retry
 
 
@@ -31,3 +35,17 @@ class TestAgentMapping:
                 'agent.prompt.version': 'c0ffee',
             },
         )
+
+    def test_record_agent_mapping_stamps_current_span(self, mocker):
+        mocker.patch('bot.infrastructure.metrics._agent_mappings')
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+
+        with provider.get_tracer('test').start_as_current_span('command.handle'):
+            record_agent_mapping('command', 'github', 'c0ffee')
+
+        attributes = exporter.get_finished_spans()[0].attributes
+        assert attributes['agent.outcome'] == 'command'
+        assert attributes['agent.provider'] == 'github'
+        assert attributes['agent.prompt.version'] == 'c0ffee'
