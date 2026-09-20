@@ -17,7 +17,11 @@ def anyio_backend() -> str:
 @pytest.mark.eval
 @pytest.mark.anyio
 async def test_prompt_maps_held_out_requests_above_threshold():
-    register_all_commands(Settings())
+    settings = Settings()
+    if not (settings.github_token or settings.mistral_api_key or settings.groq_api_key):
+        pytest.skip('no LLM provider configured; set a provider key to run the prompt eval')
+
+    register_all_commands(settings)
     executor = AgentExecutor()
 
     misses = []

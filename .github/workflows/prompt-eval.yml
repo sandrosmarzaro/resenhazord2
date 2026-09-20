@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  models: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -37,9 +36,11 @@ jobs:
       - run: uv sync --frozen
       - run: uv run task prompt:eval
         env:
-          # GitHub Models via the built-in token (models: read). Mistral/Groq are
-          # optional fallbacks; unset secrets leave those providers unconfigured.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Provider keys from repo secrets. With none set the eval self-skips, so
+          # the gate stays green until a provider is configured. The built-in
+          # Actions GITHUB_TOKEN does not authenticate GitHub Models, so a PAT with
+          # models access must be supplied as GH_MODELS_TOKEN to use that provider.
+          GITHUB_TOKEN: ${{ secrets.GH_MODELS_TOKEN }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           # Present key evaluates the hub prompt at this alias; absent key evaluates

@@ -73,8 +73,10 @@ accepted risk of the "trust the cache" fallback stance.
 - Prompt edits ship via `prompt:push` → `prompt:eval` (or the workflow) →
   `prompt:promote`, no core re-deploy. Rollback is `prompt:promote` at an older
   green commit. Runbook: [docs/prompt-management.md](../prompt-management.md).
-- New secrets for the eval workflow: `LANGSMITH_API_KEY` (optional `MISTRAL_API_KEY`,
-  `GROQ_API_KEY`); GitHub Models runs on the built-in token (`models: read`).
+- Eval-workflow secrets: at least one provider key (`GH_MODELS_TOKEN` — a PAT with
+  models access, since the built-in Actions token does not authenticate GitHub Models —
+  `MISTRAL_API_KEY`, or `GROQ_API_KEY`), optional `LANGSMITH_API_KEY`. With none set the
+  eval self-skips, so the gate stays green until a provider is configured.
 - No queue contract changes, so no expand/contract concern
   ([ADR 0006](./0006-two-node-cicd-deploy.md)) — the pull is a read-only,
   node-local call on the core node.
