@@ -340,6 +340,33 @@ class TestConfidenceGating:
         assert result.text == ',placar now'
 
 
+class _FakePromptRegistry:
+    def __init__(self, template: str) -> None:
+        self._template = template
+
+    def system_prompt_template(self) -> str:
+        return self._template
+
+
+class TestPromptRegistrySource:
+    _CUSTOM = 'CUSTOM-PROMPT {command_list}{examples}{context}{user_context}'
+
+    @pytest.mark.anyio
+    async def test_uses_injected_registry_template(self):
+        executor = AgentExecutor(prompt_registry=_FakePromptRegistry(self._CUSTOM))
+
+        prompt = executor._build_prompt('ver placar', _STATIC_EXAMPLES)
+
+        assert prompt.startswith('CUSTOM-PROMPT')
+        assert 'REGRAS DE INFERÊNCIA' not in prompt
+
+    @pytest.mark.anyio
+    async def test_falls_back_to_in_code_template_without_registry(self, executor):
+        prompt = executor._build_prompt('ver placar', _STATIC_EXAMPLES)
+
+        assert 'REGRAS DE INFERÊNCIA' in prompt
+
+
 def _data(text: str) -> CommandData:
     return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net')
 

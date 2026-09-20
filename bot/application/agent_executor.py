@@ -24,6 +24,10 @@ from bot.domain.constants import (
 )
 from bot.domain.models.command_data import CommandData
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
+from bot.infrastructure.llm.langsmith_prompt_registry import (
+    LangSmithPromptRegistry,
+    PromptRegistryError,
+)
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
@@ -32,6 +36,7 @@ from bot.infrastructure.llm.tools import (
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.ports.example_retriever_port import ExampleRetrieverPort
 from bot.ports.llm_provider_port import LLMProviderPort
+from bot.ports.prompt_registry_port import PromptRegistryPort
 
 logger = structlog.get_logger()
 
@@ -50,10 +55,12 @@ class AgentExecutor:
         registry: CommandRegistry | None = None,
         retriever: ExampleRetrieverPort | None = None,
         provider: LLMProviderPort | None = None,
+        prompt_registry: PromptRegistryPort | None = None,
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._retriever = retriever or UpstashExampleRetriever.configured()
         self._provider = provider or LangChainProvider.configured()
+        self._prompt_registry = prompt_registry or LangSmithPromptRegistry.configured()
         command_tools = self._with_confidence(build_tools_for_prompt(self._registry))
         self._tools = command_tools + AGENT_META_TOOLS
         self._command_list = get_command_list_with_descriptions(self._registry)
@@ -65,14 +72,14 @@ class AgentExecutor:
         Returns CommandData with rewritten text for command execution.
         """
         examples = await self._select_examples(data.text)
-        prompt = self._build_prompt(data.text, examples, context=data.quoted_text)
 
         logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
 
         try:
+            prompt = self._build_prompt(data.text, examples, context=data.quoted_text)
             provider = self._provider or ProviderChain.instance()
             response = await provider.complete(prompt, self._tools)
-        except (httpx.HTTPError, RuntimeError) as e:
+        except (httpx.HTTPError, RuntimeError, PromptRegistryError) as e:
             logger.warning('agent_provider_failed', error=str(e))
             return self._fallback(data, self._AGENT_UNAVAILABLE_MSG)
 
@@ -171,7 +178,12 @@ class AgentExecutor:
             context_block = ''
             user_block = f'\nPedido do usuário: {filtered_input}'
 
-        return SYSTEM_PROMPT_TEMPLATE.format(
+        template = (
+            self._prompt_registry.system_prompt_template()
+            if self._prompt_registry
+            else SYSTEM_PROMPT_TEMPLATE
+        )
+        return template.format(
             command_list=self._command_list,
             examples=examples_text,
             user_input=filtered_input,

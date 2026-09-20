@@ -80,4 +80,11 @@ class Settings(BaseSettings):
     upstash_vector_rest_url: str = ''
     upstash_vector_rest_token: str = ''
 
+    # LangSmith Prompt Hub (registry-only: versioned system prompt pulled at
+    # runtime, no tracing). Empty api key disables the pull the way otel_endpoint
+    # gates OTel: the agent falls back to the in-code SYSTEM_PROMPT_TEMPLATE.
+    langsmith_api_key: str = ''
+    langsmith_prompt_name: str = 'resenhazord-agent'
+    langsmith_prompt_tag: str = 'prod'
+
     model_config = {'env_file': '.env', 'extra': 'ignore'}
