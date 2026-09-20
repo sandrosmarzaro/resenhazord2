@@ -44,6 +44,15 @@ class TestDropsExpectedNoise:
 
         assert before_send({}, hint) is None
 
+    def test_drops_otlp_exporter_failure(self, mocker):
+        before_send = _before_send(mocker)
+        event = {
+            'logger': 'opentelemetry.exporter.otlp.proto.http.trace_exporter',
+            'logentry': {'message': 'Failed to export span batch due to timeout.'},
+        }
+
+        assert before_send(event, {}) is None
+
 
 class TestKeepsRealErrors:
     def test_keeps_unrelated_exception(self, mocker):
@@ -62,5 +71,11 @@ class TestKeepsRealErrors:
     def test_keeps_broker_close_that_is_not_a_refusal(self, mocker):
         before_send = _before_send(mocker)
         event = {'message': 'AMQPConnectionError: authentication failure'}
+
+        assert before_send(event, {}) == event
+
+    def test_keeps_application_log_from_other_logger(self, mocker):
+        before_send = _before_send(mocker)
+        event = {'logger': 'bot.services.download', 'message': 'download failed'}
 
         assert before_send(event, {}) == event

@@ -1,5 +1,7 @@
 """Sentry initialization."""
 
+from fnmatch import fnmatch
+
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.types import Event, Hint
@@ -8,6 +10,7 @@ from bot.data.sentry_noise import (
     ABSORBED_EXCEPTION_NAMES,
     BROKER_REFUSAL_EXCEPTION_NAME,
     BROKER_REFUSAL_MARKER,
+    TELEMETRY_LOGGER_PATTERNS,
 )
 
 
@@ -26,7 +29,14 @@ def _drop_expected_noise(event: Event, hint: Hint) -> Event | None:
         return None
     if _is_transient_broker_refusal(event, hint):
         return None
+    if _is_telemetry_export_noise(event):
+        return None
     return event
+
+
+def _is_telemetry_export_noise(event: Event) -> bool:
+    logger_name = event.get('logger') or ''
+    return any(fnmatch(logger_name, pattern) for pattern in TELEMETRY_LOGGER_PATTERNS)
 
 
 def _is_absorbed_provider_error(hint: Hint) -> bool:
