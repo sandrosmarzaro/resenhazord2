@@ -75,8 +75,9 @@ accepted risk of the "trust the cache" fallback stance.
   green commit. Runbook: [docs/prompt-management.md](../prompt-management.md).
 - Eval-workflow secrets: at least one provider key (`GH_MODELS_TOKEN` — a PAT with
   models access, since the built-in Actions token does not authenticate GitHub Models —
-  `MISTRAL_API_KEY`, or `GROQ_API_KEY`), optional `LANGSMITH_API_KEY`. With none set the
-  eval self-skips, so the gate stays green until a provider is configured.
+  `MISTRAL_API_KEY`, or `GROQ_API_KEY`), optional `LANGSMITH_API_KEY`. When no provider
+  answers (none set, or all failing) the eval treats every sample as inconclusive and
+  self-skips, so the gate stays green until a provider actually works.
 - No queue contract changes, so no expand/contract concern
   ([ADR 0006](./0006-two-node-cicd-deploy.md)) — the pull is a read-only,
   node-local call on the core node.

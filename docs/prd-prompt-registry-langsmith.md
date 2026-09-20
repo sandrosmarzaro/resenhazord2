@@ -82,8 +82,9 @@ Runbook: [docs/prompt-management.md](./prompt-management.md).
 - **Cold-start pull failure.** Accepted: SWR cache covers transients; a cold miss with the
   hub down degrades to "IA indisponível", direct commands unaffected.
 - **Eval quota.** The eval hits real providers; kept out of the default suite and run only
-  on prompt changes / on demand. It self-skips when no provider key is set, so it never
-  blocks a PR before secrets exist (the built-in Actions token does not authenticate
-  GitHub Models — supply `GH_MODELS_TOKEN`, `MISTRAL_API_KEY`, or `GROQ_API_KEY`).
+  on prompt changes / on demand. A provider outage is inconclusive, not a miss; when no
+  provider answers the eval self-skips, so it never blocks a PR before a working provider
+  exists (the built-in Actions token does not authenticate GitHub Models — supply
+  `GH_MODELS_TOKEN`, `MISTRAL_API_KEY`, or `GROQ_API_KEY`).
 - **Second vendor.** A deliberate cost for update-without-deploy; scoped to one cached read
   and gated off without a key.

@@ -44,8 +44,9 @@ The `prompt-eval` GitHub workflow runs the same eval automatically on changes to
 `bot/data/agent_examples.py`, `tests/eval/**`, or the prompt scripts, and on demand
 (`workflow_dispatch`, input `prompt_tag`). It needs a provider secret to do real work
 (`GH_MODELS_TOKEN` — a PAT, since the built-in Actions token does not authenticate
-GitHub Models — `MISTRAL_API_KEY`, or `GROQ_API_KEY`); with none set it self-skips and
-stays green. **Promote only a commit whose eval is green (not skipped).**
+GitHub Models — `MISTRAL_API_KEY`, or `GROQ_API_KEY`); a provider outage is inconclusive,
+so when none answers it self-skips and stays green. **Promote only a commit whose eval is
+green (not skipped).**
 
 ## Rollback
 
