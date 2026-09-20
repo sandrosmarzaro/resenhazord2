@@ -19,6 +19,13 @@ _retries = _meter.create_counter(
 _dlq = _meter.create_counter(
     'command.dlq', unit='1', description='Commands dead-lettered after exhausting retries'
 )
+# The agent's NL->command mapping is not a broker command span, so its RED
+# metrics can't be derived by the spanmetrics connector. This counter carries
+# the outcome, provider, and prompt version so Grafana can chart which prompt
+# version and provider produce which mapping outcomes.
+_agent_mappings = _meter.create_counter(
+    'agent.mappings', unit='1', description='Agent natural-language to command mappings'
+)
 
 
 def record_retry() -> None:
@@ -27,3 +34,14 @@ def record_retry() -> None:
 
 def record_dlq() -> None:
     _dlq.add(1)
+
+
+def record_agent_mapping(outcome: str, provider: str, prompt_version: str) -> None:
+    _agent_mappings.add(
+        1,
+        {
+            'agent.outcome': outcome,
+            'agent.provider': provider,
+            'agent.prompt.version': prompt_version,
+        },
+    )

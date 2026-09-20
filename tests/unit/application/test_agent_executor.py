@@ -2,12 +2,13 @@ import httpx
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
-from bot.data.agent_examples import AGENT_EXAMPLES
+from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
 from bot.domain.constants import (
     CLARIFY_PREFIX,
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.system_prompt import SystemPrompt
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.providers.base import LLMResponse
@@ -25,20 +26,23 @@ def executor() -> AgentExecutor:
 class TestPromptBuilding:
     @pytest.mark.anyio
     async def test_strips_bot_mention(self, executor):
-        prompt = executor._build_prompt('@resenhazord ver placar', _STATIC_EXAMPLES)
+        prompt = executor._build_prompt(
+            SYSTEM_PROMPT_TEMPLATE, '@resenhazord ver placar', _STATIC_EXAMPLES
+        )
 
         assert '@resenhazord' not in prompt
         assert 'ver placar' in prompt
 
     @pytest.mark.anyio
     async def test_includes_command_list(self, executor):
-        prompt = executor._build_prompt('test', _STATIC_EXAMPLES)
+        prompt = executor._build_prompt(SYSTEM_PROMPT_TEMPLATE, 'test', _STATIC_EXAMPLES)
 
         assert 'command_list' in prompt or 'placar' in prompt.lower()
 
     @pytest.mark.anyio
     async def test_includes_quoted_context_block(self, executor):
         prompt = executor._build_prompt(
+            SYSTEM_PROMPT_TEMPLATE,
             'sim',
             _STATIC_EXAMPLES,
             context='Não sei te dizer..., use ,time',
@@ -49,7 +53,9 @@ class TestPromptBuilding:
 
     @pytest.mark.anyio
     async def test_omits_context_block_when_quoted_text_absent(self, executor):
-        prompt = executor._build_prompt('me mande um fato', _STATIC_EXAMPLES)
+        prompt = executor._build_prompt(
+            SYSTEM_PROMPT_TEMPLATE, 'me mande um fato', _STATIC_EXAMPLES
+        )
 
         assert 'Contexto da mensagem anterior' not in prompt
 
@@ -340,31 +346,51 @@ class TestConfidenceGating:
         assert result.text == ',placar now'
 
 
-class _FakePromptRegistry:
-    def __init__(self, template: str) -> None:
-        self._template = template
+class TestObservability:
+    @pytest.mark.anyio
+    async def test_records_command_outcome_with_provider(self, executor, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        _stub_chain(
+            mocker,
+            tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
+        )
 
-    def system_prompt_template(self) -> str:
-        return self._template
+        await executor.run(_data('@resenhazord placar'))
+
+        record.assert_called_once_with('command', 'github', '')
+
+    @pytest.mark.anyio
+    async def test_records_unavailable_outcome_when_provider_fails(self, executor, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(side_effect=httpx.HTTPError('timeout'))
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+
+        await executor.run(_data('@resenhazord placar'))
+
+        record.assert_called_once_with('unavailable', '', '')
+
+
+class _FakePromptRegistry:
+    def __init__(self, system_prompt: SystemPrompt) -> None:
+        self._system_prompt = system_prompt
+
+    def system_prompt(self) -> SystemPrompt:
+        return self._system_prompt
 
 
 class TestPromptRegistrySource:
-    _CUSTOM = 'CUSTOM-PROMPT {command_list}{examples}{context}{user_context}'
+    def test_uses_injected_registry_prompt(self):
+        injected = SystemPrompt(template='CUSTOM {command_list}', version='abc123')
+        executor = AgentExecutor(prompt_registry=_FakePromptRegistry(injected))
 
-    @pytest.mark.anyio
-    async def test_uses_injected_registry_template(self):
-        executor = AgentExecutor(prompt_registry=_FakePromptRegistry(self._CUSTOM))
+        assert executor._system_prompt() == injected
 
-        prompt = executor._build_prompt('ver placar', _STATIC_EXAMPLES)
+    def test_falls_back_to_in_code_template_without_registry(self, executor):
+        resolved = executor._system_prompt()
 
-        assert prompt.startswith('CUSTOM-PROMPT')
-        assert 'REGRAS DE INFERÊNCIA' not in prompt
-
-    @pytest.mark.anyio
-    async def test_falls_back_to_in_code_template_without_registry(self, executor):
-        prompt = executor._build_prompt('ver placar', _STATIC_EXAMPLES)
-
-        assert 'REGRAS DE INFERÊNCIA' in prompt
+        assert resolved.template == SYSTEM_PROMPT_TEMPLATE
+        assert resolved.version == ''
 
 
 def _data(text: str) -> CommandData:

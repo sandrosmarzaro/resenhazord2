@@ -4,6 +4,8 @@ import structlog
 from langsmith import Client
 from langsmith.utils import LangSmithError
 
+from bot.domain.models.system_prompt import SystemPrompt
+
 logger = structlog.get_logger()
 
 
@@ -18,6 +20,9 @@ class LangSmithPromptRegistry:
     # failure is a boundary error; the agent degrades to "IA indisponível" rather
     # than shipping a stale vendored copy.
     _instance: ClassVar['LangSmithPromptRegistry | None'] = None
+    # LangSmith stamps the pulled prompt's metadata with its commit hash under
+    # this key; it is the version dimension the agent reports to Grafana.
+    _COMMIT_HASH_KEY: ClassVar[str] = 'lc_hub_commit_hash'
 
     def __init__(self, client: Client, prompt_identifier: str) -> None:
         self._client = client
@@ -40,12 +45,15 @@ class LangSmithPromptRegistry:
     def reset(cls) -> None:
         cls._instance = None
 
-    def system_prompt_template(self) -> str:
+    def system_prompt(self) -> SystemPrompt:
         try:
             pulled = self._client.pull_prompt(self._prompt_identifier)
         except LangSmithError as error:
             raise PromptRegistryError(str(error)) from error
-        return self._extract_template(pulled)
+        return SystemPrompt(
+            template=self._extract_template(pulled),
+            version=self._extract_version(pulled),
+        )
 
     _NOT_A_TEMPLATE: ClassVar[str] = 'pulled prompt is not a single f-string PromptTemplate'
 
@@ -55,3 +63,8 @@ class LangSmithPromptRegistry:
         if not isinstance(template, str):
             raise PromptRegistryError(LangSmithPromptRegistry._NOT_A_TEMPLATE)
         return template
+
+    @classmethod
+    def _extract_version(cls, pulled: object) -> str:
+        metadata: dict[str, object] = getattr(pulled, 'metadata', None) or {}
+        return str(metadata.get(cls._COMMIT_HASH_KEY, ''))
