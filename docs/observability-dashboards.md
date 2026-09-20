@@ -99,10 +99,12 @@ subnet — no collector on the memory-tight edge. To turn it on:
 3. Redeploy: `docker compose -f compose.edge.yml up -d` (plugin + port) and
    `docker compose -f compose.core.yml up -d` (Alloy scrape).
 
-Useful metrics (per-object endpoint, `queue` label): `rabbitmq_queue_messages_ready`
-(backlog), `rabbitmq_queue_messages_unacked`, `rabbitmq_queue_messages_published_total`,
-`rabbitmq_queue_messages_delivered_total`. Our queues: `commands`, `commands.retry`,
-`commands.dlq`, `replies`, `group_events`.
+Useful metrics: **per-queue** (label `queue`) `rabbitmq_queue_messages_ready` (backlog),
+`rabbitmq_queue_messages_unacked`; **global** (broker-wide, no per-queue publish/deliver
+counters exist) `rabbitmq_global_messages_received_total` (published in),
+`rabbitmq_global_messages_delivered_total` (out to consumers),
+`rabbitmq_global_messages_redelivered_total`. Our queues: `commands`, `commands.retry`,
+`commands.dlq`, `replies`, `group_events`, `wa_actions`, `wa_rpc`.
 
 ### Queue depth (ready) by queue
 ```promql
