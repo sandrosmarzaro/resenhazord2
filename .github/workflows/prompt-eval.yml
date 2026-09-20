@@ -1,0 +1,48 @@
+name: Prompt eval
+
+# Homologation gate for the decoupled system prompt. Runs the held-out regression
+# eval against real LLM providers when the prompt seed or the eval changes, and
+# on demand before promoting a hub commit to `prod`. Green here is the signal to
+# run `uv run task prompt:promote`.
+on:
+  pull_request:
+    paths:
+      - bot/data/agent_examples.py
+      - tests/eval/**
+      - scripts/push_prompt.py
+      - scripts/promote_prompt.py
+  workflow_dispatch:
+    inputs:
+      prompt_tag:
+        description: Prompt alias to evaluate (dev or a commit hash)
+        default: dev
+
+permissions:
+  contents: read
+  models: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    name: Prompt regression eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+        with:
+          cache-suffix: ${{ github.job }}
+      - run: uv sync --frozen
+      - run: uv run task prompt:eval
+        env:
+          # GitHub Models via the built-in token (models: read). Mistral/Groq are
+          # optional fallbacks; unset secrets leave those providers unconfigured.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # Present key evaluates the hub prompt at this alias; absent key evaluates
+          # the in-code SYSTEM_PROMPT_TEMPLATE.
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGSMITH_PROMPT_TAG: ${{ github.event.inputs.prompt_tag || 'dev' }}
