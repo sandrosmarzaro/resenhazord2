@@ -7,7 +7,7 @@ addopts = [
     '-s',
     '-n4',
     '-m',
-    'not external',
+    'not external and not eval',
     '--cov=bot',
     '--cov-report=term-missing',
     '--cov-report=xml',
@@ -15,6 +15,7 @@ addopts = [
 ]
 markers = [
     'external: hits a real third-party API; excluded by default (quota/flaky). Run via task test:external',
+    'eval: runs the prompt regression eval against real LLM providers; excluded by default. Run via task prompt:eval',
 ]
 strict = true
 log_cli = true
