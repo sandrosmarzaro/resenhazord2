@@ -5,7 +5,6 @@ from bot.infrastructure.llm.providers.base import LLMProvider
 
 class GroqProvider(LLMProvider):
     BASE_URL: ClassVar[str] = 'https://api.groq.com/openai/v1'
-    SUPPORTS_TOOLS: ClassVar[bool] = False
 
     def __init__(self, api_key: str) -> None:
         self._api_key = api_key
@@ -16,7 +15,7 @@ class GroqProvider(LLMProvider):
 
     @property
     def model_id(self) -> str:
-        return 'llama-3.3-70b-versatile'
+        return 'openai/gpt-oss-120b'
 
     def _headers(self) -> dict[str, str]:
         return {
