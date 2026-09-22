@@ -38,7 +38,7 @@ class TestProviderSelection:
 
         assert len(provider._models) == 1
 
-    def test_groq_is_text_only(self):
+    def test_groq_supports_tools(self):
         provider = LangChainProvider.from_credentials('', '', 'groq')
 
-        assert provider._models[0].supports_tools is False
+        assert provider._models[0].supports_tools is True

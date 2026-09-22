@@ -27,7 +27,7 @@ class LangChainProvider:
     GITHUB_BASE_URL: ClassVar[str] = 'https://models.github.ai/inference'
     GITHUB_MODEL: ClassVar[str] = 'gpt-4o'
     MISTRAL_MODEL: ClassVar[str] = 'mistral-small-latest'
-    GROQ_MODEL: ClassVar[str] = 'llama-3.3-70b-versatile'
+    GROQ_MODEL: ClassVar[str] = 'openai/gpt-oss-120b'
     MAX_TOKENS: ClassVar[int] = 500
 
     _instance: ClassVar['LangChainProvider | None'] = None
@@ -61,7 +61,7 @@ class LangChainProvider:
             groq = ChatGroq(
                 model=cls.GROQ_MODEL, api_key=SecretStr(groq_key), max_tokens=cls.MAX_TOKENS
             )
-            models.append(_Model(groq, supports_tools=False))
+            models.append(_Model(groq, supports_tools=True))
         return cls(models)
 
     @classmethod
