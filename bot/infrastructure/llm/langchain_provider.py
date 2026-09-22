@@ -8,7 +8,6 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import Runnable
 from langchain_groq import ChatGroq
 from langchain_mistralai import ChatMistralAI
-from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from bot.infrastructure.llm.providers.base import LLMResponse
@@ -24,8 +23,6 @@ class _Model:
 
 class LangChainProvider:
     PROVIDER_NAME: ClassVar[str] = 'langchain'
-    GITHUB_BASE_URL: ClassVar[str] = 'https://models.github.ai/inference'
-    GITHUB_MODEL: ClassVar[str] = 'gpt-4o'
     MISTRAL_MODEL: ClassVar[str] = 'mistral-small-latest'
     GROQ_MODEL: ClassVar[str] = 'openai/gpt-oss-120b'
     MAX_TOKENS: ClassVar[int] = 500
@@ -36,20 +33,10 @@ class LangChainProvider:
         self._models = models
 
     @classmethod
-    def from_credentials(
-        cls, github_token: str, mistral_key: str, groq_key: str
-    ) -> 'LangChainProvider':
-        # Each integration names its fields differently (langchain's own API drift):
-        # OpenAI caps with max_completion_tokens, Mistral takes model_name. Keys are SecretStr.
+    def from_credentials(cls, mistral_key: str, groq_key: str) -> 'LangChainProvider':
+        # langchain integrations drift on field names: Mistral takes model_name,
+        # Groq takes model. Keys are wrapped in SecretStr.
         models: list[_Model] = []
-        if github_token:
-            github = ChatOpenAI(
-                model=cls.GITHUB_MODEL,
-                api_key=SecretStr(github_token),
-                base_url=cls.GITHUB_BASE_URL,
-                max_completion_tokens=cls.MAX_TOKENS,
-            )
-            models.append(_Model(github, supports_tools=True))
         if mistral_key:
             mistral = ChatMistralAI(
                 model_name=cls.MISTRAL_MODEL,
@@ -65,8 +52,8 @@ class LangChainProvider:
         return cls(models)
 
     @classmethod
-    def configure(cls, github_token: str, mistral_key: str, groq_key: str) -> 'LangChainProvider':
-        cls._instance = cls.from_credentials(github_token, mistral_key, groq_key)
+    def configure(cls, mistral_key: str, groq_key: str) -> 'LangChainProvider':
+        cls._instance = cls.from_credentials(mistral_key, groq_key)
         return cls._instance
 
     @classmethod

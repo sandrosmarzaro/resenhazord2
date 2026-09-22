@@ -8,7 +8,6 @@ import httpx
 import structlog
 
 from bot.infrastructure.llm.providers.base import LLMProvider, LLMResponse
-from bot.infrastructure.llm.providers.github import GitHubProvider
 from bot.infrastructure.llm.providers.groq import GroqProvider
 from bot.infrastructure.llm.providers.mistral import MistralProvider
 
@@ -37,12 +36,11 @@ class ProviderChain:
     @classmethod
     def configure(
         cls,
-        github_token: str | None,
         mistral_key: str | None,
         groq_key: str | None,
     ) -> 'ProviderChain':
         chain = ProviderChain()
-        chain.populate(github_token, mistral_key, groq_key)
+        chain.populate(mistral_key, groq_key)
         cls._instance = chain
         return chain
 
@@ -58,13 +56,10 @@ class ProviderChain:
 
     def populate(
         self,
-        github_token: str | None,
         mistral_key: str | None,
         groq_key: str | None,
     ) -> None:
         self._states = []
-        if github_token:
-            self._states.append(ProviderState(GitHubProvider(github_token)))
         if mistral_key:
             self._states.append(ProviderState(MistralProvider(mistral_key)))
         if groq_key:

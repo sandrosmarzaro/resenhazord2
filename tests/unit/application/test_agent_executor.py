@@ -225,7 +225,7 @@ class TestProviderInjection:
         instance_spy.assert_not_called()
 
     def test_defaults_to_configured_langchain_provider(self):
-        provider = LangChainProvider.configure('github', '', '')
+        provider = LangChainProvider.configure('mistral', '')
 
         executor = AgentExecutor()
 
@@ -357,7 +357,7 @@ class TestObservability:
 
         await executor.run(_data('@resenhazord placar'))
 
-        record.assert_called_once_with('command', 'github', '')
+        record.assert_called_once_with('command', 'groq', '')
 
     @pytest.mark.anyio
     async def test_records_unavailable_outcome_when_provider_fails(self, executor, mocker):
@@ -377,7 +377,7 @@ class TestObservability:
 
         await executor.run(_data('@resenhazord algo'))
 
-        record.assert_called_once_with('clarify', 'github', '')
+        record.assert_called_once_with('clarify', 'groq', '')
 
     @pytest.mark.anyio
     async def test_records_suggest_outcome(self, executor, mocker):
@@ -386,7 +386,7 @@ class TestObservability:
 
         await executor.run(_data('@resenhazord por que o céu é azul'))
 
-        record.assert_called_once_with('suggest', 'github', '')
+        record.assert_called_once_with('suggest', 'groq', '')
 
     @pytest.mark.anyio
     async def test_records_confirm_outcome_on_low_confidence(self, executor, mocker):
@@ -398,7 +398,7 @@ class TestObservability:
 
         await executor.run(_data('@resenhazord placar'))
 
-        record.assert_called_once_with('confirm', 'github', '')
+        record.assert_called_once_with('confirm', 'groq', '')
 
     @pytest.mark.anyio
     async def test_records_unresolvable_outcome(self, executor, mocker):
@@ -407,7 +407,7 @@ class TestObservability:
 
         await executor.run(_data('@resenhazord blah'))
 
-        record.assert_called_once_with('unresolvable', 'github', '')
+        record.assert_called_once_with('unresolvable', 'groq', '')
 
 
 class _FakePromptRegistry:
@@ -441,8 +441,8 @@ def _stub_chain(mocker, *, content: str = '', tool_call: dict | None = None) -> 
     mock_chain.complete = mocker.AsyncMock(
         return_value=LLMResponse(
             content=content,
-            provider='github',
-            model='gpt-4o',
+            provider='groq',
+            model='openai/gpt-oss-120b',
             tool_call=tool_call,
         )
     )

@@ -24,7 +24,7 @@ class TestAgentFlagWiring:
         monkeypatch.setenv('AGENT_USE_GRAPH', 'true')
         monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', 'https://example.upstash.io')
         monkeypatch.setenv('UPSTASH_VECTOR_REST_TOKEN', 'token')
-        monkeypatch.setenv('GITHUB_TOKEN', 'gh')
+        monkeypatch.setenv('GROQ_API_KEY', 'groq')
         monkeypatch.setenv('REDIS_URL', '')
 
         register_all_commands(Settings())
