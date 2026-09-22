@@ -6,6 +6,7 @@ from bot.infrastructure.llm.langchain_provider import LangChainProvider
 
 MISTRAL_API_KEY = os.environ.get('MISTRAL_API_KEY')
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
+GOOGLE_AI_STUDIO_TOKEN = os.environ.get('GOOGLE_AI_STUDIO_TOKEN')
 
 pytestmark = [
     pytest.mark.external,
@@ -29,7 +30,9 @@ class TestComplete:
 
     @pytest.mark.anyio
     async def test_maps_a_clear_request_to_the_menu_tool(self):
-        provider = LangChainProvider.from_credentials(MISTRAL_API_KEY or '', GROQ_API_KEY or '')
+        provider = LangChainProvider.from_credentials(
+            MISTRAL_API_KEY or '', GROQ_API_KEY or '', GOOGLE_AI_STUDIO_TOKEN or ''
+        )
 
         response = await provider.complete('me mostra a lista de comandos', [_MENU_TOOL])
 

@@ -225,7 +225,7 @@ class TestProviderInjection:
         instance_spy.assert_not_called()
 
     def test_defaults_to_configured_langchain_provider(self):
-        provider = LangChainProvider.configure('mistral', '')
+        provider = LangChainProvider.configure('mistral', '', '')
 
         executor = AgentExecutor()
 

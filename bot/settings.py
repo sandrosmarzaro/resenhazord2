@@ -67,9 +67,10 @@ class Settings(BaseSettings):
     # OP.GG MCP
     opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
 
-    # LLM Providers (fallback order: mistral, groq)
+    # LLM Providers (fallback order: mistral, groq, google)
     mistral_api_key: str = ''
     groq_api_key: str = ''
+    google_ai_studio_token: str = ''
     # Route the agent's LLM calls through LangChain instead of the httpx ProviderChain
     llm_use_langchain: bool = False
     # Wrap the agent in the LangGraph stateful orchestrator (multi-turn conversation)

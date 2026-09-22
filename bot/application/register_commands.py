@@ -71,9 +71,13 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
     Database.configure(settings.database_url)
-    ProviderChain.configure(settings.mistral_api_key, settings.groq_api_key)
+    ProviderChain.configure(
+        settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
+    )
     if settings.llm_use_langchain:
-        LangChainProvider.configure(settings.mistral_api_key, settings.groq_api_key)
+        LangChainProvider.configure(
+            settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
+        )
     if settings.upstash_vector_rest_url:
         UpstashExampleRetriever.configure(
             settings.upstash_vector_rest_url, settings.upstash_vector_rest_token

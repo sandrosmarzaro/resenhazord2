@@ -9,7 +9,7 @@ class TestProviderChain:
     @pytest.fixture
     def chain(self):
         chain = ProviderChain()
-        chain.populate('mistral-key', 'groq-key')
+        chain.populate('mistral-key', 'groq-key', None)
         return chain
 
     @pytest.fixture
@@ -64,7 +64,7 @@ class TestProviderChain:
 
 class TestProviderChainConfigure:
     def test_configure_sets_instance(self):
-        chain = ProviderChain.configure('mistral-key', 'groq-key')
+        chain = ProviderChain.configure('mistral-key', 'groq-key', 'google-key')
 
         assert ProviderChain.instance() is chain
 
@@ -74,20 +74,26 @@ class TestProviderChainConfigure:
 
     def test_populate_skips_missing_keys(self):
         chain = ProviderChain()
-        chain.populate(None, None)
+        chain.populate(None, None, None)
 
         assert chain._states == []
 
     def test_populate_partial_keys(self):
         chain = ProviderChain()
-        chain.populate(None, 'groq-key')
+        chain.populate(None, 'groq-key', None)
 
         assert len(chain._states) == 1
+
+    def test_populate_includes_google(self):
+        chain = ProviderChain()
+        chain.populate('mistral-key', 'groq-key', 'google-key')
+
+        assert len(chain._states) == 3
 
     @pytest.mark.anyio
     async def test_complete_raises_with_no_providers(self):
         chain = ProviderChain()
-        chain.populate(None, None)
+        chain.populate(None, None, None)
 
         with pytest.raises(RuntimeError, match='No LLM providers configured'):
             await chain.complete('test', [])
@@ -95,7 +101,7 @@ class TestProviderChainConfigure:
     @pytest.mark.anyio
     async def test_first_provider_succeeds_immediately(self, mocker):
         chain = ProviderChain()
-        chain.populate('mistral-key', 'groq-key')
+        chain.populate('mistral-key', 'groq-key', None)
         mocker.patch.object(
             chain._states[0].provider,
             'complete',
@@ -112,7 +118,7 @@ class TestProviderChainNon429:
     @pytest.mark.anyio
     async def test_non_429_http_error_advances_without_cooldown(self, mocker):
         chain = ProviderChain()
-        chain.populate('mistral-key', 'groq-key')
+        chain.populate('mistral-key', 'groq-key', None)
 
         mock_response = mocker.MagicMock()
         mock_response.status_code = 500
