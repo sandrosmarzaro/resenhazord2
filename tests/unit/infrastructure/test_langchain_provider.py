@@ -6,7 +6,7 @@ from bot.infrastructure.llm.langchain_provider import LangChainProvider
 
 @pytest.fixture
 def provider() -> LangChainProvider:
-    return LangChainProvider.from_credentials('github', 'mistral', 'groq')
+    return LangChainProvider.from_credentials('mistral', 'groq')
 
 
 class TestResponseMapping:
@@ -34,11 +34,11 @@ class TestResponseMapping:
 
 class TestProviderSelection:
     def test_skips_providers_without_credentials(self):
-        provider = LangChainProvider.from_credentials('github', '', '')
+        provider = LangChainProvider.from_credentials('mistral', '')
 
         assert len(provider._models) == 1
 
     def test_groq_supports_tools(self):
-        provider = LangChainProvider.from_credentials('', '', 'groq')
+        provider = LangChainProvider.from_credentials('', 'groq')
 
         assert provider._models[0].supports_tools is True

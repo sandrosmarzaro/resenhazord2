@@ -67,8 +67,7 @@ class Settings(BaseSettings):
     # OP.GG MCP
     opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
 
-    # LLM Providers (fallback order: github, mistral, groq)
-    github_token: str = ''
+    # LLM Providers (fallback order: mistral, groq)
     mistral_api_key: str = ''
     groq_api_key: str = ''
     # Route the agent's LLM calls through LangChain instead of the httpx ProviderChain
