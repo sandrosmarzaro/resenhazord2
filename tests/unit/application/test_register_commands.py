@@ -3,6 +3,7 @@ import pytest
 from bot.application.register_commands import register_all_commands
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
+from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.settings import Settings
 
@@ -12,12 +13,14 @@ class TestAgentFlagWiring:
         monkeypatch.setenv('LLM_USE_LANGCHAIN', 'false')
         monkeypatch.setenv('AGENT_USE_GRAPH', 'false')
         monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', '')
+        monkeypatch.setenv('LANGSMITH_API_KEY', '')
 
-        register_all_commands(Settings())
+        register_all_commands()
 
         assert LangChainProvider.configured() is None
         assert UpstashExampleRetriever.configured() is None
         assert GraphAgentOrchestrator.configured() is None
+        assert LangSmithPromptRegistry.configured() is None
 
     def test_flags_on_configure_agent_singletons(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv('LLM_USE_LANGCHAIN', 'true')
@@ -25,6 +28,7 @@ class TestAgentFlagWiring:
         monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', 'https://example.upstash.io')
         monkeypatch.setenv('UPSTASH_VECTOR_REST_TOKEN', 'token')
         monkeypatch.setenv('GROQ_API_KEY', 'groq')
+        monkeypatch.setenv('LANGSMITH_API_KEY', 'ls-key')
         monkeypatch.setenv('REDIS_URL', '')
 
         register_all_commands(Settings())
@@ -32,3 +36,4 @@ class TestAgentFlagWiring:
         assert LangChainProvider.configured() is not None
         assert UpstashExampleRetriever.configured() is not None
         assert GraphAgentOrchestrator.configured() is not None
+        assert LangSmithPromptRegistry.configured() is not None
