@@ -16,6 +16,7 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "version": 1,
+  "uid": "sab4sbb",
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",
