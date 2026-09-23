@@ -24,10 +24,10 @@ class _Model:
 
 class LangChainProvider:
     PROVIDER_NAME: ClassVar[str] = 'langchain'
-    GITHUB_BASE_URL: ClassVar[str] = 'https://models.github.ai/inference'
-    GITHUB_MODEL: ClassVar[str] = 'gpt-4o'
     MISTRAL_MODEL: ClassVar[str] = 'mistral-small-latest'
-    GROQ_MODEL: ClassVar[str] = 'llama-3.3-70b-versatile'
+    GROQ_MODEL: ClassVar[str] = 'openai/gpt-oss-120b'
+    GOOGLE_MODEL: ClassVar[str] = 'gemini-3.6-flash'
+    GOOGLE_BASE_URL: ClassVar[str] = 'https://generativelanguage.googleapis.com/v1beta/openai'
     MAX_TOKENS: ClassVar[int] = 500
 
     _instance: ClassVar['LangChainProvider | None'] = None
@@ -37,19 +37,12 @@ class LangChainProvider:
 
     @classmethod
     def from_credentials(
-        cls, github_token: str, mistral_key: str, groq_key: str
+        cls, mistral_key: str, groq_key: str, google_key: str
     ) -> 'LangChainProvider':
-        # Each integration names its fields differently (langchain's own API drift):
-        # OpenAI caps with max_completion_tokens, Mistral takes model_name. Keys are SecretStr.
+        # langchain integrations drift on field names: Mistral takes model_name,
+        # Groq/OpenAI take model. Gemini rides its OpenAI-compatible endpoint through
+        # ChatOpenAI + a custom base_url. Keys are wrapped in SecretStr.
         models: list[_Model] = []
-        if github_token:
-            github = ChatOpenAI(
-                model=cls.GITHUB_MODEL,
-                api_key=SecretStr(github_token),
-                base_url=cls.GITHUB_BASE_URL,
-                max_completion_tokens=cls.MAX_TOKENS,
-            )
-            models.append(_Model(github, supports_tools=True))
         if mistral_key:
             mistral = ChatMistralAI(
                 model_name=cls.MISTRAL_MODEL,
@@ -61,12 +54,20 @@ class LangChainProvider:
             groq = ChatGroq(
                 model=cls.GROQ_MODEL, api_key=SecretStr(groq_key), max_tokens=cls.MAX_TOKENS
             )
-            models.append(_Model(groq, supports_tools=False))
+            models.append(_Model(groq, supports_tools=True))
+        if google_key:
+            google = ChatOpenAI(
+                model=cls.GOOGLE_MODEL,
+                api_key=SecretStr(google_key),
+                base_url=cls.GOOGLE_BASE_URL,
+                max_completion_tokens=cls.MAX_TOKENS,
+            )
+            models.append(_Model(google, supports_tools=True))
         return cls(models)
 
     @classmethod
-    def configure(cls, github_token: str, mistral_key: str, groq_key: str) -> 'LangChainProvider':
-        cls._instance = cls.from_credentials(github_token, mistral_key, groq_key)
+    def configure(cls, mistral_key: str, groq_key: str, google_key: str) -> 'LangChainProvider':
+        cls._instance = cls.from_credentials(mistral_key, groq_key, google_key)
         return cls._instance
 
     @classmethod

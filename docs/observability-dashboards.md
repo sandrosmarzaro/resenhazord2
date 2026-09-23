@@ -8,7 +8,8 @@ from the live Alloy pipeline, not guessed.
 
 An importable dashboard covering every signal below lives at
 [`observability/grafana/resenhazord2-dashboard.json`](../observability/grafana/resenhazord2-dashboard.json)
-(RED by outcome, p50/p95 latency, retries/DLQ, host memory/CPU/swap/load).
+(RED by outcome, p50/p95 latency, retries/DLQ, host memory/CPU/swap/load, agent
+natural-language → command mapping).
 
 Grafana → Dashboards → New → **Import** → upload the JSON → pick your Grafana Cloud
 Prometheus data source when prompted. It's a starter — refine panels in the UI. If a
@@ -24,13 +25,16 @@ names captured from Alloy (see the table below). The alerts stay manual (below).
 | Command latency | `traces_span_metrics_duration_milliseconds_bucket` / `_sum` / `_count` | same |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
+| Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/clarify/suggest/confirm/unresolvable/unavailable), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
 | Host memory | `node_memory_MemAvailable_bytes`, `node_memory_MemTotal_bytes` | — |
 | Host swap | `node_memory_SwapFree_bytes`, `node_memory_SwapTotal_bytes` | — |
 | Host CPU | `node_cpu_seconds_total` | `mode` |
 | Host load | `node_load1` | — |
 
 `traces_span_metrics_*` come from Alloy's spanmetrics connector on the core (derived from
-the `command.handle` span); `command_*` are the manual OTel counters; `node_*` come from
+the `command.handle` span); `command_*` and `agent_mappings_total` are the manual OTel
+counters (the agent also stamps `agent.outcome`/`agent.provider`/`agent.prompt.version` on
+the enclosing `command.handle` span for trace-level correlation); `node_*` come from
 Alloy's node_exporter. All carry `service_name="bot"`.
 
 ## Panels
@@ -74,6 +78,24 @@ sum(rate(command_dlq_total[5m]))         # DLQ/s
 100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])))
 ```
 
+### Agent — outcomes (by outcome)
+```promql
+sum by (agent_outcome) (rate(agent_mappings_total[5m]))
+```
+
+### Agent — provider-unavailable ratio (AI health)
+```promql
+sum(rate(agent_mappings_total{agent_outcome="unavailable"}[5m]))
+/
+clamp_min(sum(rate(agent_mappings_total[5m])), 0.0001)
+```
+
+### Agent — mappings by provider / prompt version
+```promql
+sum by (agent_provider) (rate(agent_mappings_total[5m]))
+sum by (agent_prompt_version) (rate(agent_mappings_total[5m]))   # correlate an outcome shift to a prompt rollout
+```
+
 ## Alert rules
 
 Grafana → Alerting → Alert rules → New. Sentry keeps error alerting; these cover the
@@ -86,6 +108,7 @@ infra/flow gaps that led to the freezes.
 | Command error surge | `sum(rate(traces_span_metrics_calls_total{command_outcome!="success"}[5m])) / sum(rate(traces_span_metrics_calls_total[5m])) > 0.3` | 10m | A broad upstream/logic failure, not one bad URL |
 | Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after the retry ladder |
 | Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 100` | 5m | The bot is falling behind / stalled consuming |
+| Agent provider down | `sum(rate(agent_mappings_total{agent_outcome="unavailable"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001) > 0.5` | 10m | Most NL mappings hit no working LLM provider (e.g. GitHub Models retirement) — direct commands still work, but the agent is effectively down |
 
 ## RabbitMQ queue metrics
 
@@ -99,10 +122,12 @@ subnet — no collector on the memory-tight edge. To turn it on:
 3. Redeploy: `docker compose -f compose.edge.yml up -d` (plugin + port) and
    `docker compose -f compose.core.yml up -d` (Alloy scrape).
 
-Useful metrics (per-object endpoint, `queue` label): `rabbitmq_queue_messages_ready`
-(backlog), `rabbitmq_queue_messages_unacked`, `rabbitmq_queue_messages_published_total`,
-`rabbitmq_queue_messages_delivered_total`. Our queues: `commands`, `commands.retry`,
-`commands.dlq`, `replies`, `group_events`.
+Useful metrics: **per-queue** (label `queue`) `rabbitmq_queue_messages_ready` (backlog),
+`rabbitmq_queue_messages_unacked`; **global** (broker-wide, no per-queue publish/deliver
+counters exist) `rabbitmq_global_messages_received_total` (published in),
+`rabbitmq_global_messages_delivered_total` (out to consumers),
+`rabbitmq_global_messages_redelivered_total`. Our queues: `commands`, `commands.retry`,
+`commands.dlq`, `replies`, `group_events`, `wa_actions`, `wa_rpc`.
 
 ### Queue depth (ready) by queue
 ```promql

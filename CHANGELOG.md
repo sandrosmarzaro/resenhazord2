@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v2.6.0 (2026-09-23)
+
+### Feat
+
+- **llm**: add google gemini provider to the fallback chain
+- **observability**: add agent mapping dashboard panels
+- **agent**: instrument nl-to-command mapping for grafana
+- **prompts**: add hub push and promote scripts
+- **agent**: pull system prompt from langsmith registry
+
+### Fix
+
+- **llm**: replace decommissioned groq llama-3.3 with gpt-oss-120b
+- **agent**: treat provider outage as inconclusive in the eval
+- **agent**: self-skip prompt eval without a provider
+- **observability**: correct dashboard queries flagged as No data
+- **observability**: drop OTLP exporter failures from Sentry
+
+### Refactor
+
+- **llm**: remove retired github models provider
+- **metrics**: own agent span attributes in metrics
+
 ## v2.5.0 (2026-09-16)
 
 ### Feat

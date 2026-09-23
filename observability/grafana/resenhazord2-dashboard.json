@@ -16,6 +16,7 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "version": 1,
+  "uid": "sab4sbb",
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",
@@ -75,7 +76,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\", command_outcome!=\"success\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\"}[5m])), 0.0001)"
+          "expr": "(sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\", command_outcome!=\"success\"}[5m])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\"}[5m])) or vector(0), 0.0001)"
         }
       ]
     },
@@ -179,13 +180,13 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(command_retries_total[5m]))",
+          "expr": "sum(rate(command_retries_total[5m])) or vector(0)",
           "legendFormat": "retries/s"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(command_dlq_total[5m]))",
+          "expr": "sum(rate(command_dlq_total[5m])) or vector(0)",
           "legendFormat": "dead-letters/s"
         }
       ]
@@ -333,14 +334,177 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(rabbitmq_queue_messages_published_total[5m]))",
+          "expr": "sum(rate(rabbitmq_global_messages_received_total[5m]))",
           "legendFormat": "published/s"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(rabbitmq_queue_messages_delivered_total[5m]))",
+          "expr": "sum(rate(rabbitmq_global_messages_delivered_total[5m]))",
           "legendFormat": "delivered/s"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Agent (natural language → command)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Agent mapping rate",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(rate(agent_mappings_total[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Provider-unavailable ratio",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(sum(rate(agent_mappings_total{agent_outcome=\"unavailable\"}[5m])) or vector(0)) / clamp_min(sum(rate(agent_mappings_total[5m])) or vector(0), 0.0001)"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Direct-command ratio",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(sum(rate(agent_mappings_total{agent_outcome=\"command\"}[5m])) or vector(0)) / clamp_min(sum(rate(agent_mappings_total[5m])) or vector(0), 0.0001)"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Agent outcomes",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (agent_outcome) (rate(agent_mappings_total[5m]))",
+          "legendFormat": "{{agent_outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Agent mappings by provider",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (agent_provider) (rate(agent_mappings_total[5m]))",
+          "legendFormat": "{{agent_provider}}"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Agent mappings by prompt version",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 49 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (agent_prompt_version) (rate(agent_mappings_total[5m]))",
+          "legendFormat": "{{agent_prompt_version}}"
         }
       ]
     }

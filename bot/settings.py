@@ -67,10 +67,10 @@ class Settings(BaseSettings):
     # OP.GG MCP
     opgg_mcp_url: str = 'https://mcp-api.op.gg/mcp'
 
-    # LLM Providers (fallback order: github, mistral, groq)
-    github_token: str = ''
+    # LLM Providers (fallback order: mistral, groq, google)
     mistral_api_key: str = ''
     groq_api_key: str = ''
+    google_ai_studio_token: str = ''
     # Route the agent's LLM calls through LangChain instead of the httpx ProviderChain
     llm_use_langchain: bool = False
     # Wrap the agent in the LangGraph stateful orchestrator (multi-turn conversation)
@@ -79,5 +79,12 @@ class Settings(BaseSettings):
     # Upstash Vector (RAG few-shot example retrieval)
     upstash_vector_rest_url: str = ''
     upstash_vector_rest_token: str = ''
+
+    # LangSmith Prompt Hub (registry-only: versioned system prompt pulled at
+    # runtime, no tracing). Empty api key disables the pull the way otel_endpoint
+    # gates OTel: the agent falls back to the in-code SYSTEM_PROMPT_TEMPLATE.
+    langsmith_api_key: str = ''
+    langsmith_prompt_name: str = 'resenhazord-agent'
+    langsmith_prompt_tag: str = 'prod'
 
     model_config = {'env_file': '.env', 'extra': 'ignore'}
