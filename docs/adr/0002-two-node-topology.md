@@ -27,7 +27,7 @@ down, which it still serves.
 - Two host-local compose files (`compose.edge.yml`, `compose.core.yml`) replace the
   single `docker-compose.yml`; the cross-service `depends_on` disappears as broker
   durability replaces boot ordering.
-- RabbitMQ binds the VCN private IP; a security list opens 5672 only from the core
+- RabbitMQ binds the VCN private IP (`EDGE_PRIVATE_IP`, enforced 2026-10-07); a security list opens 5672 only from the core
   node. No public broker port.
 - A network partition between bot and broker slightly raises redelivery odds —
   covered by [0001](./0001-at-least-once-delivery.md)'s guard rule.

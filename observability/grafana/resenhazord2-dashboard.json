@@ -194,7 +194,7 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Host memory available (%)",
+      "title": "Host memory available (%) by node",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -223,14 +223,14 @@
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
-          "legendFormat": "mem available %"
+          "legendFormat": "{{instance}}"
         }
       ]
     },
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Host CPU busy & swap used (%)",
+      "title": "Host CPU busy & swap used (%) by node",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -250,21 +250,21 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
-          "legendFormat": "cpu busy %"
+          "expr": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+          "legendFormat": "cpu {{instance}}"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "100 * (1 - node_memory_SwapFree_bytes / clamp_min(node_memory_SwapTotal_bytes, 1))",
-          "legendFormat": "swap used %"
+          "legendFormat": "swap {{instance}}"
         }
       ]
     },
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Host load (1m)",
+      "title": "Host load (1m) by node",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -283,7 +283,7 @@
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "node_load1",
-          "legendFormat": "load1"
+          "legendFormat": "{{instance}}"
         }
       ]
     },

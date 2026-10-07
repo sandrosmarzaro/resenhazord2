@@ -2,6 +2,34 @@
 
 <!-- version list -->
 
+## v2.7.0 (2026-10-07)
+
+### Feat
+
+- **observability**: split the dashboard host panels by node
+- **observability**: scrape edge host metrics through the core alloy
+- **http**: expose platform statuses at GET /v1/ops/platforms
+- **platforms**: add a supervisor that connects each platform in isolation
+
+### Fix
+
+- **rabbitmq**: publish the broker ports on the private ip only
+- **gateway**: stop waking the agent on dms with no extractable text
+- **whatsapp**: tell the user when attached media could not be downloaded
+- **broker**: reply and tag the span when a command fails unexpectedly
+- **observability**: publish the edge node-exporter on the private ip only
+- **sentry**: drop mistral 429s absorbed by the llm fallback chain
+- **agent**: alert sentry when every llm provider fails
+- **gateway**: redact libsignal session entries from console output
+- **discord**: connect through the platform supervisor
+- **whatsapp**: connect the broker through the platform supervisor
+- **telegram**: connect through the platform supervisor
+
+### Refactor
+
+- **platforms**: translate rejected credentials into our own error
+- **platforms**: declare permanent failures as exception types
+
 ## v2.6.1 (2026-10-06)
 
 ### Fix

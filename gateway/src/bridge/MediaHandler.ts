@@ -33,6 +33,12 @@ const DOWNLOAD_TIMEOUT_MS = 50_000;
 export default class MediaHandler {
   constructor(private readonly whatsapp: WhatsAppPort) {}
 
+  static hasDirectMedia(message: WAMessage['message']): boolean {
+    const msg = message as AnyMsg | null | undefined;
+    if (!msg) return false;
+    return [...MEDIA_TYPES, ...VIEW_ONCE_WRAPPERS].some((type) => msg[type]);
+  }
+
   detectMedia(data: CommandData): MediaInfo | null {
     const msg = data.message as AnyMsg | undefined;
     if (!msg) return null;

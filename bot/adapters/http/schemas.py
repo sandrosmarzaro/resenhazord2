@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 
+from bot.domain.commands.base import Platform
+from bot.infrastructure.platform_supervisor import PlatformStatus
+
 
 class CommandPayload(BaseModel):
     text: str
@@ -17,3 +20,8 @@ class CommandPayload(BaseModel):
     media_caption: str | None = None
     message_id: str | None = None
     push_name: str | None = None
+
+
+class PlatformResponse(BaseModel):
+    name: Platform
+    status: PlatformStatus

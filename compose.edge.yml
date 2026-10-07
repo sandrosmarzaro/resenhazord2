@@ -45,12 +45,13 @@ services:
     networks:
       - resenha-network
     restart: unless-stopped
-    # AMQP + Prometheus metrics exposed for the core node over the VCN private subnet
-    # (Oracle security list opens 5672 and 15692 only from VM-B). Management UI stays
-    # bound to localhost.
+    # AMQP + Prometheus metrics exposed for the core node on the private VCN IP only
+    # (ADR 0002). Docker port publishing bypasses the host firewall, so binding all
+    # interfaces left the Oracle security list as the only guard. The gateway reaches
+    # the broker over resenha-network, not these ports. Management UI stays on localhost.
     ports:
-      - "5672:5672"
-      - "15692:15692"
+      - "${EDGE_PRIVATE_IP:?set EDGE_PRIVATE_IP in .env (127.0.0.1 locally)}:5672:5672"
+      - "${EDGE_PRIVATE_IP:?set EDGE_PRIVATE_IP in .env (127.0.0.1 locally)}:15692:15692"
       - "127.0.0.1:15672:15672"
     mem_limit: 400m
     # No RABBITMQ_VM_MEMORY_HIGH_WATERMARK env: rabbitmq:3.13 rejects that deprecated
@@ -71,6 +72,31 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+
+  # Host RAM/CPU/swap for the core Alloy to scrape. No collector here (memory wall):
+  # node-exporter only serves /metrics, measured at ~9 MiB, and the cap keeps it from
+  # ever competing with Baileys on this ~1 GB host.
+  node-exporter:
+    container_name: node-exporter
+    image: prom/node-exporter:v1.12.1-distroless
+    command: --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - resenha-network
+    restart: unless-stopped
+    # Published on the private VCN IP only: Docker port publishing bypasses the host
+    # firewall, so a security-list mistake must not expose host details to the internet.
+    # The list then opens 9100 from VM-B.
+    ports:
+      - "${EDGE_PRIVATE_IP:?set EDGE_PRIVATE_IP in .env (127.0.0.1 locally)}:9100:9100"
+    mem_limit: 32m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   rabbitmq-data:

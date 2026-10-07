@@ -3,10 +3,11 @@ from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
-from telegram.error import NetworkError, RetryAfter, TelegramError
+from telegram.error import InvalidToken, NetworkError, RetryAfter, TelegramError
 
 from bot.adapters.telegram.bot import TelegramBot
 from bot.domain.commands.base import CommandScope, Platform
+from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
 from tests.unit.adapters.telegram.conftest import FakeCommand
 
 FAKE_TOKEN = 'x' * 10
@@ -67,6 +68,15 @@ class TestIsMenuEligible:
 
 
 class TestStartStop:
+    @pytest.mark.anyio
+    async def test_start_reports_a_rejected_token_as_authentication_error(self, mocker):
+        bot = _make_bot(mocker)
+        bot._app.initialize = mocker.AsyncMock(side_effect=InvalidToken())
+        _patch_registry(mocker, [])
+
+        with pytest.raises(PlatformAuthenticationError):
+            await bot.start()
+
     @pytest.mark.anyio
     async def test_start_registers_handlers_and_polls(self, mocker):
         bot = _make_bot(mocker)
