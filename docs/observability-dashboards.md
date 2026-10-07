@@ -142,7 +142,9 @@ only a `node-exporter` container (`compose.edge.yml`, `mem_limit: 32m`, measured
 private subnet as `instance="edge"`, exactly like RabbitMQ below. To turn it on:
 
 1. Open **9100 edge → core** on the Oracle security list (like 15692).
-2. Set `EDGE_NODE_METRICS_ADDR=<edge_private_ip>:9100` in the core `.env`.
+2. Set `EDGE_PRIVATE_IP=<edge_private_ip>` in the edge `.env` (node-exporter publishes
+   only there; Docker port publishing bypasses the host firewall) and
+   `EDGE_NODE_METRICS_ADDR=<edge_private_ip>:9100` in the core `.env`.
 3. Redeploy: `docker compose -f compose.edge.yml up -d` (node-exporter) and
    `docker compose -f compose.core.yml up -d` (Alloy scrape).
 

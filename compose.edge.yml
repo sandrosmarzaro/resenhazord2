@@ -85,9 +85,11 @@ services:
     networks:
       - resenha-network
     restart: unless-stopped
-    # Exposed for the core node only (Oracle security list opens 9100 from VM-B), like 15692.
+    # Published on the private VCN IP only: Docker port publishing bypasses the host
+    # firewall, so a security-list mistake must not expose host details to the internet.
+    # The list then opens 9100 from VM-B. Unset = loopback, safe for local dev.
     ports:
-      - "9100:9100"
+      - "${EDGE_PRIVATE_IP:-127.0.0.1}:9100:9100"
     mem_limit: 32m
     logging:
       driver: json-file
