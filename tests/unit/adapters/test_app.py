@@ -62,6 +62,38 @@ class TestConnectWhatsapp:
         group_consumer.return_value.start.assert_awaited_once_with()
 
 
+class TestConnectTelegram:
+    @pytest.mark.anyio
+    async def test_starts_the_bot_and_hands_back_its_stop(self, mocker):
+        mocker.patch.object(app.settings, 'telegram_token', 'token')
+        mocker.patch.object(app.settings, 'telegram_bot_username', 'resenhazord_bot')
+        mocker.patch.object(app.settings, 'telegram_nsfw_chat_ids', '-100, -200')
+        telegram_bot = mocker.patch.object(app, 'TelegramBot')
+        telegram_bot.return_value.start = mocker.AsyncMock()
+
+        shutdown = await app._connect_telegram()
+
+        telegram_bot.assert_called_once_with('token', 'resenhazord_bot', frozenset({-100, -200}))
+        telegram_bot.return_value.start.assert_awaited_once_with()
+        assert shutdown == telegram_bot.return_value.stop
+
+
+class TestConnectDiscord:
+    @pytest.mark.anyio
+    async def test_registers_commands_logs_in_and_hands_back_its_stop(self, mocker):
+        mocker.patch.object(app.settings, 'discord_token', 'token')
+        mocker.patch.object(app.settings, 'discord_server_guild_id', '123')
+        discord_bot = mocker.patch.object(app, 'DiscordBot')
+        discord_bot.return_value.start = mocker.AsyncMock()
+
+        shutdown = await app._connect_discord()
+
+        discord_bot.assert_called_once_with('123')
+        discord_bot.return_value.register_commands.assert_called_once_with()
+        discord_bot.return_value.start.assert_awaited_once_with('token')
+        assert shutdown == discord_bot.return_value.stop
+
+
 class TestLifespan:
     @pytest.fixture(autouse=True)
     def startup(self, mocker):

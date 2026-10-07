@@ -4,7 +4,6 @@ import httpx
 import pytest
 
 from bot.adapters.http.app import app
-from bot.adapters.http.endpoints.v1.platforms import platform_supervisor
 from bot.domain.commands.base import Platform
 from bot.infrastructure.platform_supervisor import PlatformStatus, PlatformSupervisor
 
@@ -17,9 +16,9 @@ def anyio_backend():
 @pytest.fixture
 def supervisor(mocker):
     supervisor = mocker.Mock(spec=PlatformSupervisor)
-    app.dependency_overrides[platform_supervisor] = lambda: supervisor
+    app.state.platforms = supervisor
     yield supervisor
-    app.dependency_overrides.clear()
+    del app.state.platforms
 
 
 async def _get_platforms() -> httpx.Response:
