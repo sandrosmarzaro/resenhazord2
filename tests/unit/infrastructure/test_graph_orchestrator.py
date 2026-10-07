@@ -86,3 +86,25 @@ class TestGraphOrchestrator:
 
         second_turn_data = executor.run.call_args_list[1].args[0]
         assert second_turn_data.quoted_text == 'citação do usuário'
+
+
+class TestUnreachableCheckpointer:
+    UNREACHABLE_REDIS_URL = 'redis://127.0.0.1:1'
+
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_still_answers_with_executor_result(self, mocker):
+        executor = mocker.Mock()
+        executor.run = mocker.AsyncMock(return_value=_data(',menu'))
+        orchestrator = GraphAgentOrchestrator(
+            executor=executor, redis_url=self.UNREACHABLE_REDIS_URL
+        )
+        data = _data('@resenhazord comandos')
+
+        result = await orchestrator.run(data)
+
+        assert result.text == ',menu'
+        executor.run.assert_awaited_once_with(data)
