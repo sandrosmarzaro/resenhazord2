@@ -194,6 +194,20 @@ class TestErrors:
         assert reply['messages'][0]['content']['text'] == 'nope'
 
     @pytest.mark.anyio
+    async def test_unexpected_error_publishes_generic_error_reply(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = NotImplementedError('download_media unsupported')
+        consumer = CommandConsumer(broker, handler)
+        await consumer.start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        _, body = broker.published[0]
+        reply = json.loads(body)
+        assert reply['messages'][0]['content']['text'] == 'Ocorreu um erro ao executar o comando.'
+
+    @pytest.mark.anyio
     async def test_no_match_publishes_empty_terminal_reply(self, mocker):
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
@@ -272,6 +286,18 @@ class TestMetrics:
         await broker.deliver('commands', _envelope('ping'))
 
         span.set_attribute.assert_called_once_with('command.outcome', 'bot_error')
+
+    @pytest.mark.anyio
+    async def test_unexpected_error_tags_span_with_unexpected_error_outcome(self, mocker):
+        span = self._span(mocker)
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = NotImplementedError('download_media unsupported')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        span.set_attribute.assert_called_once_with('command.outcome', 'unexpected_error')
 
     @pytest.mark.anyio
     async def test_scheduled_retry_tags_external_outcome_and_counts_retry(self, mocker):
