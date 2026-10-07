@@ -2,6 +2,7 @@ import type { WAMessage } from '@whiskeysockets/baileys';
 import type { CommandData } from '../types/command.js';
 import type { Message } from '../types/message.js';
 import BotMentionDetector from './BotMentionDetector.js';
+import MediaHandler from '../bridge/MediaHandler.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import GetTextMessage from '../utils/GetTextMessage.js';
@@ -31,8 +32,25 @@ export default class CommandHandler {
       return;
     }
 
+    if (CommandHandler.isTextlessDirectMessage(data, text)) return;
     if (!CommandHandler.shouldForward(data, text)) return;
     await Resenhazord2.brokerForwarder?.forward(data, text);
+  }
+
+  // DMs auto-forward to the agent, so a DM whose text we failed to extract woke it with
+  // an empty prompt and the real command was lost. Drop it, and log the proto shape so
+  // the missing extractor can be identified.
+  private static isTextlessDirectMessage(data: WAMessage, text: string): boolean {
+    if (data.key.remoteJid?.includes('@g.us') || text.trim()) return false;
+    if (MediaHandler.hasDirectMedia(data.message)) return false;
+    logger.warn({
+      event: 'dm_without_text',
+      messageTypes: Object.keys(data.message ?? {}),
+      stubType: data.messageStubType ?? null,
+      stubParameters: data.messageStubParameters ?? null,
+      participant: data.key.participant ?? null,
+    });
+    return true;
   }
 
   private static shouldForward(data: WAMessage, text: string): boolean {
