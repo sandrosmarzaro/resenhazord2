@@ -97,6 +97,24 @@ describe('CommandHandler', () => {
       });
     });
 
+    it('logs nulls for a DM that carries no message content at all', async () => {
+      const forward = vi.fn();
+      Resenhazord2.brokerForwarder = { forward } as never;
+      const contentless = WAMessageFactory.build();
+      contentless.message = null;
+
+      await CommandHandler.run(contentless);
+
+      expect(forward).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith({
+        event: 'dm_without_text',
+        messageTypes: [],
+        stubType: null,
+        stubParameters: null,
+        participant: null,
+      });
+    });
+
     it('still forwards a DM carrying media without a caption', async () => {
       const forward = vi.fn().mockResolvedValue(undefined);
       Resenhazord2.brokerForwarder = { forward } as never;
