@@ -10,6 +10,7 @@ from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.adapters.broker.group_event_consumer import GroupEventConsumer
 from bot.adapters.discord.bot import DiscordBot
 from bot.adapters.http.endpoints.v1.health import router as health_router
+from bot.adapters.http.endpoints.v1.platforms import router as platforms_router
 from bot.adapters.telegram.bot import TelegramBot
 from bot.adapters.whatsapp.broker_client import BrokerWhatsAppClient
 from bot.application.command_handler import CommandHandler
@@ -88,3 +89,4 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title='Resenhazord2 Python Core', lifespan=lifespan)
 app.include_router(health_router)
+app.include_router(platforms_router)
