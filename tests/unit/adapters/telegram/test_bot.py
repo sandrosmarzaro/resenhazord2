@@ -3,7 +3,7 @@ from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
-from telegram.error import NetworkError, RetryAfter, TelegramError
+from telegram.error import InvalidToken, NetworkError, RetryAfter, TelegramError
 
 from bot.adapters.telegram.bot import TelegramBot
 from bot.domain.commands.base import CommandScope, Platform
@@ -64,6 +64,14 @@ class TestIsMenuEligible:
     def test_accepts_nsfw_when_in_scope(self):
         cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=CommandScope.NSFW)
         assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC, CommandScope.NSFW}) is True
+
+
+class TestIsPermanentFailure:
+    def test_rejected_token_is_permanent(self):
+        assert TelegramBot.is_permanent_failure(InvalidToken()) is True
+
+    def test_network_error_is_transient(self):
+        assert TelegramBot.is_permanent_failure(NetworkError('timed out')) is False
 
 
 class TestStartStop:

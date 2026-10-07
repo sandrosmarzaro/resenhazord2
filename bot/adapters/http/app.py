@@ -21,6 +21,7 @@ from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
+from bot.infrastructure.platform_supervisor import PlatformSupervisor, Shutdown
 from bot.settings import Settings
 
 logger = structlog.get_logger()
@@ -47,6 +48,17 @@ async def _start_broker_consumers() -> RabbitBroker | None:
     return broker
 
 
+async def _connect_telegram() -> Shutdown:
+    # A fresh bot per attempt: a half-initialized one would re-register its handlers.
+    telegram_bot = TelegramBot(
+        settings.telegram_token,
+        settings.telegram_bot_username,
+        _parse_chat_ids(settings.telegram_nsfw_chat_ids),
+    )
+    await telegram_bot.start()
+    return telegram_bot.stop
+
+
 async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
     try:
         await discord_bot.client.start(token)
@@ -61,7 +73,7 @@ async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     register_all_commands()
     command_broker = await _start_broker_consumers()
     discord_bot = None
@@ -70,21 +82,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         discord_bot = DiscordBot(settings.discord_server_guild_id)
         discord_bot.register_commands()
         discord_task = asyncio.create_task(_run_discord_client(discord_bot, settings.discord_token))
-    telegram_bot = None
+    platforms = PlatformSupervisor()
+    fastapi_app.state.platforms = platforms
     if settings.telegram_token:
-        telegram_bot = TelegramBot(
-            settings.telegram_token,
-            settings.telegram_bot_username,
-            _parse_chat_ids(settings.telegram_nsfw_chat_ids),
-        )
-        await telegram_bot.start()
+        platforms.start('telegram', _connect_telegram, TelegramBot.is_permanent_failure)
     logger.info('app_started')
     yield
     if discord_bot is not None and discord_task is not None:
         await discord_bot.client.close()
         discord_task.cancel()
-    if telegram_bot is not None:
-        await telegram_bot.stop()
+    await platforms.stop()
     if command_broker is not None:
         await command_broker.close()
     await MongoDBConnection.close()

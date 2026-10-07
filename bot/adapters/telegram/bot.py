@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 import sentry_sdk
 import structlog
 from telegram import BotCommand, BotCommandScopeChat, Update
-from telegram.error import NetworkError, RetryAfter, TelegramError
+from telegram.error import InvalidToken, NetworkError, RetryAfter, TelegramError
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
@@ -65,6 +65,10 @@ class TelegramBot:
         await self._app.shutdown()
         _UPDATER_LOGGER.setLevel(self._original_updater_level)
         logger.info('telegram_stopped')
+
+    @staticmethod
+    def is_permanent_failure(error: Exception) -> bool:
+        return isinstance(error, InvalidToken)
 
     def _register_handlers(self) -> None:
         callback = self._make_callback()

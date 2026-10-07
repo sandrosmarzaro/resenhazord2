@@ -1,7 +1,13 @@
+import asyncio
+
 import pytest
+from fastapi import FastAPI
+from telegram.error import InvalidToken
 
 from bot.adapters.http import app
+from bot.adapters.telegram.bot import TelegramBot
 from bot.infrastructure.broker import BrokerConnectionError
+from bot.infrastructure.platform_supervisor import PlatformStatus
 
 
 class TestStartBrokerConsumers:
@@ -36,3 +42,36 @@ class TestStartBrokerConsumers:
         registry.set_whatsapp.assert_called_once()
         command_consumer.return_value.start.assert_awaited_once()
         group_consumer.return_value.start.assert_awaited_once()
+
+
+class TestLifespan:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def startup(self, mocker):
+        mocker.patch.object(app, 'register_all_commands')
+        mocker.patch.object(app, '_start_broker_consumers', return_value=None)
+        mocker.patch.object(app.MongoDBConnection, 'close')
+        mocker.patch.object(app.Database, 'close')
+        mocker.patch.object(app.settings, 'discord_token', '')
+        mocker.patch.object(app.settings, 'telegram_token', 'revoked-token')
+
+    @pytest.mark.anyio
+    async def test_starts_when_telegram_rejects_the_token(self, mocker, startup):
+        rejected = asyncio.Event()
+
+        async def reject_token():
+            rejected.set()
+            raise InvalidToken
+
+        telegram_bot = mocker.patch.object(app, 'TelegramBot')
+        telegram_bot.return_value.start = reject_token
+        telegram_bot.is_permanent_failure = TelegramBot.is_permanent_failure
+        fastapi_app = FastAPI()
+
+        async with app.lifespan(fastapi_app):
+            await rejected.wait()
+
+            assert fastapi_app.state.platforms.statuses() == {'telegram': PlatformStatus.FAILED}
