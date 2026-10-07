@@ -75,6 +75,8 @@ def configure_logging() -> None:
                 name: {'handlers': [], 'propagate': True}
                 for name in ['uvicorn', 'uvicorn.access', 'uvicorn.error']
             },
+            # httpx logs every request URL at INFO, and Telegram's carries the bot token.
+            'httpx': {'level': 'WARNING'},
         },
     }
     logging.config.dictConfig(config)
