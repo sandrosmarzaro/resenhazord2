@@ -12,6 +12,7 @@ import base64
 import json
 from typing import Any, ClassVar
 
+from bot.domain.exceptions import MediaUnavailableError
 from bot.ports.broker_port import BrokerPort
 
 
@@ -19,6 +20,9 @@ class BrokerWhatsAppClient:
     ACTIONS_QUEUE = 'wa_actions'
     RPC_QUEUE = 'wa_rpc'
     RPC_TIMEOUT_SECONDS: ClassVar[float] = 30.0
+    MEDIA_UNAVAILABLE_MESSAGE: ClassVar[str] = (
+        '❌ Não consegui baixar essa mídia. Mídia de visualização única não chega ao bot.'
+    )
 
     def __init__(self, broker: BrokerPort) -> None:
         self._broker = broker
@@ -30,12 +34,13 @@ class BrokerWhatsAppClient:
         return await self._rpc('group_metadata', jid=jid)
 
     async def download_media(self, message_id: str, source: str) -> bytes:
-        # Small media rides base64-inline on the command (Command._get_media prefers it),
-        # so this is only reachable for large media — the deferred dedicated media queue.
-        message = (
-            f'broker download_media unsupported (large media queue pending): {message_id}/{source}'
+        # The gateway downloads media up front and inlines it on the command
+        # (Command._get_media prefers it), so this is only reached when that download
+        # already failed, e.g. view-once media a companion device never receives.
+        # Asking the gateway again can't succeed; tell the user instead.
+        raise MediaUnavailableError(
+            self.MEDIA_UNAVAILABLE_MESSAGE, detail=f'media not inlined: {message_id}/{source}'
         )
-        raise NotImplementedError(message)
 
     async def _rpc(self, method: str, **data: Any) -> dict:
         request = json.dumps({'method': method, **data}).encode()

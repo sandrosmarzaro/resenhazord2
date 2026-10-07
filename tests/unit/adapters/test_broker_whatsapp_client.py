@@ -4,6 +4,7 @@ import json
 import pytest
 
 from bot.adapters.whatsapp.broker_client import BrokerWhatsAppClient
+from bot.domain.exceptions import MediaUnavailableError
 from tests.fixtures.mock_broker import MockBrokerPort
 
 
@@ -103,8 +104,10 @@ class TestOnWhatsApp:
         assert json.loads(body) == {'method': 'group_metadata', 'jid': 'g@g.us'}
 
     @pytest.mark.anyio
-    async def test_download_media_is_not_supported(self):
+    async def test_download_media_tells_the_user_the_media_is_unavailable(self):
         client = BrokerWhatsAppClient(MockBrokerPort())
 
-        with pytest.raises(NotImplementedError):
-            await client.download_media('MSG_1', 'direct')
+        with pytest.raises(MediaUnavailableError) as error:
+            await client.download_media('MSG_1', 'view_once')
+
+        assert error.value.user_message == BrokerWhatsAppClient.MEDIA_UNAVAILABLE_MESSAGE
