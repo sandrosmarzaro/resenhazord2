@@ -7,13 +7,14 @@ from typing import Any, ClassVar
 import sentry_sdk
 import structlog
 from telegram import BotCommand, BotCommandScopeChat, Update
-from telegram.error import NetworkError, RetryAfter, TelegramError
+from telegram.error import InvalidToken, NetworkError, RetryAfter, TelegramError
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandScope, Platform
+from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
 
 _UPDATER_LOGGER = logging.getLogger('telegram.ext.Updater')
 
@@ -51,7 +52,10 @@ class TelegramBot:
         self._app.add_error_handler(self._handle_error)
         _UPDATER_LOGGER.setLevel(logging.CRITICAL)
         self._register_handlers()
-        await self._app.initialize()
+        try:
+            await self._app.initialize()
+        except InvalidToken as error:
+            raise PlatformAuthenticationError(Platform.TELEGRAM) from error
         await self._app.start()
         if self._app.updater is not None:
             await self._app.updater.start_polling()

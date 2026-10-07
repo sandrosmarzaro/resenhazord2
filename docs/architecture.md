@@ -10,7 +10,7 @@ resenhazord2/
       discord/                   discord.py slash-command adapter
       telegram/                  python-telegram-bot polling adapter
       broker/                    RabbitMQ command + group-event consumers
-      http/                      FastAPI app (health) + lifespan
+      http/                      FastAPI app (/health, /v1/ops/platforms) + lifespan
       whatsapp/broker_client.py  WhatsAppPort over the broker (wa_actions/wa_rpc)
     application/
       command_handler.py         Dispatches a parsed command
@@ -27,8 +27,9 @@ resenhazord2/
       logging.py                 structlog + stdlib unified config
       sentry.py                  sentry_sdk.init with FastApiIntegration
       http_client.py             Singleton httpx client with retries
+      platform_supervisor.py     Connects each chat platform in isolation, with retry
     ports/                       Protocols the domain depends on (DiscordPort, TelegramPort, ...)
-    main.py                      FastAPI lifespan: init Sentry, structlog, Discord task
+    main.py                      uvicorn entry point: init structlog, Sentry, OTel
     settings.py                  pydantic-settings from .env
   gateway/                       Bun + TypeScript — WhatsApp adapter only
     src/
@@ -45,6 +46,28 @@ resenhazord2/
 ## Message Flow
 
 Three inbound platforms, one command pipeline.
+
+### Platform isolation
+
+Each platform runs only when configured (`RABBITMQ_URL` for WhatsApp,
+`DISCORD_TOKEN` + `DISCORD_SERVER_GUILD_ID`, `TELEGRAM_TOKEN`), so the bot runs
+with any combination of them. The lifespan never awaits a platform: it hands
+each one's connect to `PlatformSupervisor`, which runs it in its own task.
+
+- A transient failure (network, broker down) retries with exponential backoff,
+  5 s doubling up to 300 s, so the platform heals without a restart.
+- A rejected credential is permanent. The adapter translates its SDK error
+  (`InvalidToken`, `LoginFailure`) into `PlatformAuthenticationError`; the
+  supervisor marks the platform `failed`, logs it to Sentry, and stops retrying.
+- Once connected, each SDK keeps its own session alive (PTB polling,
+  aio_pika `connect_robust`, discord.py `connect(reconnect=True)`).
+
+`GET /v1/ops/platforms` lists each configured platform with its status
+(`starting`, `retrying`, `up`, `failed`). `GET /health` stays a pure liveness
+probe, so Docker never restart-loops the whole bot over one platform.
+Supporting services (Postgres, Mongo, Redis, LLM providers) are outside this
+model: they are configured lazily and fail per command. The one startup
+dependency is Postgres, since the container runs `alembic upgrade head` first.
 
 ### WhatsApp (via Gateway)
 

@@ -11,6 +11,8 @@ from bot.adapters.discord.agent_router import DiscordAgentRouter
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.adapters.discord.slash_register import DiscordSlashRegistrar
+from bot.domain.commands.base import Platform
+from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
 
 logger = structlog.get_logger()
 
@@ -30,14 +32,34 @@ class DiscordBot:
         self._renderer = DiscordResponseRenderer()
         self._router = DiscordAgentRouter(self._renderer)
         self._registrar = DiscordSlashRegistrar(self._tree, self._handler)
+        self._connection: asyncio.Task[None] | None = None
         self._setup_events()
-
-    @property
-    def client(self) -> discord.Client:
-        return self._client
 
     def register_commands(self) -> None:
         self._registrar.register_all()
+
+    async def start(self, token: str) -> None:
+        try:
+            await self._client.login(token)
+        except BaseException as error:
+            await self._client.close()
+            if isinstance(error, discord.LoginFailure):
+                raise PlatformAuthenticationError(Platform.DISCORD) from error
+            raise
+        # connect() owns the gateway session and reconnects on its own after login.
+        self._connection = asyncio.create_task(self._client.connect())
+        self._connection.add_done_callback(self._log_connection_lost)
+
+    async def stop(self) -> None:
+        await self._client.close()
+        if self._connection is not None:
+            self._connection.cancel()
+
+    @staticmethod
+    def _log_connection_lost(connection: asyncio.Task[None]) -> None:
+        if connection.cancelled() or connection.exception() is None:
+            return
+        logger.error('discord_connection_lost', exc_info=connection.exception())
 
     def _setup_events(self) -> None:
         client = self._client
