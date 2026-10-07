@@ -8,9 +8,24 @@ vi.mock('../../../src/factories/CommandFactory.js', () => ({
   default: { getInstance: () => ({ getStrategy: () => null }) },
 }));
 
+vi.mock('../../../src/infra/Logger.js', () => ({
+  default: { debug: vi.fn(), warn: vi.fn() },
+}));
+
+import logger from '../../../src/infra/Logger.js';
+
 function createGroupMessage(text: string): WAMessage {
   const msg = WAMessageFactory.build({}, { transient: { isGroup: true } });
   msg.message = { extendedTextMessage: { text } };
+  return msg;
+}
+
+function createTextlessDirectMessage(): WAMessage {
+  const msg = WAMessageFactory.build();
+  msg.key.participant = '';
+  msg.message = { messageContextInfo: {} };
+  msg.messageStubType = 2;
+  msg.messageStubParameters = ['No matching sessions found for message'];
   return msg;
 }
 
@@ -55,6 +70,42 @@ describe('CommandHandler', () => {
       await CommandHandler.run(ownMessage);
 
       expect(forward).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('direct messages without text', () => {
+    it('does not wake the agent for a DM whose text could not be extracted', async () => {
+      const forward = vi.fn();
+      Resenhazord2.brokerForwarder = { forward } as never;
+
+      await CommandHandler.run(createTextlessDirectMessage());
+
+      expect(forward).not.toHaveBeenCalled();
+    });
+
+    it('logs the message shape so the missing text can be diagnosed', async () => {
+      Resenhazord2.brokerForwarder = { forward: vi.fn() } as never;
+
+      await CommandHandler.run(createTextlessDirectMessage());
+
+      expect(logger.warn).toHaveBeenCalledWith({
+        event: 'dm_without_text',
+        messageTypes: ['messageContextInfo'],
+        stubType: 2,
+        stubParameters: ['No matching sessions found for message'],
+        participant: '',
+      });
+    });
+
+    it('still forwards a DM carrying media without a caption', async () => {
+      const forward = vi.fn().mockResolvedValue(undefined);
+      Resenhazord2.brokerForwarder = { forward } as never;
+
+      await CommandHandler.run(
+        WAMessageFactory.build({}, { transient: { hasImageMessage: true } }),
+      );
+
+      expect(forward).toHaveBeenCalledWith(expect.anything(), '');
     });
   });
 });
