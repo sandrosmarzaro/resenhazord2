@@ -1,7 +1,9 @@
 """Expected, self-healing exceptions filtered out of Sentry as noise."""
 
 # 429s from the LLM provider are absorbed by the LangChain fallback chain
-# (mistral -> groq); the request still succeeds on the next provider.
+# (mistral -> groq); the request still succeeds on the next provider. Groq and
+# OpenAI raise RateLimitError; Mistral raises a bare httpx.HTTPStatusError, which
+# sentry.py matches by status code instead of by name.
 ABSORBED_EXCEPTION_NAMES: frozenset[str] = frozenset({'RateLimitError'})
 
 # The broker refuses connections only while the edge node is briefly unreachable;

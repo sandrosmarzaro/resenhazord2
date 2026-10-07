@@ -1,0 +1,236 @@
+[
+  {
+    "uid": "rz2-core-memory-low",
+    "title": "Core memory low",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "5m",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "annotations": {
+      "summary": "Core available memory below 10%",
+      "description": "The documented OOM/host-freeze risk on the 1 GB nodes."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": {
+          "refId": "C",
+          "type": "threshold",
+          "expression": "A",
+          "conditions": [{ "evaluator": { "type": "lt", "params": [10] } }]
+        }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-swap-thrashing",
+    "title": "Swap thrashing",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "10m",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "annotations": {
+      "summary": "Core swap above 80%",
+      "description": "Sustained swap pressure precedes the freeze."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": {
+          "refId": "C",
+          "type": "threshold",
+          "expression": "A",
+          "conditions": [{ "evaluator": { "type": "gt", "params": [80] } }]
+        }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-command-error-surge",
+    "title": "Command error surge",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "10m",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "annotations": {
+      "summary": "More than 30% of commands failing",
+      "description": "A broad upstream/logic failure, not one bad URL."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\", command_outcome!=\"success\"}[5m])) / sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\"}[5m]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": {
+          "refId": "C",
+          "type": "threshold",
+          "expression": "A",
+          "conditions": [{ "evaluator": { "type": "gt", "params": [0.3] } }]
+        }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-dead-letters-rising",
+    "title": "Dead-letters rising",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "0s",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "annotations": {
+      "summary": "More than 5 commands dead-lettered in 15m",
+      "description": "Commands giving up after the retry ladder."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 900, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(command_dlq_total[15m]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": {
+          "refId": "C",
+          "type": "threshold",
+          "expression": "A",
+          "conditions": [{ "evaluator": { "type": "gt", "params": [5] } }]
+        }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-commands-backlog",
+    "title": "Commands backlog",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "5m",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "annotations": {
+      "summary": "More than 100 commands waiting in the queue",
+      "description": "The bot is falling behind or stalled consuming."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "sum(rabbitmq_queue_messages_ready{queue=\"commands\"})"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": {
+          "refId": "C",
+          "type": "threshold",
+          "expression": "A",
+          "conditions": [{ "evaluator": { "type": "gt", "params": [100] } }]
+        }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-agent-provider-down",
+    "title": "Agent provider down",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "10m",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "annotations": {
+      "summary": "Most NL mappings hit no working LLM provider",
+      "description": "Direct commands still work, but the agent is effectively down."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "sum(rate(agent_mappings_total{agent_outcome=\"unavailable\"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001)"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": {
+          "refId": "C",
+          "type": "threshold",
+          "expression": "A",
+          "conditions": [{ "evaluator": { "type": "gt", "params": [0.5] } }]
+        }
+      }
+    ]
+  }
+]
