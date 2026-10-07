@@ -1,4 +1,7 @@
 from collections.abc import Callable
+from http import HTTPStatus
+
+import httpx
 
 from bot.infrastructure.sentry import init_sentry
 
@@ -19,10 +22,23 @@ def _before_send(mocker) -> Callable:
     return init.call_args.kwargs['before_send']
 
 
+def _status_error(status: HTTPStatus) -> httpx.HTTPStatusError:
+    request = httpx.Request('POST', 'https://api.mistral.ai/v1/chat/completions')
+    response = httpx.Response(status, request=request)
+    return httpx.HTTPStatusError(f'Error response {status}', request=request, response=response)
+
+
 class TestDropsExpectedNoise:
     def test_drops_absorbed_provider_rate_limit(self, mocker):
         before_send = _before_send(mocker)
         hint = {'exc_info': (RateLimitError, RateLimitError('Too many requests'), None)}
+
+        assert before_send({}, hint) is None
+
+    def test_drops_absorbed_provider_http_rate_limit(self, mocker):
+        before_send = _before_send(mocker)
+        error = _status_error(HTTPStatus.TOO_MANY_REQUESTS)
+        hint = {'exc_info': (httpx.HTTPStatusError, error, None)}
 
         assert before_send({}, hint) is None
 
@@ -59,6 +75,14 @@ class TestKeepsRealErrors:
         before_send = _before_send(mocker)
         event = {'message': 'boom'}
         hint = {'exc_info': (ValueError, ValueError('boom'), None)}
+
+        assert before_send(event, hint) == event
+
+    def test_keeps_provider_server_error(self, mocker):
+        before_send = _before_send(mocker)
+        event = {'message': 'boom'}
+        error = _status_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        hint = {'exc_info': (httpx.HTTPStatusError, error, None)}
 
         assert before_send(event, hint) == event
 
