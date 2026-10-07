@@ -43,10 +43,30 @@ prometheus.exporter.unix "host" {
 	rootfs_path = "/rootfs"
 }
 
+// Name the node, so alerts read instance=core instead of the Alloy container id.
+discovery.relabel "host" {
+	targets = prometheus.exporter.unix.host.targets
+
+	rule {
+		target_label = "instance"
+		replacement  = "core"
+	}
+}
+
 prometheus.scrape "host" {
-	targets         = prometheus.exporter.unix.host.targets
+	targets         = discovery.relabel.host.output
 	forward_to      = [otelcol.receiver.prometheus.scraped.receiver]
 	scrape_interval = "30s"
+}
+
+// Edge host metrics from its node-exporter, over the VCN private subnet (Oracle
+// security list opens 9100 edge->core), like RabbitMQ below. Same job as the core
+// so every node_* query covers both nodes, split by instance.
+prometheus.scrape "edge_host" {
+	targets         = [{"__address__" = sys.env("EDGE_NODE_METRICS_ADDR"), "instance" = "edge"}]
+	forward_to      = [otelcol.receiver.prometheus.scraped.receiver]
+	scrape_interval = "30s"
+	job_name        = "integrations/unix"
 }
 
 // RabbitMQ queue metrics from the edge, scraped over the VCN private subnet

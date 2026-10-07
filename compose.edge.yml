@@ -72,6 +72,29 @@ services:
       retries: 5
       start_period: 30s
 
+  # Host RAM/CPU/swap for the core Alloy to scrape. No collector here (memory wall):
+  # node-exporter only serves /metrics, measured at ~9 MiB, and the cap keeps it from
+  # ever competing with Baileys on this ~1 GB host.
+  node-exporter:
+    container_name: node-exporter
+    image: prom/node-exporter:v1.12.1-distroless
+    command: --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - resenha-network
+    restart: unless-stopped
+    # Exposed for the core node only (Oracle security list opens 9100 from VM-B), like 15692.
+    ports:
+      - "9100:9100"
+    mem_limit: 32m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   rabbitmq-data:
 

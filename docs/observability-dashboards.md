@@ -26,16 +26,18 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
 | Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/clarify/suggest/confirm/unresolvable/unavailable), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
-| Host memory | `node_memory_MemAvailable_bytes`, `node_memory_MemTotal_bytes` | — |
-| Host swap | `node_memory_SwapFree_bytes`, `node_memory_SwapTotal_bytes` | — |
-| Host CPU | `node_cpu_seconds_total` | `mode` |
-| Host load | `node_load1` | — |
+| Host memory | `node_memory_MemAvailable_bytes`, `node_memory_MemTotal_bytes` | `instance` (core/edge) |
+| Host swap | `node_memory_SwapFree_bytes`, `node_memory_SwapTotal_bytes` | `instance` (core/edge) |
+| Host CPU | `node_cpu_seconds_total` | `mode`, `instance` (core/edge) |
+| Host load | `node_load1` | `instance` (core/edge) |
 
 `traces_span_metrics_*` come from Alloy's spanmetrics connector on the core (derived from
 the `command.handle` span); `command_*` and `agent_mappings_total` are the manual OTel
 counters (the agent also stamps `agent.outcome`/`agent.provider`/`agent.prompt.version` on
-the enclosing `command.handle` span for trace-level correlation); `node_*` come from
-Alloy's node_exporter. All carry `service_name="bot"`.
+the enclosing `command.handle` span for trace-level correlation); all of these carry
+`service_name="bot"`. `node_*` carry `job="integrations/unix"` and `instance="core"`
+(Alloy's built-in node_exporter) or `instance="edge"` (the edge node-exporter, see
+[Edge host metrics](#edge-host-metrics)), so every host panel and alert covers both nodes.
 
 ## Panels
 
@@ -125,12 +127,27 @@ dead-letter, and the ratio rules go blank when there is no traffic (~20 commands
 
 | Alert | Expression | For | Why |
 |---|---|---|---|
-| Core memory low | `100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10` | 5m | The documented OOM/host-freeze risk on the 1 GB nodes |
+| Node memory low | `100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10` | 5m | The documented OOM/host-freeze risk on the 1 GB nodes; fires per `instance` (core/edge) |
 | Swap thrashing | `100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes) > 80` | 10m | Sustained swap pressure precedes the freeze |
 | Command error surge | `sum(rate(traces_span_metrics_calls_total{command_outcome!="success"}[5m])) / sum(rate(traces_span_metrics_calls_total[5m])) > 0.3` | 10m | A broad upstream/logic failure, not one bad URL |
 | Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after the retry ladder |
 | Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 100` | 5m | The bot is falling behind / stalled consuming |
 | Agent provider down | `sum(rate(agent_mappings_total{agent_outcome="unavailable"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001) > 0.5` | 10m | Most NL mappings hit no working LLM provider (e.g. GitHub Models retirement) — direct commands still work, but the agent is effectively down |
+
+## Edge host metrics
+
+The edge has no collector (memory wall, [PRD](prd-observability-otel-lgtm.md)): it runs
+only a `node-exporter` container (`compose.edge.yml`, `mem_limit: 32m`, measured at
+~9 MiB) that serves `/metrics` on **9100**. The **core** Alloy scrapes it over the VCN
+private subnet as `instance="edge"`, exactly like RabbitMQ below. To turn it on:
+
+1. Open **9100 edge → core** on the Oracle security list (like 15692).
+2. Set `EDGE_NODE_METRICS_ADDR=<edge_private_ip>:9100` in the core `.env`.
+3. Redeploy: `docker compose -f compose.edge.yml up -d` (node-exporter) and
+   `docker compose -f compose.core.yml up -d` (Alloy scrape).
+
+Empty `EDGE_NODE_METRICS_ADDR` leaves the scrape down with no host impact, and the
+memory/swap alerts keep covering the core alone.
 
 ## RabbitMQ queue metrics
 
