@@ -1,7 +1,9 @@
 """Sentry initialization."""
 
 from fnmatch import fnmatch
+from http import HTTPStatus
 
+import httpx
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.types import Event, Hint
@@ -43,6 +45,9 @@ def _is_absorbed_provider_error(hint: Hint) -> bool:
     exception = hint.get('exc_info')
     if not exception:
         return False
+    error = exception[1]
+    if isinstance(error, httpx.HTTPStatusError):
+        return error.response.status_code == HTTPStatus.TOO_MANY_REQUESTS
     return exception[0].__name__ in ABSORBED_EXCEPTION_NAMES
 
 
