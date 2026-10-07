@@ -205,6 +205,17 @@ class TestStart:
         bot._client.close.assert_awaited_once_with()
 
     @pytest.mark.anyio
+    async def test_reraises_a_network_error_for_a_retry(self, bot, mocker):
+        unreachable = aiohttp.ClientConnectionError('discord.com unreachable')
+        bot._client.login = mocker.AsyncMock(side_effect=unreachable)
+        bot._client.close = mocker.AsyncMock()
+
+        with pytest.raises(aiohttp.ClientConnectionError):
+            await bot.start('token')
+
+        bot._client.close.assert_awaited_once_with()
+
+    @pytest.mark.anyio
     async def test_logs_when_the_gateway_connection_dies(self, bot, mocker):
         logged = asyncio.Event()
         logger = mocker.patch('bot.adapters.discord.bot.logger')
@@ -229,6 +240,14 @@ class TestStop:
         bot._client.connect = mocker.AsyncMock()
         bot._client.close = mocker.AsyncMock()
         await bot.start('token')
+
+        await bot.stop()
+
+        bot._client.close.assert_awaited_once_with()
+
+    @pytest.mark.anyio
+    async def test_closes_the_client_when_never_started(self, bot, mocker):
+        bot._client.close = mocker.AsyncMock()
 
         await bot.stop()
 
