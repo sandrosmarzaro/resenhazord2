@@ -1,10 +1,8 @@
 """FastAPI app factory — assembles routers and lifespan."""
 
-import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import aiohttp
 import structlog
 from fastapi import FastAPI
 
@@ -60,17 +58,11 @@ async def _connect_telegram() -> Shutdown:
     return telegram_bot.stop
 
 
-async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
-    try:
-        await discord_bot.client.start(token)
-    except RuntimeError as exc:
-        if 'TCPTransport' in str(exc) and 'closed' in str(exc):
-            logger.exception('discord_connection_closed', error=str(exc))
-            return
-        raise
-    except (aiohttp.ClientConnectorError, TimeoutError) as exc:
-        logger.exception('discord_connection_closed', error=str(exc))
-        return
+async def _connect_discord() -> Shutdown:
+    discord_bot = DiscordBot(settings.discord_server_guild_id)
+    discord_bot.register_commands()
+    await discord_bot.start(settings.discord_token)
+    return discord_bot.stop
 
 
 @asynccontextmanager
@@ -81,19 +73,12 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     if settings.rabbitmq_url:
         # Broker outages heal on their own, so WhatsApp never gives up retrying.
         platforms.start('whatsapp', _connect_whatsapp)
-    discord_bot = None
-    discord_task = None
     if settings.discord_token and settings.discord_server_guild_id:
-        discord_bot = DiscordBot(settings.discord_server_guild_id)
-        discord_bot.register_commands()
-        discord_task = asyncio.create_task(_run_discord_client(discord_bot, settings.discord_token))
+        platforms.start('discord', _connect_discord, DiscordBot.PERMANENT_FAILURES)
     if settings.telegram_token:
         platforms.start('telegram', _connect_telegram, TelegramBot.PERMANENT_FAILURES)
     logger.info('app_started')
     yield
-    if discord_bot is not None and discord_task is not None:
-        await discord_bot.client.close()
-        discord_task.cancel()
     await platforms.stop()
     await MongoDBConnection.close()
     await Database.close()

@@ -20,6 +20,7 @@ OnMessageCallback = Callable[[discord.Message], Coroutine[Any, Any, None]]
 class DiscordBot:
     MAX_SYNC_RETRIES: ClassVar[int] = 5
     SYNC_RETRY_DELAY_SECS: ClassVar[float] = 3.0
+    PERMANENT_FAILURES: ClassVar[tuple[type[Exception], ...]] = (discord.LoginFailure,)
 
     def __init__(self, guild_id: str) -> None:
         self._guild = discord.Object(id=int(guild_id))
@@ -30,14 +31,32 @@ class DiscordBot:
         self._renderer = DiscordResponseRenderer()
         self._router = DiscordAgentRouter(self._renderer)
         self._registrar = DiscordSlashRegistrar(self._tree, self._handler)
+        self._connection: asyncio.Task[None] | None = None
         self._setup_events()
-
-    @property
-    def client(self) -> discord.Client:
-        return self._client
 
     def register_commands(self) -> None:
         self._registrar.register_all()
+
+    async def start(self, token: str) -> None:
+        try:
+            await self._client.login(token)
+        except BaseException:
+            await self._client.close()
+            raise
+        # connect() owns the gateway session and reconnects on its own after login.
+        self._connection = asyncio.create_task(self._client.connect())
+        self._connection.add_done_callback(self._log_connection_lost)
+
+    async def stop(self) -> None:
+        await self._client.close()
+        if self._connection is not None:
+            self._connection.cancel()
+
+    @staticmethod
+    def _log_connection_lost(connection: asyncio.Task[None]) -> None:
+        if connection.cancelled() or connection.exception() is None:
+            return
+        logger.error('discord_connection_lost', exc_info=connection.exception())
 
     def _setup_events(self) -> None:
         client = self._client

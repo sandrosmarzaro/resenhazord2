@@ -1,6 +1,8 @@
+import asyncio
 from typing import Any, cast
 
 import aiohttp
+import discord
 import pytest
 
 from bot.adapters.discord.bot import DiscordBot
@@ -175,6 +177,63 @@ class TestRegisterCommands:
         register_all.assert_called_once()
 
 
-class TestClientProperty:
-    def test_returns_underlying_client(self, bot):
-        assert bot.client is bot._client
+class TestStart:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_logs_in_and_connects_to_the_gateway(self, bot, mocker):
+        connected = asyncio.Event()
+        bot._client.login = mocker.AsyncMock()
+        bot._client.connect = mocker.AsyncMock(side_effect=connected.set)
+
+        await bot.start('token')
+        await connected.wait()
+
+        bot._client.login.assert_awaited_once_with('token')
+
+    @pytest.mark.anyio
+    async def test_closes_the_client_when_login_fails(self, bot, mocker):
+        bot._client.login = mocker.AsyncMock(side_effect=discord.LoginFailure('Improper token'))
+        bot._client.close = mocker.AsyncMock()
+
+        with pytest.raises(discord.LoginFailure):
+            await bot.start('revoked')
+
+        bot._client.close.assert_awaited_once_with()
+
+    @pytest.mark.anyio
+    async def test_logs_when_the_gateway_connection_dies(self, bot, mocker):
+        logged = asyncio.Event()
+        logger = mocker.patch('bot.adapters.discord.bot.logger')
+        logger.error.side_effect = lambda *_args, **_kwargs: logged.set()
+        bot._client.login = mocker.AsyncMock()
+        bot._client.connect = mocker.AsyncMock(side_effect=RuntimeError('TCPTransport closed'))
+
+        await bot.start('token')
+        await logged.wait()
+
+        logger.error.assert_called_once_with('discord_connection_lost', exc_info=mocker.ANY)
+
+
+class TestStop:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_closes_the_client(self, bot, mocker):
+        bot._client.login = mocker.AsyncMock()
+        bot._client.connect = mocker.AsyncMock()
+        bot._client.close = mocker.AsyncMock()
+        await bot.start('token')
+
+        await bot.stop()
+
+        bot._client.close.assert_awaited_once_with()
+
+
+class TestPermanentFailures:
+    def test_rejected_token_is_permanent(self):
+        assert discord.LoginFailure in DiscordBot.PERMANENT_FAILURES

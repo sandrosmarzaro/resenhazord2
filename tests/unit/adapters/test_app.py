@@ -1,9 +1,11 @@
 import asyncio
 
+import discord
 import pytest
 from fastapi import FastAPI
 from telegram.error import InvalidToken
 
+from bot.adapters.discord.bot import DiscordBot
 from bot.adapters.http import app
 from bot.adapters.telegram.bot import TelegramBot
 from bot.infrastructure.broker import BrokerConnectionError
@@ -117,3 +119,23 @@ class TestLifespan:
             pass
 
         connect.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_starts_when_discord_rejects_the_token(self, mocker):
+        mocker.patch.object(app.settings, 'discord_token', 'revoked-token')
+        mocker.patch.object(app.settings, 'discord_server_guild_id', '123')
+        rejected = asyncio.Event()
+
+        async def reject_token(_token):
+            rejected.set()
+            raise discord.LoginFailure
+
+        discord_bot = mocker.patch.object(app, 'DiscordBot')
+        discord_bot.return_value.start = reject_token
+        discord_bot.PERMANENT_FAILURES = DiscordBot.PERMANENT_FAILURES
+        fastapi_app = FastAPI()
+
+        async with app.lifespan(fastapi_app):
+            await rejected.wait()
+
+            assert fastapi_app.state.platforms.statuses() == {'discord': PlatformStatus.FAILED}
