@@ -4,7 +4,10 @@ import MongoDBConnection from './src/infra/MongoDBConnection.js';
 import logger from './src/infra/Logger.js';
 import { handleUnhandledRejection } from './src/infra/handleUnhandledRejection.js';
 import { initOtel } from './src/infra/Otel.js';
+import SignalSessionRedactor from './src/infra/SignalSessionRedactor.js';
 import dotenv from 'dotenv';
+
+SignalSessionRedactor.install();
 
 dotenv.config();
 // After dotenv so the OTLP endpoint/headers resolve from .env in local dev.
