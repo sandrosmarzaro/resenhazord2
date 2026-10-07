@@ -50,6 +50,7 @@ services:
       - GRAFANA_CLOUD_OTLP_ENDPOINT=${GRAFANA_CLOUD_OTLP_ENDPOINT}
       - GRAFANA_CLOUD_OTLP_AUTH=${GRAFANA_CLOUD_OTLP_AUTH}
       - RABBITMQ_METRICS_ADDR=${RABBITMQ_METRICS_ADDR}
+      - EDGE_NODE_METRICS_ADDR=${EDGE_NODE_METRICS_ADDR}
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
       # Host filesystem, read-only, for node_exporter (RAM/CPU/swap).

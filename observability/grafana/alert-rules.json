@@ -1,7 +1,7 @@
 [
   {
     "uid": "rz2-core-memory-low",
-    "title": "Core memory low",
+    "title": "Node memory low",
     "ruleGroup": "resenhazord2",
     "folderUID": "resenhazord2",
     "condition": "C",
@@ -9,7 +9,7 @@
     "noDataState": "OK",
     "execErrState": "Error",
     "annotations": {
-      "summary": "Core available memory below 10%",
+      "summary": "{{ $labels.instance }} available memory below 10%",
       "description": "The documented OOM/host-freeze risk on the 1 GB nodes."
     },
     "notification_settings": { "receiver": "resenhazord2-email" },
@@ -48,7 +48,7 @@
     "noDataState": "OK",
     "execErrState": "Error",
     "annotations": {
-      "summary": "Core swap above 80%",
+      "summary": "{{ $labels.instance }} swap above 80%",
       "description": "Sustained swap pressure precedes the freeze."
     },
     "notification_settings": { "receiver": "resenhazord2-email" },

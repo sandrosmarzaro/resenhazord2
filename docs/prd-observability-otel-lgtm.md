@@ -84,7 +84,8 @@ continuous trace edge↔core per command.
   untouched.
 - **Phase 4 — Gateway (edge):** Bun/OTel spike as a gate; if it passes, instrument
   the gateway (publish-side `traceparent`, metrics, logs) with a minimal memory
-  footprint; decide edge host-metrics separately.
+  footprint. Edge host metrics: resolved 2026-10-07 with a bare node-exporter on
+  the edge (~9 MiB, `mem_limit: 32m`) scraped by the core Alloy, no edge collector.
 - **Phase 5 — Dashboards + alerts:** ready-to-use PromQL panels (RED by outcome,
   retry/DLQ, host memory/swap/CPU) and infra alert specs (memory low, swap
   thrashing, error surge, dead-letters) in [observability-dashboards.md](observability-dashboards.md),
@@ -96,7 +97,8 @@ continuous trace edge↔core per command.
 1. **OTel ↔ Sentry (Python):** possible span/context duplication — validate in Phase 0.
 2. **Bun + OTel maturity:** gated by the Phase 4 spike; plan B is gateway via logs/Sentry only.
 3. **Host metrics need an agent** (Alloy/node-exporter) — contradicts "no collector";
-   it is lightweight but the edge is memory-sensitive, so edge host-metrics is deferred to Phase 4.
+   it is lightweight but the edge is memory-sensitive, so edge host-metrics was deferred to Phase 4.
+   Resolved: the edge runs only node-exporter (no collector); the core Alloy scrapes it.
 4. **Grafana Cloud free quotas** — confirm headroom in Phase 0 (trial converts to Always Free).
 
 ## Config & secrets
