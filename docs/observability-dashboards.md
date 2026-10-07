@@ -21,7 +21,7 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 
 | Signal | Metric | Labels of interest |
 |---|---|---|
-| Command rate/errors | `traces_span_metrics_calls_total` | `command_outcome` (success/bot_error/external_error), `span_name` (`command.handle`), `service_name` |
+| Command rate/errors | `traces_span_metrics_calls_total` | `command_outcome` (success/bot_error/external_error/unexpected_error), `span_name` (`command.handle`), `service_name` |
 | Command latency | `traces_span_metrics_duration_milliseconds_bucket` / `_sum` / `_count` | same |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |

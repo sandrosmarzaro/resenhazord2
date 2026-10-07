@@ -14,6 +14,10 @@ class MediaNotFoundError(CommandError):
     """No media attached when expected."""
 
 
+class MediaUnavailableError(CommandError):
+    """Media is attached but could not be downloaded."""
+
+
 class ValidationError(CommandError):
     """Invalid input (missing args, bad format)."""
 
