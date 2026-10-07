@@ -15,6 +15,7 @@ from bot.adapters.whatsapp.broker_client import BrokerWhatsAppClient
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
+from bot.domain.commands.base import Platform
 from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.broker import RabbitBroker
 from bot.infrastructure.database import Database
@@ -72,11 +73,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     fastapi_app.state.platforms = platforms
     if settings.rabbitmq_url:
         # Broker outages heal on their own, so WhatsApp never gives up retrying.
-        platforms.start('whatsapp', _connect_whatsapp)
+        platforms.start(Platform.WHATSAPP, _connect_whatsapp)
     if settings.discord_token and settings.discord_server_guild_id:
-        platforms.start('discord', _connect_discord, DiscordBot.PERMANENT_FAILURES)
+        platforms.start(Platform.DISCORD, _connect_discord)
     if settings.telegram_token:
-        platforms.start('telegram', _connect_telegram, TelegramBot.PERMANENT_FAILURES)
+        platforms.start(Platform.TELEGRAM, _connect_telegram)
     logger.info('app_started')
     yield
     await platforms.stop()

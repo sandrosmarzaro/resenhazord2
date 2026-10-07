@@ -14,6 +14,7 @@ from bot.adapters.telegram.adapter import TelegramBotAdapter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandScope, Platform
+from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
 
 _UPDATER_LOGGER = logging.getLogger('telegram.ext.Updater')
 
@@ -33,7 +34,6 @@ class TelegramBot:
     READ_TIMEOUT_SECONDS: ClassVar[float] = 60.0
     WRITE_TIMEOUT_SECONDS: ClassVar[float] = 60.0
     MEDIA_WRITE_TIMEOUT_SECONDS: ClassVar[float] = 120.0
-    PERMANENT_FAILURES: ClassVar[tuple[type[Exception], ...]] = (InvalidToken,)
 
     def __init__(self, token: str, bot_username: str, nsfw_chat_ids: frozenset[int]) -> None:
         self._app = (
@@ -52,7 +52,10 @@ class TelegramBot:
         self._app.add_error_handler(self._handle_error)
         _UPDATER_LOGGER.setLevel(logging.CRITICAL)
         self._register_handlers()
-        await self._app.initialize()
+        try:
+            await self._app.initialize()
+        except InvalidToken as error:
+            raise PlatformAuthenticationError(Platform.TELEGRAM) from error
         await self._app.start()
         if self._app.updater is not None:
             await self._app.updater.start_polling()

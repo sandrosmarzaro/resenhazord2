@@ -2,14 +2,15 @@ import asyncio
 
 import pytest
 
-from bot.infrastructure.platform_supervisor import PlatformStatus, PlatformSupervisor
+from bot.domain.commands.base import Platform
+from bot.infrastructure.platform_supervisor import (
+    PlatformAuthenticationError,
+    PlatformStatus,
+    PlatformSupervisor,
+)
 
 
 class TransientError(Exception):
-    pass
-
-
-class PermanentError(Exception):
     pass
 
 
@@ -31,9 +32,9 @@ class TestConnect:
         supervisor = PlatformSupervisor()
         connect = mocker.AsyncMock(return_value=mocker.AsyncMock())
 
-        await supervisor.start('telegram', connect)
+        await supervisor.start(Platform.TELEGRAM, connect)
 
-        assert supervisor.statuses() == {'telegram': PlatformStatus.UP}
+        assert supervisor.statuses() == {Platform.TELEGRAM: PlatformStatus.UP}
 
     @pytest.mark.anyio
     async def test_retries_transient_errors_until_connected(self, mocker, instant_backoff):
@@ -42,10 +43,10 @@ class TestConnect:
             side_effect=[TransientError(), TransientError(), mocker.AsyncMock()]
         )
 
-        await supervisor.start('whatsapp', connect)
+        await supervisor.start(Platform.WHATSAPP, connect)
 
         assert connect.await_count == 3
-        assert supervisor.statuses() == {'whatsapp': PlatformStatus.UP}
+        assert supervisor.statuses() == {Platform.WHATSAPP: PlatformStatus.UP}
 
     @pytest.mark.anyio
     async def test_reports_retrying_between_attempts(self, mocker, instant_backoff):
@@ -53,12 +54,12 @@ class TestConnect:
         seen: list[PlatformStatus] = []
 
         async def connect():
-            seen.append(supervisor.statuses()['discord'])
+            seen.append(supervisor.statuses()[Platform.DISCORD])
             if len(seen) == 1:
                 raise TransientError
             return mocker.AsyncMock()
 
-        await supervisor.start('discord', connect)
+        await supervisor.start(Platform.DISCORD, connect)
 
         assert seen == [PlatformStatus.STARTING, PlatformStatus.RETRYING]
 
@@ -68,7 +69,7 @@ class TestConnect:
         failures = [TransientError() for _ in range(8)]
         connect = mocker.AsyncMock(side_effect=[*failures, mocker.AsyncMock()])
 
-        await supervisor.start('whatsapp', connect)
+        await supervisor.start(Platform.WHATSAPP, connect)
 
         delays = [call.args[0] for call in instant_backoff.await_args_list]
         assert delays == [5.0, 10.0, 20.0, 40.0, 80.0, 160.0, 300.0, 300.0]
@@ -78,25 +79,25 @@ class TestPermanentFailure:
     @pytest.mark.anyio
     async def test_gives_up_without_retrying(self, mocker, instant_backoff):
         supervisor = PlatformSupervisor()
-        connect = mocker.AsyncMock(side_effect=PermanentError('invalid token'))
+        connect = mocker.AsyncMock(side_effect=PlatformAuthenticationError(Platform.TELEGRAM))
 
-        await supervisor.start('telegram', connect, (PermanentError,))
+        await supervisor.start(Platform.TELEGRAM, connect)
 
         connect.assert_awaited_once_with()
-        assert supervisor.statuses() == {'telegram': PlatformStatus.FAILED}
+        assert supervisor.statuses() == {Platform.TELEGRAM: PlatformStatus.FAILED}
 
     @pytest.mark.anyio
     async def test_leaves_other_platforms_running(self, mocker):
         supervisor = PlatformSupervisor()
-        broken = mocker.AsyncMock(side_effect=PermanentError('invalid token'))
+        broken = mocker.AsyncMock(side_effect=PlatformAuthenticationError(Platform.TELEGRAM))
         healthy = mocker.AsyncMock(return_value=mocker.AsyncMock())
 
-        await supervisor.start('telegram', broken, (PermanentError,))
-        await supervisor.start('whatsapp', healthy)
+        await supervisor.start(Platform.TELEGRAM, broken)
+        await supervisor.start(Platform.WHATSAPP, healthy)
 
         assert supervisor.statuses() == {
-            'telegram': PlatformStatus.FAILED,
-            'whatsapp': PlatformStatus.UP,
+            Platform.TELEGRAM: PlatformStatus.FAILED,
+            Platform.WHATSAPP: PlatformStatus.UP,
         }
 
 
@@ -105,7 +106,7 @@ class TestStop:
     async def test_shuts_down_connected_platforms(self, mocker):
         supervisor = PlatformSupervisor()
         shutdown = mocker.AsyncMock()
-        await supervisor.start('telegram', mocker.AsyncMock(return_value=shutdown))
+        await supervisor.start(Platform.TELEGRAM, mocker.AsyncMock(return_value=shutdown))
 
         await supervisor.stop()
 
@@ -120,7 +121,7 @@ class TestStop:
             attempted.set()
             raise TransientError
 
-        task = supervisor.start('whatsapp', connect)
+        task = supervisor.start(Platform.WHATSAPP, connect)
         await attempted.wait()
 
         await supervisor.stop()

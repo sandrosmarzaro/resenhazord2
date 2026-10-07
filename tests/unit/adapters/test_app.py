@@ -1,15 +1,12 @@
 import asyncio
 
-import discord
 import pytest
 from fastapi import FastAPI
-from telegram.error import InvalidToken
 
-from bot.adapters.discord.bot import DiscordBot
 from bot.adapters.http import app
-from bot.adapters.telegram.bot import TelegramBot
+from bot.domain.commands.base import Platform
 from bot.infrastructure.broker import BrokerConnectionError
-from bot.infrastructure.platform_supervisor import PlatformStatus
+from bot.infrastructure.platform_supervisor import PlatformAuthenticationError, PlatformStatus
 
 
 @pytest.fixture
@@ -82,17 +79,18 @@ class TestLifespan:
 
         async def reject_token():
             rejected.set()
-            raise InvalidToken
+            raise PlatformAuthenticationError(Platform.TELEGRAM)
 
         telegram_bot = mocker.patch.object(app, 'TelegramBot')
         telegram_bot.return_value.start = reject_token
-        telegram_bot.PERMANENT_FAILURES = TelegramBot.PERMANENT_FAILURES
         fastapi_app = FastAPI()
 
         async with app.lifespan(fastapi_app):
             await rejected.wait()
 
-            assert fastapi_app.state.platforms.statuses() == {'telegram': PlatformStatus.FAILED}
+            assert fastapi_app.state.platforms.statuses() == {
+                Platform.TELEGRAM: PlatformStatus.FAILED
+            }
 
     @pytest.mark.anyio
     async def test_connects_whatsapp_when_rabbitmq_url_is_set(self, mocker):
@@ -109,7 +107,7 @@ class TestLifespan:
         async with app.lifespan(fastapi_app):
             await connected.wait()
 
-            assert fastapi_app.state.platforms.statuses() == {'whatsapp': PlatformStatus.UP}
+            assert fastapi_app.state.platforms.statuses() == {Platform.WHATSAPP: PlatformStatus.UP}
 
     @pytest.mark.anyio
     async def test_skips_whatsapp_when_rabbitmq_url_is_unset(self, mocker):
@@ -128,14 +126,15 @@ class TestLifespan:
 
         async def reject_token(_token):
             rejected.set()
-            raise discord.LoginFailure
+            raise PlatformAuthenticationError(Platform.DISCORD)
 
         discord_bot = mocker.patch.object(app, 'DiscordBot')
         discord_bot.return_value.start = reject_token
-        discord_bot.PERMANENT_FAILURES = DiscordBot.PERMANENT_FAILURES
         fastapi_app = FastAPI()
 
         async with app.lifespan(fastapi_app):
             await rejected.wait()
 
-            assert fastapi_app.state.platforms.statuses() == {'discord': PlatformStatus.FAILED}
+            assert fastapi_app.state.platforms.statuses() == {
+                Platform.DISCORD: PlatformStatus.FAILED
+            }

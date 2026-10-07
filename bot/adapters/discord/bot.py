@@ -11,6 +11,8 @@ from bot.adapters.discord.agent_router import DiscordAgentRouter
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.adapters.discord.slash_register import DiscordSlashRegistrar
+from bot.domain.commands.base import Platform
+from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
 
 logger = structlog.get_logger()
 
@@ -20,7 +22,6 @@ OnMessageCallback = Callable[[discord.Message], Coroutine[Any, Any, None]]
 class DiscordBot:
     MAX_SYNC_RETRIES: ClassVar[int] = 5
     SYNC_RETRY_DELAY_SECS: ClassVar[float] = 3.0
-    PERMANENT_FAILURES: ClassVar[tuple[type[Exception], ...]] = (discord.LoginFailure,)
 
     def __init__(self, guild_id: str) -> None:
         self._guild = discord.Object(id=int(guild_id))
@@ -40,8 +41,10 @@ class DiscordBot:
     async def start(self, token: str) -> None:
         try:
             await self._client.login(token)
-        except BaseException:
+        except BaseException as error:
             await self._client.close()
+            if isinstance(error, discord.LoginFailure):
+                raise PlatformAuthenticationError(Platform.DISCORD) from error
             raise
         # connect() owns the gateway session and reconnects on its own after login.
         self._connection = asyncio.create_task(self._client.connect())

@@ -6,6 +6,7 @@ import discord
 import pytest
 
 from bot.adapters.discord.bot import DiscordBot
+from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
 
 
 @pytest.fixture
@@ -194,11 +195,11 @@ class TestStart:
         bot._client.login.assert_awaited_once_with('token')
 
     @pytest.mark.anyio
-    async def test_closes_the_client_when_login_fails(self, bot, mocker):
+    async def test_reports_a_rejected_token_as_authentication_error(self, bot, mocker):
         bot._client.login = mocker.AsyncMock(side_effect=discord.LoginFailure('Improper token'))
         bot._client.close = mocker.AsyncMock()
 
-        with pytest.raises(discord.LoginFailure):
+        with pytest.raises(PlatformAuthenticationError):
             await bot.start('revoked')
 
         bot._client.close.assert_awaited_once_with()
@@ -232,8 +233,3 @@ class TestStop:
         await bot.stop()
 
         bot._client.close.assert_awaited_once_with()
-
-
-class TestPermanentFailures:
-    def test_rejected_token_is_permanent(self):
-        assert discord.LoginFailure in DiscordBot.PERMANENT_FAILURES
