@@ -371,6 +371,17 @@ class TestObservability:
         record.assert_called_once_with('unavailable', '', '')
 
     @pytest.mark.anyio
+    async def test_alerts_sentry_when_agent_is_unavailable(self, executor, mocker):
+        capture = mocker.patch('bot.application.agent_executor.sentry_sdk.capture_message')
+        mock_chain = mocker.Mock()
+        mock_chain.complete = mocker.AsyncMock(side_effect=httpx.HTTPError('rate limited'))
+        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+
+        await executor.run(_data('@resenhazord placar'))
+
+        capture.assert_called_once_with('agent_unavailable', level='error')
+
+    @pytest.mark.anyio
     async def test_records_clarify_outcome(self, executor, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
         _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': '{"question": "qual?"}'})
