@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, START, StateGraph
+from redis.exceptions import RedisError
 
 from bot.application.agent_executor import AgentExecutor
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
@@ -56,6 +57,14 @@ class GraphAgentOrchestrator:
         cls._instance = None
 
     async def run(self, data: CommandData) -> CommandData:
+        try:
+            return await self._run_graph(data)
+        except RedisError as error:
+            # Lost conversation memory beats a silent bot: answer this turn statelessly.
+            logger.warning('agent_checkpointer_unavailable', error=str(error))
+            return await self._executor.run(data)
+
+    async def _run_graph(self, data: CommandData) -> CommandData:
         await self._ensure_setup()
         # data rides the config (ephemeral, never checkpointed); only primitives persist.
         config: RunnableConfig = {
