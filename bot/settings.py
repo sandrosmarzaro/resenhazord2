@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     redis_url: str | None = None
 
     # RabbitMQ
-    rabbitmq_url: str = 'amqp://guest:guest@localhost:5672/'
+    rabbitmq_url: str = ''
 
     # Server
     host: str = '0.0.0.0'

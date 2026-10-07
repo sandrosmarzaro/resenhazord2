@@ -18,7 +18,7 @@ from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
 from bot.domain.services.steal_group import StealGroupService
-from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
+from bot.infrastructure.broker import RabbitBroker
 from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.infrastructure.platform_supervisor import PlatformSupervisor, Shutdown
@@ -32,20 +32,25 @@ def _parse_chat_ids(raw: str) -> frozenset[int]:
     return frozenset(int(part) for part in raw.split(',') if part.strip())
 
 
-async def _start_broker_consumers() -> RabbitBroker | None:
+async def _connect_whatsapp() -> Shutdown:
     broker = RabbitBroker()
     try:
         await broker.connect(settings.rabbitmq_url)
-    except BrokerConnectionError:
-        logger.warning('broker_unavailable')
-        return None
-    whatsapp = BrokerWhatsAppClient(broker)
-    registry = CommandRegistry.instance()
-    registry.set_whatsapp(whatsapp)
-    await CommandConsumer(broker, CommandHandler(registry)).start()
-    steal_group = StealGroupService(whatsapp, settings.resenhazord2_jid, settings.resenha_jid)
-    await GroupEventConsumer(broker, steal_group).start()
-    return broker
+        whatsapp = BrokerWhatsAppClient(broker)
+        registry = CommandRegistry.instance()
+        registry.set_whatsapp(whatsapp)
+        await CommandConsumer(broker, CommandHandler(registry)).start()
+        steal_group = StealGroupService(whatsapp, settings.resenhazord2_jid, settings.resenha_jid)
+        await GroupEventConsumer(broker, steal_group).start()
+    except BaseException:
+        # Close the half-open connections before the supervisor retries with a fresh broker.
+        await broker.close()
+        raise
+    return broker.close
+
+
+def _never_permanent(_error: Exception) -> bool:
+    return False
 
 
 async def _connect_telegram() -> Shutdown:
@@ -75,15 +80,17 @@ async def _run_discord_client(discord_bot: DiscordBot, token: str) -> None:
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     register_all_commands()
-    command_broker = await _start_broker_consumers()
+    platforms = PlatformSupervisor()
+    fastapi_app.state.platforms = platforms
+    if settings.rabbitmq_url:
+        # Broker outages heal on their own, so WhatsApp never gives up retrying.
+        platforms.start('whatsapp', _connect_whatsapp, _never_permanent)
     discord_bot = None
     discord_task = None
     if settings.discord_token and settings.discord_server_guild_id:
         discord_bot = DiscordBot(settings.discord_server_guild_id)
         discord_bot.register_commands()
         discord_task = asyncio.create_task(_run_discord_client(discord_bot, settings.discord_token))
-    platforms = PlatformSupervisor()
-    fastapi_app.state.platforms = platforms
     if settings.telegram_token:
         platforms.start('telegram', _connect_telegram, TelegramBot.is_permanent_failure)
     logger.info('app_started')
@@ -92,8 +99,6 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         await discord_bot.client.close()
         discord_task.cancel()
     await platforms.stop()
-    if command_broker is not None:
-        await command_broker.close()
     await MongoDBConnection.close()
     await Database.close()
     logger.info('app_stopped')
