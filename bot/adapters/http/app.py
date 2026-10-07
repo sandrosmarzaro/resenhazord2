@@ -49,10 +49,6 @@ async def _connect_whatsapp() -> Shutdown:
     return broker.close
 
 
-def _never_permanent(_error: Exception) -> bool:
-    return False
-
-
 async def _connect_telegram() -> Shutdown:
     # A fresh bot per attempt: a half-initialized one would re-register its handlers.
     telegram_bot = TelegramBot(
@@ -84,7 +80,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     fastapi_app.state.platforms = platforms
     if settings.rabbitmq_url:
         # Broker outages heal on their own, so WhatsApp never gives up retrying.
-        platforms.start('whatsapp', _connect_whatsapp, _never_permanent)
+        platforms.start('whatsapp', _connect_whatsapp)
     discord_bot = None
     discord_task = None
     if settings.discord_token and settings.discord_server_guild_id:
@@ -92,7 +88,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         discord_bot.register_commands()
         discord_task = asyncio.create_task(_run_discord_client(discord_bot, settings.discord_token))
     if settings.telegram_token:
-        platforms.start('telegram', _connect_telegram, TelegramBot.is_permanent_failure)
+        platforms.start('telegram', _connect_telegram, TelegramBot.PERMANENT_FAILURES)
     logger.info('app_started')
     yield
     if discord_bot is not None and discord_task is not None:

@@ -84,7 +84,7 @@ class TestLifespan:
 
         telegram_bot = mocker.patch.object(app, 'TelegramBot')
         telegram_bot.return_value.start = reject_token
-        telegram_bot.is_permanent_failure = TelegramBot.is_permanent_failure
+        telegram_bot.PERMANENT_FAILURES = TelegramBot.PERMANENT_FAILURES
         fastapi_app = FastAPI()
 
         async with app.lifespan(fastapi_app):

@@ -33,6 +33,7 @@ class TelegramBot:
     READ_TIMEOUT_SECONDS: ClassVar[float] = 60.0
     WRITE_TIMEOUT_SECONDS: ClassVar[float] = 60.0
     MEDIA_WRITE_TIMEOUT_SECONDS: ClassVar[float] = 120.0
+    PERMANENT_FAILURES: ClassVar[tuple[type[Exception], ...]] = (InvalidToken,)
 
     def __init__(self, token: str, bot_username: str, nsfw_chat_ids: frozenset[int]) -> None:
         self._app = (
@@ -65,10 +66,6 @@ class TelegramBot:
         await self._app.shutdown()
         _UPDATER_LOGGER.setLevel(self._original_updater_level)
         logger.info('telegram_stopped')
-
-    @staticmethod
-    def is_permanent_failure(error: Exception) -> bool:
-        return isinstance(error, InvalidToken)
 
     def _register_handlers(self) -> None:
         callback = self._make_callback()

@@ -9,7 +9,7 @@ logger = structlog.get_logger()
 
 type Shutdown = Callable[[], Awaitable[None]]
 type Connect = Callable[[], Awaitable[Shutdown]]
-type IsPermanent = Callable[[Exception], bool]
+type PermanentFailures = tuple[type[Exception], ...]
 
 
 class PlatformStatus(StrEnum):
@@ -30,9 +30,11 @@ class PlatformSupervisor:
         self._tasks: list[asyncio.Task[None]] = []
         self._shutdowns: list[Shutdown] = []
 
-    def start(self, name: str, connect: Connect, is_permanent: IsPermanent) -> asyncio.Task[None]:
+    def start(
+        self, name: str, connect: Connect, permanent: PermanentFailures = ()
+    ) -> asyncio.Task[None]:
         self._statuses[name] = PlatformStatus.STARTING
-        task = asyncio.create_task(self._supervise(name, connect, is_permanent))
+        task = asyncio.create_task(self._supervise(name, connect, permanent))
         self._tasks.append(task)
         return task
 
@@ -46,23 +48,22 @@ class PlatformSupervisor:
         for shutdown in self._shutdowns:
             await shutdown()
 
-    async def _supervise(self, name: str, connect: Connect, is_permanent: IsPermanent) -> None:
+    async def _supervise(self, name: str, connect: Connect, permanent: PermanentFailures) -> None:
         backoff = self.INITIAL_BACKOFF_SECONDS
         while self._statuses[name] not in (PlatformStatus.UP, PlatformStatus.FAILED):
-            await self._attempt(name, connect, is_permanent, backoff)
+            await self._attempt(name, connect, permanent, backoff)
             backoff = min(backoff * 2, self.MAX_BACKOFF_SECONDS)
 
     async def _attempt(
-        self, name: str, connect: Connect, is_permanent: IsPermanent, backoff: float
+        self, name: str, connect: Connect, permanent: PermanentFailures, backoff: float
     ) -> None:
         try:
             self._shutdowns.append(await connect())
-        # A platform adapter can fail in any way its SDK likes; none may crash the bot.
-        except Exception as error:
-            if is_permanent(error):
-                self._statuses[name] = PlatformStatus.FAILED
-                logger.exception('platform_failed', platform=name)
-                return
+        except permanent:
+            self._statuses[name] = PlatformStatus.FAILED
+            logger.exception('platform_failed', platform=name)
+            return
+        except Exception as error:  # noqa: BLE001
             self._statuses[name] = PlatformStatus.RETRYING
             logger.warning('platform_retrying', platform=name, error=str(error), retry_in=backoff)
             await asyncio.sleep(backoff)
