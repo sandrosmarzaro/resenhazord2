@@ -30,6 +30,7 @@ class CommandConsumer:
     MAX_ATTEMPTS: ClassVar[int] = 3
     DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = 1
     RETRY_TTL_MS: ClassVar[int] = 30_000
+    UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
     def __init__(self, broker: BrokerPort, command_handler: CommandHandler) -> None:
         self._broker = broker
@@ -79,6 +80,14 @@ class CommandConsumer:
                 outcome = 'bot_error'
                 await self._publish_reply(
                     envelope, [Reply.to(command_data).text(error.user_message)]
+                )
+            # Anything else escaped the consume callback: aio_pika rejected the message
+            # without requeue, the user got no reply, and the span still said success.
+            except Exception:
+                outcome = 'unexpected_error'
+                logger.exception('command_unexpected_error')
+                await self._publish_reply(
+                    envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
                 )
             else:
                 await self._publish_reply(envelope, messages or [])
