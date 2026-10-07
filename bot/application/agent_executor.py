@@ -5,6 +5,7 @@ from dataclasses import replace
 from typing import ClassVar
 
 import httpx
+import sentry_sdk
 import structlog
 
 from bot.application.agent_response import AgentResponseTranslator
@@ -52,6 +53,7 @@ class AgentExecutor:
     BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
     _AGENT_UNAVAILABLE_MSG: ClassVar[str] = f'🤖 IA indisponível no momento. {AGENT_MENU_HINT}'
     _AGENT_UNRESOLVABLE_MSG: ClassVar[str] = f'🤖 Não consegui entender. {AGENT_MENU_HINT}'
+    _AGENT_UNAVAILABLE_EVENT: ClassVar[str] = 'agent_unavailable'
 
     def __init__(
         self,
@@ -89,6 +91,10 @@ class AgentExecutor:
             response = await provider.complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError, PromptRegistryError) as e:
             logger.warning('agent_provider_failed', error=str(e))
+            # Per-provider 429s are filtered as noise, so this is the only Sentry signal
+            # that the user got no answer. A plain message keeps the log's bound jid/sender
+            # out of the issue title and groups the whole outage into one issue.
+            sentry_sdk.capture_message(self._AGENT_UNAVAILABLE_EVENT, level='error')
             fallback = self._fallback(data, self._AGENT_UNAVAILABLE_MSG)
             return self._record(fallback, 'unavailable', '', version)
 
