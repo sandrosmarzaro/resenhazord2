@@ -15,7 +15,7 @@ Grafana → Dashboards → New → **Import** → upload the JSON → pick your 
 Prometheus data source when prompted. It's a starter — refine panels in the UI. If a
 panel shows **"No data"**, confirm the metric name in Grafana's metric browser: OTLP→
 Prometheus naming can vary slightly by Grafana version, and the queries here use the
-names captured from Alloy (see the table below). The alerts stay manual (below).
+names captured from Alloy (see the table below). The alerts are versioned too (below).
 
 ## Metric reference
 
@@ -98,8 +98,30 @@ sum by (agent_prompt_version) (rate(agent_mappings_total[5m]))   # correlate an 
 
 ## Alert rules
 
-Grafana → Alerting → Alert rules → New. Sentry keeps error alerting; these cover the
-infra/flow gaps that led to the freezes.
+Sentry keeps error alerting; these cover the infra/flow gaps that led to the freezes.
+They live in [`observability/grafana/alert-rules.json`](../observability/grafana/alert-rules.json)
+as Grafana provisioning-API payloads (fixed `uid`s, folder `resenhazord2`), and route
+straight to the `resenhazord2-email` contact point via `notification_settings`, so the
+root notification policy stays untouched. Applied 2026-10-07.
+
+To re-apply after editing the file, `PUT` each rule (falls back to `POST` on 404) with a
+Grafana service-account token (Editor). `X-Disable-Provenance: true` keeps them editable
+in the UI:
+
+```bash
+jq -c '.[]' observability/grafana/alert-rules.json | while read -r rule; do
+  uid=$(jq -r .uid <<<"$rule")
+  curl -sf -X PUT "$GRAFANA_URL/api/v1/provisioning/alert-rules/$uid" \
+    -H "Authorization: Bearer $GRAFANA_TOKEN" -H 'Content-Type: application/json' \
+    -H 'X-Disable-Provenance: true' -d "$rule" \
+  || curl -sf -X POST "$GRAFANA_URL/api/v1/provisioning/alert-rules" \
+    -H "Authorization: Bearer $GRAFANA_TOKEN" -H 'Content-Type: application/json' \
+    -H 'X-Disable-Provenance: true' -d "$rule"
+done
+```
+
+Every rule uses `noDataState: OK`: `command_dlq_total` has no series until the first
+dead-letter, and the ratio rules go blank when there is no traffic (~20 commands/day).
 
 | Alert | Expression | For | Why |
 |---|---|---|---|
