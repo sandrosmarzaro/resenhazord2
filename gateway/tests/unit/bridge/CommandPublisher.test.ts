@@ -133,6 +133,20 @@ describe('CommandPublisher', () => {
       const envelope = publishedEnvelope(broker);
       expect(envelope.data.sender_jid).toBe(data.key.remoteJid);
     });
+
+    it('falls back to remoteJid when the participant is an empty string', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',dl https://x.com/a' });
+      data.key.participant = '';
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.sender_jid).toBe(data.key.remoteJid);
+    });
   });
 
   describe('with media', () => {

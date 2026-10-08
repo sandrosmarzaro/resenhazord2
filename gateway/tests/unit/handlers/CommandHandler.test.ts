@@ -23,7 +23,10 @@ function createGroupMessage(text: string): WAMessage {
 function createTextlessDirectMessage(): WAMessage {
   const msg = WAMessageFactory.build();
   msg.key.participant = '';
-  msg.message = { messageContextInfo: {} };
+  msg.message = {
+    templateMessage: { interactiveMessageTemplate: { body: { text: ',dl' } } },
+    messageContextInfo: {},
+  };
   msg.messageStubType = 2;
   msg.messageStubParameters = ['No matching sessions found for message'];
   return msg;
@@ -90,7 +93,7 @@ describe('CommandHandler', () => {
 
       expect(logger.warn).toHaveBeenCalledWith({
         event: 'dm_without_text',
-        messageTypes: ['messageContextInfo'],
+        messageTypes: ['templateMessage.interactiveMessageTemplate', 'messageContextInfo'],
         stubType: 2,
         stubParameters: ['No matching sessions found for message'],
         participant: '',
@@ -113,6 +116,18 @@ describe('CommandHandler', () => {
         stubParameters: null,
         participant: null,
       });
+    });
+
+    it('logs a scalar proto field by its type alone', async () => {
+      Resenhazord2.brokerForwarder = { forward: vi.fn() } as never;
+      const blank = WAMessageFactory.build();
+      blank.message = { conversation: '' };
+
+      await CommandHandler.run(blank);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'dm_without_text', messageTypes: ['conversation'] }),
+      );
     });
 
     it('still forwards a DM carrying media without a caption', async () => {

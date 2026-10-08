@@ -45,12 +45,21 @@ export default class CommandHandler {
     if (MediaHandler.hasDirectMedia(data.message)) return false;
     logger.warn({
       event: 'dm_without_text',
-      messageTypes: Object.keys(data.message ?? {}),
+      messageTypes: CommandHandler.messageShape(data.message),
       stubType: data.messageStubType ?? null,
       stubParameters: data.messageStubParameters ?? null,
       participant: data.key.participant ?? null,
     });
     return true;
+  }
+
+  // Proto keys one level deep (e.g. templateMessage.hydratedTemplate), never values:
+  // enough to name the wrapper an extractor is missing without logging message content.
+  private static messageShape(message: WAMessage['message']): string[] {
+    return Object.entries(message ?? {}).map(([type, content]) => {
+      const inner = content && typeof content === 'object' ? Object.keys(content) : [];
+      return inner.length ? inner.map((key) => `${type}.${key}`).join(',') : type;
+    });
   }
 
   private static shouldForward(data: WAMessage, text: string): boolean {
