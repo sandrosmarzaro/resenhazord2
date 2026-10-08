@@ -65,7 +65,8 @@ export default class CommandPublisher {
     if (key.addressingMode === 'lid' && key.participantAlt) {
       return key.participantAlt;
     }
-    return (key.participant ?? key.remoteJid)!;
+    // `||`, not `??`: template DMs arrive with participant set to an empty string.
+    return (key.participant || key.remoteJid)!;
   }
 
   private mentionedJids(data: CommandData): string[] {
