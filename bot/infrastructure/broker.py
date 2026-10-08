@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from typing import ClassVar
 
 import aio_pika
 import structlog
@@ -16,6 +17,12 @@ class BrokerConnectionError(Exception):
 class RabbitBroker:
     PREFETCH_COUNT = 1
     DRAIN_GRACE_SECONDS = 20.0
+    # Raised by a consumer cancel once the broker is gone: a forced close, or an RPC
+    # timeout on a channel whose transport already died.
+    BROKER_GONE_ERRORS: ClassVar[tuple[type[Exception], ...]] = (
+        aio_pika.exceptions.AMQPError,
+        aio_pika.exceptions.ChannelInvalidStateError,
+    )
 
     def __init__(self) -> None:
         self._publish_connection: aio_pika.abc.AbstractRobustConnection | None = None
@@ -103,8 +110,15 @@ class RabbitBroker:
     async def stop_consuming(self) -> None:
         # Cancel consumers so no new message is delivered, then wait (bounded) for the
         # in-flight one to finish and ack — best-effort graceful drain on redeploy (§7).
-        for queue, tag in self._consumers:
-            await queue.cancel(tag)
+        try:
+            for queue, tag in self._consumers:
+                await queue.cancel(tag)
+        except self.BROKER_GONE_ERRORS as error:
+            # The broker is already gone (the edge redeploys it in parallel with the core):
+            # nothing can be delivered, and an in-flight message can no longer be acked.
+            logger.warning('graceful_drain_skipped', error=str(error))
+            self._consumers.clear()
+            return
         self._consumers.clear()
         try:
             async with asyncio.timeout(self.DRAIN_GRACE_SECONDS):
