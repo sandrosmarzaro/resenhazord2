@@ -44,6 +44,43 @@ describe('WaMessageFactory', () => {
       expect(WaMessageFactory.getText(msg)).toBe('a doc');
     });
 
+    it('returns the text of a hydrated template message', () => {
+      const msg: WAMessage = {
+        key: baseKey,
+        message: {
+          templateMessage: { hydratedTemplate: { hydratedContentText: ',dl https://x.com/a' } },
+          messageContextInfo: {},
+        },
+      };
+      expect(WaMessageFactory.getText(msg)).toBe(',dl https://x.com/a');
+    });
+
+    it('returns the text of a hydrated four-row template message', () => {
+      const msg: WAMessage = {
+        key: baseKey,
+        message: {
+          templateMessage: { hydratedFourRowTemplate: { hydratedContentText: ',menu' } },
+        },
+      };
+      expect(WaMessageFactory.getText(msg)).toBe(',menu');
+    });
+
+    it('returns the text inside an ephemeral wrapper', () => {
+      const msg: WAMessage = {
+        key: baseKey,
+        message: { ephemeralMessage: { message: { conversation: ',ping' } } },
+      };
+      expect(WaMessageFactory.getText(msg)).toBe(',ping');
+    });
+
+    it('returns empty string for a document without a caption', () => {
+      const msg: WAMessage = {
+        key: baseKey,
+        message: { documentWithCaptionMessage: { message: { documentMessage: {} } } },
+      };
+      expect(WaMessageFactory.getText(msg)).toBe('');
+    });
+
     it('returns empty string when message is null', () => {
       const msg: WAMessage = { key: baseKey, message: null };
       expect(WaMessageFactory.getText(msg)).toBe('');
