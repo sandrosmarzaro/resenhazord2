@@ -7,6 +7,7 @@ import ConnectionWatchdog from '../../../src/infra/ConnectionWatchdog.js';
 import ConnectionState from '../../../src/infra/ConnectionState.js';
 import Resenhazord2 from '../../../src/models/Resenhazord2.js';
 import { Sentry } from '../../../src/infra/Sentry.js';
+import logger from '../../../src/infra/Logger.js';
 
 // Baileys builds a far larger AuthenticationState at runtime; these fixtures carry only
 // the two fields that decide whether a pairing still exists.
@@ -153,5 +154,44 @@ describe('ConnectionUpdateEvent unclassified 500 close', () => {
 
     expect(disable).toHaveBeenCalledOnce();
     expect(scheduleReconnect).not.toHaveBeenCalled();
+  });
+});
+
+// WhatsApp closes the stream naming the stanza it never got acked; Baileys keeps that
+// node only in the Boom's `data`, and its own logger is silent.
+describe('ConnectionUpdateEvent stream error detail', () => {
+  const ackNode = { tag: 'ack', attrs: { class: 'message', type: 'text', id: '3EB0ABC' } };
+
+  beforeEach(() => {
+    ConnectionUpdateEvent.reset();
+    Resenhazord2.auth_state = pairedAuthState();
+    vi.spyOn(ConnectionState, 'markClosed').mockResolvedValue();
+    vi.spyOn(ConnectionWatchdog, 'arm').mockImplementation(() => {});
+    vi.spyOn(ConnectionUpdateEvent, 'scheduleReconnect').mockResolvedValue();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('records the stanza WhatsApp named when it closed the stream', async () => {
+    const warn = vi.spyOn(logger, 'warn');
+    const breadcrumb = vi.spyOn(Sentry, 'addBreadcrumb');
+    const error = new Boom('Stream Errored (ack)', {
+      statusCode: DisconnectReason.badSession,
+      data: ackNode,
+    });
+
+    await ConnectionUpdateEvent.run({
+      connection: 'close',
+      lastDisconnect: { error, date: new Date() },
+    });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'connection_closed', errorData: ackNode }),
+    );
+    expect(breadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ errorData: ackNode }) }),
+    );
   });
 });

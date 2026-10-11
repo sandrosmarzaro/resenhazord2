@@ -59,18 +59,22 @@ export default class ConnectionUpdateEvent {
     await ConnectionState.markClosed();
 
     const error = lastDisconnect?.error;
-    const statusCode = error && isBoom(error) ? error.output?.statusCode : null;
+    const boom = error && isBoom(error) ? error : null;
+    const statusCode = boom?.output?.statusCode ?? null;
+    // On a stream error this is the node WhatsApp named, e.g. the <ack> it never received.
+    const errorData = boom?.data;
 
     Sentry.addBreadcrumb({
       category: 'whatsapp.connection',
       message: `Connection closed. Status: ${statusCode ?? 'unknown'}`,
       level: 'warning',
-      data: { statusCode, error: error?.message },
+      data: { statusCode, error: error?.message, errorData },
     });
     logger.warn({
       event: 'connection_closed',
       statusCode: statusCode ?? 'unknown',
       error: error?.message ?? 'Unknown error',
+      errorData,
       reconnectAttempts: ConnectionUpdateEvent.reconnectAttempts,
     });
 
