@@ -101,6 +101,20 @@ describe('ConnectionUpdateEvent watchdog wiring', () => {
 
     expect(arm).toHaveBeenCalledOnce();
   });
+
+  it('reconnects when the close carries no status code', async () => {
+    vi.spyOn(ConnectionWatchdog, 'arm').mockImplementation(() => {});
+    const scheduleReconnect = vi
+      .spyOn(ConnectionUpdateEvent, 'scheduleReconnect')
+      .mockResolvedValue();
+
+    await ConnectionUpdateEvent.run({
+      connection: 'close',
+      lastDisconnect: { error: new Error('socket hang up'), date: new Date() },
+    });
+
+    expect(scheduleReconnect).toHaveBeenCalledOnce();
+  });
 });
 
 // Baileys defaults to 500 for every websocket or stream error it cannot classify

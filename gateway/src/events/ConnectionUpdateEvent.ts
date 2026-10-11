@@ -59,8 +59,8 @@ export default class ConnectionUpdateEvent {
     await ConnectionState.markClosed();
 
     const error = lastDisconnect?.error;
-    const boom = error && isBoom(error) ? error : null;
-    const statusCode = boom?.output?.statusCode ?? null;
+    const boom = isBoom(error) ? error : null;
+    const statusCode = boom?.output.statusCode ?? null;
     // On a stream error this is the node WhatsApp named, e.g. the <ack> it never received.
     const errorData = boom?.data;
 
