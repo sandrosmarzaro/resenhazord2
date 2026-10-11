@@ -10,13 +10,14 @@ import { Sentry } from '../../../src/infra/Sentry.js';
 import logger from '../../../src/infra/Logger.js';
 
 // Baileys builds a far larger AuthenticationState at runtime; these fixtures carry only
-// the two fields that decide whether a pairing still exists.
+// the fields that look like they decide whether a pairing still exists.
 function authStateWith(creds: { registered: boolean; me?: { id: string } }): MongoDBAuthResult {
   return { state: { creds }, saveCreds: vi.fn() } as unknown as MongoDBAuthResult;
 }
 
+// QR pairing never sets `registered`; Baileys flips it only in the pairing-code flow.
 const pairedAuthState = () =>
-  authStateWith({ registered: true, me: { id: '5511999999999:1@s.whatsapp.net' } });
+  authStateWith({ registered: false, me: { id: '5511999999999:1@s.whatsapp.net' } });
 
 const unpairedAuthState = () => authStateWith({ registered: false });
 

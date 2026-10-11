@@ -109,6 +109,7 @@ export default class ConnectionUpdateEvent {
   // (`getCodeFromWSError`, `getErrorCodeFromStreamError`), so that code alone never proves
   // the pairing died — only the stored credentials do. Trusting it left prod mute for 26h
   // on 2026-07-24 after a transient "Expected 101 status code" from web.whatsapp.com.
+  // `me` is what Baileys itself checks to log in; `registered` stays false for QR pairings.
   private static isUnpaired(statusCode: number | null): boolean {
     if (statusCode === DisconnectReason.loggedOut) {
       return true;
@@ -116,8 +117,7 @@ export default class ConnectionUpdateEvent {
     if (statusCode !== DisconnectReason.badSession) {
       return false;
     }
-    const credentials = Resenhazord2.auth_state?.state.creds;
-    return !credentials?.registered || !credentials.me;
+    return !Resenhazord2.auth_state?.state.creds.me;
   }
 
   static async scheduleReconnect(): Promise<void> {
