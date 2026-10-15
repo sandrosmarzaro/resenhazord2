@@ -5,19 +5,29 @@ from bot.domain.commands.bible import BibleCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
+RANDOM_URL = 'https://bible-api.com/data/almeida/random'
+
 
 @pytest.fixture
 def command():
-    return BibleCommand(biblia_token='test-token')
+    return BibleCommand()
 
 
-def _verse_response(**overrides):
+def _random_response():
     return {
-        'book': {'name': 'Gênesis'},
-        'chapter': 1,
-        'number': 1,
-        'text': 'No princípio, Deus criou os céus e a terra.',
-        **overrides,
+        'random_verse': {
+            'book': 'Gênesis',
+            'chapter': 1,
+            'verse': 1,
+            'text': 'No princípio criou Deus os céus e a terra.   ',
+        }
+    }
+
+
+def _passage_response(reference, *texts):
+    return {
+        'reference': reference,
+        'verses': [{'text': f'{text}   '} for text in texts],
     }
 
 
@@ -29,8 +39,6 @@ class TestMatches:
             (',bíblia', True),
             (', biblia', True),
             (', BÍBLIA', True),
-            (', bíblia nvi', True),
-            (', bíblia kjv', True),
             (', bíblia Gênesis 1:1', True),
             ('  , bíblia  ', True),
             ('bíblia', False),
@@ -41,90 +49,72 @@ class TestMatches:
         assert command.matches(text) is expected
 
 
-class TestRun:
+class TestRandom:
     @pytest.mark.anyio
     async def test_random_verse_when_no_args(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bíblia')
-        route = respx_mock.get(url__regex=r'.*/verses/.*/random').mock(
-            return_value=httpx.Response(200, json=_verse_response())
-        )
+        respx_mock.get(RANDOM_URL).mock(return_value=httpx.Response(200, json=_random_response()))
+
         messages = await command.run(data)
 
-        url = str(route.calls.last.request.url)
-        assert '/random' in url
-        assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Gênesis 1:1' in messages[0].content.text
-
-    @pytest.mark.anyio
-    async def test_uses_specified_version(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', bíblia kjv')
-        route = respx_mock.get(url__regex=r'.*/verses/.*/random').mock(
-            return_value=httpx.Response(200, json=_verse_response())
+        assert messages[0].content.text == (
+            '*Gênesis 1:1*\n\n> No princípio criou Deus os céus e a terra.'
         )
-        await command.run(data)
 
-        url = str(route.calls.last.request.url)
-        assert '/kjv/' in url
 
+class TestPassage:
     @pytest.mark.anyio
     async def test_specific_verse(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1')
-        books_route = respx_mock.get(url__regex=r'.*/books$').mock(
-            return_value=httpx.Response(200, json=[{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
+        data = GroupCommandDataFactory.build(text=', bíblia joão 3:16')
+        route = respx_mock.get('https://bible-api.com/joão 3:16').mock(
+            return_value=httpx.Response(200, json=_passage_response('João 3:16', 'Porque Deus'))
         )
-        verse_route = respx_mock.get(url__regex=r'.*/verses/.*/gn/\d+/\d+').mock(
-            return_value=httpx.Response(200, json=_verse_response())
-        )
+
         messages = await command.run(data)
 
-        assert books_route.called
-        verse_url = str(verse_route.calls.last.request.url)
-        assert '/gn/' in verse_url
-        assert 'Gênesis 1:1' in messages[0].content.text
+        assert route.calls.last.request.url.params['translation'] == 'almeida'
+        assert messages[0].content.text == '*João 3:16*\n\n> Porque Deus'
 
     @pytest.mark.anyio
-    async def test_book_not_found(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', bíblia Xablau 1:1')
-        respx_mock.get(url__regex=r'.*/books$').mock(
-            return_value=httpx.Response(200, json=[{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
+    async def test_verse_range(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1-3')
+        respx_mock.get('https://bible-api.com/Gênesis 1:1-3').mock(
+            return_value=httpx.Response(
+                200, json=_passage_response('Gênesis 1:1-3', 'Verso 1', 'Verso 2', 'Verso 3')
+            )
         )
+
+        messages = await command.run(data)
+
+        assert messages[0].content.text == ('*Gênesis 1:1-3*\n\n> Verso 1\n> Verso 2\n> Verso 3')
+
+    @pytest.mark.anyio
+    async def test_reference_not_found(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bíblia Xablau 1:1')
+        respx_mock.get('https://bible-api.com/Xablau 1:1').mock(
+            return_value=httpx.Response(404, json={'error': 'not found'})
+        )
+
         messages = await command.run(data)
 
         assert 'Não consegui encontrar' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_missing_book_name_returns_error(self, command):
-        data = GroupCommandDataFactory.build(text=', bíblia 1:1')
+    async def test_reference_without_verse_asks_for_format(self, command):
+        data = GroupCommandDataFactory.build(text=', bíblia joão')
 
         messages = await command.run(data)
 
-        assert 'Por favor, digite o nome' in messages[0].content.text
+        assert 'livro capítulo:versículo' in messages[0].content.text
 
+
+class TestErrors:
     @pytest.mark.anyio
     async def test_api_down_returns_friendly_message(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bíblia')
-        respx_mock.get(url__regex=r'.*/verses/.*/random').mock(return_value=httpx.Response(500))
+        respx_mock.get(RANDOM_URL).mock(return_value=httpx.Response(500))
+
         messages = await command.run(data)
 
         assert 'fora do ar' in messages[0].content.text
-
-    @pytest.mark.anyio
-    async def test_verse_range(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', bíblia Gênesis 1:1-3')
-        respx_mock.get(url__regex=r'.*/books$').mock(
-            return_value=httpx.Response(200, json=[{'name': 'Gênesis', 'abbrev': {'pt': 'gn'}}])
-        )
-        respx_mock.get(url__regex=r'.*/verses/.*/gn/\d+/\d+').mock(
-            side_effect=[
-                httpx.Response(200, json={'text': 'Verso 1'}),
-                httpx.Response(200, json={'text': 'Verso 2'}),
-                httpx.Response(200, json={'text': 'Verso 3'}),
-            ]
-        )
-        messages = await command.run(data)
-
-        text = messages[0].content.text
-        assert 'Gênesis 1:1-3' in text
-        assert 'Verso 1' in text
-        assert 'Verso 3' in text
