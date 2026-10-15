@@ -256,7 +256,7 @@ class CommandConfig:
 | Concept | Shape | Example |
 |---|---|---|
 | **Flag** | boolean toggle (present / absent) | `,pokemon team`, `,musica free` |
-| **Option** | select one value from a set or match a pattern | `,img hd flux-pro`, `,biblia pt nvi` |
+| **Option** | select one value from a set or match a pattern | `,img hd flux-pro`, `,torah pt` |
 | **Args** | free-text after the command | `,google jair messias bolsonaro` |
 
 Inside `execute`, use `parsed.flags.has('flag')`, `parsed.options.get('name')`,
