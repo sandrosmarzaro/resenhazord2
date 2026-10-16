@@ -1,8 +1,11 @@
+from http import HTTPStatus
+
+import httpx
 import pytest
 
 from bot.domain.commands.download import DownloadCommand
 from bot.domain.exceptions import DownloadError
-from bot.domain.models.message import VideoBufferContent
+from bot.domain.models.message import ImageBufferContent, VideoBufferContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 
@@ -114,6 +117,44 @@ class TestRun:
         assert messages[0].content.caption == 'Vídeo'
 
 
+class TestImagePost:
+    IMAGE_URL = 'https://instagram.fvix7-1.fna.fbcdn.net/v/photo.jpg'
+
+    @pytest.fixture
+    def image_post(self, mock_subprocess, respx_mock):
+        respx_mock.get(self.IMAGE_URL).mock(
+            return_value=httpx.Response(HTTPStatus.OK, content=b'fake-image')
+        )
+        return mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'\n', b'', 0),
+                (b'', b'ERROR: [Instagram] abc: There is no video in this post', 1),
+                (f'Post by someone\n{self.IMAGE_URL}\n'.encode(), b'', 0),
+            ],
+        )
+
+    @pytest.mark.anyio
+    async def test_returns_image_buffer(self, command, image_post):
+        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/p/abc')
+
+        messages = await command.run(data)
+
+        assert isinstance(messages[0].content, ImageBufferContent)
+        assert messages[0].content.data == b'fake-image'
+        assert messages[0].content.caption == 'Post by someone'
+
+    @pytest.mark.anyio
+    async def test_reads_thumbnail_ignoring_missing_formats(self, command, image_post):
+        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/p/abc')
+
+        await command.run(data)
+
+        image_call_args = image_post.call_args_list[2][0]
+        assert '--ignore-no-formats-error' in image_call_args
+        assert 'thumbnail' in image_call_args
+
+
 class TestCookies:
     @pytest.mark.anyio
     async def test_passes_cookies_to_both_subprocesses(self, mock_subprocess):
@@ -166,22 +207,6 @@ class TestErrors:
             await command.run(data)
 
         assert 'Não consegui baixar' in exc_info.value.user_message
-
-    @pytest.mark.anyio
-    async def test_no_video_in_post(self, command, mock_subprocess):
-        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/p/abc')
-        mock_subprocess(
-            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
-            calls=[
-                (b'Title\n', b'', 0),
-                (b'', b'ERROR: There is no video in this post', 1),
-            ],
-        )
-
-        with pytest.raises(DownloadError) as exc_info:
-            await command.run(data)
-
-        assert 'não tem vídeo' in exc_info.value.user_message
 
     @pytest.mark.anyio
     async def test_private_video(self, command, mock_subprocess):

@@ -1,6 +1,7 @@
 import asyncio
 
 from bot.domain.exceptions import DownloadError
+from bot.infrastructure.http_client import HttpClient
 
 
 class YtDlpService:
@@ -51,3 +52,31 @@ class YtDlpService:
             raise DownloadError(msg)
 
         return video_stdout, title
+
+    @classmethod
+    async def download_image(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
+        cookies = ['--cookies', cookies_path] if cookies_path else []
+
+        # Photo posts have no formats; the full-size photo is the best thumbnail.
+        proc = await asyncio.create_subprocess_exec(
+            'yt-dlp',
+            *cookies,
+            '--ignore-no-formats-error',
+            '--playlist-items',
+            '1',
+            '--print',
+            'title',
+            '--print',
+            'thumbnail',
+            url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            msg = f'yt-dlp failed: {stderr.decode().strip()}'
+            raise RuntimeError(msg)
+
+        lines = stdout.decode().splitlines()
+        return await HttpClient.get_buffer(lines[-1]), lines[0]
