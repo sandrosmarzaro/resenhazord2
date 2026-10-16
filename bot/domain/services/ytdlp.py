@@ -1,4 +1,5 @@
 import asyncio
+from urllib.parse import urlparse
 
 from bot.domain.exceptions import DownloadError
 from bot.infrastructure.http_client import HttpClient
@@ -6,6 +7,7 @@ from bot.infrastructure.http_client import HttpClient
 
 class YtDlpService:
     MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
+    IMAGE_HOST_SUFFIX = '.fbcdn.net'
 
     @classmethod
     async def download(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
@@ -78,5 +80,15 @@ class YtDlpService:
             msg = f'yt-dlp failed: {stderr.decode().strip()}'
             raise RuntimeError(msg)
 
-        lines = stdout.decode().splitlines()
-        return await HttpClient.get_buffer(lines[-1]), lines[0]
+        title, *_, image_url = stdout.decode().splitlines()
+        image = urlparse(image_url)
+        if image.scheme != 'https' or not (image.hostname or '').endswith(cls.IMAGE_HOST_SUFFIX):
+            msg = f'Unexpected image host: {image.hostname}'
+            raise RuntimeError(msg)
+
+        image_buffer = await HttpClient.get_buffer(image_url)
+        if len(image_buffer) > cls.MAX_BUFFER:
+            msg = 'Image exceeds maximum buffer size'
+            raise RuntimeError(msg)
+
+        return image_buffer, title
