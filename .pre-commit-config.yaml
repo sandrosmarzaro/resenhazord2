@@ -67,3 +67,16 @@ repos:
         language: system
         files: ^gateway/
         pass_filenames: false
+      # Local mirror of Codecov patch coverage, one hook per flag.
+      - id: python-diff-coverage
+        name: python patch coverage (diff-cover)
+        entry: uv run task cov:py
+        language: system
+        files: ^(bot|tests)/
+        pass_filenames: false
+      - id: gateway-diff-coverage
+        name: gateway patch coverage (diff-cover)
+        entry: uv run task cov:ts
+        language: system
+        files: ^gateway/
+        pass_filenames: false

@@ -8,7 +8,8 @@ export default defineConfig({
     setupFiles: ['tests/setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'lcov'],
+      // Repo-root paths (gateway/src/...) so diff-cover matches git diff paths.
+      reporter: ['text', ['lcov', { projectRoot: '..' }]],
       include: ['src/**/*.ts'],
       exclude: ['src/types/**/*.d.ts', 'src/scripts/**/*.ts'],
     },

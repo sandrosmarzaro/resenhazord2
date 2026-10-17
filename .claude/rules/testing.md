@@ -11,6 +11,10 @@ proving the code works. Frameworks in use: pytest + anyio (Python), Vitest (Gate
 - Run the suite after every meaningful change, not just at the end.
 - Red → Green → refactor. A failing test proves the test works; jumping to green
   on the first try is a warning sign, not a win.
+- **Before opening a PR**, run the pre-push hooks:
+  `uv run pre-commit run --hook-stage pre-push --from-ref origin/develop --to-ref HEAD`.
+  They mirror CI, including 100% patch coverage via diff-cover (what Codecov
+  comments on). Every changed line needs a test.
 
 ## What to test
 
