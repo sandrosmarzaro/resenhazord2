@@ -181,6 +181,23 @@ class TestImagePost:
         assert 'Não consegui baixar' in exc_info.value.user_message
 
     @pytest.mark.anyio
+    async def test_image_extraction_error(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/p/abc')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'\n', b'', 0),
+                (b'', b'ERROR: [Instagram] abc: There is no video in this post', 1),
+                (b'', b'ERROR: [Instagram] abc: login required', 1),
+            ],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'precisa de login' in exc_info.value.user_message
+
+    @pytest.mark.anyio
     async def test_refuses_image_over_buffer_limit(self, command, image_post, mocker):
         data = GroupCommandDataFactory.build(text=',dl https://instagram.com/p/abc')
         image_post()
