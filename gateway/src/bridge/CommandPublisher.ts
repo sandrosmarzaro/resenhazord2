@@ -4,6 +4,7 @@ import type BrokerPort from '../ports/BrokerPort.js';
 import type MediaHandler from './MediaHandler.js';
 import type { MediaInfo } from './MediaHandler.js';
 import logger from '../infra/Logger.js';
+import ProtoShape from '../utils/ProtoShape.js';
 import { injectPublishTrace } from '../infra/Otel.js';
 
 interface ConversationMentionShape {
@@ -92,6 +93,9 @@ export default class CommandPublisher {
         event: 'media_download_failed',
         jid: data.key.remoteJid,
         error: String(error),
+        quotedShape: ProtoShape.paths(
+          data.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+        ),
       });
       return null;
     }

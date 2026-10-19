@@ -9,7 +9,7 @@ vi.mock('../../../src/factories/CommandFactory.js', () => ({
 }));
 
 vi.mock('../../../src/infra/Logger.js', () => ({
-  default: { debug: vi.fn(), warn: vi.fn() },
+  default: { debug: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
 import logger from '../../../src/infra/Logger.js';
@@ -139,6 +139,30 @@ describe('CommandHandler', () => {
       );
 
       expect(forward).toHaveBeenCalledWith(expect.anything(), '');
+    });
+  });
+
+  describe('view-once diagnostics', () => {
+    it('logs which fields an incoming view-once message carried', async () => {
+      const viewOnce = WAMessageFactory.build({}, { transient: { isGroup: true } });
+      viewOnce.message = {
+        viewOnceMessageV2: { message: { imageMessage: { mimetype: 'image/jpeg' } } },
+      };
+
+      await CommandHandler.run(viewOnce);
+
+      expect(logger.info).toHaveBeenCalledWith({
+        event: 'view_once_received',
+        shape: ['viewOnceMessageV2.message.imageMessage.mimetype'],
+      });
+    });
+
+    it('stays quiet for ordinary messages', async () => {
+      await CommandHandler.run(createGroupMessage('bom dia'));
+
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.objectContaining({ shape: ['extendedTextMessage.text'] }),
+      );
     });
   });
 });
