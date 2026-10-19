@@ -66,6 +66,7 @@ dev = [
     "commitizen>=4.0.0",
     "mutmut>=3.5.0",
     "testcontainers[rabbitmq]>=4.14.2",
+    "diff-cover>=10.6.0",
 ]
 
 [tool.taskipy.tasks]
@@ -80,6 +81,8 @@ typecheck = "zuban check"
 complexity = "xenon --max-absolute B --max-average B bot/"
 "check:py" = "task lint && task format:check && task typecheck && task complexity"
 "check:ts" = "cd gateway && bun lint && bun typecheck && bun format:check"
+"cov:py" = "pytest && diff-cover coverage.xml --compare-branch=origin/develop --fail-under=100"
+"cov:ts" = "cd gateway && bun run test:coverage && cd .. && diff-cover gateway/coverage/lcov.info --compare-branch=origin/develop --fail-under=100"
 release = "bash scripts/release.sh"
 log = "docker compose up --build -d && docker compose logs -f --no-color --tail=0 2>&1 | tee -a docker.log"
 logrotate = "docker compose logs --no-color --tail=0 > /dev/null && truncate -s 0 docker.log 2>/dev/null; echo 'docker.log truncated'"
