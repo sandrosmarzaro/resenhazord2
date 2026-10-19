@@ -155,10 +155,10 @@ class TestFormatOptions:
 
     @pytest.mark.anyio
     async def test_shows_required_args(self, command):
-        from bot.domain.commands.download import DownloadCommand
+        from bot.domain.commands.drive import DriveCommand
 
         registry = CommandRegistry.instance()
-        registry.register(DownloadCommand())
+        registry.register(DriveCommand())
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
 
