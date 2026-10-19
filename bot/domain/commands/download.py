@@ -38,8 +38,8 @@ class DownloadCommand(Command):
             name='dl',
             aliases=['baixar'],
             flags=[Flag.SHOW, Flag.DM],
-            args=ArgType.REQUIRED,
-            args_pattern=r'https?://\S+[\s\S]*',
+            args=ArgType.OPTIONAL,
+            args_pattern=r'(?:https?://\S+[\s\S]*)?',
             args_label='url',
             category=Category.DOWNLOAD,
             platforms=[Platform.ALL],
@@ -50,8 +50,10 @@ class DownloadCommand(Command):
         return 'Baixe vídeos e fotos de qualquer URL (YouTube, Instagram, TikTok, etc.).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        match = self.URL_REGEX.search(parsed.rest)
-        url = match.group(0) if match else parsed.rest
+        match = self.URL_REGEX.search(parsed.rest) or self.URL_REGEX.search(data.quoted_text or '')
+        if not match:
+            return [Reply.to(data).text('Cadê o link pra eu baixar? 🔗')]
+        url = match.group(0)
 
         try:
             return [await self._download(data, url)]

@@ -24,7 +24,8 @@ class TestMatches:
             (', DL https://youtube.com/watch?v=abc', True),
             (', baixar https://instagram.com/reel/abc', True),
             (', dl http://example.com/video', True),
-            (',dl', False),
+            (',dl', True),
+            (',dl show', True),
             ('dl https://youtube.com', False),
             ('hello', False),
             (', dl no-url-here', False),
@@ -116,6 +117,53 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].content.caption == 'Vídeo'
+
+
+class TestQuotedLink:
+    @pytest.mark.anyio
+    async def test_downloads_link_from_quoted_message(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(
+            text=',dl show', quoted_text=',dl https://instagram.com/reel/abc'
+        )
+        mock_exec = mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Reel\n', b'', 0),
+                (b'video-data', b'', 0),
+            ],
+        )
+
+        messages = await command.run(data)
+
+        assert 'https://instagram.com/reel/abc' in mock_exec.call_args_list[0][0]
+        assert messages[0].content.view_once is False
+
+    @pytest.mark.anyio
+    async def test_prefers_own_link_over_quoted(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(
+            text=',dl https://youtube.com/watch?v=own',
+            quoted_text=',dl https://instagram.com/reel/abc',
+        )
+        mock_exec = mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[
+                (b'Title\n', b'', 0),
+                (b'video-data', b'', 0),
+            ],
+        )
+
+        await command.run(data)
+
+        assert 'https://youtube.com/watch?v=own' in mock_exec.call_args_list[0][0]
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('quoted_text', [None, 'sem link aqui'])
+    async def test_asks_for_link_when_none_found(self, command, quoted_text):
+        data = GroupCommandDataFactory.build(text=',dl show', quoted_text=quoted_text)
+
+        messages = await command.run(data)
+
+        assert 'Cadê o link' in messages[0].content.text
 
 
 class TestImagePost:
