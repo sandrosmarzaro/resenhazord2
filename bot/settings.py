@@ -55,7 +55,6 @@ class Settings(BaseSettings):
 
     bnet_id: str = ''
     bnet_secret: str = ''
-    biblia_token: str = ''
     tmdb_api_key: str = ''
     omdb_api_key: str = ''
     jamendo_client_id: str = ''

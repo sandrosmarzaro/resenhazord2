@@ -147,7 +147,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
 def _register_configured_commands(registry: CommandRegistry, settings: Settings) -> None:
     registry.register(AddCommand(bot_jid=settings.resenhazord2_jid))
     registry.register(BanCommand(bot_jid=settings.resenhazord2_jid))
-    registry.register(BibleCommand(biblia_token=settings.biblia_token))
+    registry.register(BibleCommand())
     registry.register(CountryFlagCommand(api_key=settings.restcountries_api_key))
     registry.register(DownloadCommand(cookies_path=settings.ytdlp_cookies))
     registry.register(

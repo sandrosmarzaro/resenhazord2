@@ -49,7 +49,13 @@ class CommandConsumer:
         await self._broker.consume(self.COMMANDS_QUEUE, self._handle)
 
     async def _handle(self, body: bytes) -> None:
-        envelope = json.loads(body)
+        # A fresh Sentry isolation scope per message: set_tag mutates the scope object,
+        # which the consume tasks share by reference, so the last command's tags used to
+        # stamp later, unrelated events (e.g. the deploy shutdown error).
+        with sentry_sdk.isolation_scope():
+            await self._process(json.loads(body))
+
+    async def _process(self, envelope: dict[str, Any]) -> None:
         command_data = self._to_command_data(envelope['data'])
 
         structlog.contextvars.clear_contextvars()

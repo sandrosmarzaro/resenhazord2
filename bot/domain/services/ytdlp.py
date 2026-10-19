@@ -1,10 +1,13 @@
 import asyncio
+from urllib.parse import urlparse
 
 from bot.domain.exceptions import DownloadError
+from bot.infrastructure.http_client import HttpClient
 
 
 class YtDlpService:
     MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
+    IMAGE_HOST_SUFFIX = '.fbcdn.net'
 
     @classmethod
     async def download(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
@@ -51,3 +54,41 @@ class YtDlpService:
             raise DownloadError(msg)
 
         return video_stdout, title
+
+    @classmethod
+    async def download_image(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
+        cookies = ['--cookies', cookies_path] if cookies_path else []
+
+        # Photo posts have no formats; the full-size photo is the best thumbnail.
+        proc = await asyncio.create_subprocess_exec(
+            'yt-dlp',
+            *cookies,
+            '--ignore-no-formats-error',
+            '--playlist-items',
+            '1',
+            '--print',
+            'title',
+            '--print',
+            'thumbnail',
+            url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            msg = f'yt-dlp failed: {stderr.decode().strip()}'
+            raise RuntimeError(msg)
+
+        title, *_, image_url = stdout.decode().splitlines()
+        image = urlparse(image_url)
+        if image.scheme != 'https' or not (image.hostname or '').endswith(cls.IMAGE_HOST_SUFFIX):
+            msg = f'Unexpected image host: {image.hostname}'
+            raise RuntimeError(msg)
+
+        image_buffer = await HttpClient.get_buffer(image_url)
+        if len(image_buffer) > cls.MAX_BUFFER:
+            msg = 'Image exceeds maximum buffer size'
+            raise RuntimeError(msg)
+
+        return image_buffer, title

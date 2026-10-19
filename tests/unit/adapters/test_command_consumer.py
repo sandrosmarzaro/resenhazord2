@@ -2,6 +2,7 @@ import base64
 import json
 
 import pytest
+import sentry_sdk
 
 from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError, ValidationError
@@ -219,6 +220,44 @@ class TestErrors:
 
         _, body = broker.published[0]
         assert json.loads(body) == {'id': 'corr-1', 'messages': []}
+
+
+def _event_tags() -> dict:
+    return sentry_sdk.get_isolation_scope().apply_to_event({}, {}).get('tags') or {}
+
+
+class TestSentryScope:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_tags_events_raised_while_handling_with_the_correlation_id(self, mocker):
+        seen: list[dict] = []
+
+        async def handle(_):
+            seen.append(_event_tags())
+            return []
+
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = handle
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        assert seen[0]['correlation_id'] == 'corr-1'
+
+    @pytest.mark.anyio
+    async def test_correlation_tag_does_not_outlive_the_command(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        assert 'correlation_id' not in _event_tags()
 
 
 class TestTracePropagation:

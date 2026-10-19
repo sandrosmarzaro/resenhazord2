@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from testcontainers.rabbitmq import RabbitMqContainer
 
 from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 
@@ -139,6 +140,24 @@ class TestGracefulDrain:
             await close_task
 
         assert finished == [b'work']
+
+
+class TestDrainWithBrokerGone:
+    @pytest.mark.anyio
+    async def test_close_completes_when_the_broker_shut_down_underneath(self):
+        async def handler(_: bytes) -> None:
+            return None
+
+        with RabbitMqContainer('rabbitmq:3.13') as container:
+            params = container.get_connection_params()
+            url = f'amqp://{container.username}:{container.password}@{params.host}:{params.port}/'
+            broker = RabbitBroker()
+            await broker.connect(url)
+            await broker.consume('drain_gone_q', handler)
+            container.exec(['rabbitmqctl', 'stop_app'])
+
+            async with asyncio.timeout(30):
+                await broker.close()
 
 
 class TestConnectFailure:

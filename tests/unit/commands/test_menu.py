@@ -49,7 +49,7 @@ class TestSectionMenus:
         text = messages[0].content.text
         assert 'COMANDOS DE BÍBLIA' in text
         assert ',biblia' in text
-        assert 'nvi' in text
+        assert 'Almeida' in text
 
 
 class TestDynamicMenu:
@@ -155,10 +155,10 @@ class TestFormatOptions:
 
     @pytest.mark.anyio
     async def test_shows_required_args(self, command):
-        from bot.domain.commands.download import DownloadCommand
+        from bot.domain.commands.drive import DriveCommand
 
         registry = CommandRegistry.instance()
-        registry.register(DownloadCommand())
+        registry.register(DriveCommand())
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
 
@@ -172,8 +172,7 @@ class TestFormatOptions:
         from bot.domain.commands.bible import BibleCommand
 
         registry = CommandRegistry.instance()
-        token = 'test'
-        registry.register(BibleCommand(biblia_token=token))
+        registry.register(BibleCommand())
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
 
@@ -184,11 +183,10 @@ class TestFormatOptions:
 
     @pytest.mark.anyio
     async def test_shows_option_values(self, command):
-        from bot.domain.commands.bible import BibleCommand
+        from bot.domain.commands.torah import TorahCommand
 
         registry = CommandRegistry.instance()
-        token = 'test'
-        registry.register(BibleCommand(biblia_token=token))
+        registry.register(TorahCommand())
         registry.register(command)
         data = GroupCommandDataFactory.build(text=',menu')
 

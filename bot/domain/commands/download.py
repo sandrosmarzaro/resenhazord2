@@ -4,6 +4,7 @@ import structlog
 
 from bot.data.download_errors import (
     FALLBACK_MESSAGE,
+    NO_VIDEO_IN_POST,
     YTDLP_ERROR_MESSAGES,
 )
 from bot.domain.builders.reply import Reply
@@ -37,8 +38,8 @@ class DownloadCommand(Command):
             name='dl',
             aliases=['baixar'],
             flags=[Flag.SHOW, Flag.DM],
-            args=ArgType.REQUIRED,
-            args_pattern=r'https?://\S+[\s\S]*',
+            args=ArgType.OPTIONAL,
+            args_pattern=r'(?:https?://\S+[\s\S]*)?',
             args_label='url',
             category=Category.DOWNLOAD,
             platforms=[Platform.ALL],
@@ -46,14 +47,16 @@ class DownloadCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Baixe vídeos de qualquer URL (YouTube, Instagram, TikTok, etc.).'
+        return 'Baixe vídeos e fotos de qualquer URL (YouTube, Instagram, TikTok, etc.).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        match = self.URL_REGEX.search(parsed.rest)
-        url = match.group(0) if match else parsed.rest
+        match = self.URL_REGEX.search(parsed.rest) or self.URL_REGEX.search(data.quoted_text or '')
+        if not match:
+            return [Reply.to(data).text('Cadê o link pra eu baixar? 🔗')]
+        url = match.group(0)
 
         try:
-            video_buffer, title = await YtDlpService.download(url, self._cookies_path)
+            return [await self._download(data, url)]
         except RuntimeError as e:
             raise DownloadError(self._match_error(str(e)), detail=str(e)) from e
         except DownloadError:
@@ -61,7 +64,16 @@ class DownloadCommand(Command):
         except Exception as e:
             raise DownloadError(FALLBACK_MESSAGE, detail=str(e)) from e
 
-        return [Reply.to(data).video_buffer(video_buffer, title)]
+    async def _download(self, data: CommandData, url: str) -> BotMessage:
+        try:
+            video_buffer, title = await YtDlpService.download(url, self._cookies_path)
+        except RuntimeError as e:
+            if NO_VIDEO_IN_POST not in str(e):
+                raise
+            image_buffer, title = await YtDlpService.download_image(url, self._cookies_path)
+            return Reply.to(data).image_buffer(image_buffer, title)
+
+        return Reply.to(data).video_buffer(video_buffer, title)
 
     @staticmethod
     def _match_error(error: str) -> str:

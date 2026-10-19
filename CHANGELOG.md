@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v2.8.0 (2026-10-19)
+
+### Feat
+
+- **commands**: let ,dl take the link from a quoted message
+
+### Fix
+
+- **commands**: restrict ,dl image fetch to the Instagram CDN and cap its size
+- **commands**: send the photo when ,dl hits an image-only post
+- **gateway**: log the node WhatsApp names when it closes the stream
+- **commands**: move bible to bible-api.com after abibliadigital shutdown
+- **gateway**: treat QR-paired sessions as paired on a 500 close
+- **gateway**: log nested proto keys for textless dms
+- **gateway**: fall back to remoteJid when the participant is empty
+- **gateway**: read dm text from template and wrapped messages
+- **broker**: isolate the sentry scope per consumed command
+- **broker**: skip the shutdown drain when the broker is already gone
+
 ## v2.7.0 (2026-10-07)
 
 ### Feat

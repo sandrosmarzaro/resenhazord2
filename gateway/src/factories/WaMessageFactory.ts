@@ -1,4 +1,5 @@
 import type { WAMessage, proto } from '@whiskeysockets/baileys';
+import { extractMessageContent } from '@whiskeysockets/baileys';
 
 type TextExtractor = (m: proto.IMessage) => string | undefined;
 type ExpirationExtractor = (m: proto.IMessage) => number | undefined;
@@ -8,8 +9,7 @@ const TEXT_EXTRACTORS: Partial<Record<keyof proto.IMessage, TextExtractor>> = {
   extendedTextMessage: (m) => m.extendedTextMessage?.text ?? undefined,
   imageMessage: (m) => m.imageMessage?.caption ?? undefined,
   videoMessage: (m) => m.videoMessage?.caption ?? undefined,
-  documentWithCaptionMessage: (m) =>
-    m.documentWithCaptionMessage?.message?.documentMessage?.caption ?? undefined,
+  documentMessage: (m) => m.documentMessage?.caption ?? undefined,
 };
 
 const EXPIRATION_EXTRACTORS: Partial<Record<keyof proto.IMessage, ExpirationExtractor>> = {
@@ -22,7 +22,10 @@ const EXPIRATION_EXTRACTORS: Partial<Record<keyof proto.IMessage, ExpirationExtr
 
 export default class WaMessageFactory {
   static getText(message: WAMessage): string {
-    const msg = message.message;
+    // Baileys' own unwrapping: ephemeral/view-once/edited/document wrappers, and the
+    // template and buttons messages some clients send plain text as (a DM ,dl arrived
+    // as a templateMessage and was read as empty).
+    const msg = extractMessageContent(message.message);
     if (!msg) return '';
     for (const [key, extract] of Object.entries(TEXT_EXTRACTORS)) {
       if (msg[key as keyof proto.IMessage]) {

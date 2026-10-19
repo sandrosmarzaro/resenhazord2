@@ -6,6 +6,7 @@ import MediaHandler from '../bridge/MediaHandler.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
 import GetTextMessage from '../utils/GetTextMessage.js';
+import ProtoShape from '../utils/ProtoShape.js';
 import GetGroupExpiration from '../utils/GetGroupExpiration.js';
 import ReactMessage from '../utils/ReactMessage.js';
 import TypingIndicator from '../utils/TypingIndicator.js';
@@ -21,6 +22,7 @@ export default class CommandHandler {
     // Never act on our own outgoing messages. In a DM the bot's reply echoes back as
     // an upsert, and since DMs auto-forward it would re-trigger the agent endlessly.
     if (data.key.fromMe) return;
+    CommandHandler.logViewOnceShape(data);
 
     const text = GetTextMessage.run(data);
     const command = CommandFactory.getInstance().getStrategy(text);
@@ -37,6 +39,14 @@ export default class CommandHandler {
     await Resenhazord2.brokerForwarder?.forward(data, text);
   }
 
+  // Diagnostic for ,scarra: does a linked device ever receive view-once media with a
+  // downloadable url/directPath? Remove once answered.
+  private static logViewOnceShape(data: WAMessage): void {
+    const shape = ProtoShape.paths(data.message);
+    if (!shape.some((path) => path.includes('viewOnce'))) return;
+    logger.info({ event: 'view_once_received', shape });
+  }
+
   // DMs auto-forward to the agent, so a DM whose text we failed to extract woke it with
   // an empty prompt and the real command was lost. Drop it, and log the proto shape so
   // the missing extractor can be identified.
@@ -45,12 +55,21 @@ export default class CommandHandler {
     if (MediaHandler.hasDirectMedia(data.message)) return false;
     logger.warn({
       event: 'dm_without_text',
-      messageTypes: Object.keys(data.message ?? {}),
+      messageTypes: CommandHandler.messageShape(data.message),
       stubType: data.messageStubType ?? null,
       stubParameters: data.messageStubParameters ?? null,
       participant: data.key.participant ?? null,
     });
     return true;
+  }
+
+  // Proto keys one level deep (e.g. templateMessage.hydratedTemplate), never values:
+  // enough to name the wrapper an extractor is missing without logging message content.
+  private static messageShape(message: WAMessage['message']): string[] {
+    return Object.entries(message ?? {}).map(([type, content]) => {
+      const inner = content && typeof content === 'object' ? Object.keys(content) : [];
+      return inner.length ? inner.map((key) => `${type}.${key}`).join(',') : type;
+    });
   }
 
   private static shouldForward(data: WAMessage, text: string): boolean {

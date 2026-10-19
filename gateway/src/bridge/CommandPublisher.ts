@@ -4,6 +4,7 @@ import type BrokerPort from '../ports/BrokerPort.js';
 import type MediaHandler from './MediaHandler.js';
 import type { MediaInfo } from './MediaHandler.js';
 import logger from '../infra/Logger.js';
+import ProtoShape from '../utils/ProtoShape.js';
 import { injectPublishTrace } from '../infra/Otel.js';
 
 interface ConversationMentionShape {
@@ -65,7 +66,8 @@ export default class CommandPublisher {
     if (key.addressingMode === 'lid' && key.participantAlt) {
       return key.participantAlt;
     }
-    return (key.participant ?? key.remoteJid)!;
+    // `||`, not `??`: template DMs arrive with participant set to an empty string.
+    return (key.participant || key.remoteJid)!;
   }
 
   private mentionedJids(data: CommandData): string[] {
@@ -91,6 +93,9 @@ export default class CommandPublisher {
         event: 'media_download_failed',
         jid: data.key.remoteJid,
         error: String(error),
+        quotedShape: ProtoShape.paths(
+          data.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+        ),
       });
       return null;
     }

@@ -4,6 +4,7 @@ import CommandPublisher from '../../../src/bridge/CommandPublisher.js';
 import type BrokerPort from '../../../src/ports/BrokerPort.js';
 import type MediaHandler from '../../../src/bridge/MediaHandler.js';
 import { injectPublishTrace } from '../../../src/infra/Otel.js';
+import logger from '../../../src/infra/Logger.js';
 import { createMockBrokerPort } from '../../fixtures/factories/MockBrokerPort.js';
 import { GroupCommandData } from '../../fixtures/index.js';
 
@@ -133,6 +134,20 @@ describe('CommandPublisher', () => {
       const envelope = publishedEnvelope(broker);
       expect(envelope.data.sender_jid).toBe(data.key.remoteJid);
     });
+
+    it('falls back to remoteJid when the participant is an empty string', async () => {
+      const broker = makeBroker();
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue(null),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',dl https://x.com/a' });
+      data.key.participant = '';
+
+      await new CommandPublisher(broker, mediaHandler).publish(data);
+
+      const envelope = publishedEnvelope(broker);
+      expect(envelope.data.sender_jid).toBe(data.key.remoteJid);
+    });
   });
 
   describe('with media', () => {
@@ -165,6 +180,33 @@ describe('CommandPublisher', () => {
       const envelope = publishedEnvelope(broker);
       expect(envelope.data.media_type).toBe('image');
       expect(envelope.data.media_buffer_b64).toBeUndefined();
+    });
+
+    it('logs which fields the quoted message carried when the download fails', async () => {
+      const mediaHandler = {
+        detectMedia: vi.fn().mockReturnValue({ type: 'image', source: 'view_once' }),
+        downloadMedia: vi.fn().mockRejectedValue(new Error('No valid media URL')),
+      } as unknown as MediaHandler;
+      const data = GroupCommandData.build({ text: ',scarra' });
+      data.message = {
+        extendedTextMessage: {
+          text: ',scarra',
+          contextInfo: {
+            quotedMessage: {
+              viewOnceMessageV2: { message: { imageMessage: { mimetype: 'image/jpeg' } } },
+            },
+          },
+        },
+      };
+
+      await new CommandPublisher(makeBroker(), mediaHandler).publish(data);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'media_download_failed',
+          quotedShape: ['viewOnceMessageV2.message.imageMessage.mimetype'],
+        }),
+      );
     });
   });
 });

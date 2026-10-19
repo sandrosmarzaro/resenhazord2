@@ -9,7 +9,7 @@ vi.mock('../../../src/factories/CommandFactory.js', () => ({
 }));
 
 vi.mock('../../../src/infra/Logger.js', () => ({
-  default: { debug: vi.fn(), warn: vi.fn() },
+  default: { debug: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
 import logger from '../../../src/infra/Logger.js';
@@ -23,7 +23,10 @@ function createGroupMessage(text: string): WAMessage {
 function createTextlessDirectMessage(): WAMessage {
   const msg = WAMessageFactory.build();
   msg.key.participant = '';
-  msg.message = { messageContextInfo: {} };
+  msg.message = {
+    templateMessage: { interactiveMessageTemplate: { body: { text: ',dl' } } },
+    messageContextInfo: {},
+  };
   msg.messageStubType = 2;
   msg.messageStubParameters = ['No matching sessions found for message'];
   return msg;
@@ -90,7 +93,7 @@ describe('CommandHandler', () => {
 
       expect(logger.warn).toHaveBeenCalledWith({
         event: 'dm_without_text',
-        messageTypes: ['messageContextInfo'],
+        messageTypes: ['templateMessage.interactiveMessageTemplate', 'messageContextInfo'],
         stubType: 2,
         stubParameters: ['No matching sessions found for message'],
         participant: '',
@@ -115,6 +118,18 @@ describe('CommandHandler', () => {
       });
     });
 
+    it('logs a scalar proto field by its type alone', async () => {
+      Resenhazord2.brokerForwarder = { forward: vi.fn() } as never;
+      const blank = WAMessageFactory.build();
+      blank.message = { conversation: '' };
+
+      await CommandHandler.run(blank);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'dm_without_text', messageTypes: ['conversation'] }),
+      );
+    });
+
     it('still forwards a DM carrying media without a caption', async () => {
       const forward = vi.fn().mockResolvedValue(undefined);
       Resenhazord2.brokerForwarder = { forward } as never;
@@ -124,6 +139,30 @@ describe('CommandHandler', () => {
       );
 
       expect(forward).toHaveBeenCalledWith(expect.anything(), '');
+    });
+  });
+
+  describe('view-once diagnostics', () => {
+    it('logs which fields an incoming view-once message carried', async () => {
+      const viewOnce = WAMessageFactory.build({}, { transient: { isGroup: true } });
+      viewOnce.message = {
+        viewOnceMessageV2: { message: { imageMessage: { mimetype: 'image/jpeg' } } },
+      };
+
+      await CommandHandler.run(viewOnce);
+
+      expect(logger.info).toHaveBeenCalledWith({
+        event: 'view_once_received',
+        shape: ['viewOnceMessageV2.message.imageMessage.mimetype'],
+      });
+    });
+
+    it('stays quiet for ordinary messages', async () => {
+      await CommandHandler.run(createGroupMessage('bom dia'));
+
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.objectContaining({ shape: ['extendedTextMessage.text'] }),
+      );
     });
   });
 });
