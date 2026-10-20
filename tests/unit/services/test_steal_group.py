@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import httpx
 import pytest
 
@@ -122,3 +124,49 @@ class TestStealExecution:
 
         # Should not raise
         await service.run(_group_event())
+
+
+class TestLidAddressedGroup:
+    BOT_PARTICIPANT: ClassVar[dict] = {
+        'id': 'bot-lid@lid',
+        'phoneNumber': 'bot@s.whatsapp.net',
+        'admin': None,
+    }
+
+    @staticmethod
+    def _lid_metadata(*, owner='someone_else@s.whatsapp.net'):
+        return _metadata(
+            participants=[
+                {'id': 'bot-lid@lid', 'phoneNumber': 'bot@s.whatsapp.net', 'admin': 'admin'},
+                {'id': 'admin-lid@lid', 'phoneNumber': 'admin1@s.whatsapp.net', 'admin': 'admin'},
+                {'id': 'member-lid@lid', 'phoneNumber': 'member@s.whatsapp.net'},
+            ],
+            owner=owner,
+        )
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        'participant',
+        [{'id': BOT_PARTICIPANT}, BOT_PARTICIPANT],
+        ids=['nested-gateway-shape', 'baileys-shape'],
+    )
+    async def test_demotes_other_admins_when_bot_promoted(
+        self, service, mock_whatsapp, colony_collection, loremflickr_route, participant
+    ):
+        mock_whatsapp.group_metadata.return_value = self._lid_metadata()
+
+        await service.run(_group_event(participants=[participant]))
+
+        mock_whatsapp.group_participants_update.assert_called_once_with(
+            'target@g.us', ['admin-lid@lid'], 'demote'
+        )
+
+    @pytest.mark.anyio
+    async def test_skips_when_owner_is_admin(self, service, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = self._lid_metadata(
+            owner='admin1@s.whatsapp.net'
+        )
+
+        await service.run(_group_event(participants=[self.BOT_PARTICIPANT]))
+
+        mock_whatsapp.group_participants_update.assert_not_called()
