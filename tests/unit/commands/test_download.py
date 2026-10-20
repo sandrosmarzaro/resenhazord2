@@ -119,6 +119,38 @@ class TestRun:
         assert messages[0].content.caption == 'Vídeo'
 
 
+def _box(kind: bytes, payload: bytes) -> bytes:
+    return (len(payload) + 8).to_bytes(4, 'big') + kind + payload
+
+
+def _mp4(*handlers: bytes) -> bytes:
+    tracks = b''.join(_box(b'hdlr', bytes(8) + handler + bytes(12)) for handler in handlers)
+    return _box(b'ftyp', b'isom') + _box(b'moov', tracks) + _box(b'mdat', b'frames')
+
+
+class TestSilentVideo:
+    @pytest.mark.parametrize(
+        ('video', 'gif_playback'),
+        [
+            (_mp4(b'vide'), True),
+            (_mp4(b'vide', b'soun'), False),
+            (b'not-an-mp4', False),
+        ],
+        ids=['silent', 'with-audio', 'not-mp4'],
+    )
+    @pytest.mark.anyio
+    async def test_sends_silent_mp4_as_gif(self, command, mock_subprocess, video, gif_playback):
+        data = GroupCommandDataFactory.build(text=',dl https://x.com/a/status/1')
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[(b'Title\n', b'', 0), (video, b'', 0)],
+        )
+
+        messages = await command.run(data)
+
+        assert messages[0].content.gif_playback is gif_playback
+
+
 class TestQuotedLink:
     @pytest.mark.anyio
     async def test_downloads_link_from_quoted_message(self, command, mock_subprocess):
