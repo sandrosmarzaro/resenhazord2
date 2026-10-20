@@ -23,9 +23,7 @@ class StealGroupService:
         if data.get('action') != 'promote':
             return
 
-        bot_promoted = any(
-            p.get('id') == self._resenhazord2_jid for p in data.get('participants', [])
-        )
+        bot_promoted = any(self._is_bot(p) for p in data.get('participants', []))
         if not bot_promoted:
             return
 
@@ -35,18 +33,28 @@ class StealGroupService:
         except Exception:
             logger.exception('steal_group_error', group_jid=group_jid)
 
+    def _is_bot(self, participant: dict) -> bool:
+        # The gateway used to wrap each Baileys participant as {'id': {...}}.
+        if isinstance(participant.get('id'), dict):
+            participant = participant['id']
+        return self._phone_number(participant) == self._resenhazord2_jid
+
+    @staticmethod
+    def _phone_number(participant: dict) -> str:
+        # LID-addressed groups key participants by LID and carry the PN alongside.
+        return participant.get('phoneNumber') or participant['id']
+
     async def _steal(self, group_jid: str) -> None:
         metadata = await self._whatsapp.group_metadata(group_jid)
         participants = metadata.get('participants', [])
 
-        admin_jids = [
-            p['id'] for p in participants if p.get('admin') and p['id'] != self._resenhazord2_jid
-        ]
+        admins = [p for p in participants if p.get('admin') and not self._is_bot(p)]
 
-        owner_jid = metadata.get('ownerPn', '')
-        if owner_jid in admin_jids:
+        owner_pn = metadata.get('ownerPn', '')
+        if any(self._phone_number(p) == owner_pn for p in admins):
             return
 
+        admin_jids = [p['id'] for p in admins]
         await self._whatsapp.group_participants_update(group_jid, admin_jids, 'demote')
 
         colony_number = await self._next_colony_number()
