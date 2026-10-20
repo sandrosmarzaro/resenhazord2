@@ -72,6 +72,17 @@ This project uses a **two-permanent-branch** flow. Direct pushes to either are b
 5. Require CI green + 1 approval, then **squash merge**
 6. Delete branch after merge
 
+### Stacked PRs
+
+When a change depends on an open PR, branch from that PR's branch and open the new PR **with
+it as the base**. `Check` runs on any base and only for the side (Python / gateway) the PR
+touches. When the parent merges, GitHub deletes its branch and retargets the child to
+`develop`. `develop` doesn't require branches to be up to date, so the child keeps its green
+checks and merges without another CI run. If the parent was **squash**-merged, the child
+still carries the parent's original commits: `git rebase --onto develop <parent-branch>`
+before merging. To restack after amending a lower branch, run
+`git rebase --update-refs <base>` from the top of the stack.
+
 The squash-merge commit subject **must itself be a Conventional Commit** (`feat: …`, `fix(scope): …`, …) — commitizen reads every commit on `develop` and infers the version bump from these subjects.
 
 ## Release workflow (`develop` → `main`)
