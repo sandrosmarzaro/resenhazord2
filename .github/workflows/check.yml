@@ -1,10 +1,8 @@
 name: Check
 
 on:
+  # Any base, so a PR stacked on another feature branch is checked against its parent.
   pull_request:
-    branches:
-      - main
-      - develop
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
