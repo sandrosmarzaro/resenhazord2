@@ -16,7 +16,7 @@ class TestGroupEventsOverBroker:
 
         broker = RabbitBroker()
         await broker.connect(rabbitmq_url)
-        await GroupEventConsumer(broker, steal_group).start()
+        await GroupEventConsumer(broker, steal_group, mocker.AsyncMock()).start()
 
         payload = {'action': 'promote', 'id': 'g@g.us', 'participants': []}
         await broker.publish(GroupEventConsumer.QUEUE, json.dumps(payload).encode())
