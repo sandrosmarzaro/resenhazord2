@@ -7,7 +7,7 @@
     "condition": "C",
     "for": "5m",
     "noDataState": "OK",
-    "execErrState": "Error",
+    "execErrState": "KeepLast",
     "annotations": {
       "summary": "{{ $labels.instance }} available memory below 10%",
       "description": "The documented OOM/host-freeze risk on the 1 GB nodes."
@@ -46,7 +46,7 @@
     "condition": "C",
     "for": "10m",
     "noDataState": "OK",
-    "execErrState": "Error",
+    "execErrState": "KeepLast",
     "annotations": {
       "summary": "{{ $labels.instance }} swap above 80%",
       "description": "Sustained swap pressure precedes the freeze."
@@ -85,7 +85,7 @@
     "condition": "C",
     "for": "10m",
     "noDataState": "OK",
-    "execErrState": "Error",
+    "execErrState": "KeepLast",
     "annotations": {
       "summary": "More than 30% of commands failing",
       "description": "A broad upstream/logic failure, not one bad URL."
@@ -124,7 +124,7 @@
     "condition": "C",
     "for": "0s",
     "noDataState": "OK",
-    "execErrState": "Error",
+    "execErrState": "KeepLast",
     "annotations": {
       "summary": "More than 5 commands dead-lettered in 15m",
       "description": "Commands giving up after the retry ladder."
@@ -163,7 +163,7 @@
     "condition": "C",
     "for": "5m",
     "noDataState": "OK",
-    "execErrState": "Error",
+    "execErrState": "KeepLast",
     "annotations": {
       "summary": "More than 100 commands waiting in the queue",
       "description": "The bot is falling behind or stalled consuming."
@@ -202,7 +202,7 @@
     "condition": "C",
     "for": "10m",
     "noDataState": "OK",
-    "execErrState": "Error",
+    "execErrState": "KeepLast",
     "annotations": {
       "summary": "Most NL mappings hit no working LLM provider",
       "description": "Direct commands still work, but the agent is effectively down."
