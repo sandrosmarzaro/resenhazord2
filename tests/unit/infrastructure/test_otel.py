@@ -1,4 +1,9 @@
+import httpx
 import pytest
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from bot.infrastructure.otel import _parse_headers, init_otel
 from bot.settings import Settings
@@ -82,3 +87,25 @@ class TestInitOtel:
 
         root.addHandler.assert_called_once_with(otel_globals['LoggingHandler'].return_value)
 
+
+class TestHttpxSpans:
+    @pytest.mark.anyio
+    async def test_hides_telegram_bot_token_from_span_url(
+        self, mocker, otel_globals, otel_settings
+    ):
+        init_otel(otel_settings, mocker.Mock())
+        instrument = otel_globals['HTTPXClientInstrumentor'].return_value.instrument
+        async_hook = instrument.call_args.kwargs.get('async_request_hook')
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        transport = httpx.MockTransport(lambda _: httpx.Response(200))
+
+        async with httpx.AsyncClient(transport=transport) as client:
+            HTTPXClientInstrumentor.instrument_client(
+                client, tracer_provider=provider, request_hook=async_hook
+            )
+            await client.post('https://api.telegram.org/bot123456:AAsecret-Token_x/getUpdates')
+
+        [span] = exporter.get_finished_spans()
+        assert span.attributes['http.url'] == 'https://api.telegram.org/bot<redacted>/getUpdates'
