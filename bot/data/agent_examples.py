@@ -144,8 +144,6 @@ AGENT_EXAMPLES = [
     ('baixa esse vídeo do tiktok', ',dl'),
     ('extrair a imagem do sticker', ',extrair'),
     ('imagem original da figurinha', ',extrair'),
-    ('baixar a visualização única marcada', ',scarra'),
-    ('salvar o view once', ',scarra'),
     # Country flag
     ('bandeira de um país aleatório', ',bandeira'),
     # Slot machine

@@ -20,9 +20,7 @@ class BrokerWhatsAppClient:
     ACTIONS_QUEUE = 'wa_actions'
     RPC_QUEUE = 'wa_rpc'
     RPC_TIMEOUT_SECONDS: ClassVar[float] = 30.0
-    MEDIA_UNAVAILABLE_MESSAGE: ClassVar[str] = (
-        '❌ Não consegui baixar essa mídia. Mídia de visualização única não chega ao bot.'
-    )
+    MEDIA_UNAVAILABLE_MESSAGE: ClassVar[str] = '❌ Não consegui baixar essa mídia.'
 
     def __init__(self, broker: BrokerPort) -> None:
         self._broker = broker
@@ -36,7 +34,7 @@ class BrokerWhatsAppClient:
     async def download_media(self, message_id: str, source: str) -> bytes:
         # The gateway downloads media up front and inlines it on the command
         # (Command._get_media prefers it), so this is only reached when that download
-        # already failed, e.g. view-once media a companion device never receives.
+        # already failed, e.g. expired media.
         # Asking the gateway again can't succeed; tell the user instead.
         raise MediaUnavailableError(
             self.MEDIA_UNAVAILABLE_MESSAGE, detail=f'media not inlined: {message_id}/{source}'
