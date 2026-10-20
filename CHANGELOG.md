@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v2.9.0 (2026-10-20)
+
+### Feat
+
+- **commands**: remove ,scarra
+
+### Fix
+
+- **observability**: redact the telegram bot token from httpx spans
+- **commands**: send audio-less ,dl videos as gifs
+
+### Refactor
+
+- **tests**: share the otel global patches as a fixture
+- **gateway**: drop view-once media detection
+
 ## v2.8.0 (2026-10-19)
 
 ### Feat

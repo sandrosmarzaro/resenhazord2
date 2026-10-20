@@ -1,12 +1,12 @@
 import type { WAMessage } from '@whiskeysockets/baileys';
-import { downloadMediaMessage, generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
+import { downloadMediaMessage, generateWAMessageFromContent } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import type { CommandData } from '../types/command.js';
 
 export interface MediaInfo {
   type: 'image' | 'video' | 'audio' | 'sticker';
-  source: 'direct' | 'quoted' | 'view_once';
+  source: 'direct' | 'quoted';
   isAnimated?: boolean;
   caption?: string;
 }
@@ -14,12 +14,6 @@ export interface MediaInfo {
 type AnyMsg = Record<string, Record<string, unknown> | undefined>;
 
 const MEDIA_TYPES = ['imageMessage', 'videoMessage', 'audioMessage', 'stickerMessage'] as const;
-
-const VIEW_ONCE_WRAPPERS = [
-  'viewOnceMessageV2',
-  'viewOnceMessageV2Extension',
-  'viewOnceMessage',
-] as const;
 
 const TYPE_MAP: Record<string, MediaInfo['type']> = {
   imageMessage: 'image',
@@ -36,7 +30,7 @@ export default class MediaHandler {
   static hasDirectMedia(message: WAMessage['message']): boolean {
     const msg = message as AnyMsg | null | undefined;
     if (!msg) return false;
-    return [...MEDIA_TYPES, ...VIEW_ONCE_WRAPPERS].some((type) => msg[type]);
+    return MEDIA_TYPES.some((type) => msg[type]);
   }
 
   detectMedia(data: CommandData): MediaInfo | null {
@@ -68,11 +62,7 @@ export default class MediaHandler {
       };
     }
 
-    return (
-      this.findQuotedDirectMedia(quoted) ??
-      this.findViewOnceWrapperMedia(quoted) ??
-      this.findViewOnceFlagMedia(quoted)
-    );
+    return this.findQuotedDirectMedia(quoted);
   }
 
   private findQuotedDirectMedia(quoted: AnyMsg): MediaInfo | null {
@@ -89,38 +79,6 @@ export default class MediaHandler {
     return null;
   }
 
-  private findViewOnceWrapperMedia(quoted: AnyMsg): MediaInfo | null {
-    for (const wrapper of VIEW_ONCE_WRAPPERS) {
-      const inner = (quoted[wrapper] as AnyMsg | undefined)?.message as AnyMsg | undefined;
-      if (!inner) continue;
-      for (const type of MEDIA_TYPES) {
-        const media = inner[type];
-        if (media) {
-          return {
-            type: TYPE_MAP[type],
-            source: 'view_once',
-            caption: typeof media.caption === 'string' ? media.caption : undefined,
-          };
-        }
-      }
-    }
-    return null;
-  }
-
-  private findViewOnceFlagMedia(quoted: AnyMsg): MediaInfo | null {
-    for (const type of MEDIA_TYPES) {
-      const media = quoted[type];
-      if (media?.viewOnce) {
-        return {
-          type: TYPE_MAP[type],
-          source: 'view_once',
-          caption: typeof media.caption === 'string' ? media.caption : undefined,
-        };
-      }
-    }
-    return null;
-  }
-
   async downloadMedia(stored: WAMessage, source: string): Promise<Buffer> {
     let message: WAMessage;
 
@@ -130,20 +88,7 @@ export default class MediaHandler {
       const quoted = stored.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (!quoted) throw new Error('No quoted message found');
 
-      let actualMessage: proto.IMessage = quoted;
-
-      if (source === 'view_once') {
-        const quotedAny = quoted as AnyMsg;
-        for (const wrapper of VIEW_ONCE_WRAPPERS) {
-          const inner = (quotedAny[wrapper] as AnyMsg | undefined)?.message;
-          if (inner) {
-            actualMessage = inner as unknown as proto.IMessage;
-            break;
-          }
-        }
-      }
-
-      message = generateWAMessageFromContent(stored.key.remoteJid!, actualMessage, {
+      message = generateWAMessageFromContent(stored.key.remoteJid!, quoted, {
         userJid: stored.key.remoteJid?.includes('@g.us')
           ? stored.key.participant!
           : stored.key.remoteJid!,

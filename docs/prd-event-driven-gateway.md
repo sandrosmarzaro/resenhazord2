@@ -165,7 +165,7 @@ so the bot rarely needs to call back.** It already does this for media
 | Gateway call | Used by | Can be proactively pushed? | Plan |
 |---|---|---|---|
 | `group_metadata` | `add`, `ban`, `adm`, `StealGroupService` | ✅ gateway is the authoritative source (holds Baileys + a layered cache) | **Selective attach.** A `{add, ban, adm}` set in the gateway (which already mirrors the parser) gates it — only those commands carry the ~12 KB metadata; the other 95% of group traffic stays lean. Bot reads it from `CommandData`, never round-trips. Trade: a 3-string command set lives in the gateway (a transport hint, not business logic); a 4th metadata-using command means updating it. |
-| `download_media` | `sticker`, `drive`, `spit`, `extract` | ✅ already prefetched | Keep prefetch; bytes ride with the command. |
+| `download_media` | `sticker`, `drive`, `extract` | ✅ already prefetched | Keep prefetch; bytes ride with the command. |
 | `send_message`, presence, `update_profile_picture`, `group_update_subject/description` | replies, typing, admin writes | ✅ fire-and-forget | Publish to `replies` (or a `wa_actions` queue). No reply needed. |
 | `group_participants_update` | `add`, `ban`, `StealGroupService` | ✅ the code only checks whether the call *threw*, not its return value (`ban.py:60`, `add.py:89`) | **Fire-and-forget, optimistic.** Publish the action; reply assuming success. `ban` needs nothing more. |
 | `on_whatsapp` | `add` | ❌ depends on a phone number generated/typed at runtime | **Genuine holdout** — the only one. |

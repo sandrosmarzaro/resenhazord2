@@ -8,6 +8,7 @@ endpoint is passed explicitly rather than read from the environment.
 """
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 import structlog
@@ -18,7 +19,7 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.aio_pika import AioPikaInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor, RequestInfo
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
@@ -26,6 +27,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import Span
 
 from bot.settings import Settings
 
@@ -36,6 +38,7 @@ logger = structlog.get_logger()
 
 _NAMESPACE = 'resenhazord2'
 _NODE = 'core'
+_TELEGRAM_BOT_TOKEN = re.compile(r'/bot\d+:[\w-]+')
 
 
 def init_otel(settings: Settings, app: 'FastAPI') -> None:
@@ -64,8 +67,22 @@ def _instrument(app: 'FastAPI') -> None:
     # so the global patch would miss it); httpx and aio-pika patch their libraries
     # globally, covering the outbound API calls and the broker publish/consume path.
     FastAPIInstrumentor.instrument_app(app)
-    HTTPXClientInstrumentor().instrument()  # type: ignore[union-attr]
+    HTTPXClientInstrumentor().instrument(  # type: ignore[union-attr]
+        request_hook=_redact_url, async_request_hook=_redact_url_async
+    )
     AioPikaInstrumentor().instrument()  # type: ignore[union-attr]
+
+
+def _redact_url(span: Span, request: RequestInfo) -> None:
+    # The Telegram Bot API carries the bot token in the URL path, which the httpx
+    # instrumentation records verbatim as http.url — readable by anyone on Grafana.
+    redacted, count = _TELEGRAM_BOT_TOKEN.subn('/bot<redacted>', str(request.url))
+    if count:
+        span.set_attribute('http.url', redacted)
+
+
+async def _redact_url_async(span: Span, request: RequestInfo) -> None:
+    _redact_url(span, request)
 
 
 def _init_traces(endpoint: str, headers: dict[str, str], resource: Resource) -> None:

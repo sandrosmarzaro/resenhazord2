@@ -108,6 +108,6 @@ class TestOnWhatsApp:
         client = BrokerWhatsAppClient(MockBrokerPort())
 
         with pytest.raises(MediaUnavailableError) as error:
-            await client.download_media('MSG_1', 'view_once')
+            await client.download_media('MSG_1', 'quoted')
 
         assert error.value.user_message == BrokerWhatsAppClient.MEDIA_UNAVAILABLE_MESSAGE

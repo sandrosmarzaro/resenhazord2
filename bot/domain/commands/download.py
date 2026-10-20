@@ -20,6 +20,7 @@ from bot.domain.commands.base import (
 from bot.domain.exceptions import DownloadError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.mp4 import Mp4
 from bot.domain.services.ytdlp import YtDlpService
 
 logger = structlog.get_logger()
@@ -73,7 +74,10 @@ class DownloadCommand(Command):
             image_buffer, title = await YtDlpService.download_image(url, self._cookies_path)
             return Reply.to(data).image_buffer(image_buffer, title)
 
-        return Reply.to(data).video_buffer(video_buffer, title)
+        # X GIFs are audio-less MP4s, which WhatsApp on Android rejects as a plain
+        # video ("something is wrong with the video file"); send them as GIFs.
+        gif_playback = Mp4.is_silent(video_buffer)
+        return Reply.to(data).video_buffer(video_buffer, title, gif_playback=gif_playback)
 
     @staticmethod
     def _match_error(error: str) -> str:
