@@ -90,8 +90,18 @@ class TestInitOtel:
 
 class TestHttpxSpans:
     @pytest.mark.anyio
-    async def test_hides_telegram_bot_token_from_span_url(
-        self, mocker, otel_globals, otel_settings
+    @pytest.mark.parametrize(
+        ('url', 'expected'),
+        [
+            (
+                'https://api.telegram.org/bot123456:AAsecret-Token_x/getUpdates',
+                'https://api.telegram.org/bot<redacted>/getUpdates',
+            ),
+            ('https://api.example.com/v1/items', 'https://api.example.com/v1/items'),
+        ],
+    )
+    async def test_span_url_hides_telegram_bot_token(
+        self, mocker, otel_globals, otel_settings, url, expected
     ):
         init_otel(otel_settings, mocker.Mock())
         instrument = otel_globals['HTTPXClientInstrumentor'].return_value.instrument
@@ -105,7 +115,7 @@ class TestHttpxSpans:
             HTTPXClientInstrumentor.instrument_client(
                 client, tracer_provider=provider, request_hook=async_hook
             )
-            await client.post('https://api.telegram.org/bot123456:AAsecret-Token_x/getUpdates')
+            await client.post(url)
 
         [span] = exporter.get_finished_spans()
-        assert span.attributes['http.url'] == 'https://api.telegram.org/bot<redacted>/getUpdates'
+        assert span.attributes['http.url'] == expected
