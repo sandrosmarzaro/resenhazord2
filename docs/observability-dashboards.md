@@ -124,6 +124,8 @@ done
 
 Every rule uses `noDataState: OK`: `command_dlq_total` has no series until the first
 dead-letter, and the ratio rules go blank when there is no traffic (~20 commands/day).
+And `execErrState: KeepLast`: Grafana Cloud's evaluator sometimes times out reaching its
+own Prometheus, and `Error` turned each blip into an email.
 
 | Alert | Expression | For | Why |
 |---|---|---|---|
