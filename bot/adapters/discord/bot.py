@@ -8,6 +8,7 @@ import structlog
 from discord import app_commands
 
 from bot.adapters.discord.agent_router import DiscordAgentRouter
+from bot.adapters.discord.guild_welcome import DiscordGuildWelcome
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.adapters.discord.slash_register import DiscordSlashRegistrar
@@ -32,6 +33,7 @@ class DiscordBot:
         self._renderer = DiscordResponseRenderer()
         self._router = DiscordAgentRouter(self._renderer)
         self._registrar = DiscordSlashRegistrar(self._tree, self._handler)
+        self._welcome = DiscordGuildWelcome()
         self._connection: asyncio.Task[None] | None = None
         self._setup_events()
 
@@ -67,6 +69,7 @@ class DiscordBot:
 
         client.event(self._make_on_ready())
         client.event(self._make_on_message(client, guild))
+        client.event(self._welcome.on_guild_join)
 
     def _make_on_ready(self) -> Callable[[], Coroutine[Any, Any, None]]:
         client = self._client
