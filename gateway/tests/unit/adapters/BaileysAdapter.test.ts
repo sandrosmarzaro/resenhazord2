@@ -12,4 +12,14 @@ describe('BaileysAdapter', () => {
 
     expect(rejectCall).toHaveBeenCalledWith('CALL-1', 'caller@lid');
   });
+
+  it('marks messages read through the socket', async () => {
+    const readMessages = vi.fn();
+    const socket = { updateMediaMessage: vi.fn(), readMessages } as unknown as WASocket;
+    const keys = [{ remoteJid: 'g@g.us', id: 'MSG-1', participant: 'u@lid' }];
+
+    await new BaileysAdapter(socket).readMessages(keys);
+
+    expect(readMessages).toHaveBeenCalledWith(keys);
+  });
 });

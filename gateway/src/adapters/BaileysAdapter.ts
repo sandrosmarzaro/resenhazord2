@@ -3,6 +3,7 @@ import type {
   GroupMetadata,
   MiscMessageGenerationOptions,
   WAMessage,
+  WAMessageKey,
   WAPresence,
   WASocket,
 } from '@whiskeysockets/baileys';
@@ -59,5 +60,9 @@ export default class BaileysAdapter implements WhatsAppPort {
 
   async rejectCall(callId: string, callFrom: string): Promise<void> {
     await this.socket.rejectCall(callId, callFrom);
+  }
+
+  async readMessages(keys: WAMessageKey[]): Promise<void> {
+    await this.socket.readMessages(keys);
   }
 }

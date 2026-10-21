@@ -13,6 +13,7 @@ export function createMockWhatsAppPort(overrides: Partial<WhatsAppPort> = {}): W
     updateMediaMessage: vi.fn(),
     sendPresenceUpdate: vi.fn(),
     rejectCall: vi.fn(),
+    readMessages: vi.fn(),
     ...overrides,
   } as WhatsAppPort;
 }
