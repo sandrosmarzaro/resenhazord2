@@ -232,5 +232,44 @@
         }
       }
     ]
+  },
+  {
+    "uid": "rz2-scrape-target-down",
+    "title": "Scrape target down",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "5m",
+    "noDataState": "Alerting",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "{{ $labels.instance }} stopped reporting metrics",
+      "description": "The core Alloy scrapes both nodes, so no data at all means the core or its egress is down and every other alert went blind."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "up"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": {
+          "refId": "C",
+          "type": "threshold",
+          "expression": "A",
+          "conditions": [{ "evaluator": { "type": "lt", "params": [1] } }]
+        }
+      }
+    ]
   }
 ]
