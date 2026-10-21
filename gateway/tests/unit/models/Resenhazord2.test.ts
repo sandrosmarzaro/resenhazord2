@@ -4,6 +4,7 @@ import Resenhazord2 from '../../../src/models/Resenhazord2.js';
 import ConnectionWatchdog from '../../../src/infra/ConnectionWatchdog.js';
 import CreateAuthState from '../../../src/auth/CreateAuthState.js';
 import CreateSocket from '../../../src/infra/CreateSocket.js';
+import { GroupMetadataFactory } from '../../fixtures/factories/GroupMetadataFactory.js';
 
 describe('Resenhazord2', () => {
   describe('cleanup()', () => {
@@ -17,6 +18,20 @@ describe('Resenhazord2', () => {
       await Resenhazord2.cleanup();
 
       expect(closeSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onGroupsUpsert()', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('announces the group the bot joined', async () => {
+      const publish = vi.spyOn(Resenhazord2.groupEventPublisher, 'publish').mockResolvedValue();
+
+      await Resenhazord2.onGroupsUpsert([GroupMetadataFactory.build({ id: 'joined@g.us' })]);
+
+      expect(publish).toHaveBeenCalledWith({ id: 'joined@g.us', action: 'joined' });
     });
   });
 

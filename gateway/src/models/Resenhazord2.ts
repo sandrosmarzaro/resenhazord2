@@ -8,6 +8,7 @@ import MessageUpsertEvent from '../events/MessageUpsertEvent.js';
 import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import ConnectionWatchdog from '../infra/ConnectionWatchdog.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
+import GroupsUpsertEvent from '../events/GroupsUpsertEvent.js';
 import groupMetadataCache from '../cache/index.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import GroupEventPublisher from '../bridge/GroupEventPublisher.js';
@@ -84,6 +85,7 @@ export default class Resenhazord2 {
     for (const group of groups) {
       await groupMetadataCache.set(group.id, group);
     }
+    await GroupsUpsertEvent.run(groups);
   }
 
   static async onGroupParticipantsUpdate(

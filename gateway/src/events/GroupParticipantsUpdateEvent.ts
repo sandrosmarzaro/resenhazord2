@@ -6,7 +6,7 @@ export default class GroupParticipantsUpdateEvent {
     await Resenhazord2.groupEventPublisher.publish({
       id: data.id,
       action: data.action,
-      participants: data.participants.map((id) => ({ id })),
+      participants: data.participants,
     });
   }
 }
