@@ -159,7 +159,7 @@ jobs:
         run: |
           ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=5 \
             "$VPS_USER@$VPS_HOST" \
-            "cd $VPS_APP_DIR && git pull && docker compose -f compose.edge.yml pull && docker compose -f compose.edge.yml up -d --no-build"
+            "cd $VPS_APP_DIR && git pull && docker compose -f compose.edge.yml pull && docker compose -f compose.edge.yml up -d --no-build && docker image prune -af"
 
   deploy-core:
     name: SSH deploy to core node (bot)
@@ -183,7 +183,7 @@ jobs:
         run: |
           ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=5 \
             "$VPS_USER@$VPS_HOST" \
-            "cd $VPS_APP_DIR && git pull && docker compose -f compose.core.yml pull && docker compose -f compose.core.yml up -d --no-build"
+            "cd $VPS_APP_DIR && git pull && docker compose -f compose.core.yml pull && docker compose -f compose.core.yml up -d --no-build && docker image prune -af"
 
   # Stage 5: Register deployment (after deploy)
   register-deploy:
