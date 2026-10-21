@@ -1,7 +1,7 @@
 <h1 align="center"><b>🗿 Resenhazord 2️⃣</b></h1>
 
 <p align="center">
-  <a href="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml"><img src="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml/badge.svg" alt="Pipeline"></a>
+  <a href="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml?query=branch%3Amain"><img src="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml/badge.svg?branch=main" alt="Pipeline"></a>
   <a href="https://codecov.io/gh/sandrosmarzaro/resenhazord2"><img src="https://codecov.io/gh/sandrosmarzaro/resenhazord2/branch/main/graph/badge.svg" alt="Coverage"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
 </p>
