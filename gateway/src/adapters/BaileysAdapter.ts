@@ -56,4 +56,8 @@ export default class BaileysAdapter implements WhatsAppPort {
   async sendPresenceUpdate(type: WAPresence, jid: string): Promise<void> {
     await this.socket.sendPresenceUpdate(type, jid);
   }
+
+  async rejectCall(callId: string, callFrom: string): Promise<void> {
+    await this.socket.rejectCall(callId, callFrom);
+  }
 }
