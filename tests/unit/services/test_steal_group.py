@@ -145,17 +145,12 @@ class TestLidAddressedGroup:
         )
 
     @pytest.mark.anyio
-    @pytest.mark.parametrize(
-        'participant',
-        [{'id': BOT_PARTICIPANT}, BOT_PARTICIPANT],
-        ids=['nested-gateway-shape', 'baileys-shape'],
-    )
     async def test_demotes_other_admins_when_bot_promoted(
-        self, service, mock_whatsapp, colony_collection, loremflickr_route, participant
+        self, service, mock_whatsapp, colony_collection, loremflickr_route
     ):
         mock_whatsapp.group_metadata.return_value = self._lid_metadata()
 
-        await service.run(_group_event(participants=[participant]))
+        await service.run(_group_event(participants=[self.BOT_PARTICIPANT]))
 
         mock_whatsapp.group_participants_update.assert_called_once_with(
             'target@g.us', ['admin-lid@lid'], 'demote'

@@ -34,9 +34,6 @@ class StealGroupService:
             logger.exception('steal_group_error', group_jid=group_jid)
 
     def _is_bot(self, participant: dict) -> bool:
-        # The gateway used to wrap each Baileys participant as {'id': {...}}.
-        if isinstance(participant.get('id'), dict):
-            participant = participant['id']
         return self._phone_number(participant) == self._resenhazord2_jid
 
     @staticmethod
