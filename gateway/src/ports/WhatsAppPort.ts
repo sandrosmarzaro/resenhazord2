@@ -3,6 +3,7 @@ import type {
   GroupMetadata,
   MiscMessageGenerationOptions,
   WAMessage,
+  WAMessageKey,
   WAPresence,
 } from '@whiskeysockets/baileys';
 
@@ -34,4 +35,6 @@ export default interface WhatsAppPort {
   sendPresenceUpdate(type: WAPresence, jid: string): Promise<void>;
 
   rejectCall(callId: string, callFrom: string): Promise<void>;
+
+  readMessages(keys: WAMessageKey[]): Promise<void>;
 }
