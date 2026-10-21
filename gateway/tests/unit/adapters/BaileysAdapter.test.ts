@@ -22,4 +22,13 @@ describe('BaileysAdapter', () => {
 
     expect(readMessages).toHaveBeenCalledWith(keys);
   });
+
+  it("mutes a chat for good, WhatsApp's 'Always'", async () => {
+    const chatModify = vi.fn();
+    const socket = { updateMediaMessage: vi.fn(), chatModify } as unknown as WASocket;
+
+    await new BaileysAdapter(socket).muteChat('g@g.us');
+
+    expect(chatModify).toHaveBeenCalledWith({ mute: -1 }, 'g@g.us');
+  });
 });

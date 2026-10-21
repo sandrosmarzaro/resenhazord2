@@ -10,6 +10,8 @@ import type {
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 
 export default class BaileysAdapter implements WhatsAppPort {
+  // What WhatsApp itself sends for a chat muted 'Always'.
+  private static readonly MUTE_FOREVER = -1;
   private readonly socket: WASocket;
   readonly updateMediaMessage: (message: WAMessage) => Promise<WAMessage>;
 
@@ -64,5 +66,9 @@ export default class BaileysAdapter implements WhatsAppPort {
 
   async readMessages(keys: WAMessageKey[]): Promise<void> {
     await this.socket.readMessages(keys);
+  }
+
+  async muteChat(jid: string): Promise<void> {
+    await this.socket.chatModify({ mute: BaileysAdapter.MUTE_FOREVER }, jid);
   }
 }

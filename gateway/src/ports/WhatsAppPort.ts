@@ -37,4 +37,6 @@ export default interface WhatsAppPort {
   rejectCall(callId: string, callFrom: string): Promise<void>;
 
   readMessages(keys: WAMessageKey[]): Promise<void>;
+
+  muteChat(jid: string): Promise<void>;
 }
