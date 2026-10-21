@@ -32,4 +32,6 @@ export default interface WhatsAppPort {
   updateMediaMessage(message: WAMessage): Promise<WAMessage>;
 
   sendPresenceUpdate(type: WAPresence, jid: string): Promise<void>;
+
+  rejectCall(callId: string, callFrom: string): Promise<void>;
 }

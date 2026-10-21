@@ -9,6 +9,7 @@ import ConnectionUpdateEvent from '../events/ConnectionUpdateEvent.js';
 import ConnectionWatchdog from '../infra/ConnectionWatchdog.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 import GroupsUpsertEvent from '../events/GroupsUpsertEvent.js';
+import CallEvent from '../events/CallEvent.js';
 import groupMetadataCache from '../cache/index.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import GroupEventPublisher from '../bridge/GroupEventPublisher.js';
@@ -112,6 +113,7 @@ export default class Resenhazord2 {
     await this.socket.ev.on('groups.upsert', this.onGroupsUpsert);
     await this.socket.ev.on('group-participants.update', this.onGroupParticipantsUpdate);
     await this.socket.ev.on('creds.update', this.auth_state!.saveCreds);
+    await this.socket.ev.on('call', CallEvent.run);
   }
 
   static async cleanup(): Promise<void> {
