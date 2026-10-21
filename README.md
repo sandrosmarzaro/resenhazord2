@@ -63,6 +63,7 @@ in detail.
 | Topic | Where |
 |---|---|
 | Architecture and message flow | [docs/architecture.md](docs/architecture.md) |
+| Nodes, memory budget and dependencies | [docs/infrastructure.md](docs/infrastructure.md) |
 | Branching and releases | [docs/git-flow.md](docs/git-flow.md) |
 | Logging, Sentry and OpenTelemetry | [docs/logging.md](docs/logging.md) |
 | Dashboards and alerts | [docs/observability-dashboards.md](docs/observability-dashboards.md) |
