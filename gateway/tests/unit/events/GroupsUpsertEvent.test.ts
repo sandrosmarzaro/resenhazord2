@@ -21,4 +21,23 @@ describe('GroupsUpsertEvent', () => {
       [{ id: 'second@g.us', action: 'joined' }],
     ]);
   });
+
+  // Joining a community group arrives as one batch: its announcement group, the group
+  // itself and the community. Only the regular group is a chat the bot can greet.
+  it('greets only the regular group of a community batch', async () => {
+    const publish = vi.spyOn(Resenhazord2.groupEventPublisher, 'publish').mockResolvedValue();
+    const community = 'community@g.us';
+
+    await GroupsUpsertEvent.run([
+      GroupMetadataFactory.build({
+        id: 'announce@g.us',
+        isCommunityAnnounce: true,
+        linkedParent: community,
+      }),
+      GroupMetadataFactory.build({ id: 'general@g.us', linkedParent: community }),
+      GroupMetadataFactory.build({ id: community, isCommunity: true }),
+    ]);
+
+    expect(publish.mock.calls).toEqual([[{ id: 'general@g.us', action: 'joined' }]]);
+  });
 });
