@@ -8,19 +8,29 @@ import sentry_sdk
 import structlog
 from telegram import BotCommand, BotCommandScopeChat, Update
 from telegram.error import InvalidToken, NetworkError, RetryAfter, TelegramError
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    Application,
+    ChatMemberHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
+from bot.adapters.telegram.join_handler import TelegramJoinHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandScope, Platform
 from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
+from bot.ports.telegram_port import TelegramPort
 
 _UPDATER_LOGGER = logging.getLogger('telegram.ext.Updater')
 
 logger = structlog.get_logger()
 
 TelegramCallback = Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None]]
+UpdateHandle = Callable[[TelegramPort, Update], Coroutine[Any, Any, None]]
 
 
 class TelegramBot:
@@ -45,6 +55,7 @@ class TelegramBot:
             .build()
         )
         self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids)
+        self._join_handler = TelegramJoinHandler()
         self._nsfw_chat_ids = nsfw_chat_ids
         self._original_updater_level = _UPDATER_LOGGER.level
 
@@ -71,7 +82,7 @@ class TelegramBot:
         logger.info('telegram_stopped')
 
     def _register_handlers(self) -> None:
-        callback = self._make_callback()
+        callback = self._make_callback(self._handler.handle)
         for command in CommandRegistry.instance().get_all():
             if not Platform.supports(command.config.platforms, Platform.TELEGRAM):
                 continue
@@ -81,6 +92,8 @@ class TelegramBot:
             logger.info('telegram_command_registered', name=command.config.name)
         self._register_start_alias(callback)
         self._app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, callback))
+        join_callback = self._make_callback(self._join_handler.handle)
+        self._app.add_handler(ChatMemberHandler(join_callback, ChatMemberHandler.MY_CHAT_MEMBER))
 
     def _add_command(self, registry_name: str, callback: TelegramCallback) -> None:
         telegram_name = self._normalize_name(registry_name)
@@ -94,12 +107,10 @@ class TelegramBot:
         self._handler.register_name(self.START_COMMAND, f',{self.MENU_COMMAND}')
         self._app.add_handler(CommandHandler(self.START_COMMAND, callback))
 
-    def _make_callback(self) -> TelegramCallback:
-        handler = self._handler
-
+    @staticmethod
+    def _make_callback(handle: UpdateHandle) -> TelegramCallback:
         async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-            port = TelegramBotAdapter(context.bot)
-            await handler.handle(port, update)
+            await handle(TelegramBotAdapter(context.bot), update)
 
         return callback
 

@@ -12,7 +12,8 @@ interface WaAction {
   participants?: string[];
   action?: 'add' | 'remove' | 'promote' | 'demote';
   content?: AnyMessageContent;
-  options?: MiscMessageGenerationOptions;
+  // The core sends null when it has no options; Baileys reads fields off whatever it gets.
+  options?: MiscMessageGenerationOptions | null;
   image?: string;
   subject?: string;
   description?: string;
@@ -47,7 +48,11 @@ export default class WaActionConsumer {
           action.action ?? 'remove',
         ),
       send_message: () =>
-        this.whatsapp.sendMessage(action.jid, action.content as AnyMessageContent, action.options),
+        this.whatsapp.sendMessage(
+          action.jid,
+          action.content as AnyMessageContent,
+          action.options ?? undefined,
+        ),
       update_profile_picture: () =>
         this.whatsapp.updateProfilePicture(action.jid, Buffer.from(action.image ?? '', 'base64')),
       group_update_subject: () =>

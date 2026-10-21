@@ -2,6 +2,28 @@
 
 <!-- version list -->
 
+## v2.10.0 (2026-10-20)
+
+### Feat
+
+- **gateway**: mute every chat the bot is in, for good
+- **discord**: welcome the server when the bot joins it
+- **gateway**: mark incoming messages as read
+- **gateway**: reject calls and point the caller to the menu
+- **gateway**: skip the welcome for communities and their announcements
+- **telegram**: welcome the group when the bot joins it
+- **gateway**: publish joined group events and flat participants
+- **commands**: welcome the group when the bot joins it
+
+### Fix
+
+- **gateway**: drop null send options before calling baileys
+- **commands**: match the bot by phone number when stealing groups
+
+### Refactor
+
+- **commands**: drop the nested participant shape from steal-group
+
 ## v2.9.0 (2026-10-20)
 
 ### Feat

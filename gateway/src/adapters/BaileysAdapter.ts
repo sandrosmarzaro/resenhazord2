@@ -3,12 +3,15 @@ import type {
   GroupMetadata,
   MiscMessageGenerationOptions,
   WAMessage,
+  WAMessageKey,
   WAPresence,
   WASocket,
 } from '@whiskeysockets/baileys';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 
 export default class BaileysAdapter implements WhatsAppPort {
+  // What WhatsApp itself sends for a chat muted 'Always'.
+  private static readonly MUTE_FOREVER = -1;
   private readonly socket: WASocket;
   readonly updateMediaMessage: (message: WAMessage) => Promise<WAMessage>;
 
@@ -55,5 +58,17 @@ export default class BaileysAdapter implements WhatsAppPort {
 
   async sendPresenceUpdate(type: WAPresence, jid: string): Promise<void> {
     await this.socket.sendPresenceUpdate(type, jid);
+  }
+
+  async rejectCall(callId: string, callFrom: string): Promise<void> {
+    await this.socket.rejectCall(callId, callFrom);
+  }
+
+  async readMessages(keys: WAMessageKey[]): Promise<void> {
+    await this.socket.readMessages(keys);
+  }
+
+  async muteChat(jid: string): Promise<void> {
+    await this.socket.chatModify({ mute: BaileysAdapter.MUTE_FOREVER }, jid);
   }
 }

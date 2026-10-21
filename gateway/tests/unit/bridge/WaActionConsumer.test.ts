@@ -79,6 +79,21 @@ describe('WaActionConsumer', () => {
     expect(whatsapp.sendMessage).toHaveBeenCalledWith('g@g.us', { text: 'oi' }, {});
   });
 
+  it('sends without options when the core passes none', async () => {
+    const { broker, deliver } = actionCapturingBroker();
+    const whatsapp = createMockWhatsAppPort();
+    await new WaActionConsumer(broker, whatsapp).start();
+
+    await deliver({
+      method: 'send_message',
+      jid: 'g@g.us',
+      content: { text: 'oi' },
+      options: null,
+    });
+
+    expect(whatsapp.sendMessage).toHaveBeenCalledWith('g@g.us', { text: 'oi' }, undefined);
+  });
+
   it('updates subject and description', async () => {
     const { broker, deliver } = actionCapturingBroker();
     const whatsapp = createMockWhatsAppPort();

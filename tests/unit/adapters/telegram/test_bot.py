@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from telegram.error import InvalidToken, NetworkError, RetryAfter, TelegramError
+from telegram.ext import ChatMemberHandler
 
 from bot.adapters.telegram.bot import TelegramBot
 from bot.domain.commands.base import CommandScope, Platform
@@ -235,6 +236,25 @@ class TestRegisterHandlers:
         assert 'start' not in bot._handler._name_map
 
 
+class TestRegisterJoinHandler:
+    @pytest.mark.anyio
+    async def test_routes_bot_membership_changes_to_the_join_handler(self, mocker):
+        _patch_registry(mocker, [])
+        bot = _make_bot(mocker)
+        handle = mocker.patch.object(bot._join_handler, 'handle', mocker.AsyncMock())
+        bot._register_handlers()
+        add_handler_calls = cast('Any', bot._app.add_handler).call_args_list
+        [member_handler] = [
+            c.args[0] for c in add_handler_calls if isinstance(c.args[0], ChatMemberHandler)
+        ]
+        update = mocker.MagicMock()
+
+        await member_handler.callback(update, mocker.MagicMock())
+
+        assert member_handler.chat_member_types == ChatMemberHandler.MY_CHAT_MEMBER
+        assert handle.await_args.args[1] is update
+
+
 class TestMakeCallback:
     @pytest.mark.anyio
     async def test_callback_delegates_to_handler(self, mocker):
@@ -242,7 +262,7 @@ class TestMakeCallback:
         _patch_registry(mocker, [])
         handle_mock = mocker.patch.object(bot._handler, 'handle', mocker.AsyncMock())
 
-        callback = bot._make_callback()
+        callback = bot._make_callback(bot._handler.handle)
         fake_update = mocker.MagicMock()
         fake_context = mocker.MagicMock()
         fake_context.bot = mocker.MagicMock()

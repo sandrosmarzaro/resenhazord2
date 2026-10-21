@@ -17,6 +17,7 @@ from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
 from bot.domain.commands.base import Platform
+from bot.domain.services.group_welcome import GroupWelcomeService
 from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.broker import RabbitBroker
 from bot.infrastructure.database import Database
@@ -41,7 +42,7 @@ async def _connect_whatsapp() -> Shutdown:
         registry.set_whatsapp(whatsapp)
         await CommandConsumer(broker, CommandHandler(registry)).start()
         steal_group = StealGroupService(whatsapp, settings.resenhazord2_jid, settings.resenha_jid)
-        await GroupEventConsumer(broker, steal_group).start()
+        await GroupEventConsumer(broker, steal_group, GroupWelcomeService(whatsapp)).start()
     except BaseException:
         # Close the half-open connections before the supervisor retries with a fresh broker.
         await broker.close()

@@ -1,19 +1,41 @@
 name: Check
 
 on:
+  # Any base, so a PR stacked on another feature branch is checked against its parent.
   pull_request:
-    branches:
-      - main
-      - develop
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Each side's jobs skip when the PR leaves that side untouched. A job skipped by
+  # `if` still satisfies a required check, so a gateway-only PR doesn't wait on Python.
+  changes:
+    name: Detect changed sides
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - id: filter
+        # HEAD is the PR merge commit, so its first parent is the base tip.
+        run: |
+          CHANGED=$(git diff --name-only HEAD^1 HEAD)
+          BOTH='^\.github/workflows/check\.yml$'
+          PYTHON='^(bot|tests|migrations|scripts)/|^(alembic\.ini|bandit\.toml|\.coveragerc|pyproject\.toml|pytest\.toml|\.python-version|ruff\.toml|setup\.cfg|uv\.lock)$'
+          GATEWAY='^gateway/'
+          echo "python=$(grep -qE "$PYTHON|$BOTH" <<<"$CHANGED" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "gateway=$(grep -qE "$GATEWAY|$BOTH" <<<"$CHANGED" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   lint-ts:
     name: TS lint and format check
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true'
     defaults:
       run:
         working-directory: gateway
@@ -28,6 +50,8 @@ jobs:
   lint-py:
     name: Python lint and type check
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
@@ -41,6 +65,8 @@ jobs:
   security-py:
     name: Python security scan
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
@@ -102,15 +128,21 @@ jobs:
     name: SonarQube Cloud scan
     runs-on: ubuntu-latest
     needs: [test-py, test-ts]
+    # Run when either side tested; a plain `needs` would skip Sonar on every one-sided PR.
+    if: >-
+      !failure() && !cancelled()
+      && (needs.test-py.result == 'success' || needs.test-ts.result == 'success')
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # SonarQube needs full history for new-code/SCM blame
       - name: Fetch Python coverage
+        if: needs.test-py.result == 'success'
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: coverage-python
       - name: Fetch TS coverage
+        if: needs.test-ts.result == 'success'
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: coverage-ts
@@ -124,6 +156,8 @@ jobs:
   complexity-py:
     name: Python complexity gate
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import MongoDBConnection from '../../../src/infra/MongoDBConnection.js';
 import Resenhazord2 from '../../../src/models/Resenhazord2.js';
+import CallEvent from '../../../src/events/CallEvent.js';
 import ConnectionWatchdog from '../../../src/infra/ConnectionWatchdog.js';
 import CreateAuthState from '../../../src/auth/CreateAuthState.js';
 import CreateSocket from '../../../src/infra/CreateSocket.js';
+import { GroupMetadataFactory } from '../../fixtures/factories/GroupMetadataFactory.js';
 
 describe('Resenhazord2', () => {
   describe('cleanup()', () => {
@@ -17,6 +19,47 @@ describe('Resenhazord2', () => {
       await Resenhazord2.cleanup();
 
       expect(closeSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onGroupsUpsert()', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('announces the group the bot joined', async () => {
+      const publish = vi.spyOn(Resenhazord2.groupEventPublisher, 'publish').mockResolvedValue();
+
+      await Resenhazord2.onGroupsUpsert([GroupMetadataFactory.build({ id: 'joined@g.us' })]);
+
+      expect(publish).toHaveBeenCalledWith({ id: 'joined@g.us', action: 'joined' });
+    });
+  });
+
+  describe('handlerEvents()', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('listens for incoming calls', async () => {
+      const on = vi.fn();
+      vi.spyOn(CreateAuthState, 'getAuthState').mockResolvedValue({
+        state: {} as never,
+        saveCreds: vi.fn(),
+      });
+      // Minimal socket stub: the adapter binds updateMediaMessage, the wiring needs ev.
+      vi.spyOn(CreateSocket, 'getSocket').mockResolvedValue({
+        updateMediaMessage: vi.fn(),
+        ev: { on, removeAllListeners: vi.fn() },
+      } as never);
+      vi.spyOn(ConnectionWatchdog, 'arm').mockImplementation(() => {});
+      vi.spyOn(Resenhazord2.broker, 'connect').mockRejectedValue(new Error('no broker'));
+      Resenhazord2.isConnecting = false;
+      await Resenhazord2.connectToWhatsApp();
+
+      await Resenhazord2.handlerEvents();
+
+      expect(on).toHaveBeenCalledWith('call', CallEvent.run);
     });
   });
 

@@ -27,6 +27,13 @@ def _make_message(mocker, *, content: str, author=None, guild_id: int | None = N
     return msg
 
 
+class TestOnGuildJoin:
+    def test_greets_the_servers_it_joins(self, bot):
+        registered = [c.args[0] for c in cast('Any', bot._client.event).call_args_list]
+
+        assert bot._welcome.on_guild_join in registered
+
+
 class TestOnReady:
     @pytest.mark.anyio
     async def test_invokes_sync_with_retries(self, bot, mocker):
