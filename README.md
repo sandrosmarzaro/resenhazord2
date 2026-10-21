@@ -24,6 +24,10 @@ combination of them.
 
 ## 🧭 How it works
 
+<p align="center">
+  <img src="docs/architecture.svg" width="100%" alt="Production architecture: the WhatsApp gateway and RabbitMQ run on an edge VPS, the Python core with the Discord, Telegram and LLM adapters runs on a core VPS, they talk over AMQP on a private network, and each node uses its own managed data stores and telemetry sinks.">
+</p>
+
 All business logic lives in a Python core (FastAPI) under `bot/`, where every command is parsed
 and executed through a single `CommandRegistry`. The WhatsApp gateway receives messages, downloads
 their media and forwards them to the core over RabbitMQ, then delivers the replies the core sends
