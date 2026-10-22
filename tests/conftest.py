@@ -13,7 +13,6 @@ from bot.infrastructure.http_client import HttpClient
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
-from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
 
@@ -44,7 +43,6 @@ def _reset_singletons():
     MongoDBConnection.reset()
     Database.reset()
     CachedConfigStore.reset()
-    ProviderChain.reset()
     UpstashExampleRetriever.reset()
     LangChainProvider.reset()
     LangSmithPromptRegistry.reset()
@@ -56,7 +54,6 @@ def _reset_singletons():
     MongoDBConnection.reset()
     Database.reset()
     CachedConfigStore.reset()
-    ProviderChain.reset()
     UpstashExampleRetriever.reset()
     LangChainProvider.reset()
     LangSmithPromptRegistry.reset()

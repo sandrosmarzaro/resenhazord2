@@ -331,7 +331,7 @@ decorator pattern. Python consumes it transparently through `WhatsAppPort`.
 ## Singletons
 
 Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`,
-`ProviderChain`, plus the agent singletons (`LangChainProvider`,
+plus the agent singletons (`LangChainProvider`,
 `UpstashExampleRetriever`, `GraphAgentOrchestrator`) — all `configure()`d in
 `register_all_commands`.
 TypeScript: `CommandFactory`, `MongoDBConnection`, `AxiosClient`.

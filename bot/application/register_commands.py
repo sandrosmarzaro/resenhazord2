@@ -59,7 +59,6 @@ from bot.infrastructure.database import Database
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
-from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
@@ -71,9 +70,6 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
     Database.configure(settings.database_url)
-    ProviderChain.configure(
-        settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
-    )
     LangChainProvider.configure(
         settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
     )

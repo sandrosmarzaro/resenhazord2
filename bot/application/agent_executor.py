@@ -33,7 +33,6 @@ from bot.infrastructure.llm.langsmith_prompt_registry import (
     LangSmithPromptRegistry,
     PromptRegistryError,
 )
-from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     get_command_list_with_descriptions,
@@ -70,7 +69,11 @@ class AgentExecutor:
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._retriever = retriever or UpstashExampleRetriever.configured()
-        self._provider = provider or LangChainProvider.configured()
+        self._provider = (
+            provider
+            or LangChainProvider.configured()
+            or LangChainProvider.from_credentials('', '', '')
+        )
         self._prompt_registry = prompt_registry or LangSmithPromptRegistry.configured()
         command_tools = self._with_confidence(build_tools_for_prompt(self._registry))
         self._tools = command_tools + AGENT_META_TOOLS
@@ -97,8 +100,7 @@ class AgentExecutor:
             prompt = self._build_prompt(
                 system_prompt.template, data.text, examples, data.quoted_text
             )
-            provider = self._provider or ProviderChain.instance()
-            response = await provider.complete(prompt, self._tools)
+            response = await self._provider.complete(prompt, self._tools)
         except (httpx.HTTPError, RuntimeError, PromptRegistryError) as e:
             logger.warning('agent_provider_failed', error=str(e))
             # Per-provider 429s are filtered as noise, so this is the only Sentry signal
