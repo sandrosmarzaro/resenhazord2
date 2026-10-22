@@ -1,9 +1,10 @@
 FILE_TOO_LARGE_MESSAGE = 'Vídeo muito grande pra baixar 📦'
 
 NO_VIDEO_IN_POST = 'There is no video in this post'
+NO_VIDEO_IN_TWEET = 'No video could be found in this tweet'
 
 YTDLP_ERROR_MESSAGES: dict[str, str] = {
-    'No video could be found in this tweet': 'Esse tweet não tem vídeo 📸',
+    NO_VIDEO_IN_TWEET: 'Esse tweet não tem vídeo 📸',
     'Unsupported URL': 'Esse link não é suportado 🔗',
     'login required': 'Esse conteúdo precisa de login 🔐',
     'Video unavailable': 'Esse vídeo não está disponível 😔',
