@@ -32,17 +32,19 @@ class TestConnectWhatsapp:
     @pytest.mark.anyio
     async def test_raises_when_broker_unavailable_so_it_is_retried(self, broker, mocker):
         broker.connect.side_effect = BrokerConnectionError('down')
+        agent = mocker.Mock()
 
         with pytest.raises(BrokerConnectionError):
-            await app._connect_whatsapp(mocker.Mock())
+            await app._connect_whatsapp(agent)
 
     @pytest.mark.anyio
     async def test_closes_the_half_open_broker_when_consumers_fail(self, broker, consumers, mocker):
         command_consumer, _ = consumers
         command_consumer.return_value.start.side_effect = RuntimeError('declare failed')
+        agent = mocker.Mock()
 
         with pytest.raises(RuntimeError):
-            await app._connect_whatsapp(mocker.Mock())
+            await app._connect_whatsapp(agent)
 
         broker.close.assert_awaited_once_with()
 
