@@ -9,10 +9,6 @@ from bot.application.command_registry import CommandRegistry
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.infrastructure.database import Database
 from bot.infrastructure.http_client import HttpClient
-from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
-from bot.infrastructure.llm.langchain_provider import LangChainProvider
-from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
-from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
 
 TEST_BOT_JID = '5500000000000@s.whatsapp.net'
@@ -42,20 +38,12 @@ def _reset_singletons():
     MongoDBConnection.reset()
     Database.reset()
     CachedConfigStore.reset()
-    UpstashExampleRetriever.reset()
-    LangChainProvider.reset()
-    LangSmithPromptRegistry.reset()
-    GraphAgentOrchestrator.reset()
     yield
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
     Database.reset()
     CachedConfigStore.reset()
-    UpstashExampleRetriever.reset()
-    LangChainProvider.reset()
-    LangSmithPromptRegistry.reset()
-    GraphAgentOrchestrator.reset()
 
 
 @pytest.fixture

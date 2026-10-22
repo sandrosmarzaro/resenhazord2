@@ -9,7 +9,6 @@ from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, START, StateGraph
 from redis.exceptions import RedisError
 
-from bot.application.agent_executor import AgentExecutor
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 
 if TYPE_CHECKING:
@@ -33,28 +32,11 @@ class GraphAgentOrchestrator:
     RESUME_WINDOW_SECONDS: ClassVar[float] = 90.0
     STORAGE_TTL_MINUTES: ClassVar[float] = 2.0
 
-    _instance: ClassVar[GraphAgentOrchestrator | None] = None
-
-    def __init__(
-        self, executor: AgentOrchestratorPort | None = None, redis_url: str | None = None
-    ) -> None:
-        self._executor = executor or AgentExecutor()
+    def __init__(self, executor: AgentOrchestratorPort, redis_url: str | None = None) -> None:
+        self._executor = executor
         self._checkpointer = self._build_checkpointer(redis_url)
         self._needs_setup = isinstance(self._checkpointer, AsyncRedisSaver)
         self._graph = self._build_graph()
-
-    @classmethod
-    def configure(cls, redis_url: str | None = None) -> GraphAgentOrchestrator:
-        cls._instance = cls(redis_url=redis_url)
-        return cls._instance
-
-    @classmethod
-    def configured(cls) -> GraphAgentOrchestrator | None:
-        return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        cls._instance = None
 
     async def run(self, data: CommandData) -> CommandData:
         try:

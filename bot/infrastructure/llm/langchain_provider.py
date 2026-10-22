@@ -31,8 +31,6 @@ class LangChainProvider:
     MAX_TOKENS: ClassVar[int] = 500
     NO_PROVIDERS_MSG: ClassVar[str] = 'No LLM providers configured'
 
-    _instance: ClassVar['LangChainProvider | None'] = None
-
     def __init__(self, models: list[_Model]) -> None:
         self._models = models
 
@@ -65,19 +63,6 @@ class LangChainProvider:
             )
             models.append(_Model(google, supports_tools=True))
         return cls(models)
-
-    @classmethod
-    def configure(cls, mistral_key: str, groq_key: str, google_key: str) -> 'LangChainProvider':
-        cls._instance = cls.from_credentials(mistral_key, groq_key, google_key)
-        return cls._instance
-
-    @classmethod
-    def configured(cls) -> 'LangChainProvider | None':
-        return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        cls._instance = None
 
     async def complete(self, prompt: str, tools: list[dict]) -> LLMResponse:
         chain = self._build_chain(tools)

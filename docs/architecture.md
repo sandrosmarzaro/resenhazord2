@@ -330,10 +330,11 @@ decorator pattern. Python consumes it transparently through `WhatsAppPort`.
 
 ## Singletons
 
-Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`,
-plus the agent singletons (`LangChainProvider`,
-`UpstashExampleRetriever`, `GraphAgentOrchestrator`) — all `configure()`d in
-`register_all_commands`.
+Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`, all
+`configure()`d in `register_all_commands`. The agent is not a singleton:
+`register_all_commands` builds the `GraphAgentOrchestrator` and returns it, and the
+FastAPI lifespan injects it into the WhatsApp handler (wrapped in `ThrottledAgent`),
+Discord and Telegram.
 TypeScript: `CommandFactory`, `MongoDBConnection`, `AxiosClient`.
 
 **Always use existing singletons.** Never instantiate `httpx.AsyncClient`,

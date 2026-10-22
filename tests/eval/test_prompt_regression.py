@@ -1,7 +1,8 @@
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
-from bot.application.register_commands import register_all_commands
+from bot.application.command_registry import CommandRegistry
+from bot.application.register_commands import build_agent_executor, register_all_commands
 from bot.domain.models.command_data import CommandData
 from bot.settings import Settings
 from tests.eval.dataset import PROMPT_REGRESSION_CASES
@@ -23,7 +24,7 @@ def anyio_backend() -> str:
 @pytest.mark.anyio
 async def test_prompt_maps_held_out_requests_above_threshold():
     register_all_commands(Settings())
-    executor = AgentExecutor()
+    executor = build_agent_executor(CommandRegistry.instance(), Settings())
 
     hits = 0
     conclusive = 0

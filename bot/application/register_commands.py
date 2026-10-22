@@ -1,5 +1,6 @@
 """Register all Python-side commands with the CommandRegistry."""
 
+from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.add import AddCommand
 from bot.domain.commands.adm import AdmCommand
@@ -70,27 +71,32 @@ def register_all_commands(settings: Settings | None = None) -> AgentOrchestrator
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
     Database.configure(settings.database_url)
-    LangChainProvider.configure(
-        settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
-    )
-    if settings.upstash_vector_rest_url:
-        UpstashExampleRetriever.configure(
-            settings.upstash_vector_rest_url, settings.upstash_vector_rest_token
-        )
-    if settings.langsmith_api_key:
-        LangSmithPromptRegistry.configure(
-            settings.langsmith_api_key,
-            settings.langsmith_prompt_name,
-            settings.langsmith_prompt_tag,
-        )
-
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
     _register_configured_commands(registry, settings)
 
-    # After commands are registered, so the graph's inner executor sees the full tool set.
+    # After commands are registered, so the executor sees the full tool set.
     # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
-    return GraphAgentOrchestrator.configure(settings.redis_url)
+    return GraphAgentOrchestrator(build_agent_executor(registry, settings), settings.redis_url)
+
+
+def build_agent_executor(registry: CommandRegistry, settings: Settings) -> AgentExecutor:
+    provider = LangChainProvider.from_credentials(
+        settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
+    )
+    retriever = None
+    if settings.upstash_vector_rest_url:
+        retriever = UpstashExampleRetriever.from_credentials(
+            settings.upstash_vector_rest_url, settings.upstash_vector_rest_token
+        )
+    prompt_registry = None
+    if settings.langsmith_api_key:
+        prompt_registry = LangSmithPromptRegistry.from_credentials(
+            settings.langsmith_api_key,
+            settings.langsmith_prompt_name,
+            settings.langsmith_prompt_tag,
+        )
+    return AgentExecutor(registry, provider, retriever, prompt_registry)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:

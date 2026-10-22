@@ -2,10 +2,8 @@ import pytest
 from langchain_core.prompts import PromptTemplate
 from langsmith.utils import LangSmithError
 
-from bot.infrastructure.llm.langsmith_prompt_registry import (
-    LangSmithPromptRegistry,
-    PromptRegistryError,
-)
+from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
+from bot.ports.prompt_registry_port import PromptRegistryError
 
 _CLIENT_PATH = 'bot.infrastructure.llm.langsmith_prompt_registry.Client'
 
@@ -69,13 +67,3 @@ class TestConfiguration:
         registry = LangSmithPromptRegistry.from_credentials('key', 'resenhazord-agent', 'prod')
 
         assert registry._prompt_identifier == 'resenhazord-agent:prod'
-
-    def test_configure_sets_singleton(self, mocker):
-        mocker.patch(_CLIENT_PATH)
-
-        configured = LangSmithPromptRegistry.configure('key', 'resenhazord-agent', 'prod')
-
-        assert LangSmithPromptRegistry.configured() is configured
-
-    def test_configured_is_none_before_configure(self):
-        assert LangSmithPromptRegistry.configured() is None
