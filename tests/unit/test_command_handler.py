@@ -360,6 +360,53 @@ class TestHandleRouting:
         assert result[0].content.text == 'public ok'
 
 
+class TestAgentRateLimit:
+    @staticmethod
+    def _limited_handler(registry, mock_dev_list, mock_config_service, mocker, *, allowed: bool):
+        limiter = mocker.Mock()
+        limiter.allow = mocker.AsyncMock(return_value=allowed)
+        handler = CommandHandler(
+            registry=registry,
+            dev_list=mock_dev_list,
+            config_service=mock_config_service,
+            rate_limiter=limiter,
+        )
+        mocker.patch.object(handler, '_run_agent', mocker.AsyncMock(return_value=_dm(',pub')))
+        return handler, limiter
+
+    @pytest.mark.anyio
+    async def test_limited_conversation_gets_no_agent_reply(
+        self, registry, mock_dev_list, mock_config_service, mocker
+    ):
+        handler, _ = self._limited_handler(
+            registry, mock_dev_list, mock_config_service, mocker, allowed=False
+        )
+
+        result = await handler.handle(_dm('Entendi o que você precisa'))
+
+        assert result is None
+        handler._run_agent.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_limits_per_chat_and_sender(
+        self, registry, mock_dev_list, mock_config_service, mocker
+    ):
+        handler, limiter = self._limited_handler(
+            registry, mock_dev_list, mock_config_service, mocker, allowed=True
+        )
+
+        await handler.handle(_dm('manda um negócio público'))
+
+        limiter.allow.assert_awaited_once_with('user@s.whatsapp.net:user@s.whatsapp.net')
+        handler._run_agent.assert_awaited_once()
+
+
+def _dm(text: str) -> CommandData:
+    return CommandData(
+        text=text, jid='user@s.whatsapp.net', sender_jid='user@s.whatsapp.net', is_group=False
+    )
+
+
 class TestRunAgent:
     @pytest.mark.anyio
     async def test_run_agent_returns_translated_data(self, handler, mocker):

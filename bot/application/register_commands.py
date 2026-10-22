@@ -54,6 +54,7 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
+from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.database import Database
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
@@ -87,6 +88,9 @@ def register_all_commands(settings: Settings | None = None) -> None:
             settings.langsmith_prompt_name,
             settings.langsmith_prompt_tag,
         )
+
+    if settings.redis_url:
+        AgentRateLimiter.configure(settings.redis_url)
 
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
