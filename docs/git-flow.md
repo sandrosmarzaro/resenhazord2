@@ -101,17 +101,22 @@ When `develop` has accumulated enough changes to release:
 6. `Pipeline` runs automatically on `main`: lint → test → build → deploy → register deployment → tag.
 
    The `tag` job reads `project.version` from `pyproject.toml` and creates a `v$VERSION` tag on the merge commit.
-7. **No back-merge needed** — `develop` already contains the version bump and CHANGELOG update.
+7. Pipeline's `back-merge` job then merges `main` into `develop`, so `develop` holds the release merge commit too. Nothing to do by hand; it exits early when `develop` already contains `main`.
 
 ## Hotfix workflow
 
 For urgent production fixes that can't wait for the next release:
 
 1. `git checkout main && git pull && git checkout -b hotfix/description`
-2. Fix, commit with Conventional Commits, push
-3. Open PR targeting `main`
-4. Merge with **"Create a merge commit"** (same reason as release)
-5. Pipeline deploys and tags. After the pipeline finishes, bump version on develop with `uv run task release` and push so `develop` stays in sync.
+2. Fix, commit with Conventional Commits (`fix(scope): …` only)
+3. **Bump the patch version on the hotfix branch:** `uv run task release`, then push
+
+   Only `fix:` commits sit between the last tag and the branch, so `cz bump` picks PATCH (e.g. `2.10.0` → `2.10.1`) and writes the CHANGELOG entry. If it proposes MINOR, a `feat:` slipped into the hotfix: move it to `develop`.
+
+   Why on the branch: the `tag` job tags whatever `project.version` says. A hotfix merged without a bump still carries the last released version, so the job finds that tag already exists and skips it, and production runs code no tag identifies. That happened with #226.
+4. Open PR targeting `main`
+5. Merge with **"Create a merge commit"** (same reason as release)
+6. Pipeline deploys, tags `vX.Y.Z`, creates the GitHub release and back-merges `main` into `develop`, so `develop` receives the fix, the new version and the CHANGELOG entry. No manual step.
 
 ## Merge-strategy summary
 
