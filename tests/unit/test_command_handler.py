@@ -1,5 +1,6 @@
 import pytest
 
+from bot.application.agent_executor import AgentExecutor
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, ParsedCommand
@@ -606,14 +607,13 @@ class TestAgentOrchestratorSelection:
     @pytest.mark.anyio
     async def test_falls_back_to_executor_without_graph(self, handler, mocker):
         from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
-        from bot.infrastructure.llm.provider_chain import ProviderChain
 
         data = GroupCommandDataFactory.build(text='@resenhazord algo')
         mocker.patch.object(GraphAgentOrchestrator, 'configured', return_value=None)
-        instance_spy = mocker.patch.object(
-            ProviderChain, 'instance', side_effect=RuntimeError('not configured')
+        executor_run = mocker.patch.object(
+            AgentExecutor, 'run', mocker.AsyncMock(return_value=data)
         )
 
         await handler._run_agent(data)
 
-        instance_spy.assert_called_once()
+        executor_run.assert_awaited_once_with(data)

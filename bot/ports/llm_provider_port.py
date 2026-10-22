@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from bot.infrastructure.llm.providers.base import LLMResponse
+from bot.domain.models.llm_response import LLMResponse
 
 
 class LLMProviderPort(Protocol):

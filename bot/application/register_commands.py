@@ -59,7 +59,6 @@ from bot.infrastructure.database import Database
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
-from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
@@ -71,13 +70,9 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
     Database.configure(settings.database_url)
-    ProviderChain.configure(
+    LangChainProvider.configure(
         settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
     )
-    if settings.llm_use_langchain:
-        LangChainProvider.configure(
-            settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
-        )
     if settings.upstash_vector_rest_url:
         UpstashExampleRetriever.configure(
             settings.upstash_vector_rest_url, settings.upstash_vector_rest_token
@@ -98,8 +93,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     # After commands are registered, so the graph's inner executor sees the full tool set.
     # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
-    if settings.agent_use_graph:
-        GraphAgentOrchestrator.configure(settings.redis_url)
+    GraphAgentOrchestrator.configure(settings.redis_url)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:
