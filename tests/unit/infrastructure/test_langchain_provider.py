@@ -1,7 +1,8 @@
 import pytest
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from bot.infrastructure.llm.langchain_provider import LangChainProvider
+from bot.infrastructure.llm.langchain_provider import LangChainProvider, _Model
 
 
 @pytest.fixture
@@ -49,13 +50,22 @@ class TestProviderSelection:
         assert provider._models[0].supports_tools is True
 
 
-class TestNoCredentials:
+class TestComplete:
     @pytest.fixture
     def anyio_backend(self):
         return 'asyncio'
 
     @pytest.mark.anyio
-    async def test_raises_runtime_error_so_the_agent_reports_unavailable(self):
+    async def test_returns_the_model_reply(self):
+        model = GenericFakeChatModel(messages=iter([AIMessage(content=',menu')]))
+        provider = LangChainProvider([_Model(model, supports_tools=False)])
+
+        response = await provider.complete('lista de comandos', [])
+
+        assert response.content == ',menu'
+
+    @pytest.mark.anyio
+    async def test_no_credentials_raise_runtime_error_so_the_agent_reports_unavailable(self):
         provider = LangChainProvider.from_credentials('', '', '')
 
         with pytest.raises(RuntimeError, match='No LLM providers configured'):
