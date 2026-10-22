@@ -149,20 +149,18 @@ early filtering before forwarding to Python.
 
 ## Agentic Command Mapping
 
-`@`-mentions and DMs route to an LLM agent that maps natural language to a command,
-behind flags that parallel-run with the manual comma path. Design:
+`@`-mentions and DMs route to an LLM agent that maps natural language to a command. Design:
 [prd-agentic-command-mapping.md](prd-agentic-command-mapping.md) + ADRs 0007–0011.
 
-Three ports (`bot/ports/`) keep the frameworks out of the domain; each falls back
-when its flag/env is unset:
+Three ports (`bot/ports/`) keep the frameworks out of the domain:
 
 - **`LLMProviderPort`** → `LangChainProvider` (gpt-4o/Groq/Mistral, `bind_tools` +
-  `with_fallbacks`) under `LLM_USE_LANGCHAIN`, else httpx `ProviderChain`.
+  `with_fallbacks`).
 - **`ExampleRetrieverPort`** → `UpstashExampleRetriever` (Upstash Vector, RAG
   few-shot) when `UPSTASH_VECTOR_REST_URL` set, else a static slice. Build:
   `uv run task index:examples`.
-- **`AgentOrchestratorPort`** → `GraphAgentOrchestrator` (LangGraph) under
-  `AGENT_USE_GRAPH`, else single-turn `AgentExecutor`.
+- **`AgentOrchestratorPort`** → `GraphAgentOrchestrator` (LangGraph) wrapping the
+  single-turn `AgentExecutor`.
 
 Outcomes are tool calls (ADR 0009): a command tool (execute, gated on a `confidence`
 arg), `clarify(question)`, or `suggest(message, command)`; `AgentResponseTranslator`

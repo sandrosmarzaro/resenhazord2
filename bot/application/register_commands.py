@@ -74,10 +74,9 @@ def register_all_commands(settings: Settings | None = None) -> None:
     ProviderChain.configure(
         settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
     )
-    if settings.llm_use_langchain:
-        LangChainProvider.configure(
-            settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
-        )
+    LangChainProvider.configure(
+        settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
+    )
     if settings.upstash_vector_rest_url:
         UpstashExampleRetriever.configure(
             settings.upstash_vector_rest_url, settings.upstash_vector_rest_token
@@ -98,8 +97,7 @@ def register_all_commands(settings: Settings | None = None) -> None:
 
     # After commands are registered, so the graph's inner executor sees the full tool set.
     # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
-    if settings.agent_use_graph:
-        GraphAgentOrchestrator.configure(settings.redis_url)
+    GraphAgentOrchestrator.configure(settings.redis_url)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:

@@ -9,34 +9,34 @@ from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.settings import Settings
 
 
-class TestAgentFlagWiring:
-    def test_flags_off_leave_agent_singletons_unconfigured(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('LLM_USE_LANGCHAIN', 'false')
-        monkeypatch.setenv('AGENT_USE_GRAPH', 'false')
-        monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', '')
-        monkeypatch.setenv('LANGSMITH_API_KEY', '')
-
-        register_all_commands()
-
-        assert LangChainProvider.configured() is None
-        assert UpstashExampleRetriever.configured() is None
-        assert GraphAgentOrchestrator.configured() is None
-        assert LangSmithPromptRegistry.configured() is None
-
-    def test_flags_on_configure_agent_singletons(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('LLM_USE_LANGCHAIN', 'true')
-        monkeypatch.setenv('AGENT_USE_GRAPH', 'true')
-        monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', 'https://example.upstash.io')
-        monkeypatch.setenv('UPSTASH_VECTOR_REST_TOKEN', 'token')
-        monkeypatch.setenv('GROQ_API_KEY', 'groq')
-        monkeypatch.setenv('LANGSMITH_API_KEY', 'ls-key')
+class TestAgentWiring:
+    def test_always_configures_the_llm_provider_and_graph(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv('REDIS_URL', '')
 
         register_all_commands(Settings())
 
         assert LangChainProvider.configured() is not None
-        assert UpstashExampleRetriever.configured() is not None
         assert GraphAgentOrchestrator.configured() is not None
+
+    def test_optional_services_stay_unconfigured_without_credentials(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', '')
+        monkeypatch.setenv('LANGSMITH_API_KEY', '')
+
+        register_all_commands(Settings())
+
+        assert UpstashExampleRetriever.configured() is None
+        assert LangSmithPromptRegistry.configured() is None
+
+    def test_credentials_configure_optional_services(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', 'https://example.upstash.io')
+        monkeypatch.setenv('UPSTASH_VECTOR_REST_TOKEN', 'token')
+        monkeypatch.setenv('LANGSMITH_API_KEY', 'ls-key')
+
+        register_all_commands(Settings())
+
+        assert UpstashExampleRetriever.configured() is not None
         assert LangSmithPromptRegistry.configured() is not None
 
 
