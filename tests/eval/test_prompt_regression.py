@@ -1,7 +1,7 @@
 import pytest
 
-from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
+from bot.application.llm_command_mapper import LLMCommandMapper
 from bot.application.register_commands import build_agent_executor, register_all_commands
 from bot.domain.models.command_data import CommandData
 from bot.settings import Settings
@@ -12,7 +12,7 @@ _ACCURACY_THRESHOLD = 0.7
 # A provider failure surfaces as this message. It means the LLM was unreachable,
 # not that the prompt mapped wrong, so those samples are inconclusive — the eval
 # judges the prompt only over samples that got a real model response.
-_PROVIDER_UNAVAILABLE = AgentExecutor._AGENT_UNAVAILABLE_MSG
+_PROVIDER_UNAVAILABLE = LLMCommandMapper.UNAVAILABLE_MSG
 
 
 @pytest.fixture

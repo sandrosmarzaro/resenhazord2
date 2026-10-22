@@ -3,7 +3,7 @@ import pytest
 
 from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
-from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
+from bot.data.agent_examples import AGENT_EXAMPLES
 from bot.domain.constants import (
     CLARIFY_PREFIX,
     SUGGEST_PREFIX,
@@ -11,7 +11,6 @@ from bot.domain.constants import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.llm_response import LLMResponse
 from bot.domain.models.retrieved_example import RetrievedExample
-from bot.domain.models.system_prompt import SystemPrompt
 
 _STATIC_EXAMPLES = [
     RetrievedExample(text=text, command=command) for text, command in AGENT_EXAMPLES[:5]
@@ -28,43 +27,6 @@ def provider(mocker):
 @pytest.fixture
 def executor(provider) -> AgentExecutor:
     return AgentExecutor(CommandRegistry.instance(), provider)
-
-
-class TestPromptBuilding:
-    @pytest.mark.anyio
-    async def test_strips_bot_mention(self, executor):
-        prompt = executor._build_prompt(
-            SYSTEM_PROMPT_TEMPLATE, '@resenhazord ver placar', _STATIC_EXAMPLES
-        )
-
-        assert '@resenhazord' not in prompt
-        assert 'ver placar' in prompt
-
-    @pytest.mark.anyio
-    async def test_includes_command_list(self, executor):
-        prompt = executor._build_prompt(SYSTEM_PROMPT_TEMPLATE, 'test', _STATIC_EXAMPLES)
-
-        assert 'command_list' in prompt or 'placar' in prompt.lower()
-
-    @pytest.mark.anyio
-    async def test_includes_quoted_context_block(self, executor):
-        prompt = executor._build_prompt(
-            SYSTEM_PROMPT_TEMPLATE,
-            'sim',
-            _STATIC_EXAMPLES,
-            context='Não sei te dizer..., use ,time',
-        )
-
-        assert 'Contexto da mensagem anterior' in prompt
-        assert ',time' in prompt
-
-    @pytest.mark.anyio
-    async def test_omits_context_block_when_quoted_text_absent(self, executor):
-        prompt = executor._build_prompt(
-            SYSTEM_PROMPT_TEMPLATE, 'me mande um fato', _STATIC_EXAMPLES
-        )
-
-        assert 'Contexto da mensagem anterior' not in prompt
 
 
 class TestRunProviderFailure:
@@ -177,23 +139,24 @@ class TestDirectMatch:
                 content='', provider='groq', model='m', tool_call={'name': 'carro'}
             )
         )
-        return AgentExecutor(
+        executor = AgentExecutor(
             CommandRegistry.instance(), provider, retriever=_scored_retriever(mocker, [example])
         )
+        return executor, provider
 
     @pytest.mark.anyio
     async def test_near_identical_example_runs_without_the_llm(self, mocker):
-        executor = self._executor(mocker, self._IDENTICAL)
+        executor, llm = self._executor(mocker, self._IDENTICAL)
 
         result = await executor.run(_data('time do flamengo'))
 
         assert result.text == ',time flamengo'
-        executor._provider.complete.assert_not_awaited()
+        llm.complete.assert_not_awaited()
 
     @pytest.mark.anyio
     async def test_records_direct_outcome(self, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
-        executor = self._executor(mocker, self._IDENTICAL)
+        executor, _ = self._executor(mocker, self._IDENTICAL)
 
         await executor.run(_data('time do flamengo'))
 
@@ -201,15 +164,15 @@ class TestDirectMatch:
 
     @pytest.mark.anyio
     async def test_paraphrase_still_goes_to_the_llm(self, mocker):
-        executor = self._executor(mocker, self._PARAPHRASE)
+        executor, llm = self._executor(mocker, self._PARAPHRASE)
 
         await executor.run(_data('me manda um carro'))
 
-        executor._provider.complete.assert_awaited_once()
+        llm.complete.assert_awaited_once()
 
     @pytest.mark.anyio
     async def test_reply_to_a_question_never_skips_the_llm(self, mocker):
-        executor = self._executor(mocker, self._IDENTICAL)
+        executor, llm = self._executor(mocker, self._IDENTICAL)
         data = CommandData(
             text='time do flamengo',
             jid='test@g.us',
@@ -219,7 +182,7 @@ class TestDirectMatch:
 
         await executor.run(data)
 
-        executor._provider.complete.assert_awaited_once()
+        llm.complete.assert_awaited_once()
 
 
 class TestToolDecision:
@@ -361,15 +324,6 @@ class TestObservability:
         record.assert_called_once_with('unavailable', '', '')
 
     @pytest.mark.anyio
-    async def test_alerts_sentry_when_agent_is_unavailable(self, provider, executor, mocker):
-        capture = mocker.patch('bot.application.agent_executor.sentry_sdk.capture_message')
-        provider.complete.side_effect = httpx.HTTPError('rate limited')
-
-        await executor.run(_data('@resenhazord placar'))
-
-        capture.assert_called_once_with('agent_unavailable', level='error')
-
-    @pytest.mark.anyio
     async def test_records_clarify_outcome(self, provider, executor, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
         _stub_provider(
@@ -411,30 +365,6 @@ class TestObservability:
         await executor.run(_data('@resenhazord blah'))
 
         record.assert_called_once_with('unresolvable', 'groq', '')
-
-
-class _FakePromptRegistry:
-    def __init__(self, system_prompt: SystemPrompt) -> None:
-        self._system_prompt = system_prompt
-
-    def system_prompt(self) -> SystemPrompt:
-        return self._system_prompt
-
-
-class TestPromptRegistrySource:
-    def test_uses_injected_registry_prompt(self, provider):
-        injected = SystemPrompt(template='CUSTOM {command_list}', version='abc123')
-        executor = AgentExecutor(
-            CommandRegistry.instance(), provider, prompt_registry=_FakePromptRegistry(injected)
-        )
-
-        assert executor._system_prompt() == injected
-
-    def test_falls_back_to_in_code_template_without_registry(self, executor):
-        resolved = executor._system_prompt()
-
-        assert resolved.template == SYSTEM_PROMPT_TEMPLATE
-        assert resolved.version == ''
 
 
 def _data(text: str) -> CommandData:
