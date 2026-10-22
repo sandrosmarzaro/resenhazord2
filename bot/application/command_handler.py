@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, ClassVar
 
 import structlog
 
-from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.application.config_service import ConfigService
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandScope
 from bot.domain.constants import (
     AGENT_MENU_HINT,
+    BOT_MENTION_TAG,
     CLARIFY_PREFIX,
     COMMAND_OFF_IN_CHAT,
     SUGGEST_PREFIX,
@@ -153,7 +153,7 @@ class CommandHandler:
         for mentioned in data.mentioned_jids or ():
             if mentioned.split('@')[0] in self._bot_numeric:
                 return True
-        if AgentExecutor.BOT_MENTION_TAG in text_lower:
+        if BOT_MENTION_TAG in text_lower:
             return True
         return bool(self._SEND_ME_PATTERN.search(text_lower))
 

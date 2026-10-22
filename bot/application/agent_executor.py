@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import replace
-from operator import attrgetter
 from typing import ClassVar
 
 import httpx
@@ -11,7 +10,8 @@ import structlog
 
 from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
-from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
+from bot.application.example_selector import ExampleSelector
+from bot.data.agent_examples import SYSTEM_PROMPT_TEMPLATE
 from bot.data.agent_meta_tools import (
     AGENT_META_TOOLS,
     CLARIFY_TOOL_NAME,
@@ -21,7 +21,9 @@ from bot.data.agent_meta_tools import (
 )
 from bot.domain.constants import (
     AGENT_MENU_HINT,
+    BOT_MENTION_TAG,
     CLARIFY_PREFIX,
+    MAX_USER_INPUT_LENGTH,
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
@@ -41,15 +43,8 @@ logger = structlog.get_logger()
 
 
 class AgentExecutor:
-    MAX_AGENT_EXAMPLES: ClassVar[int] = 5
-    # Upstash scores unrelated text at 0.68-0.72 and real paraphrases above 0.78.
-    MIN_EXAMPLE_SIMILARITY: ClassVar[float] = 0.75
-    # Only near-identical text: 'time do vasco' scores 0.80 against ',time corinthians'.
-    DIRECT_MATCH_SIMILARITY: ClassVar[float] = 0.97
     CONFIDENCE_THRESHOLD: ClassVar[float] = 0.7
-    MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
-    BOT_MENTION_TAG: ClassVar[str] = '@resenhazord'
     _AGENT_UNAVAILABLE_MSG: ClassVar[str] = f'🤖 IA indisponível no momento. {AGENT_MENU_HINT}'
     _AGENT_UNRESOLVABLE_MSG: ClassVar[str] = f'🤖 Não consegui entender. {AGENT_MENU_HINT}'
     _AGENT_UNAVAILABLE_EVENT: ClassVar[str] = 'agent_unavailable'
@@ -63,7 +58,7 @@ class AgentExecutor:
     ) -> None:
         self._registry = registry
         self._provider = provider
-        self._retriever = retriever
+        self._selector = ExampleSelector(retriever)
         self._prompt_registry = prompt_registry
         command_tools = self._with_confidence(build_tools_for_prompt(self._registry))
         self._tools = command_tools + AGENT_META_TOOLS
@@ -75,8 +70,8 @@ class AgentExecutor:
 
         Returns CommandData with rewritten text for command execution.
         """
-        examples = await self._select_examples(data.text)
-        if direct := self._direct_match(data, examples):
+        examples = await self._selector.select(data.text)
+        if direct := self._selector.direct_match(data, examples):
             logger.info('agent_direct_match', example=direct.text, score=direct.score)
             result = self._translator.translate(data, direct.command.lstrip(','), '')
             return self._record(result, 'direct', '', '')
@@ -177,39 +172,9 @@ class AgentExecutor:
         except json.JSONDecodeError:
             return ''
 
-    async def _select_examples(self, user_input: str) -> list[RetrievedExample]:
-        if self._retriever is None:
-            return self._static_examples()
-
-        query = self._strip_mention(user_input)
-        try:
-            retrieved = await self._retriever.retrieve(query, self.MAX_AGENT_EXAMPLES)
-        except httpx.HTTPError as error:
-            logger.warning('agent_retrieval_failed', error=str(error))
-            return self._static_examples()
-        return [example for example in retrieved if example.score >= self.MIN_EXAMPLE_SIMILARITY]
-
-    def _direct_match(
-        self, data: CommandData, examples: list[RetrievedExample]
-    ) -> RetrievedExample | None:
-        # A reply to the bot's question means something only next to that question.
-        if data.quoted_text:
-            return None
-        best = max(examples, key=attrgetter('score'), default=None)
-        if best is None or best.score < self.DIRECT_MATCH_SIMILARITY:
-            return None
-        return best
-
-    @classmethod
-    def _static_examples(cls) -> list[RetrievedExample]:
-        return [
-            RetrievedExample(text=text, command=command)
-            for text, command in AGENT_EXAMPLES[: cls.MAX_AGENT_EXAMPLES]
-        ]
-
-    @classmethod
-    def _strip_mention(cls, text: str) -> str:
-        return text.replace(cls.BOT_MENTION_TAG, '').strip()[: cls.MAX_USER_INPUT_LENGTH]
+    @staticmethod
+    def _strip_mention(text: str) -> str:
+        return text.replace(BOT_MENTION_TAG, '').strip()[:MAX_USER_INPUT_LENGTH]
 
     def _build_prompt(
         self,
