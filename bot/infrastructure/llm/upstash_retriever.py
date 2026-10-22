@@ -37,7 +37,9 @@ class UpstashExampleRetriever:
             data=query, top_k=top_k, include_metadata=True, include_data=True
         )
         return [
-            RetrievedExample(text=result.data, command=result.metadata['command'])
+            RetrievedExample(
+                text=result.data, command=result.metadata['command'], score=result.score
+            )
             for result in results
             if result.data is not None and result.metadata is not None
         ]

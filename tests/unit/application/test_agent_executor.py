@@ -8,6 +8,7 @@ from bot.domain.constants import (
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.retrieved_example import RetrievedExample
 from bot.domain.models.system_prompt import SystemPrompt
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
@@ -15,7 +16,10 @@ from bot.infrastructure.llm.providers.base import LLMResponse
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from tests.fixtures.fake_example_retriever import FakeExampleRetriever
 
-_STATIC_EXAMPLES = AGENT_EXAMPLES[: AgentExecutor.MAX_AGENT_EXAMPLES]
+_STATIC_EXAMPLES = [
+    RetrievedExample(text=text, command=command)
+    for text, command in AGENT_EXAMPLES[: AgentExecutor.MAX_AGENT_EXAMPLES]
+]
 
 
 @pytest.fixture
@@ -81,9 +85,30 @@ class TestExampleSelection:
         retriever.index('me manda um carro', ',carro')
         executor = AgentExecutor(retriever=retriever)
 
-        examples = await executor._select_examples('@resenhazord placar agora')
+        examples = await executor._select_examples('@resenhazord quero ver o placar agora')
 
-        assert examples == [('quero ver o placar agora', ',score --now')]
+        assert examples == [
+            RetrievedExample(text='quero ver o placar agora', command=',score --now', score=1.0)
+        ]
+
+    @pytest.mark.anyio
+    async def test_asks_for_five_examples(self, mocker):
+        retriever = _scored_retriever(mocker, [])
+        executor = AgentExecutor(retriever=retriever)
+
+        await executor._select_examples('placar agora')
+
+        retriever.retrieve.assert_awaited_once_with('placar agora', 5)
+
+    @pytest.mark.anyio
+    async def test_drops_examples_below_the_similarity_floor(self, mocker):
+        relevant = RetrievedExample(text='time do flamengo', command=',time flamengo', score=0.912)
+        noise = RetrievedExample(text='fato aleatório', command=',fato', score=0.709)
+        executor = AgentExecutor(retriever=_scored_retriever(mocker, [relevant, noise]))
+
+        examples = await executor._select_examples('time do flamengo')
+
+        assert examples == [relevant]
 
     @pytest.mark.anyio
     async def test_falls_back_to_static_on_retrieval_error(self, mocker):
@@ -202,6 +227,61 @@ class TestRun:
 
         assert result.media_type == 'image'
         assert result.media_source == 'https://example.com/image.jpg'
+
+
+class TestDirectMatch:
+    _IDENTICAL = RetrievedExample(text='time do flamengo', command=',time flamengo', score=0.999)
+    _PARAPHRASE = RetrievedExample(text='me mande um carro', command=',carro', score=0.948)
+
+    @staticmethod
+    def _executor(mocker, example: RetrievedExample):
+        provider = mocker.Mock()
+        provider.complete = mocker.AsyncMock(
+            return_value=LLMResponse(
+                content='', provider='groq', model='m', tool_call={'name': 'carro'}
+            )
+        )
+        return AgentExecutor(retriever=_scored_retriever(mocker, [example]), provider=provider)
+
+    @pytest.mark.anyio
+    async def test_near_identical_example_runs_without_the_llm(self, mocker):
+        executor = self._executor(mocker, self._IDENTICAL)
+
+        result = await executor.run(_data('time do flamengo'))
+
+        assert result.text == ',time flamengo'
+        executor._provider.complete.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_records_direct_outcome(self, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        executor = self._executor(mocker, self._IDENTICAL)
+
+        await executor.run(_data('time do flamengo'))
+
+        record.assert_called_once_with('direct', '', '')
+
+    @pytest.mark.anyio
+    async def test_paraphrase_still_goes_to_the_llm(self, mocker):
+        executor = self._executor(mocker, self._PARAPHRASE)
+
+        await executor.run(_data('me manda um carro'))
+
+        executor._provider.complete.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_reply_to_a_question_never_skips_the_llm(self, mocker):
+        executor = self._executor(mocker, self._IDENTICAL)
+        data = CommandData(
+            text='time do flamengo',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            quoted_text='Quer a tabela ou o time?',
+        )
+
+        await executor.run(data)
+
+        executor._provider.complete.assert_awaited_once()
 
 
 class TestProviderInjection:
@@ -445,6 +525,12 @@ class TestPromptRegistrySource:
 
 def _data(text: str) -> CommandData:
     return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net')
+
+
+def _scored_retriever(mocker, examples: list[RetrievedExample]):
+    retriever = mocker.Mock()
+    retriever.retrieve = mocker.AsyncMock(return_value=examples)
+    return retriever
 
 
 def _stub_chain(mocker, *, content: str = '', tool_call: dict | None = None) -> None:

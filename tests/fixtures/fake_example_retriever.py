@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from bot.domain.models.retrieved_example import RetrievedExample
 
 
@@ -10,17 +12,18 @@ class FakeExampleRetriever:
 
     async def retrieve(self, query: str, top_k: int) -> list[RetrievedExample]:
         scored = [
-            (self._overlap(query, example.text), index, example)
-            for index, example in enumerate(self._examples)
+            replace(example, score=self._similarity(query, example.text))
+            for example in self._examples
         ]
         relevant = sorted(
-            (entry for entry in scored if entry[0] > 0),
-            key=lambda entry: (-entry[0], entry[1]),
+            (example for example in scored if example.score > 0),
+            key=lambda example: -example.score,
         )
-        return [example for _, _, example in relevant[:top_k]]
+        return relevant[:top_k]
 
+    # Jaccard over tokens stands in for embedding similarity: 1.0 only for identical text.
     @staticmethod
-    def _overlap(query: str, text: str) -> int:
+    def _similarity(query: str, text: str) -> float:
         query_tokens = set(query.lower().split())
         text_tokens = set(text.lower().split())
-        return len(query_tokens & text_tokens)
+        return len(query_tokens & text_tokens) / len(query_tokens | text_tokens)
