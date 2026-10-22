@@ -1,6 +1,7 @@
 import pytest
 
 from bot.application.register_commands import register_all_commands
+from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
@@ -37,3 +38,19 @@ class TestAgentFlagWiring:
         assert UpstashExampleRetriever.configured() is not None
         assert GraphAgentOrchestrator.configured() is not None
         assert LangSmithPromptRegistry.configured() is not None
+
+
+class TestAgentRateLimiterWiring:
+    def test_redis_url_configures_the_limiter(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv('REDIS_URL', 'redis://localhost:6379')
+
+        register_all_commands(Settings())
+
+        assert AgentRateLimiter.configured() is not None
+
+    def test_no_redis_url_leaves_agent_turns_unlimited(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv('REDIS_URL', '')
+
+        register_all_commands(Settings())
+
+        assert AgentRateLimiter.configured() is None
