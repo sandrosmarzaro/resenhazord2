@@ -69,3 +69,15 @@ class TestRedisUnavailable:
         limiter = AgentRateLimiter.from_url('redis://127.0.0.1:1')
 
         assert await limiter.allow('dm:vivo') is True
+
+
+class TestSlowLoopPolicy:
+    # Groq 429 retries stretch each agent turn to ~40 s, so a bot-to-bot loop ran at
+    # ~3 turns per 2 minutes and never tripped a 5-per-120 s window.
+    @pytest.mark.anyio
+    async def test_cuts_the_ninth_turn_within_ten_minutes(self, limiter, redis):
+        results = [await limiter.allow('dm:vivo') for _ in range(9)]
+
+        [key] = await redis.keys()
+        assert results == [True] * 8 + [False]
+        assert 120 < await redis.ttl(key) <= 600

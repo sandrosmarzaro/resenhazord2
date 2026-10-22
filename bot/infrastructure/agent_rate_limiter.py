@@ -11,8 +11,8 @@ logger = structlog.get_logger()
 class AgentRateLimiter:
     """Caps agent turns per conversation so a bot on the other end cannot loop with ours."""
 
-    MAX_TURNS: ClassVar[int] = 5
-    WINDOW_SECONDS: ClassVar[int] = 120
+    MAX_TURNS: ClassVar[int] = 8
+    WINDOW_SECONDS: ClassVar[int] = 600
     _KEY_PREFIX: ClassVar[str] = 'agent_turns'
 
     def __init__(self, redis: Redis) -> None:
