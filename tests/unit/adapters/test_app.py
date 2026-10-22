@@ -95,9 +95,13 @@ class TestConnectTelegram:
         telegram_bot = mocker.patch.object(app, 'TelegramBot')
         telegram_bot.return_value.start = mocker.AsyncMock()
 
-        shutdown = await app._connect_telegram()
+        agent = mocker.Mock()
 
-        telegram_bot.assert_called_once_with('token', 'resenhazord_bot', frozenset({-100, -200}))
+        shutdown = await app._connect_telegram(agent)
+
+        telegram_bot.assert_called_once_with(
+            'token', 'resenhazord_bot', frozenset({-100, -200}), agent
+        )
         telegram_bot.return_value.start.assert_awaited_once_with()
         assert shutdown == telegram_bot.return_value.stop
 
@@ -110,9 +114,11 @@ class TestConnectDiscord:
         discord_bot = mocker.patch.object(app, 'DiscordBot')
         discord_bot.return_value.start = mocker.AsyncMock()
 
-        shutdown = await app._connect_discord()
+        agent = mocker.Mock()
 
-        discord_bot.assert_called_once_with('123')
+        shutdown = await app._connect_discord(agent)
+
+        discord_bot.assert_called_once_with('123', agent)
         discord_bot.return_value.register_commands.assert_called_once_with()
         discord_bot.return_value.start.assert_awaited_once_with('token')
         assert shutdown == discord_bot.return_value.stop

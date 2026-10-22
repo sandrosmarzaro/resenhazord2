@@ -25,7 +25,12 @@ def _patch_registry(mocker, commands):
 
 def _make_bot(mocker, *, nsfw_chat_ids: frozenset[int] = frozenset()):
     mocker.patch('bot.adapters.telegram.bot.Application.builder')
-    bot = TelegramBot(token=FAKE_TOKEN, bot_username='resenhazord_bot', nsfw_chat_ids=nsfw_chat_ids)
+    bot = TelegramBot(
+        token=FAKE_TOKEN,
+        bot_username='resenhazord_bot',
+        nsfw_chat_ids=nsfw_chat_ids,
+        agent=mocker.Mock(),
+    )
     bot._app = mocker.MagicMock()
     bot._app.bot = mocker.AsyncMock()
     return bot

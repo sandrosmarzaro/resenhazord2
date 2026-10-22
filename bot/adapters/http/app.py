@@ -59,19 +59,20 @@ def _throttled(agent: AgentOrchestratorPort) -> ThrottledAgent:
     return ThrottledAgent(agent, limiter)
 
 
-async def _connect_telegram() -> Shutdown:
+async def _connect_telegram(agent: AgentOrchestratorPort) -> Shutdown:
     # A fresh bot per attempt: a half-initialized one would re-register its handlers.
     telegram_bot = TelegramBot(
         settings.telegram_token,
         settings.telegram_bot_username,
         _parse_chat_ids(settings.telegram_nsfw_chat_ids),
+        agent,
     )
     await telegram_bot.start()
     return telegram_bot.stop
 
 
-async def _connect_discord() -> Shutdown:
-    discord_bot = DiscordBot(settings.discord_server_guild_id)
+async def _connect_discord(agent: AgentOrchestratorPort) -> Shutdown:
+    discord_bot = DiscordBot(settings.discord_server_guild_id, agent)
     discord_bot.register_commands()
     await discord_bot.start(settings.discord_token)
     return discord_bot.stop
@@ -86,9 +87,9 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         # Broker outages heal on their own, so WhatsApp never gives up retrying.
         platforms.start(Platform.WHATSAPP, partial(_connect_whatsapp, agent))
     if settings.discord_token and settings.discord_server_guild_id:
-        platforms.start(Platform.DISCORD, _connect_discord)
+        platforms.start(Platform.DISCORD, partial(_connect_discord, agent))
     if settings.telegram_token:
-        platforms.start(Platform.TELEGRAM, _connect_telegram)
+        platforms.start(Platform.TELEGRAM, partial(_connect_telegram, agent))
     logger.info('app_started')
     yield
     await platforms.stop()
