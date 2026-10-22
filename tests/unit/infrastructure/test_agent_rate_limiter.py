@@ -1,6 +1,5 @@
 import pytest
 from fakeredis.aioredis import FakeRedis
-from redis.asyncio import Redis
 
 from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 
@@ -67,6 +66,6 @@ class TestLoopAlert:
 class TestRedisUnavailable:
     @pytest.mark.anyio
     async def test_fails_open(self):
-        limiter = AgentRateLimiter(Redis.from_url('redis://127.0.0.1:1'))
+        limiter = AgentRateLimiter.from_url('redis://127.0.0.1:1')
 
         assert await limiter.allow('dm:vivo') is True

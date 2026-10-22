@@ -1,7 +1,6 @@
 import pytest
 
 from bot.application.register_commands import register_all_commands
-from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
@@ -13,10 +12,10 @@ class TestAgentWiring:
     def test_always_configures_the_llm_provider_and_graph(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv('REDIS_URL', '')
 
-        register_all_commands(Settings())
+        agent = register_all_commands(Settings())
 
         assert LangChainProvider.configured() is not None
-        assert GraphAgentOrchestrator.configured() is not None
+        assert agent is GraphAgentOrchestrator.configured()
 
     def test_optional_services_stay_unconfigured_without_credentials(
         self, monkeypatch: pytest.MonkeyPatch
@@ -38,19 +37,3 @@ class TestAgentWiring:
 
         assert UpstashExampleRetriever.configured() is not None
         assert LangSmithPromptRegistry.configured() is not None
-
-
-class TestAgentRateLimiterWiring:
-    def test_redis_url_configures_the_limiter(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('REDIS_URL', 'redis://localhost:6379')
-
-        register_all_commands(Settings())
-
-        assert AgentRateLimiter.configured() is not None
-
-    def test_no_redis_url_leaves_agent_turns_unlimited(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('REDIS_URL', '')
-
-        register_all_commands(Settings())
-
-        assert AgentRateLimiter.configured() is None

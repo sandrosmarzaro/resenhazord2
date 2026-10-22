@@ -6,7 +6,6 @@ from faker import Faker
 from pydantic import BaseModel
 
 from bot.application.command_registry import CommandRegistry
-from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.infrastructure.database import Database
 from bot.infrastructure.http_client import HttpClient
@@ -47,7 +46,6 @@ def _reset_singletons():
     LangChainProvider.reset()
     LangSmithPromptRegistry.reset()
     GraphAgentOrchestrator.reset()
-    AgentRateLimiter.reset()
     yield
     CommandRegistry.reset()
     HttpClient.reset()
@@ -58,7 +56,6 @@ def _reset_singletons():
     LangChainProvider.reset()
     LangSmithPromptRegistry.reset()
     GraphAgentOrchestrator.reset()
-    AgentRateLimiter.reset()
 
 
 @pytest.fixture

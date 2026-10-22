@@ -15,23 +15,12 @@ class AgentRateLimiter:
     WINDOW_SECONDS: ClassVar[int] = 120
     _KEY_PREFIX: ClassVar[str] = 'agent_turns'
 
-    _instance: ClassVar[AgentRateLimiter | None] = None
-
     def __init__(self, redis: Redis) -> None:
         self._redis = redis
 
     @classmethod
-    def configure(cls, redis_url: str) -> AgentRateLimiter:
-        cls._instance = cls(Redis.from_url(redis_url))
-        return cls._instance
-
-    @classmethod
-    def configured(cls) -> AgentRateLimiter | None:
-        return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        cls._instance = None
+    def from_url(cls, redis_url: str) -> AgentRateLimiter:
+        return cls(Redis.from_url(redis_url))
 
     async def allow(self, conversation: str) -> bool:
         key = f'{self._KEY_PREFIX}:{conversation}'

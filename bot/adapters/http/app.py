@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from functools import partial
 
 import structlog
 from fastapi import FastAPI
@@ -16,13 +17,16 @@ from bot.adapters.whatsapp.broker_client import BrokerWhatsAppClient
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
+from bot.application.throttled_agent import ThrottledAgent
 from bot.domain.commands.base import Platform
 from bot.domain.services.group_welcome import GroupWelcomeService
 from bot.domain.services.steal_group import StealGroupService
+from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.broker import RabbitBroker
 from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.infrastructure.platform_supervisor import PlatformSupervisor, Shutdown
+from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.settings import Settings
 
 logger = structlog.get_logger()
@@ -33,14 +37,14 @@ def _parse_chat_ids(raw: str) -> frozenset[int]:
     return frozenset(int(part) for part in raw.split(',') if part.strip())
 
 
-async def _connect_whatsapp() -> Shutdown:
+async def _connect_whatsapp(agent: AgentOrchestratorPort) -> Shutdown:
     broker = RabbitBroker()
     try:
         await broker.connect(settings.rabbitmq_url)
         whatsapp = BrokerWhatsAppClient(broker)
         registry = CommandRegistry.instance()
         registry.set_whatsapp(whatsapp)
-        await CommandConsumer(broker, CommandHandler(registry)).start()
+        await CommandConsumer(broker, CommandHandler(registry, _throttled(agent))).start()
         steal_group = StealGroupService(whatsapp, settings.resenhazord2_jid, settings.resenha_jid)
         await GroupEventConsumer(broker, steal_group, GroupWelcomeService(whatsapp)).start()
     except BaseException:
@@ -48,6 +52,11 @@ async def _connect_whatsapp() -> Shutdown:
         await broker.close()
         raise
     return broker.close
+
+
+def _throttled(agent: AgentOrchestratorPort) -> ThrottledAgent:
+    limiter = AgentRateLimiter.from_url(settings.redis_url) if settings.redis_url else None
+    return ThrottledAgent(agent, limiter)
 
 
 async def _connect_telegram() -> Shutdown:
@@ -70,12 +79,12 @@ async def _connect_discord() -> Shutdown:
 
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
-    register_all_commands()
+    agent = register_all_commands()
     platforms = PlatformSupervisor()
     fastapi_app.state.platforms = platforms
     if settings.rabbitmq_url:
         # Broker outages heal on their own, so WhatsApp never gives up retrying.
-        platforms.start(Platform.WHATSAPP, _connect_whatsapp)
+        platforms.start(Platform.WHATSAPP, partial(_connect_whatsapp, agent))
     if settings.discord_token and settings.discord_server_guild_id:
         platforms.start(Platform.DISCORD, _connect_discord)
     if settings.telegram_token:

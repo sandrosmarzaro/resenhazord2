@@ -54,17 +54,17 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
-from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.database import Database
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
+from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.settings import Settings
 
 
-def register_all_commands(settings: Settings | None = None) -> None:
+def register_all_commands(settings: Settings | None = None) -> AgentOrchestratorPort:
     if settings is None:
         settings = Settings()
 
@@ -84,16 +84,13 @@ def register_all_commands(settings: Settings | None = None) -> None:
             settings.langsmith_prompt_tag,
         )
 
-    if settings.redis_url:
-        AgentRateLimiter.configure(settings.redis_url)
-
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
     _register_configured_commands(registry, settings)
 
     # After commands are registered, so the graph's inner executor sees the full tool set.
     # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
-    GraphAgentOrchestrator.configure(settings.redis_url)
+    return GraphAgentOrchestrator.configure(settings.redis_url)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:
