@@ -78,10 +78,25 @@ When a change depends on an open PR, branch from that PR's branch and open the n
 it as the base**. `Check` runs on any base and only for the side (Python / gateway) the PR
 touches. When the parent merges, GitHub deletes its branch and retargets the child to
 `develop`. `develop` doesn't require branches to be up to date, so the child keeps its green
-checks and merges without another CI run. If the parent was **squash**-merged, the child
-still carries the parent's original commits: `git rebase --onto develop <parent-branch>`
-before merging. To restack after amending a lower branch, run
-`git rebase --update-refs <base>` from the top of the stack.
+checks and merges without another CI run.
+
+**Merge a parent that still has an open child with "Create a merge commit", not squash.**
+Its commits then become ancestors of `develop`, so the child's diff shows only its own
+changes and needs no rebase. Every commit on the parent must already be a Conventional
+Commit, since they all land on `develop` and commitizen reads each one. The last PR of the
+stack (no open child) squash-merges as usual.
+
+Why: a squash puts the parent's changes on `develop` under a new SHA while the child still
+carries the original commits. GitHub then lists the parent's commits and files in the
+child's diff, and the child turns `CONFLICTING` when it edits or deletes a file the parent
+changed (#232 after #230: the parent edited `agent_executor.py`, the child deleted it). The
+fix is `git rebase --onto develop <parent-branch>`, which needs a force push, and the
+pre-push hook blocks that unless you run it yourself. Without force, `git merge
+origin/develop` into the child and resolve the conflicts once; the final squash drops that
+merge commit.
+
+To restack after amending a lower branch, run `git rebase --update-refs <base>` from the top
+of the stack (this also needs a force push).
 
 The squash-merge commit subject **must itself be a Conventional Commit** (`feat: …`, `fix(scope): …`, …) — commitizen reads every commit on `develop` and infers the version bump from these subjects.
 
@@ -123,5 +138,6 @@ For urgent production fixes that can't wait for the next release:
 | Merge target                   | Strategy                 | Reason                                                              |
 | ------------------------------ | ------------------------ | ------------------------------------------------------------------- |
 | `develop` ← feature/fix/chore  | **Squash**               | Clean history; squash subject itself is a Conventional Commit       |
+| `develop` ← parent of a stack  | **Merge commit**         | Child keeps a clean diff; no rebase or force push (see Stacked PRs)  |
 | `main` ← `develop`             | **Merge commit (`--no-ff`)** | Preserves every Conventional Commit for commitizen               |
 | `main` ← `hotfix/*`            | **Merge commit**         | Same reason                                                         |
