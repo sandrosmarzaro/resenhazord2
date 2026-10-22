@@ -74,6 +74,29 @@ describe('CommandHandler', () => {
 
       expect(forward).not.toHaveBeenCalled();
     });
+
+    it('ignores verified business accounts, whose own bots reply back endlessly', async () => {
+      const forward = vi.fn();
+      Resenhazord2.brokerForwarder = { forward } as never;
+      const businessMessage = WAMessageFactory.build();
+      businessMessage.message = { conversation: 'Seu número foi cancelado' };
+      businessMessage.verifiedBizName = 'Vivo';
+
+      await CommandHandler.run(businessMessage);
+
+      expect(forward).not.toHaveBeenCalled();
+    });
+
+    it('still forwards a DM from a regular account', async () => {
+      const forward = vi.fn().mockResolvedValue(undefined);
+      Resenhazord2.brokerForwarder = { forward } as never;
+      const directMessage = WAMessageFactory.build();
+      directMessage.message = { conversation: 'me manda um carro' };
+
+      await CommandHandler.run(directMessage);
+
+      expect(forward).toHaveBeenCalledWith(directMessage, 'me manda um carro');
+    });
   });
 
   describe('direct messages without text', () => {
