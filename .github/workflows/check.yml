@@ -176,6 +176,19 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
+      # The free plan cannot attach a custom gate, and Sonar way passes code smells
+      # while the maintainability rating stays A. Any open issue on the PR fails here;
+      # resolve a false positive in the Sonar UI to clear it.
+      - name: Fail on new Sonar issues
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          total=$(curl -sf -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/issues/search?componentKeys=resenhazord2&pullRequest=$PR_NUMBER&resolved=false&ps=1" \
+            | jq .total)
+          echo "Open Sonar issues on this PR: $total"
+          test "$total" -eq 0
 
   complexity-py:
     name: Python complexity gate
