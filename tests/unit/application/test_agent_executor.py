@@ -12,7 +12,6 @@ from bot.domain.models.llm_response import LLMResponse
 from bot.domain.models.retrieved_example import RetrievedExample
 from bot.domain.models.system_prompt import SystemPrompt
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
-from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from tests.fixtures.fake_example_retriever import FakeExampleRetriever
 
@@ -23,8 +22,15 @@ _STATIC_EXAMPLES = [
 
 
 @pytest.fixture
-def executor() -> AgentExecutor:
-    return AgentExecutor()
+def provider(mocker):
+    provider = mocker.Mock()
+    provider.complete = mocker.AsyncMock()
+    return provider
+
+
+@pytest.fixture
+def executor(provider) -> AgentExecutor:
+    return AgentExecutor(provider=provider)
 
 
 class TestPromptBuilding:
@@ -123,13 +129,9 @@ class TestExampleSelection:
 
 class TestRunProviderFailure:
     @pytest.mark.anyio
-    async def test_no_providers_returns_clarify_message(self, executor, mocker):
+    async def test_no_providers_returns_clarify_message(self, provider, executor, mocker):
         data = _data('@resenhazord ver placar')
-        mock_chain = mocker.Mock()
-        mock_chain.complete = mocker.AsyncMock(
-            side_effect=RuntimeError('No LLM providers configured'),
-        )
-        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+        provider.complete.side_effect = RuntimeError('No LLM providers configured')
 
         result = await executor.run(data)
 
@@ -138,11 +140,9 @@ class TestRunProviderFailure:
         assert 'menu' in result.text
 
     @pytest.mark.anyio
-    async def test_http_error_returns_clarify_message(self, executor, mocker):
+    async def test_http_error_returns_clarify_message(self, provider, executor, mocker):
         data = _data('@resenhazord ver placar')
-        mock_chain = mocker.Mock()
-        mock_chain.complete = mocker.AsyncMock(side_effect=httpx.HTTPError('timeout'))
-        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+        provider.complete.side_effect = httpx.HTTPError('timeout')
 
         result = await executor.run(data)
 
@@ -150,9 +150,9 @@ class TestRunProviderFailure:
         assert 'IA indisponível' in result.text
 
     @pytest.mark.anyio
-    async def test_unresolvable_content_returns_clarify_message(self, executor, mocker):
+    async def test_unresolvable_content_returns_clarify_message(self, provider, executor, mocker):
         data = _data('@resenhazord blah')
-        _stub_chain(mocker, content='random gibberish that matches nothing')
+        _stub_provider(provider, content='random gibberish that matches nothing')
 
         result = await executor.run(data)
 
@@ -160,7 +160,7 @@ class TestRunProviderFailure:
         assert 'menu' in result.text
 
     @pytest.mark.anyio
-    async def test_provider_failure_preserves_media(self, executor, mocker):
+    async def test_provider_failure_preserves_media(self, provider, executor, mocker):
         data = CommandData(
             text='@resenhazord blah',
             jid='test@g.us',
@@ -170,11 +170,7 @@ class TestRunProviderFailure:
             media_is_animated=False,
             media_caption='test image',
         )
-        mock_chain = mocker.Mock()
-        mock_chain.complete = mocker.AsyncMock(
-            side_effect=RuntimeError('No LLM providers configured'),
-        )
-        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+        provider.complete.side_effect = RuntimeError('No LLM providers configured')
 
         result = await executor.run(data)
 
@@ -183,7 +179,7 @@ class TestRunProviderFailure:
         assert result.media_caption == 'test image'
 
     @pytest.mark.anyio
-    async def test_unresolvable_preserves_media(self, executor, mocker):
+    async def test_unresolvable_preserves_media(self, provider, executor, mocker):
         data = CommandData(
             text='@resenhazord blah',
             jid='test@g.us',
@@ -191,7 +187,7 @@ class TestRunProviderFailure:
             media_type='image',
             media_source='https://example.com/image.jpg',
         )
-        _stub_chain(mocker, content='random gibberish that matches nothing')
+        _stub_provider(provider, content='random gibberish that matches nothing')
 
         result = await executor.run(data)
 
@@ -201,16 +197,16 @@ class TestRunProviderFailure:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_tool_call_resolves_to_command(self, executor, mocker):
+    async def test_tool_call_resolves_to_command(self, provider, executor, mocker):
         data = _data('@resenhazord mostrar placar dos jogos')
-        _stub_chain(mocker, tool_call={'name': 'placar', 'arguments': '{"now": true}'})
+        _stub_provider(provider, tool_call={'name': 'placar', 'arguments': '{"now": true}'})
 
         result = await executor.run(data)
 
         assert result.text == ',placar now'
 
     @pytest.mark.anyio
-    async def test_preserves_media_fields_on_suggest(self, executor, mocker):
+    async def test_preserves_media_fields_on_suggest(self, provider, executor, mocker):
         data = CommandData(
             text='make sticker',
             jid='test@g.us',
@@ -218,8 +214,8 @@ class TestRun:
             media_type='image',
             media_source='https://example.com/image.jpg',
         )
-        _stub_chain(
-            mocker,
+        _stub_provider(
+            provider,
             tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,carro!"}'},
         )
 
@@ -285,25 +281,6 @@ class TestDirectMatch:
 
 
 class TestProviderInjection:
-    @pytest.mark.anyio
-    async def test_injected_provider_bypasses_provider_chain(self, mocker):
-        instance_spy = mocker.patch.object(ProviderChain, 'instance')
-        provider = mocker.Mock()
-        provider.complete = mocker.AsyncMock(
-            return_value=LLMResponse(
-                content='',
-                provider='x',
-                model='m',
-                tool_call={'name': 'clarify', 'arguments': '{"question": "confirma?"}'},
-            )
-        )
-        executor = AgentExecutor(provider=provider)
-
-        await executor.run(_data('@resenhazord algo ambíguo'))
-
-        provider.complete.assert_awaited_once()
-        instance_spy.assert_not_called()
-
     def test_defaults_to_configured_langchain_provider(self):
         provider = LangChainProvider.configure('mistral', '', '')
 
@@ -314,9 +291,9 @@ class TestProviderInjection:
 
 class TestToolDecision:
     @pytest.mark.anyio
-    async def test_clarify_tool_call_routes_to_clarify(self, executor, mocker):
-        _stub_chain(
-            mocker,
+    async def test_clarify_tool_call_routes_to_clarify(self, provider, executor, mocker):
+        _stub_provider(
+            provider,
             tool_call={'name': 'clarify', 'arguments': '{"question": "Qual jogo de cartas?"}'},
         )
 
@@ -325,9 +302,9 @@ class TestToolDecision:
         assert result.text == f'{CLARIFY_PREFIX}Qual jogo de cartas?'
 
     @pytest.mark.anyio
-    async def test_suggest_tool_call_routes_to_suggest(self, executor, mocker):
-        _stub_chain(
-            mocker,
+    async def test_suggest_tool_call_routes_to_suggest(self, provider, executor, mocker):
+        _stub_provider(
+            provider,
             tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,time"}'},
         )
 
@@ -336,8 +313,8 @@ class TestToolDecision:
         assert result.text == f'{SUGGEST_PREFIX}Use ,time'
 
     @pytest.mark.anyio
-    async def test_clarify_tool_call_without_question_falls_back(self, executor, mocker):
-        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': '{}'})
+    async def test_clarify_tool_call_without_question_falls_back(self, provider, executor, mocker):
+        _stub_provider(provider, tool_call={'name': 'clarify', 'arguments': '{}'})
 
         result = await executor.run(_data('@resenhazord algo'))
 
@@ -345,8 +322,8 @@ class TestToolDecision:
         assert 'menu' in result.text
 
     @pytest.mark.anyio
-    async def test_suggest_tool_call_without_message_falls_back(self, executor, mocker):
-        _stub_chain(mocker, tool_call={'name': 'suggest', 'arguments': '{}'})
+    async def test_suggest_tool_call_without_message_falls_back(self, provider, executor, mocker):
+        _stub_provider(provider, tool_call={'name': 'suggest', 'arguments': '{}'})
 
         result = await executor.run(_data('@resenhazord algo'))
 
@@ -354,8 +331,8 @@ class TestToolDecision:
         assert 'menu' in result.text
 
     @pytest.mark.anyio
-    async def test_malformed_tool_arguments_fall_back(self, executor, mocker):
-        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': 'not json'})
+    async def test_malformed_tool_arguments_fall_back(self, provider, executor, mocker):
+        _stub_provider(provider, tool_call={'name': 'clarify', 'arguments': 'not json'})
 
         result = await executor.run(_data('@resenhazord algo'))
 
@@ -363,8 +340,8 @@ class TestToolDecision:
         assert 'menu' in result.text
 
     @pytest.mark.anyio
-    async def test_plain_text_command_content_executes(self, executor, mocker):
-        _stub_chain(mocker, content=',menu')
+    async def test_plain_text_command_content_executes(self, provider, executor, mocker):
+        _stub_provider(provider, content=',menu')
 
         result = await executor.run(_data('@resenhazord comandos'))
 
@@ -373,9 +350,9 @@ class TestToolDecision:
 
 class TestConfidenceGating:
     @pytest.mark.anyio
-    async def test_low_confidence_command_routes_to_confirm(self, executor, mocker):
-        _stub_chain(
-            mocker,
+    async def test_low_confidence_command_routes_to_confirm(self, provider, executor, mocker):
+        _stub_provider(
+            provider,
             tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.3}'},
         )
 
@@ -385,9 +362,9 @@ class TestConfidenceGating:
         assert ',placar now' in result.text
 
     @pytest.mark.anyio
-    async def test_high_confidence_command_executes(self, executor, mocker):
-        _stub_chain(
-            mocker,
+    async def test_high_confidence_command_executes(self, provider, executor, mocker):
+        _stub_provider(
+            provider,
             tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
         )
 
@@ -396,9 +373,9 @@ class TestConfidenceGating:
         assert result.text == ',placar now'
 
     @pytest.mark.anyio
-    async def test_confidence_is_not_appended_to_the_command(self, executor, mocker):
-        _stub_chain(
-            mocker,
+    async def test_confidence_is_not_appended_to_the_command(self, provider, executor, mocker):
+        _stub_provider(
+            provider,
             tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
         )
 
@@ -407,17 +384,17 @@ class TestConfidenceGating:
         assert 'confidence' not in result.text
 
     @pytest.mark.anyio
-    async def test_missing_confidence_defaults_to_execute(self, executor, mocker):
-        _stub_chain(mocker, tool_call={'name': 'placar', 'arguments': '{"now": true}'})
+    async def test_missing_confidence_defaults_to_execute(self, provider, executor, mocker):
+        _stub_provider(provider, tool_call={'name': 'placar', 'arguments': '{"now": true}'})
 
         result = await executor.run(_data('@resenhazord placar'))
 
         assert result.text == ',placar now'
 
     @pytest.mark.anyio
-    async def test_non_numeric_confidence_defaults_to_execute(self, executor, mocker):
-        _stub_chain(
-            mocker,
+    async def test_non_numeric_confidence_defaults_to_execute(self, provider, executor, mocker):
+        _stub_provider(
+            provider,
             tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": "alta"}'},
         )
 
@@ -428,10 +405,10 @@ class TestConfidenceGating:
 
 class TestObservability:
     @pytest.mark.anyio
-    async def test_records_command_outcome_with_provider(self, executor, mocker):
+    async def test_records_command_outcome_with_provider(self, provider, executor, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
-        _stub_chain(
-            mocker,
+        _stub_provider(
+            provider,
             tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.95}'},
         )
 
@@ -440,50 +417,52 @@ class TestObservability:
         record.assert_called_once_with('command', 'groq', '')
 
     @pytest.mark.anyio
-    async def test_records_unavailable_outcome_when_provider_fails(self, executor, mocker):
+    async def test_records_unavailable_outcome_when_provider_fails(
+        self, provider, executor, mocker
+    ):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
-        mock_chain = mocker.Mock()
-        mock_chain.complete = mocker.AsyncMock(side_effect=httpx.HTTPError('timeout'))
-        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+        provider.complete.side_effect = httpx.HTTPError('timeout')
 
         await executor.run(_data('@resenhazord placar'))
 
         record.assert_called_once_with('unavailable', '', '')
 
     @pytest.mark.anyio
-    async def test_alerts_sentry_when_agent_is_unavailable(self, executor, mocker):
+    async def test_alerts_sentry_when_agent_is_unavailable(self, provider, executor, mocker):
         capture = mocker.patch('bot.application.agent_executor.sentry_sdk.capture_message')
-        mock_chain = mocker.Mock()
-        mock_chain.complete = mocker.AsyncMock(side_effect=httpx.HTTPError('rate limited'))
-        mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
+        provider.complete.side_effect = httpx.HTTPError('rate limited')
 
         await executor.run(_data('@resenhazord placar'))
 
         capture.assert_called_once_with('agent_unavailable', level='error')
 
     @pytest.mark.anyio
-    async def test_records_clarify_outcome(self, executor, mocker):
+    async def test_records_clarify_outcome(self, provider, executor, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
-        _stub_chain(mocker, tool_call={'name': 'clarify', 'arguments': '{"question": "qual?"}'})
+        _stub_provider(
+            provider, tool_call={'name': 'clarify', 'arguments': '{"question": "qual?"}'}
+        )
 
         await executor.run(_data('@resenhazord algo'))
 
         record.assert_called_once_with('clarify', 'groq', '')
 
     @pytest.mark.anyio
-    async def test_records_suggest_outcome(self, executor, mocker):
+    async def test_records_suggest_outcome(self, provider, executor, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
-        _stub_chain(mocker, tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,fato!"}'})
+        _stub_provider(
+            provider, tool_call={'name': 'suggest', 'arguments': '{"message": "Use ,fato!"}'}
+        )
 
         await executor.run(_data('@resenhazord por que o céu é azul'))
 
         record.assert_called_once_with('suggest', 'groq', '')
 
     @pytest.mark.anyio
-    async def test_records_confirm_outcome_on_low_confidence(self, executor, mocker):
+    async def test_records_confirm_outcome_on_low_confidence(self, provider, executor, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
-        _stub_chain(
-            mocker,
+        _stub_provider(
+            provider,
             tool_call={'name': 'placar', 'arguments': '{"now": true, "confidence": 0.2}'},
         )
 
@@ -492,9 +471,9 @@ class TestObservability:
         record.assert_called_once_with('confirm', 'groq', '')
 
     @pytest.mark.anyio
-    async def test_records_unresolvable_outcome(self, executor, mocker):
+    async def test_records_unresolvable_outcome(self, provider, executor, mocker):
         record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
-        _stub_chain(mocker, content='gibberish that matches nothing')
+        _stub_provider(provider, content='gibberish that matches nothing')
 
         await executor.run(_data('@resenhazord blah'))
 
@@ -533,14 +512,10 @@ def _scored_retriever(mocker, examples: list[RetrievedExample]):
     return retriever
 
 
-def _stub_chain(mocker, *, content: str = '', tool_call: dict | None = None) -> None:
-    mock_chain = mocker.Mock()
-    mock_chain.complete = mocker.AsyncMock(
-        return_value=LLMResponse(
-            content=content,
-            provider='groq',
-            model='openai/gpt-oss-120b',
-            tool_call=tool_call,
-        )
+def _stub_provider(provider, *, content: str = '', tool_call: dict | None = None) -> None:
+    provider.complete.return_value = LLMResponse(
+        content=content,
+        provider='groq',
+        model='openai/gpt-oss-120b',
+        tool_call=tool_call,
     )
-    mocker.patch.object(ProviderChain, 'instance', return_value=mock_chain)
