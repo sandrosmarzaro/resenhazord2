@@ -27,12 +27,12 @@ class GraphAgentOrchestrator:
 
     DEFAULT_PLATFORM: ClassVar[str] = 'whatsapp'
     STORAGE_TTL_MINUTES: ClassVar[float] = 5.0
-    _AFTER_INPUT: ClassVar[dict[str, str]] = {
+    _ROUTES_FROM_INPUT: ClassVar[dict[str, str]] = {
         TurnIntent.CONFIRMED: 'execute_proposed',
         TurnIntent.DENIED: 'ask_again',
         TurnIntent.REQUEST: 'retrieve_examples',
     }
-    _AFTER_LLM: ClassVar[dict[str, str]] = {
+    _ROUTES_FROM_LLM: ClassVar[dict[str, str]] = {
         AgentOutcome.COMMAND: 'execute',
         AgentOutcome.CONFIRM: 'confirm',
         AgentOutcome.CLARIFY: 'ask',
@@ -92,13 +92,13 @@ class GraphAgentOrchestrator:
             graph.add_node(name, node)
         graph.add_edge(START, 'route_input')
         graph.add_conditional_edges(
-            'route_input', self._after_input, list(set(self._AFTER_INPUT.values()))
+            'route_input', self._after_input, list(set(self._ROUTES_FROM_INPUT.values()))
         )
         graph.add_conditional_edges(
             'retrieve_examples', self._after_retrieval, ['execute', 'call_llm']
         )
         graph.add_conditional_edges(
-            'call_llm', self._after_llm, [*set(self._AFTER_LLM.values()), 'menu_hint']
+            'call_llm', self._after_llm, [*set(self._ROUTES_FROM_LLM.values()), 'menu_hint']
         )
         for terminal in self._TERMINALS:
             graph.add_edge(terminal, END)
@@ -106,7 +106,7 @@ class GraphAgentOrchestrator:
 
     @classmethod
     def _after_input(cls, state: AgentTurnState) -> str:
-        return cls._AFTER_INPUT[state.get('intent', TurnIntent.REQUEST)]
+        return cls._ROUTES_FROM_INPUT[state.get('intent', TurnIntent.REQUEST)]
 
     @staticmethod
     def _after_retrieval(state: AgentTurnState) -> str:
@@ -118,7 +118,7 @@ class GraphAgentOrchestrator:
         outcome = state.get('decision', {}).get('outcome', AgentOutcome.UNRESOLVABLE)
         if outcome == AgentOutcome.CLARIFY and AgentGraphNodes.conversation_of(state).exhausted:
             return 'menu_hint'
-        return cls._AFTER_LLM[outcome]
+        return cls._ROUTES_FROM_LLM[outcome]
 
     @classmethod
     def _thread_id(cls, data: CommandData) -> str:

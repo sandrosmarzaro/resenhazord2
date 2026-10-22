@@ -32,9 +32,10 @@ class AgentTurnState(TypedDict, total=False):
 
 
 class Node(Protocol):
+    # Nodes that only read state are sync; LangGraph runs both kinds.
     def __call__(
         self, state: AgentTurnState, config: RunnableConfig
-    ) -> Awaitable[dict[str, Any]]: ...
+    ) -> dict[str, Any] | Awaitable[dict[str, Any]]: ...
 
 
 @dataclass(frozen=True)
@@ -94,7 +95,7 @@ class AgentGraphNodes:
         status = ConversationStatus(fields.pop('status', ConversationStatus.IDLE))
         return Conversation(status=status, **fields)
 
-    async def _route_input(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
+    def _route_input(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
         conversation = self.conversation_of(state).resumed(time.time())
         return {
             'conversation': self._dump(conversation),
@@ -119,19 +120,17 @@ class AgentGraphNodes:
         decision = await self._mapper.map(self._with_context(state, config), examples)
         return {'decision': self._dump(decision)}
 
-    async def _execute(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
+    def _execute(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
         decision = self._decision(state)
         return self._finish(decision, self._run(config, decision.command), Conversation())
 
-    async def _execute_proposed(
-        self, state: AgentTurnState, config: RunnableConfig
-    ) -> dict[str, Any]:
+    def _execute_proposed(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
         command = self.conversation_of(state).proposed_command
         result = self._run(config, command)
         return self._finish(AgentDecision(AgentOutcome.CONFIRMED), result, Conversation())
 
     def _reply_node(self, spec: _ReplySpec) -> Node:
-        async def reply(state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
+        def reply(state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
             decision = spec.fixed or self._decision(state)
             conversation = Conversation()
             if spec.keeps_waiting:
