@@ -1,7 +1,9 @@
 """Register all Python-side commands with the CommandRegistry."""
 
-from bot.application.agent_executor import AgentExecutor
+from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
+from bot.application.example_selector import ExampleSelector
+from bot.application.llm_command_mapper import LLMCommandMapper
 from bot.domain.commands.add import AddCommand
 from bot.domain.commands.adm import AdmCommand
 from bot.domain.commands.animal import AnimalCommand
@@ -56,6 +58,7 @@ from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
 from bot.infrastructure.database import Database
+from bot.infrastructure.llm.agent_graph_nodes import AgentGraphNodes
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
@@ -75,12 +78,14 @@ def register_all_commands(settings: Settings | None = None) -> AgentOrchestrator
     _register_simple_commands(registry)
     _register_configured_commands(registry, settings)
 
-    # After commands are registered, so the executor sees the full tool set.
+    # After commands are registered, so the mapper sees the full tool set.
+    return build_agent_graph(registry, settings, settings.redis_url)
+
+
+def build_agent_graph(
+    registry: CommandRegistry, settings: Settings, redis_url: str | None
+) -> GraphAgentOrchestrator:
     # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
-    return GraphAgentOrchestrator(build_agent_executor(registry, settings), settings.redis_url)
-
-
-def build_agent_executor(registry: CommandRegistry, settings: Settings) -> AgentExecutor:
     provider = LangChainProvider.from_credentials(
         settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
     )
@@ -96,7 +101,12 @@ def build_agent_executor(registry: CommandRegistry, settings: Settings) -> Agent
             settings.langsmith_prompt_name,
             settings.langsmith_prompt_tag,
         )
-    return AgentExecutor(registry, provider, retriever, prompt_registry)
+    nodes = AgentGraphNodes(
+        ExampleSelector(retriever),
+        LLMCommandMapper(registry, provider, prompt_registry),
+        AgentResponseTranslator(registry),
+    )
+    return GraphAgentOrchestrator(nodes, redis_url)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:
