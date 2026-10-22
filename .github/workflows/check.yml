@@ -86,9 +86,23 @@ jobs:
         working-directory: gateway
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # diff-cover diffs against the PR base
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+        with:
+          cache-suffix: ${{ github.job }}
       - run: bun install --frozen-lockfile
       - run: bun test:coverage
+      # Codecov's patch status is not posted on PRs without coverage, so it cannot be a
+      # required check; this step enforces the same 100% inside the required job.
+      - name: Patch coverage
+        working-directory: .
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: >-
+          uv run --frozen diff-cover gateway/coverage/lcov.info
+          --compare-branch="origin/$BASE_REF" --fail-under=100 --branch-coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
         with:
@@ -107,11 +121,21 @@ jobs:
     needs: [lint-py, security-py, complexity-py]
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # diff-cover diffs against the PR base
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           cache-suffix: ${{ github.job }}
       - run: uv sync --frozen
       - run: uv run pytest -v --cov=bot --cov-report=xml
+      # Codecov's patch status is not posted on PRs without coverage, so it cannot be a
+      # required check; this step enforces the same 100% inside the required job.
+      - name: Patch coverage
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: >-
+          uv run diff-cover coverage.xml
+          --compare-branch="origin/$BASE_REF" --fail-under=100 --branch-coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
         with:
@@ -152,6 +176,19 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
+      # The free plan cannot attach a custom gate, and Sonar way passes code smells
+      # while the maintainability rating stays A. Any open issue on the PR fails here;
+      # resolve a false positive in the Sonar UI to clear it.
+      - name: Fail on new Sonar issues
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          total=$(curl -sf -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/issues/search?componentKeys=resenhazord2&pullRequest=$PR_NUMBER&resolved=false&ps=1" \
+            | jq .total)
+          echo "Open Sonar issues on this PR: $total"
+          test "$total" -eq 0
 
   complexity-py:
     name: Python complexity gate
