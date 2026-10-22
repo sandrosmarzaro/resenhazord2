@@ -1,20 +1,13 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from http import HTTPStatus
 from typing import ClassVar
 
 import httpx
 import structlog
 
+from bot.domain.models.llm_response import LLMResponse
+
 logger = structlog.get_logger()
-
-
-@dataclass(frozen=True)
-class LLMResponse:
-    content: str
-    provider: str
-    model: str
-    tool_call: dict | None = None
 
 
 class LLMProvider(ABC):

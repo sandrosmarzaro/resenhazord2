@@ -25,6 +25,7 @@ from bot.domain.constants import (
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.llm_response import LLMResponse
 from bot.domain.models.retrieved_example import RetrievedExample
 from bot.domain.models.system_prompt import SystemPrompt
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
@@ -33,7 +34,6 @@ from bot.infrastructure.llm.langsmith_prompt_registry import (
     PromptRegistryError,
 )
 from bot.infrastructure.llm.provider_chain import ProviderChain
-from bot.infrastructure.llm.providers.base import LLMResponse
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     get_command_list_with_descriptions,

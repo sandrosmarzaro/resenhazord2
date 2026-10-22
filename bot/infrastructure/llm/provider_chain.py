@@ -7,7 +7,8 @@ from typing import ClassVar
 import httpx
 import structlog
 
-from bot.infrastructure.llm.providers.base import LLMProvider, LLMResponse
+from bot.domain.models.llm_response import LLMResponse
+from bot.infrastructure.llm.providers.base import LLMProvider
 from bot.infrastructure.llm.providers.google import GoogleProvider
 from bot.infrastructure.llm.providers.groq import GroqProvider
 from bot.infrastructure.llm.providers.mistral import MistralProvider

@@ -11,7 +11,7 @@ from langchain_mistralai import ChatMistralAI
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-from bot.infrastructure.llm.providers.base import LLMResponse
+from bot.domain.models.llm_response import LLMResponse
 
 logger = structlog.get_logger()
 
