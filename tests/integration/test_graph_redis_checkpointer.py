@@ -1,11 +1,15 @@
 import os
 import uuid
-from dataclasses import replace
 
 import pytest
 
-from bot.domain.constants import CLARIFY_PREFIX
+from bot.application.agent_response import AgentResponseTranslator
+from bot.application.command_registry import CommandRegistry
+from bot.application.example_selector import ExampleSelector
+from bot.application.llm_command_mapper import LLMCommandMapper
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.llm_response import LLMResponse
+from bot.infrastructure.llm.agent_graph_nodes import AgentGraphNodes
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 
 REDIS_URL = os.environ.get('REDIS_URL')
@@ -16,15 +20,19 @@ pytestmark = [
 ]
 
 
-class _ClarifyThenExecute:
+class _UnsureProvider:
     def __init__(self) -> None:
-        self.calls: list[CommandData] = []
+        self.calls = 0
 
-    async def run(self, data: CommandData) -> CommandData:
-        self.calls.append(data)
-        if len(self.calls) == 1:
-            return replace(data, text=f'{CLARIFY_PREFIX}Qual liga?')
-        return replace(data, text=',tabela br')
+    async def complete(self, prompt: str, tools: list[dict]) -> LLMResponse:
+        self.calls += 1
+        arguments = '{"now": true, "confidence": 0.3}'
+        return LLMResponse(
+            content='',
+            provider='groq',
+            model='m',
+            tool_call={'name': 'placar', 'arguments': arguments},
+        )
 
 
 class TestRedisCheckpointer:
@@ -33,14 +41,19 @@ class TestRedisCheckpointer:
         return 'asyncio'
 
     @pytest.mark.anyio
-    async def test_persists_open_question_across_turns_in_redis(self):
+    async def test_confirmation_survives_a_round_trip_through_redis(self):
         thread = f'test-{uuid.uuid4()}@g.us'
-        executor = _ClarifyThenExecute()
-        orchestrator = GraphAgentOrchestrator(executor=executor, redis_url=REDIS_URL)
+        provider = _UnsureProvider()
+        registry = CommandRegistry.instance()
+        nodes = AgentGraphNodes(
+            ExampleSelector(None),
+            LLMCommandMapper(registry, provider),
+            AgentResponseTranslator(registry),
+        )
+        orchestrator = GraphAgentOrchestrator(nodes, REDIS_URL)
 
-        first = CommandData(text='tabela', jid=thread, sender_jid='u@x.net')
-        second = CommandData(text='a do brasileiro', jid=thread, sender_jid='u@x.net')
-        await orchestrator.run(first)
-        await orchestrator.run(second)
+        await orchestrator.run(CommandData(text='placar', jid=thread, sender_jid='u@x.net'))
+        result = await orchestrator.run(CommandData(text='sim', jid=thread, sender_jid='u@x.net'))
 
-        assert executor.calls[1].quoted_text == 'Qual liga?'
+        assert result.text == ',placar now'
+        assert provider.calls == 1

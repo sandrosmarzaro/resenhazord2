@@ -2,7 +2,7 @@ import pytest
 
 from bot.application.command_registry import CommandRegistry
 from bot.application.llm_command_mapper import LLMCommandMapper
-from bot.application.register_commands import build_agent_executor, register_all_commands
+from bot.application.register_commands import build_agent_graph, register_all_commands
 from bot.domain.models.command_data import CommandData
 from bot.settings import Settings
 from tests.eval.dataset import PROMPT_REGRESSION_CASES
@@ -24,14 +24,16 @@ def anyio_backend() -> str:
 @pytest.mark.anyio
 async def test_prompt_maps_held_out_requests_above_threshold():
     register_all_commands(Settings())
-    executor = build_agent_executor(CommandRegistry.instance(), Settings())
+    # No Redis: each case runs in its own in-memory thread, so a pending question
+    # from one case never becomes context for the next.
+    agent = build_agent_graph(CommandRegistry.instance(), Settings(), redis_url=None)
 
     hits = 0
     conclusive = 0
     misses = []
-    for text, expected in PROMPT_REGRESSION_CASES:
+    for case, (text, expected) in enumerate(PROMPT_REGRESSION_CASES):
         try:
-            result = await executor.run(_data(text))
+            result = await agent.run(_data(text, case))
         except Exception:  # noqa: BLE001
             continue
         if _PROVIDER_UNAVAILABLE in result.text:
@@ -53,5 +55,5 @@ async def test_prompt_maps_held_out_requests_above_threshold():
     )
 
 
-def _data(text: str) -> CommandData:
-    return CommandData(text=text, jid='eval@g.us', sender_jid='eval@s.whatsapp.net')
+def _data(text: str, case: int) -> CommandData:
+    return CommandData(text=text, jid=f'eval-{case}@g.us', sender_jid='eval@s.whatsapp.net')

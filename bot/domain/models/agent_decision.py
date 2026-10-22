@@ -10,6 +10,10 @@ class AgentOutcome(StrEnum):
     SUGGEST = 'suggest'
     UNRESOLVABLE = 'unresolvable'
     UNAVAILABLE = 'unavailable'
+    # Outcomes the conversation graph adds on a reply to the bot's own question.
+    CONFIRMED = 'confirmed'
+    DENIED = 'denied'
+    MENU_HINT = 'menu_hint'
 
 
 @dataclass(frozen=True)
