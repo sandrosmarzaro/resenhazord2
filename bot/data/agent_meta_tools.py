@@ -8,6 +8,13 @@ expressed as tool calls and routed by tool name, not by parsing a text prefix.
 CLARIFY_TOOL_NAME = 'clarify'
 SUGGEST_TOOL_NAME = 'suggest'
 
+# Per meta-tool: the argument carrying its text, then the log event and field that
+# production log queries match on.
+META_TOOL_TEXT = {
+    CLARIFY_TOOL_NAME: ('question', 'agent_asking_clarification', 'question'),
+    SUGGEST_TOOL_NAME: ('message', 'agent_suggesting_command', 'suggestion'),
+}
+
 # Injected into every command tool so the model rates its certainty; execution is
 # gated on it. The meta-tools above are already the low-confidence path, so they
 # carry no confidence of their own.

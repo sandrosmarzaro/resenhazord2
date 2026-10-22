@@ -4,3 +4,6 @@ SUGGEST_PREFIX = ',suggest:'
 AGENT_MENU_HINT = 'Use o comando de menu para ver as opções disponíveis'
 
 COMMAND_OFF_IN_CHAT = 'Esse comando está desativado neste chat. 🚫'
+
+BOT_MENTION_TAG = '@resenhazord'
+MAX_USER_INPUT_LENGTH = 2000
