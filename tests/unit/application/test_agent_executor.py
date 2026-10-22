@@ -229,6 +229,61 @@ class TestRun:
         assert result.media_source == 'https://example.com/image.jpg'
 
 
+class TestDirectMatch:
+    _IDENTICAL = RetrievedExample(text='time do flamengo', command=',time flamengo', score=0.999)
+    _PARAPHRASE = RetrievedExample(text='me mande um carro', command=',carro', score=0.948)
+
+    @staticmethod
+    def _executor(mocker, example: RetrievedExample):
+        provider = mocker.Mock()
+        provider.complete = mocker.AsyncMock(
+            return_value=LLMResponse(
+                content='', provider='groq', model='m', tool_call={'name': 'carro'}
+            )
+        )
+        return AgentExecutor(retriever=_scored_retriever(mocker, [example]), provider=provider)
+
+    @pytest.mark.anyio
+    async def test_near_identical_example_runs_without_the_llm(self, mocker):
+        executor = self._executor(mocker, self._IDENTICAL)
+
+        result = await executor.run(_data('time do flamengo'))
+
+        assert result.text == ',time flamengo'
+        executor._provider.complete.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_records_direct_outcome(self, mocker):
+        record = mocker.patch('bot.application.agent_executor.record_agent_mapping')
+        executor = self._executor(mocker, self._IDENTICAL)
+
+        await executor.run(_data('time do flamengo'))
+
+        record.assert_called_once_with('direct', '', '')
+
+    @pytest.mark.anyio
+    async def test_paraphrase_still_goes_to_the_llm(self, mocker):
+        executor = self._executor(mocker, self._PARAPHRASE)
+
+        await executor.run(_data('me manda um carro'))
+
+        executor._provider.complete.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_reply_to_a_question_never_skips_the_llm(self, mocker):
+        executor = self._executor(mocker, self._IDENTICAL)
+        data = CommandData(
+            text='time do flamengo',
+            jid='test@g.us',
+            sender_jid='test@s.whatsapp.net',
+            quoted_text='Quer a tabela ou o time?',
+        )
+
+        await executor.run(data)
+
+        executor._provider.complete.assert_awaited_once()
+
+
 class TestProviderInjection:
     @pytest.mark.anyio
     async def test_injected_provider_bypasses_provider_chain(self, mocker):

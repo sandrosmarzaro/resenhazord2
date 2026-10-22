@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import replace
+from operator import attrgetter
 from typing import ClassVar
 
 import httpx
@@ -50,6 +51,8 @@ class AgentExecutor:
     MAX_AGENT_EXAMPLES: ClassVar[int] = 5
     # Upstash scores unrelated text at 0.68-0.72 and real paraphrases above 0.78.
     MIN_EXAMPLE_SIMILARITY: ClassVar[float] = 0.75
+    # Only near-identical text: 'time do vasco' scores 0.80 against ',time corinthians'.
+    DIRECT_MATCH_SIMILARITY: ClassVar[float] = 0.97
     CONFIDENCE_THRESHOLD: ClassVar[float] = 0.7
     MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
@@ -80,6 +83,10 @@ class AgentExecutor:
         Returns CommandData with rewritten text for command execution.
         """
         examples = await self._select_examples(data.text)
+        if direct := self._direct_match(data, examples):
+            logger.info('agent_direct_match', example=direct.text, score=direct.score)
+            result = self._translator.translate(data, direct.command.lstrip(','), '')
+            return self._record(result, 'direct', '', '')
 
         logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
 
@@ -189,6 +196,17 @@ class AgentExecutor:
             logger.warning('agent_retrieval_failed', error=str(error))
             return self._static_examples()
         return [example for example in retrieved if example.score >= self.MIN_EXAMPLE_SIMILARITY]
+
+    def _direct_match(
+        self, data: CommandData, examples: list[RetrievedExample]
+    ) -> RetrievedExample | None:
+        # A reply to the bot's question means something only next to that question.
+        if data.quoted_text:
+            return None
+        best = max(examples, key=attrgetter('score'), default=None)
+        if best is None or best.score < self.DIRECT_MATCH_SIMILARITY:
+            return None
+        return best
 
     @classmethod
     def _static_examples(cls) -> list[RetrievedExample]:
