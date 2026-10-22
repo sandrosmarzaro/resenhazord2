@@ -21,6 +21,9 @@ export default class CommandHandler {
     // Never act on our own outgoing messages. In a DM the bot's reply echoes back as
     // an upsert, and since DMs auto-forward it would re-trigger the agent endlessly.
     if (data.key.fromMe) return;
+    // Verified business accounts (carriers, banks) run their own bots: every agent reply
+    // drew another bot reply, an endless DM ping-pong.
+    if (data.verifiedBizName) return;
 
     const text = GetTextMessage.run(data);
     const command = CommandFactory.getInstance().getStrategy(text);

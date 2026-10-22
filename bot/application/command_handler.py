@@ -20,6 +20,7 @@ from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
+from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.settings import Settings
@@ -48,10 +49,12 @@ class CommandHandler:
         registry: CommandRegistry | None = None,
         dev_list: DevListService | None = None,
         config_service: ConfigService | None = None,
+        rate_limiter: AgentRateLimiter | None = None,
     ) -> None:
         self._registry = registry or CommandRegistry.instance()
         self._dev_list = dev_list or DevListService()
         self._config = config_service or ConfigService(CachedConfigStore.instance())
+        self._rate_limiter = rate_limiter or AgentRateLimiter.configured()
         self._agent: AgentOrchestratorPort | None = None
         settings = Settings()
         self._bot_numeric: frozenset[str] = frozenset(
@@ -73,6 +76,8 @@ class CommandHandler:
         logger.debug('handle_raw', text=repr(data.text))
 
         if self._should_run_agent(data):
+            if not await self._agent_allowed(data):
+                return None
             logger.info('agent_routing', text=data.text)
             data = await self._run_agent(data)
 
@@ -144,6 +149,11 @@ class CommandHandler:
         # Private chat: a recognized ",command" takes the fast direct path;
         # natural language or an unmatched ",typo" goes to the agent to map or clarify.
         return self._registry.get_strategy(data.text) is None
+
+    async def _agent_allowed(self, data: CommandData) -> bool:
+        if self._rate_limiter is None:
+            return True
+        return await self._rate_limiter.allow(f'{data.jid}:{data.participant or data.sender_jid}')
 
     def _is_explicit_mention(self, data: CommandData) -> bool:
         text_lower = (data.text or '').lower()
