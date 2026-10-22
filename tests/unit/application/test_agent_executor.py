@@ -8,6 +8,7 @@ from bot.domain.constants import (
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.retrieved_example import RetrievedExample
 from bot.domain.models.system_prompt import SystemPrompt
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.provider_chain import ProviderChain
@@ -15,7 +16,10 @@ from bot.infrastructure.llm.providers.base import LLMResponse
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from tests.fixtures.fake_example_retriever import FakeExampleRetriever
 
-_STATIC_EXAMPLES = AGENT_EXAMPLES[: AgentExecutor.MAX_AGENT_EXAMPLES]
+_STATIC_EXAMPLES = [
+    RetrievedExample(text=text, command=command)
+    for text, command in AGENT_EXAMPLES[: AgentExecutor.MAX_AGENT_EXAMPLES]
+]
 
 
 @pytest.fixture
@@ -81,9 +85,30 @@ class TestExampleSelection:
         retriever.index('me manda um carro', ',carro')
         executor = AgentExecutor(retriever=retriever)
 
-        examples = await executor._select_examples('@resenhazord placar agora')
+        examples = await executor._select_examples('@resenhazord quero ver o placar agora')
 
-        assert examples == [('quero ver o placar agora', ',score --now')]
+        assert examples == [
+            RetrievedExample(text='quero ver o placar agora', command=',score --now', score=1.0)
+        ]
+
+    @pytest.mark.anyio
+    async def test_asks_for_five_examples(self, mocker):
+        retriever = _scored_retriever(mocker, [])
+        executor = AgentExecutor(retriever=retriever)
+
+        await executor._select_examples('placar agora')
+
+        retriever.retrieve.assert_awaited_once_with('placar agora', 5)
+
+    @pytest.mark.anyio
+    async def test_drops_examples_below_the_similarity_floor(self, mocker):
+        relevant = RetrievedExample(text='time do flamengo', command=',time flamengo', score=0.912)
+        noise = RetrievedExample(text='fato aleatório', command=',fato', score=0.709)
+        executor = AgentExecutor(retriever=_scored_retriever(mocker, [relevant, noise]))
+
+        examples = await executor._select_examples('time do flamengo')
+
+        assert examples == [relevant]
 
     @pytest.mark.anyio
     async def test_falls_back_to_static_on_retrieval_error(self, mocker):
@@ -445,6 +470,12 @@ class TestPromptRegistrySource:
 
 def _data(text: str) -> CommandData:
     return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net')
+
+
+def _scored_retriever(mocker, examples: list[RetrievedExample]):
+    retriever = mocker.Mock()
+    retriever.retrieve = mocker.AsyncMock(return_value=examples)
+    return retriever
 
 
 def _stub_chain(mocker, *, content: str = '', tool_call: dict | None = None) -> None:

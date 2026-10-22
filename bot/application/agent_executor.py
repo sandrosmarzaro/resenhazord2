@@ -24,6 +24,7 @@ from bot.domain.constants import (
     SUGGEST_PREFIX,
 )
 from bot.domain.models.command_data import CommandData
+from bot.domain.models.retrieved_example import RetrievedExample
 from bot.domain.models.system_prompt import SystemPrompt
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import (
@@ -46,7 +47,9 @@ logger = structlog.get_logger()
 
 
 class AgentExecutor:
-    MAX_AGENT_EXAMPLES: ClassVar[int] = 20
+    MAX_AGENT_EXAMPLES: ClassVar[int] = 5
+    # Upstash scores unrelated text at 0.68-0.72 and real paraphrases above 0.78.
+    MIN_EXAMPLE_SIMILARITY: ClassVar[float] = 0.75
     CONFIDENCE_THRESHOLD: ClassVar[float] = 0.7
     MAX_USER_INPUT_LENGTH: ClassVar[int] = 2000
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
@@ -175,17 +178,24 @@ class AgentExecutor:
         except json.JSONDecodeError:
             return ''
 
-    async def _select_examples(self, user_input: str) -> list[tuple[str, str]]:
+    async def _select_examples(self, user_input: str) -> list[RetrievedExample]:
         if self._retriever is None:
-            return list(AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES])
+            return self._static_examples()
 
         query = self._strip_mention(user_input)
         try:
             retrieved = await self._retriever.retrieve(query, self.MAX_AGENT_EXAMPLES)
         except httpx.HTTPError as error:
             logger.warning('agent_retrieval_failed', error=str(error))
-            return list(AGENT_EXAMPLES[: self.MAX_AGENT_EXAMPLES])
-        return [(example.text, example.command) for example in retrieved]
+            return self._static_examples()
+        return [example for example in retrieved if example.score >= self.MIN_EXAMPLE_SIMILARITY]
+
+    @classmethod
+    def _static_examples(cls) -> list[RetrievedExample]:
+        return [
+            RetrievedExample(text=text, command=command)
+            for text, command in AGENT_EXAMPLES[: cls.MAX_AGENT_EXAMPLES]
+        ]
 
     @classmethod
     def _strip_mention(cls, text: str) -> str:
@@ -195,14 +205,14 @@ class AgentExecutor:
         self,
         template: str,
         user_input: str,
-        examples: list[tuple[str, str]],
+        examples: list[RetrievedExample],
         context: str | None = None,
     ) -> str:
         filtered_input = self._strip_mention(user_input)
         truncated_context = context[: self.MAX_CONTEXT_LENGTH] if context else None
 
         examples_text = '\n'.join(
-            f'Usuário: "{example}" -> Comando: {command}' for example, command in examples
+            f'Usuário: "{example.text}" -> Comando: {example.command}' for example in examples
         )
 
         if truncated_context:
