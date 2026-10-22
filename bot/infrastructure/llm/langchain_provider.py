@@ -29,6 +29,7 @@ class LangChainProvider:
     GOOGLE_MODEL: ClassVar[str] = 'gemini-3.6-flash'
     GOOGLE_BASE_URL: ClassVar[str] = 'https://generativelanguage.googleapis.com/v1beta/openai'
     MAX_TOKENS: ClassVar[int] = 500
+    NO_PROVIDERS_MSG: ClassVar[str] = 'No LLM providers configured'
 
     _instance: ClassVar['LangChainProvider | None'] = None
 
@@ -84,6 +85,8 @@ class LangChainProvider:
         return self._to_response(message)
 
     def _build_chain(self, tools: list[dict]) -> Runnable:
+        if not self._models:
+            raise RuntimeError(self.NO_PROVIDERS_MSG)
         runnables = [self._bind(model, tools) for model in self._models]
         primary, fallbacks = runnables[0], runnables[1:]
         return primary.with_fallbacks(fallbacks) if fallbacks else primary

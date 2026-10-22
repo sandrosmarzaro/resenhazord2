@@ -47,3 +47,16 @@ class TestProviderSelection:
         provider = LangChainProvider.from_credentials('', '', 'google')
 
         assert provider._models[0].supports_tools is True
+
+
+class TestNoCredentials:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_raises_runtime_error_so_the_agent_reports_unavailable(self):
+        provider = LangChainProvider.from_credentials('', '', '')
+
+        with pytest.raises(RuntimeError, match='No LLM providers configured'):
+            await provider.complete('placar', [])
