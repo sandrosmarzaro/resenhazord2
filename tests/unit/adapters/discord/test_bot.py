@@ -13,7 +13,7 @@ from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
 def bot(mocker):
     mocker.patch('bot.adapters.discord.bot.discord.Client')
     mocker.patch('bot.adapters.discord.bot.app_commands.CommandTree')
-    return DiscordBot('123456789')
+    return DiscordBot('123456789', mocker.Mock())
 
 
 def _make_message(mocker, *, content: str, author=None, guild_id: int | None = None):

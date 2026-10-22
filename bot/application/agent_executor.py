@@ -28,20 +28,14 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.llm_response import LLMResponse
 from bot.domain.models.retrieved_example import RetrievedExample
 from bot.domain.models.system_prompt import SystemPrompt
-from bot.infrastructure.llm.langchain_provider import LangChainProvider
-from bot.infrastructure.llm.langsmith_prompt_registry import (
-    LangSmithPromptRegistry,
-    PromptRegistryError,
-)
 from bot.infrastructure.llm.tools import (
     build_tools_for_prompt,
     get_command_list_with_descriptions,
 )
-from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.metrics import record_agent_mapping
 from bot.ports.example_retriever_port import ExampleRetrieverPort
 from bot.ports.llm_provider_port import LLMProviderPort
-from bot.ports.prompt_registry_port import PromptRegistryPort
+from bot.ports.prompt_registry_port import PromptRegistryError, PromptRegistryPort
 
 logger = structlog.get_logger()
 
@@ -62,19 +56,15 @@ class AgentExecutor:
 
     def __init__(
         self,
-        registry: CommandRegistry | None = None,
+        registry: CommandRegistry,
+        provider: LLMProviderPort,
         retriever: ExampleRetrieverPort | None = None,
-        provider: LLMProviderPort | None = None,
         prompt_registry: PromptRegistryPort | None = None,
     ) -> None:
-        self._registry = registry or CommandRegistry.instance()
-        self._retriever = retriever or UpstashExampleRetriever.configured()
-        self._provider = (
-            provider
-            or LangChainProvider.configured()
-            or LangChainProvider.from_credentials('', '', '')
-        )
-        self._prompt_registry = prompt_registry or LangSmithPromptRegistry.configured()
+        self._registry = registry
+        self._provider = provider
+        self._retriever = retriever
+        self._prompt_registry = prompt_registry
         command_tools = self._with_confidence(build_tools_for_prompt(self._registry))
         self._tools = command_tools + AGENT_META_TOOLS
         self._command_list = get_command_list_with_descriptions(self._registry)

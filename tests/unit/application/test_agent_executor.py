@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from bot.application.agent_executor import AgentExecutor
+from bot.application.command_registry import CommandRegistry
 from bot.data.agent_examples import AGENT_EXAMPLES, SYSTEM_PROMPT_TEMPLATE
 from bot.domain.constants import (
     CLARIFY_PREFIX,
@@ -11,8 +12,6 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.llm_response import LLMResponse
 from bot.domain.models.retrieved_example import RetrievedExample
 from bot.domain.models.system_prompt import SystemPrompt
-from bot.infrastructure.llm.langchain_provider import LangChainProvider
-from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from tests.fixtures.fake_example_retriever import FakeExampleRetriever
 
 _STATIC_EXAMPLES = [
@@ -30,7 +29,7 @@ def provider(mocker):
 
 @pytest.fixture
 def executor(provider) -> AgentExecutor:
-    return AgentExecutor(provider=provider)
+    return AgentExecutor(CommandRegistry.instance(), provider)
 
 
 class TestPromptBuilding:
@@ -77,19 +76,12 @@ class TestExampleSelection:
 
         assert examples == list(_STATIC_EXAMPLES)
 
-    def test_defaults_to_configured_singleton(self):
-        retriever = UpstashExampleRetriever.configure('https://index.upstash.io', 'token')
-
-        executor = AgentExecutor()
-
-        assert executor._retriever is retriever
-
     @pytest.mark.anyio
-    async def test_uses_retrieved_examples_when_retriever_present(self):
+    async def test_uses_retrieved_examples_when_retriever_present(self, provider):
         retriever = FakeExampleRetriever()
         retriever.index('quero ver o placar agora', ',score --now')
         retriever.index('me manda um carro', ',carro')
-        executor = AgentExecutor(retriever=retriever)
+        executor = AgentExecutor(CommandRegistry.instance(), provider, retriever=retriever)
 
         examples = await executor._select_examples('@resenhazord quero ver o placar agora')
 
@@ -98,29 +90,33 @@ class TestExampleSelection:
         ]
 
     @pytest.mark.anyio
-    async def test_asks_for_five_examples(self, mocker):
+    async def test_asks_for_five_examples(self, provider, mocker):
         retriever = _scored_retriever(mocker, [])
-        executor = AgentExecutor(retriever=retriever)
+        executor = AgentExecutor(CommandRegistry.instance(), provider, retriever=retriever)
 
         await executor._select_examples('placar agora')
 
         retriever.retrieve.assert_awaited_once_with('placar agora', 5)
 
     @pytest.mark.anyio
-    async def test_drops_examples_below_the_similarity_floor(self, mocker):
+    async def test_drops_examples_below_the_similarity_floor(self, provider, mocker):
         relevant = RetrievedExample(text='time do flamengo', command=',time flamengo', score=0.912)
         noise = RetrievedExample(text='fato aleatório', command=',fato', score=0.709)
-        executor = AgentExecutor(retriever=_scored_retriever(mocker, [relevant, noise]))
+        executor = AgentExecutor(
+            CommandRegistry.instance(),
+            provider,
+            retriever=_scored_retriever(mocker, [relevant, noise]),
+        )
 
         examples = await executor._select_examples('time do flamengo')
 
         assert examples == [relevant]
 
     @pytest.mark.anyio
-    async def test_falls_back_to_static_on_retrieval_error(self, mocker):
+    async def test_falls_back_to_static_on_retrieval_error(self, provider, mocker):
         retriever = mocker.Mock()
         retriever.retrieve = mocker.AsyncMock(side_effect=httpx.ConnectError('upstash down'))
-        executor = AgentExecutor(retriever=retriever)
+        executor = AgentExecutor(CommandRegistry.instance(), provider, retriever=retriever)
 
         examples = await executor._select_examples('placar agora')
 
@@ -237,7 +233,9 @@ class TestDirectMatch:
                 content='', provider='groq', model='m', tool_call={'name': 'carro'}
             )
         )
-        return AgentExecutor(retriever=_scored_retriever(mocker, [example]), provider=provider)
+        return AgentExecutor(
+            CommandRegistry.instance(), provider, retriever=_scored_retriever(mocker, [example])
+        )
 
     @pytest.mark.anyio
     async def test_near_identical_example_runs_without_the_llm(self, mocker):
@@ -278,15 +276,6 @@ class TestDirectMatch:
         await executor.run(data)
 
         executor._provider.complete.assert_awaited_once()
-
-
-class TestProviderInjection:
-    def test_defaults_to_configured_langchain_provider(self):
-        provider = LangChainProvider.configure('mistral', '', '')
-
-        executor = AgentExecutor()
-
-        assert executor._provider is provider
 
 
 class TestToolDecision:
@@ -489,9 +478,11 @@ class _FakePromptRegistry:
 
 
 class TestPromptRegistrySource:
-    def test_uses_injected_registry_prompt(self):
+    def test_uses_injected_registry_prompt(self, provider):
         injected = SystemPrompt(template='CUSTOM {command_list}', version='abc123')
-        executor = AgentExecutor(prompt_registry=_FakePromptRegistry(injected))
+        executor = AgentExecutor(
+            CommandRegistry.instance(), provider, prompt_registry=_FakePromptRegistry(injected)
+        )
 
         assert executor._system_prompt() == injected
 

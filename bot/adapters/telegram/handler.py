@@ -5,7 +5,6 @@ from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
 from bot.adapters.telegram.agent_router import TelegramAgentRouter
-from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.adapters.telegram.typing_loop import TypingLoop
 from bot.application.command_registry import CommandRegistry
 from bot.application.config_service import ConfigService
@@ -29,13 +28,12 @@ class TelegramUpdateHandler:
         self,
         bot_username: str,
         nsfw_chat_ids: frozenset[int],
-        renderer: TelegramResponseRenderer | None = None,
+        router: TelegramAgentRouter,
         config_service: ConfigService | None = None,
     ) -> None:
         self._bot_username = bot_username.lower()
         self._nsfw_chat_ids = nsfw_chat_ids
-        self._renderer = renderer or TelegramResponseRenderer()
-        self._router = TelegramAgentRouter(self._renderer)
+        self._router = router
         self._config = config_service or ConfigService(CachedConfigStore.instance())
         self._name_map: dict[str, str] = {}
 

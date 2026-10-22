@@ -18,11 +18,14 @@ from telegram.ext import (
 )
 
 from bot.adapters.telegram.adapter import TelegramBotAdapter
+from bot.adapters.telegram.agent_router import TelegramAgentRouter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
 from bot.adapters.telegram.join_handler import TelegramJoinHandler
+from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandScope, Platform
 from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
+from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.ports.telegram_port import TelegramPort
 
 _UPDATER_LOGGER = logging.getLogger('telegram.ext.Updater')
@@ -45,7 +48,13 @@ class TelegramBot:
     WRITE_TIMEOUT_SECONDS: ClassVar[float] = 60.0
     MEDIA_WRITE_TIMEOUT_SECONDS: ClassVar[float] = 120.0
 
-    def __init__(self, token: str, bot_username: str, nsfw_chat_ids: frozenset[int]) -> None:
+    def __init__(
+        self,
+        token: str,
+        bot_username: str,
+        nsfw_chat_ids: frozenset[int],
+        agent: AgentOrchestratorPort,
+    ) -> None:
         self._app = (
             Application.builder()
             .token(token)
@@ -54,7 +63,8 @@ class TelegramBot:
             .media_write_timeout(self.MEDIA_WRITE_TIMEOUT_SECONDS)
             .build()
         )
-        self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids)
+        router = TelegramAgentRouter(TelegramResponseRenderer(), agent)
+        self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids, router)
         self._join_handler = TelegramJoinHandler()
         self._nsfw_chat_ids = nsfw_chat_ids
         self._original_updater_level = _UPDATER_LOGGER.level

@@ -1,6 +1,5 @@
 import pytest
 
-from bot.application.agent_executor import AgentExecutor
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, ParsedCommand
@@ -63,9 +62,16 @@ def registry():
 
 
 @pytest.fixture
-def handler(registry, mock_dev_list, mock_config_service):
+def agent(mocker):
+    agent = mocker.Mock()
+    agent.run = mocker.AsyncMock()
+    return agent
+
+
+@pytest.fixture
+def handler(registry, agent, mock_dev_list, mock_config_service):
     return CommandHandler(
-        registry=registry, dev_list=mock_dev_list, config_service=mock_config_service
+        registry=registry, agent=agent, dev_list=mock_dev_list, config_service=mock_config_service
     )
 
 
@@ -119,11 +125,13 @@ class TestScopeEnforcement:
 
 class TestPerGroupConfig:
     @pytest.mark.anyio
-    async def test_command_off_in_chat_returns_off_message(self, registry, mock_dev_list, mocker):
+    async def test_command_off_in_chat_returns_off_message(
+        self, registry, agent, mock_dev_list, mocker
+    ):
         config_service = mocker.AsyncMock()
         config_service.is_enabled.return_value = False
         handler = CommandHandler(
-            registry=registry, dev_list=mock_dev_list, config_service=config_service
+            registry=registry, agent=agent, dev_list=mock_dev_list, config_service=config_service
         )
         data = GroupCommandDataFactory.build(text=', pub')
 
@@ -302,6 +310,7 @@ class TestAgentDetection:
         )
         handler_with_jid = CommandHandler(
             registry=handler._registry,
+            agent=handler._agent,
             dev_list=handler._dev_list,
             config_service=handler._config,
         )
@@ -361,45 +370,14 @@ class TestHandleRouting:
         assert result[0].content.text == 'public ok'
 
 
-class TestAgentRateLimit:
-    @staticmethod
-    def _limited_handler(registry, mock_dev_list, mock_config_service, mocker, *, allowed: bool):
-        limiter = mocker.Mock()
-        limiter.allow = mocker.AsyncMock(return_value=allowed)
-        handler = CommandHandler(
-            registry=registry,
-            dev_list=mock_dev_list,
-            config_service=mock_config_service,
-            rate_limiter=limiter,
-        )
-        mocker.patch.object(handler, '_run_agent', mocker.AsyncMock(return_value=_dm(',pub')))
-        return handler, limiter
-
+class TestAgentDeclined:
     @pytest.mark.anyio
-    async def test_limited_conversation_gets_no_agent_reply(
-        self, registry, mock_dev_list, mock_config_service, mocker
-    ):
-        handler, _ = self._limited_handler(
-            registry, mock_dev_list, mock_config_service, mocker, allowed=False
-        )
+    async def test_declined_agent_turn_gets_no_reply(self, handler, agent):
+        agent.run.return_value = None
 
         result = await handler.handle(_dm('Entendi o que você precisa'))
 
         assert result is None
-        handler._run_agent.assert_not_awaited()
-
-    @pytest.mark.anyio
-    async def test_limits_per_chat_and_sender(
-        self, registry, mock_dev_list, mock_config_service, mocker
-    ):
-        handler, limiter = self._limited_handler(
-            registry, mock_dev_list, mock_config_service, mocker, allowed=True
-        )
-
-        await handler.handle(_dm('manda um negócio público'))
-
-        limiter.allow.assert_awaited_once_with('user@s.whatsapp.net:user@s.whatsapp.net')
-        handler._run_agent.assert_awaited_once()
 
 
 def _dm(text: str) -> CommandData:
@@ -410,7 +388,7 @@ def _dm(text: str) -> CommandData:
 
 class TestRunAgent:
     @pytest.mark.anyio
-    async def test_run_agent_returns_translated_data(self, handler, mocker):
+    async def test_run_agent_returns_translated_data(self, handler, agent):
         from bot.domain.models.command_data import CommandData
 
         translated = CommandData(
@@ -419,12 +397,7 @@ class TestRunAgent:
             sender_jid='test@s.whatsapp.net',
             is_group=True,
         )
-        executor_mock = mocker.MagicMock()
-        executor_mock.run = mocker.AsyncMock(return_value=translated)
-        mocker.patch(
-            'bot.application.command_handler.AgentExecutor',
-            return_value=executor_mock,
-        )
+        agent.run.return_value = translated
 
         data = CommandData(
             text='@resenhazord ver placar',
@@ -438,16 +411,11 @@ class TestRunAgent:
         assert result.text == ',placar now'
 
     @pytest.mark.anyio
-    async def test_run_agent_value_error_returns_clarify_fallback(self, handler, mocker):
+    async def test_run_agent_value_error_returns_clarify_fallback(self, handler, agent):
         from bot.domain.constants import CLARIFY_PREFIX
         from bot.domain.models.command_data import CommandData
 
-        executor_mock = mocker.MagicMock()
-        executor_mock.run = mocker.AsyncMock(side_effect=ValueError('invalid response'))
-        mocker.patch(
-            'bot.application.command_handler.AgentExecutor',
-            return_value=executor_mock,
-        )
+        agent.run.side_effect = ValueError('invalid response')
 
         data = CommandData(
             text='@resenhazord ver placar',
@@ -588,32 +556,3 @@ class TestSuggestHandler:
 
         assert result is not None
         assert result[0].content.text == AGENT_MENU_HINT
-
-
-class TestAgentOrchestratorSelection:
-    @pytest.mark.anyio
-    async def test_uses_configured_graph_orchestrator(self, handler, mocker):
-        from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
-
-        data = GroupCommandDataFactory.build(text='@resenhazord algo')
-        graph = mocker.Mock()
-        graph.run = mocker.AsyncMock(return_value=data)
-        mocker.patch.object(GraphAgentOrchestrator, 'configured', return_value=graph)
-
-        await handler._run_agent(data)
-
-        graph.run.assert_awaited_once_with(data)
-
-    @pytest.mark.anyio
-    async def test_falls_back_to_executor_without_graph(self, handler, mocker):
-        from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
-
-        data = GroupCommandDataFactory.build(text='@resenhazord algo')
-        mocker.patch.object(GraphAgentOrchestrator, 'configured', return_value=None)
-        executor_run = mocker.patch.object(
-            AgentExecutor, 'run', mocker.AsyncMock(return_value=data)
-        )
-
-        await handler._run_agent(data)
-
-        executor_run.assert_awaited_once_with(data)

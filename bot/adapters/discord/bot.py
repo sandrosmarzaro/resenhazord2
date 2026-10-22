@@ -14,6 +14,7 @@ from bot.adapters.discord.renderer import DiscordResponseRenderer
 from bot.adapters.discord.slash_register import DiscordSlashRegistrar
 from bot.domain.commands.base import Platform
 from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
+from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 
 logger = structlog.get_logger()
 
@@ -24,14 +25,14 @@ class DiscordBot:
     MAX_SYNC_RETRIES: ClassVar[int] = 5
     SYNC_RETRY_DELAY_SECS: ClassVar[float] = 3.0
 
-    def __init__(self, guild_id: str) -> None:
+    def __init__(self, guild_id: str, agent: AgentOrchestratorPort) -> None:
         self._guild = discord.Object(id=int(guild_id))
         intents = discord.Intents(guilds=True, messages=True, message_content=True)
         self._client = discord.Client(intents=intents)
         self._tree = app_commands.CommandTree(self._client)
         self._handler = DiscordInteractionHandler()
         self._renderer = DiscordResponseRenderer()
-        self._router = DiscordAgentRouter(self._renderer)
+        self._router = DiscordAgentRouter(agent, self._renderer)
         self._registrar = DiscordSlashRegistrar(self._tree, self._handler)
         self._welcome = DiscordGuildWelcome()
         self._connection: asyncio.Task[None] | None = None
