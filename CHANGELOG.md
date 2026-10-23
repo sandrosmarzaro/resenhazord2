@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v2.12.0 (2026-10-23)
+
+### Feat
+
+- **birthdays**: register birthdays and greet them at midnight (#243)
+- **scripts**: add a dlq replay task (#240)
+- **broker**: bound the commands queue and the dlq with policies (#239)
+- **broker**: skip commands redelivered after their reply (#238)
+
+### Fix
+
+- **commands**: make the borges and colony counters idempotent (#237)
+
+### Perf
+
+- **commands**: run pillow encoding in a worker thread (#242)
+- **broker**: run up to four commands at once (#241)
+
 ## v2.11.0 (2026-10-22)
 
 ### Feat
