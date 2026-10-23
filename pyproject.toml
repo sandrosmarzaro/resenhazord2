@@ -95,6 +95,7 @@ mutate = "mutmut run"
 "prompt:eval" = "pytest -m eval"
 "db:upgrade" = "alembic upgrade head"
 "cooldown:check" = "python scripts/check_dep_cooldown.py"
+"dlq:replay" = "ssh -t resenhazord-core docker exec -it bot python -m scripts.replay_dlq"
 
 
 [tool.zuban]
