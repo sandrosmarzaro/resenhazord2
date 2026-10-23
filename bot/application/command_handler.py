@@ -68,7 +68,7 @@ class CommandHandler:
         self,
         data: CommandData,
         *,
-        on_match: Callable[[], Awaitable[None]] | None = None,
+        on_match: Callable[[Command], Awaitable[None]] | None = None,
     ) -> list[BotMessage] | None:
         logger.debug('handle_raw', text=repr(data.text))
 
@@ -94,16 +94,14 @@ class CommandHandler:
         if command is None:
             return None
 
-        if on_match:
-            await on_match()
-
-        return await self._dispatch(command, data, repeat)
+        return await self._dispatch(command, data, repeat, on_match)
 
     async def _dispatch(
         self,
         command: Command,
         data: CommandData,
         repeat: int,
+        on_match: Callable[[Command], Awaitable[None]] | None,
     ) -> list[BotMessage] | None:
         scope = command.config.scope
         if scope == CommandScope.DISABLED:
@@ -118,6 +116,11 @@ class CommandHandler:
 
         if repeat > 1 and not is_dev:
             repeat = 1
+
+        # Only a command that will run reaches the hook, so a rejected ,dl never waits
+        # for the consumer's exclusive lane.
+        if on_match:
+            await on_match(command)
 
         logger.debug('executing_command', batch=repeat if repeat > 1 else None)
         return await self._run_command(command, data, repeat)

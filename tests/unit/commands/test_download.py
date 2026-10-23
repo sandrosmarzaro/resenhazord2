@@ -35,6 +35,11 @@ class TestMatches:
         assert command.matches(text) is expected
 
 
+class TestConfig:
+    def test_runs_alone_to_bound_memory(self, command):
+        assert command.config.exclusive is True
+
+
 class TestRun:
     @pytest.mark.anyio
     async def test_returns_video_buffer(self, command, mock_subprocess):

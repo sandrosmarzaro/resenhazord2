@@ -72,6 +72,8 @@ class CommandConfig:
     group_only: bool = False
     category: Category | None = None
     platforms: list[Platform] = field(default_factory=lambda: [Platform.WHATSAPP])
+    # Runs alone, from match until its reply is published, to bound peak memory.
+    exclusive: bool = False
 
 
 @dataclass

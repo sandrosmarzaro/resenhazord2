@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 
@@ -6,6 +7,7 @@ import sentry_sdk
 from fakeredis.aioredis import FakeRedis
 
 from bot.adapters.broker.command_consumer import CommandConsumer
+from bot.domain.commands.base import CommandConfig
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError, ValidationError
 from bot.domain.models.contents.image_content import ImageBufferContent
 from bot.domain.models.contents.text_content import TextContent
@@ -244,7 +246,7 @@ class TestSentryScope:
     async def test_tags_events_raised_while_handling_with_the_correlation_id(self, mocker):
         seen: list[dict] = []
 
-        async def handle(_):
+        async def handle(_, *, on_match):
             seen.append(_event_tags())
             return []
 
@@ -451,3 +453,60 @@ class TestRedelivery:
         await broker.deliver('commands', json.dumps(replayed).encode())
 
         assert handler.handle.await_count == 2
+
+
+class _LaneHandler:
+    """Records how many replies were already out when each command started running."""
+
+    def __init__(self, broker: MockBrokerPort, mocker, *, exclusive: bool) -> None:
+        self._broker = broker
+        self._command = mocker.Mock(config=CommandConfig(name='dl', exclusive=exclusive))
+        self.replies_out_at_start: dict[str, int] = {}
+
+    async def handle(self, data, *, on_match):
+        await on_match(self._command)
+        self.replies_out_at_start[data.text] = len(self._broker.published)
+        await asyncio.sleep(0)  # simulated work: lets the other delivery interleave
+        if data.text == 'boom':
+            message = 'falhou'
+            raise BotError(message)
+        return []
+
+
+class TestExclusiveLane:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    async def _deliver_together(self, broker: MockBrokerPort, *texts: str) -> None:
+        await asyncio.gather(*(broker.deliver('commands', _envelope(text)) for text in texts))
+
+    @pytest.mark.anyio
+    async def test_exclusive_commands_run_one_at_a_time_until_replied(self, mocker):
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=True)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        assert handler.replies_out_at_start == {'first': 0, 'second': 1}
+
+    @pytest.mark.anyio
+    async def test_other_commands_run_side_by_side(self, mocker):
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=False)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        assert handler.replies_out_at_start == {'first': 0, 'second': 0}
+
+    @pytest.mark.anyio
+    async def test_a_failed_exclusive_command_frees_the_lane(self, mocker):
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=True)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'boom', 'second')
+
+        assert handler.replies_out_at_start == {'boom': 0, 'second': 1}

@@ -58,3 +58,11 @@ deploy), not queue arguments. Both nodes declare these durable queues, and redec
 one with new arguments fails with `PRECONDITION_FAILED`. A boot-time definitions file
 was rejected: importing one skips seeding the default vhost and user, so a fresh volume
 would not boot without credentials committed to the repo.
+
+## Amended 2026-10-23: four commands at once
+
+`prefetch` is 4, so a slow command no longer holds every other chat's reply. Memory
+is the limit on the 640m core container: a `,dl` reply carries its video as base64
+inside the JSON, roughly three copies of up to 50 MB. A command marked
+`CommandConfig.exclusive` (today only `,dl`) takes a lane of one from the moment it
+matches until its reply is published, so two downloads never overlap.
