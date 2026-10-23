@@ -68,7 +68,7 @@ class CommandHandler:
         self,
         data: CommandData,
         *,
-        on_match: Callable[[], Awaitable[None]] | None = None,
+        on_match: Callable[[Command], Awaitable[None]] | None = None,
     ) -> list[BotMessage] | None:
         logger.debug('handle_raw', text=repr(data.text))
 
@@ -95,7 +95,7 @@ class CommandHandler:
             return None
 
         if on_match:
-            await on_match()
+            await on_match(command)
 
         return await self._dispatch(command, data, repeat)
 

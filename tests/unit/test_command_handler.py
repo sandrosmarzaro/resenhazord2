@@ -370,6 +370,17 @@ class TestHandleRouting:
         assert result[0].content.text == 'public ok'
 
 
+class TestOnMatch:
+    @pytest.mark.anyio
+    async def test_hands_the_matched_command_to_the_hook(self, handler, registry, mocker):
+        on_match = mocker.AsyncMock()
+        data = GroupCommandDataFactory.build(text=',pub')
+
+        await handler.handle(data, on_match=on_match)
+
+        on_match.assert_awaited_once_with(registry.get_strategy(',pub'))
+
+
 class TestAgentDeclined:
     @pytest.mark.anyio
     async def test_declined_agent_turn_gets_no_reply(self, handler, agent):
