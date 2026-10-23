@@ -33,8 +33,9 @@ Things that lint, format, or typecheck cannot catch. Follow PEP 8 plus the below
 - **Any new non-idempotent command** (economy, points, counters — anything
   money- or state-meaningful) must either be made replay-safe or gate on the
   `CommandData.message_id` idempotency key (a short-TTL Redis `SET` inbox). Don't
-  add a `$inc`-style counter without one. The two known exceptions (`,borges`,
-  steal-group counter) are tolerated vanity numbers, not a precedent.
+  add a `$inc`-style counter without one: use `IdempotentCounter`
+  (`bot/infrastructure/idempotent_counter.py`), keyed by `message_id` or another
+  natural key, as `,borges` and the steal-group colony counter do.
 
 ## Logging
 
