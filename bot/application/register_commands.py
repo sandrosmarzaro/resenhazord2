@@ -11,6 +11,7 @@ from bot.domain.commands.audio import AudioCommand
 from bot.domain.commands.ban import BanCommand
 from bot.domain.commands.beer import BeerCommand
 from bot.domain.commands.bible import BibleCommand
+from bot.domain.commands.birthday import BirthdayCommand
 from bot.domain.commands.borges import BorgesCommand
 from bot.domain.commands.car import CarCommand
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
@@ -117,6 +118,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(PlayingCardCommand())
     registry.register(BeerCommand())
     registry.register(LotteryCommand())
+    registry.register(BirthdayCommand())
     registry.register(BorgesCommand())
     registry.register(CarCommand())
     registry.register(ClashRoyaleCommand())
