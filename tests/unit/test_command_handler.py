@@ -380,6 +380,15 @@ class TestOnMatch:
 
         on_match.assert_awaited_once_with(registry.get_strategy(',pub'))
 
+    @pytest.mark.anyio
+    async def test_skips_the_hook_for_a_rejected_command(self, handler, mocker):
+        on_match = mocker.AsyncMock()
+        data = GroupCommandDataFactory.build(text=',off')
+
+        await handler.handle(data, on_match=on_match)
+
+        on_match.assert_not_awaited()
+
 
 class TestAgentDeclined:
     @pytest.mark.anyio
