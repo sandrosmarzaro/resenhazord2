@@ -15,7 +15,7 @@ class BrokerConnectionError(Exception):
 
 
 class RabbitBroker:
-    PREFETCH_COUNT = 1
+    PREFETCH_COUNT = 4
     DRAIN_GRACE_SECONDS = 20.0
     # Raised by a consumer cancel once the broker is gone: a forced close, or an RPC
     # timeout on a channel whose transport already died.
@@ -43,8 +43,8 @@ class RabbitBroker:
             self._consume_connection = await aio_pika.connect_robust(url)
             self._publish_channel = await self._publish_connection.channel(publisher_confirms=True)
             self._consume_channel = await self._consume_connection.channel()
-            # One unacked message at a time, so a slow command can't starve others and a
-            # second worker round-robins with no code change (PRD §5).
+            # Up to four commands run at once, so a slow ,dl no longer holds every chat's
+            # reply; exclusive commands (CommandConfig.exclusive) still run one at a time.
             await self._consume_channel.set_qos(prefetch_count=self.PREFETCH_COUNT)
         except (OSError, aio_pika.exceptions.AMQPError) as error:
             raise BrokerConnectionError(str(error)) from error

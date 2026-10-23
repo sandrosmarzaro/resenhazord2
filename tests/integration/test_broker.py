@@ -114,6 +114,32 @@ def _record(captured: list[bytes], event: asyncio.Event):
     return handler
 
 
+class TestConcurrency:
+    @pytest.mark.anyio
+    async def test_a_slow_message_does_not_block_the_next(self, rabbitmq_url):
+        release = asyncio.Event()
+        fast_done = asyncio.Event()
+
+        async def handler(body: bytes) -> None:
+            if body == b'slow':
+                await release.wait()
+                return
+            fast_done.set()
+
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
+        await broker.consume('concurrency_q', handler)
+        await broker.publish('concurrency_q', b'slow')
+        await broker.publish('concurrency_q', b'fast')
+
+        async with asyncio.timeout(10):
+            await fast_done.wait()
+        release.set()
+        await broker.close()
+
+        assert fast_done.is_set()
+
+
 class TestGracefulDrain:
     @pytest.mark.anyio
     async def test_close_waits_for_the_in_flight_message(self, rabbitmq_url):

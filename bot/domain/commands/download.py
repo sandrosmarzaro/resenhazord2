@@ -46,6 +46,8 @@ class DownloadCommand(Command):
             args_label='url',
             category=Category.DOWNLOAD,
             platforms=[Platform.ALL],
+            # A 50 MB video triples as base64 inside the reply JSON.
+            exclusive=True,
         )
 
     @property
