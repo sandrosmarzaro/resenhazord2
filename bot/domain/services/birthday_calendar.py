@@ -2,6 +2,7 @@ import calendar
 from collections import defaultdict
 from datetime import date
 from typing import ClassVar
+from zoneinfo import ZoneInfo
 
 from bot.domain.models.birthday import Birthday
 from bot.domain.services.birthday_book import BirthdayBook
@@ -11,6 +12,8 @@ from bot.infrastructure.mongodb import MongoDBConnection
 class BirthdayCalendar:
     """Reads what BirthdayBook wrote: who celebrates when, and with which text."""
 
+    # The groups are Brazilian, so the day turns at midnight in Brasília.
+    TIMEZONE: ClassVar[ZoneInfo] = ZoneInfo('America/Sao_Paulo')
     LEAP_DAY: ClassVar[tuple[int, int]] = (29, 2)
     LAST_DAY_OF_FEBRUARY: ClassVar[tuple[int, int]] = (28, 2)
 

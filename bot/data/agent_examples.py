@@ -153,6 +153,8 @@ AGENT_EXAMPLES = [
     ('adicionar um número ao grupo', ',add'),
     ('banir alguém do grupo', ',ban'),
     ('marcar todo mundo do grupo', ',grupo'),
+    ('cadastrar meu aniversário', ',niver'),
+    ('quando é o aniversário do pessoal', ',niver'),
     ('xingar os administradores', ',adm'),
     ('arquivar essa mídia no drive', ',drive'),
     ('gerenciar a lista de devs', ',dev'),
