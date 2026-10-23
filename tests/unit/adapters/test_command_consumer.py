@@ -437,3 +437,17 @@ class TestRedelivery:
         await broker.deliver('commands', _envelope('ping', jid='b@g.us', message_id='MSG-1'))
 
         assert handler.handle.await_count == 2
+
+    @pytest.mark.anyio
+    async def test_replayed_dead_letter_runs_again(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = [ExternalServiceError('still down'), []]
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1, message_id='MSG-1')
+        await broker.deliver('commands', body)
+        replayed = {**json.loads(body), 'attempts': 0, 'replayed': True}
+
+        await broker.deliver('commands', json.dumps(replayed).encode())
+
+        assert handler.handle.await_count == 2

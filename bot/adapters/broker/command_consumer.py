@@ -150,7 +150,8 @@ class CommandConsumer:
 
     async def _already_answered(self, envelope: dict[str, Any]) -> bool:
         key = self._inbox_key(envelope)
-        if self._inbox is None or key is None:
+        # A dead letter already got its error reply; a replay asks to run it again.
+        if self._inbox is None or key is None or envelope.get('replayed'):
             return False
         return await self._inbox.is_done(key)
 
