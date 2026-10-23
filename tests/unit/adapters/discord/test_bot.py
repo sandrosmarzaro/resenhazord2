@@ -222,18 +222,47 @@ class TestStart:
 
         bot._client.close.assert_awaited_once_with()
 
+    @pytest.fixture
+    def sleep(self, mocker):
+        return mocker.patch('bot.adapters.discord.bot.asyncio.sleep', new_callable=mocker.AsyncMock)
+
     @pytest.mark.anyio
-    async def test_logs_when_the_gateway_connection_dies(self, bot, mocker):
-        logged = asyncio.Event()
+    async def test_reconnects_when_the_first_handshake_fails(self, bot, mocker, sleep):
+        connected = asyncio.Event()
         logger = mocker.patch('bot.adapters.discord.bot.logger')
-        logger.error.side_effect = lambda *_args, **_kwargs: logged.set()
         bot._client.login = mocker.AsyncMock()
-        bot._client.connect = mocker.AsyncMock(side_effect=RuntimeError('TCPTransport closed'))
+        bot._client.connect = _connect_failing(1, connected)
 
         await bot.start('token')
-        await logged.wait()
+        await asyncio.wait_for(connected.wait(), timeout=1)
 
-        logger.error.assert_called_once_with('discord_connection_lost', exc_info=mocker.ANY)
+        logger.exception.assert_called_once_with('discord_connection_lost', retry_in=5.0)
+        sleep.assert_awaited_once_with(5.0)
+
+    @pytest.mark.anyio
+    async def test_backs_off_between_failed_connections(self, bot, mocker, sleep):
+        connected = asyncio.Event()
+        bot._client.login = mocker.AsyncMock()
+        bot._client.connect = _connect_failing(8, connected)
+
+        await bot.start('token')
+        await asyncio.wait_for(connected.wait(), timeout=1)
+
+        delays = [awaited.args[0] for awaited in sleep.await_args_list]
+        assert delays == [5.0, 10.0, 20.0, 40.0, 80.0, 160.0, 300.0, 300.0]
+
+
+def _connect_failing(times: int, connected: asyncio.Event):
+    # discord.py's connect() dies like this when the very first handshake fails.
+    errors = iter([AttributeError("'NoneType' object has no attribute 'sequence'")] * times)
+
+    async def connect():
+        error = next(errors, None)
+        if error is not None:
+            raise error
+        connected.set()
+
+    return connect
 
 
 class TestStop:

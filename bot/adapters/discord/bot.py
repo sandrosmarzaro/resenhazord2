@@ -24,6 +24,8 @@ OnMessageCallback = Callable[[discord.Message], Coroutine[Any, Any, None]]
 class DiscordBot:
     MAX_SYNC_RETRIES: ClassVar[int] = 5
     SYNC_RETRY_DELAY_SECS: ClassVar[float] = 3.0
+    RECONNECT_INITIAL_DELAY_SECS: ClassVar[float] = 5.0
+    RECONNECT_MAX_DELAY_SECS: ClassVar[float] = 300.0
 
     def __init__(self, guild_id: str, agent: AgentOrchestratorPort) -> None:
         self._guild = discord.Object(id=int(guild_id))
@@ -49,20 +51,26 @@ class DiscordBot:
             if isinstance(error, discord.LoginFailure):
                 raise PlatformAuthenticationError(Platform.DISCORD) from error
             raise
-        # connect() owns the gateway session and reconnects on its own after login.
-        self._connection = asyncio.create_task(self._client.connect())
-        self._connection.add_done_callback(self._log_connection_lost)
+        self._connection = asyncio.create_task(self._stay_connected())
 
     async def stop(self) -> None:
         await self._client.close()
         if self._connection is not None:
             self._connection.cancel()
 
-    @staticmethod
-    def _log_connection_lost(connection: asyncio.Task[None]) -> None:
-        if connection.cancelled() or connection.exception() is None:
+    async def _stay_connected(self) -> None:
+        # connect() reconnects on its own once a session exists, but dies when the
+        # first handshake fails: discord.py then reads ws.sequence while ws is None.
+        delay = self.RECONNECT_INITIAL_DELAY_SECS
+        while True:
+            try:
+                await self._client.connect()
+            except Exception:
+                logger.exception('discord_connection_lost', retry_in=delay)
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, self.RECONNECT_MAX_DELAY_SECS)
+                continue
             return
-        logger.error('discord_connection_lost', exc_info=connection.exception())
 
     def _setup_events(self) -> None:
         client = self._client
