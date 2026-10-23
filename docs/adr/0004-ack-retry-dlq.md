@@ -45,3 +45,24 @@ backstop.
   before a multi-minute backoff (5 s → 30 s → 2 m), and the gateway has no signal that a
   retry is even in progress. The terminal reply — success or the exhausted-retry error —
   is the real completion signal, not continuous typing.
+
+## Amended 2026-10-23: bounded queues
+
+The DLQ is no longer unbounded. A broker policy keeps dead letters for a week, at most
+500 messages or 32 MiB, dropping the oldest first. `commands` is bounded too: past 100
+commands or 64 MiB the oldest is dropped, because in a backlog an old command has lost
+its moment and the cap stays under the 256 MiB memory watermark.
+
+The limits are policies (`observability/rabbitmq/policies.sh`, applied by the edge
+deploy), not queue arguments. Both nodes declare these durable queues, and redeclaring
+one with new arguments fails with `PRECONDITION_FAILED`. A boot-time definitions file
+was rejected: importing one skips seeding the default vhost and user, so a fresh volume
+would not boot without credentials committed to the repo.
+
+## Amended 2026-10-23: four commands at once
+
+`prefetch` is 4, so a slow command no longer holds every other chat's reply. Memory
+is the limit on the 640m core container: a `,dl` reply carries its video as base64
+inside the JSON, roughly three copies of up to 50 MB. A command marked
+`CommandConfig.exclusive` (today only `,dl`) takes a lane of one from the moment it
+matches until its reply is published, so two downloads never overlap.

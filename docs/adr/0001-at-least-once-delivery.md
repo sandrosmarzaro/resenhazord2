@@ -14,6 +14,15 @@ the only non-idempotent ones are two low-stakes counters — `,borges`
 (`services/steal_group.py`, `$inc number`) — whose worst case is a vanity number off
 by one, not data corruption.
 
+**Amended 2026-10-23.** Both counters now count each key once through
+`IdempotentCounter`: `,borges` keys on `message_id`, the colony counter on the group
+JID. The counter document keeps the latest keys and skips a key it has already seen.
+
+The `message_id` inbox from the options below is built too (`RedisCommandInbox`). The
+consumer marks `<jid>:<message_id>` in Redis for a day once the final reply is published,
+and acks a redelivery it has already answered. A scheduled retry is never marked, a crash
+before the mark reprocesses the command, and a Redis outage turns the check off.
+
 ## Considered options
 
 - **`message_id` idempotency key (inbox pattern).** Every inbound WhatsApp message

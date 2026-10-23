@@ -29,6 +29,12 @@ class TestConnectWhatsapp:
         group_consumer.return_value.start = mocker.AsyncMock()
         return command_consumer, group_consumer
 
+    @pytest.fixture(autouse=True)
+    def birthday_scheduler(self, mocker):
+        scheduler = mocker.patch.object(app, 'BirthdayScheduler')
+        scheduler.return_value.run = mocker.AsyncMock()
+        return scheduler
+
     @pytest.mark.anyio
     async def test_raises_when_broker_unavailable_so_it_is_retried(self, broker, mocker):
         broker.connect.side_effect = BrokerConnectionError('down')
@@ -56,9 +62,8 @@ class TestConnectWhatsapp:
         registry = mocker.MagicMock()
         mocker.patch.object(app.CommandRegistry, 'instance', return_value=registry)
 
-        shutdown = await app._connect_whatsapp(mocker.Mock())
+        await app._connect_whatsapp(mocker.Mock())
 
-        assert shutdown == broker.close
         registry.set_whatsapp.assert_called_once()
         command_consumer.return_value.start.assert_awaited_once_with()
         group_consumer.return_value.start.assert_awaited_once_with()
@@ -86,6 +91,80 @@ class TestConnectWhatsapp:
         await app._connect_whatsapp(agent)
 
         throttled.assert_called_once_with(agent, None)
+
+    @pytest.mark.anyio
+    async def test_consumer_skips_redeliveries_through_the_redis_inbox(
+        self, mocker, broker, consumers
+    ):
+        command_consumer, _ = consumers
+        mocker.patch.object(app.settings, 'redis_url', 'redis://cache')
+        from_url = mocker.patch.object(app.RedisCommandInbox, 'from_url')
+        handler = mocker.patch.object(app, 'CommandHandler')
+
+        await app._connect_whatsapp(mocker.Mock())
+
+        from_url.assert_called_once_with('redis://cache')
+        command_consumer.assert_called_once_with(
+            broker, handler.return_value, from_url.return_value
+        )
+
+    @pytest.mark.anyio
+    async def test_consumer_runs_without_inbox_without_redis(self, mocker, broker, consumers):
+        command_consumer, _ = consumers
+        mocker.patch.object(app.settings, 'redis_url', '')
+        handler = mocker.patch.object(app, 'CommandHandler')
+
+        await app._connect_whatsapp(mocker.Mock())
+
+        command_consumer.assert_called_once_with(broker, handler.return_value, None)
+
+    @pytest.mark.anyio
+    async def test_scheduler_claims_greetings_in_redis(
+        self, mocker, broker, consumers, birthday_scheduler
+    ):
+        mocker.patch.object(app.settings, 'redis_url', 'redis://cache')
+        from_url = mocker.patch.object(app.Redis, 'from_url')
+        whatsapp = mocker.patch.object(app, 'BrokerWhatsAppClient')
+
+        await app._connect_whatsapp(mocker.Mock())
+
+        from_url.assert_called_with('redis://cache')
+        birthday_scheduler.assert_called_once_with(whatsapp.return_value, from_url.return_value)
+
+    @pytest.mark.anyio
+    async def test_scheduler_runs_without_redis(
+        self, mocker, broker, consumers, birthday_scheduler
+    ):
+        mocker.patch.object(app.settings, 'redis_url', '')
+        whatsapp = mocker.patch.object(app, 'BrokerWhatsAppClient')
+
+        await app._connect_whatsapp(mocker.Mock())
+
+        birthday_scheduler.assert_called_once_with(whatsapp.return_value, None)
+
+    @pytest.mark.anyio
+    async def test_shutdown_stops_the_scheduler_and_closes_the_broker(
+        self, mocker, broker, consumers, birthday_scheduler
+    ):
+        started = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def run_until_cancelled():
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        birthday_scheduler.return_value.run = run_until_cancelled
+        shutdown = await app._connect_whatsapp(mocker.Mock())
+        await started.wait()
+
+        await shutdown()
+
+        assert cancelled.is_set()
+        broker.close.assert_awaited_once_with()
 
 
 class TestConnectTelegram:

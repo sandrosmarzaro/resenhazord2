@@ -1,21 +1,32 @@
+import asyncio
 import base64
 import json
 
 import pytest
 import sentry_sdk
+from fakeredis.aioredis import FakeRedis
 
 from bot.adapters.broker.command_consumer import CommandConsumer
+from bot.domain.commands.base import CommandConfig
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError, ValidationError
 from bot.domain.models.contents.image_content import ImageBufferContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
+from bot.infrastructure.command_inbox import RedisCommandInbox
 from tests.fixtures.mock_broker import MockBrokerPort
 
 
-def _envelope(text: str, jid: str = 'g@g.us', attempts: int | None = None) -> bytes:
+def _envelope(
+    text: str, jid: str = 'g@g.us', attempts: int | None = None, message_id: str | None = None
+) -> bytes:
     payload: dict = {
         'id': 'corr-1',
-        'data': {'text': text, 'jid': jid, 'sender_jid': 'u@s.whatsapp.net'},
+        'data': {
+            'text': text,
+            'jid': jid,
+            'sender_jid': 'u@s.whatsapp.net',
+            'message_id': message_id,
+        },
     }
     if attempts is not None:
         payload['attempts'] = attempts
@@ -235,7 +246,7 @@ class TestSentryScope:
     async def test_tags_events_raised_while_handling_with_the_correlation_id(self, mocker):
         seen: list[dict] = []
 
-        async def handle(_):
+        async def handle(_, *, on_match):
             seen.append(_event_tags())
             return []
 
@@ -366,3 +377,136 @@ class TestMetrics:
         )
 
         dlq.assert_called_once()
+
+
+class TestRedelivery:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def inbox(self):
+        return RedisCommandInbox(FakeRedis())
+
+    @pytest.mark.anyio
+    async def test_redelivered_command_is_skipped(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping', message_id='MSG-1')
+
+        await broker.deliver('commands', body)
+        await broker.deliver('commands', body)
+
+        assert handler.handle.await_count == 1
+        assert _queues(broker) == ['replies']
+
+    @pytest.mark.anyio
+    async def test_scheduled_retry_still_runs(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = [ExternalServiceError('api down'), []]
+        await CommandConsumer(broker, handler, inbox).start()
+        await broker.deliver('commands', _envelope('ping', message_id='MSG-1'))
+        _, retry_body = broker.published[0]
+
+        await broker.deliver('commands', retry_body)
+
+        assert handler.handle.await_count == 2
+
+    @pytest.mark.anyio
+    async def test_command_without_message_id_always_runs(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping')
+
+        await broker.deliver('commands', body)
+        await broker.deliver('commands', body)
+
+        assert handler.handle.await_count == 2
+
+    @pytest.mark.anyio
+    async def test_same_message_id_in_another_chat_runs(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler, inbox).start()
+
+        await broker.deliver('commands', _envelope('ping', jid='a@g.us', message_id='MSG-1'))
+        await broker.deliver('commands', _envelope('ping', jid='b@g.us', message_id='MSG-1'))
+
+        assert handler.handle.await_count == 2
+
+    @pytest.mark.anyio
+    async def test_replayed_dead_letter_runs_again(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = [ExternalServiceError('still down'), []]
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1, message_id='MSG-1')
+        await broker.deliver('commands', body)
+        replayed = {**json.loads(body), 'attempts': 0, 'replayed': True}
+
+        await broker.deliver('commands', json.dumps(replayed).encode())
+
+        assert handler.handle.await_count == 2
+
+
+class _LaneHandler:
+    """Records how many replies were already out when each command started running."""
+
+    def __init__(self, broker: MockBrokerPort, mocker, *, exclusive: bool) -> None:
+        self._broker = broker
+        self._command = mocker.Mock(config=CommandConfig(name='dl', exclusive=exclusive))
+        self.replies_out_at_start: dict[str, int] = {}
+
+    async def handle(self, data, *, on_match):
+        await on_match(self._command)
+        self.replies_out_at_start[data.text] = len(self._broker.published)
+        await asyncio.sleep(0)  # simulated work: lets the other delivery interleave
+        if data.text == 'boom':
+            message = 'falhou'
+            raise BotError(message)
+        return []
+
+
+class TestExclusiveLane:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    async def _deliver_together(self, broker: MockBrokerPort, *texts: str) -> None:
+        await asyncio.gather(*(broker.deliver('commands', _envelope(text)) for text in texts))
+
+    @pytest.mark.anyio
+    async def test_exclusive_commands_run_one_at_a_time_until_replied(self, mocker):
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=True)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        assert handler.replies_out_at_start == {'first': 0, 'second': 1}
+
+    @pytest.mark.anyio
+    async def test_other_commands_run_side_by_side(self, mocker):
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=False)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        assert handler.replies_out_at_start == {'first': 0, 'second': 0}
+
+    @pytest.mark.anyio
+    async def test_a_failed_exclusive_command_frees_the_lane(self, mocker):
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=True)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'boom', 'second')
+
+        assert handler.replies_out_at_start == {'boom': 0, 'second': 1}

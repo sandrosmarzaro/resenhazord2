@@ -3,7 +3,7 @@ import structlog
 from bot.adapters.whatsapp.port import WhatsAppPort
 from bot.data.roman_numerals import to_roman
 from bot.infrastructure.http_client import HttpClient
-from bot.infrastructure.mongodb import MongoDBConnection
+from bot.infrastructure.idempotent_counter import IdempotentCounter
 
 logger = structlog.get_logger()
 
@@ -13,6 +13,7 @@ class StealGroupService:
     COLONY_DESCRIPTION = 'Este grupo pertece agora a Resenha 🔒'
     NOTIFICATION_EXPIRATION = 86400
     LOREMFLICKR_URL = 'https://loremflickr.com/900/900/'
+    COLONY_COUNTER = IdempotentCounter('colonias', 'number')
 
     def __init__(self, whatsapp: WhatsAppPort, resenhazord2_jid: str, resenha_jid: str) -> None:
         self._whatsapp = whatsapp
@@ -54,7 +55,8 @@ class StealGroupService:
         admin_jids = [p['id'] for p in admins]
         await self._whatsapp.group_participants_update(group_jid, admin_jids, 'demote')
 
-        colony_number = await self._next_colony_number()
+        # Keyed by group: a redelivered promote event doesn't claim a second colony.
+        colony_number = await self.COLONY_COUNTER.increment(group_jid)
         roman = to_roman(colony_number)
 
         subject = metadata.get('subject', '')
@@ -74,14 +76,3 @@ class StealGroupService:
         await self._whatsapp.update_profile_picture(group_jid, image_buffer)
 
         logger.debug('group_stolen', group_jid=group_jid, colony=roman)
-
-    @staticmethod
-    async def _next_colony_number() -> int:
-        collection = MongoDBConnection.collection('colonias')
-        result = await collection.find_one_and_update(
-            {'_id': 'counter'},
-            {'$inc': {'number': 1}},
-            return_document=True,
-            upsert=True,
-        )
-        return result['number']

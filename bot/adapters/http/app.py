@@ -1,11 +1,13 @@
 """FastAPI app factory — assembles routers and lifespan."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import partial
 
 import structlog
 from fastapi import FastAPI
+from redis.asyncio import Redis
 
 from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.adapters.broker.group_event_consumer import GroupEventConsumer
@@ -14,6 +16,7 @@ from bot.adapters.http.endpoints.v1.health import router as health_router
 from bot.adapters.http.endpoints.v1.platforms import router as platforms_router
 from bot.adapters.telegram.bot import TelegramBot
 from bot.adapters.whatsapp.broker_client import BrokerWhatsAppClient
+from bot.application.birthday_scheduler import BirthdayScheduler
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
@@ -23,6 +26,7 @@ from bot.domain.services.group_welcome import GroupWelcomeService
 from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.broker import RabbitBroker
+from bot.infrastructure.command_inbox import RedisCommandInbox
 from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.infrastructure.platform_supervisor import PlatformSupervisor, Shutdown
@@ -44,19 +48,35 @@ async def _connect_whatsapp(agent: AgentOrchestratorPort) -> Shutdown:
         whatsapp = BrokerWhatsAppClient(broker)
         registry = CommandRegistry.instance()
         registry.set_whatsapp(whatsapp)
-        await CommandConsumer(broker, CommandHandler(registry, _throttled(agent))).start()
+        handler = CommandHandler(registry, _throttled(agent))
+        await CommandConsumer(broker, handler, _inbox()).start()
         steal_group = StealGroupService(whatsapp, settings.resenhazord2_jid, settings.resenha_jid)
         await GroupEventConsumer(broker, steal_group, GroupWelcomeService(whatsapp)).start()
     except BaseException:
         # Close the half-open connections before the supervisor retries with a fresh broker.
         await broker.close()
         raise
-    return broker.close
+    birthdays = asyncio.create_task(BirthdayScheduler(whatsapp, _redis()).run())
+    return partial(_stop_whatsapp, broker, birthdays)
+
+
+async def _stop_whatsapp(broker: RabbitBroker, birthdays: asyncio.Task[None]) -> None:
+    birthdays.cancel()
+    await asyncio.gather(birthdays, return_exceptions=True)
+    await broker.close()
 
 
 def _throttled(agent: AgentOrchestratorPort) -> ThrottledAgent:
     limiter = AgentRateLimiter.from_url(settings.redis_url) if settings.redis_url else None
     return ThrottledAgent(agent, limiter)
+
+
+def _inbox() -> RedisCommandInbox | None:
+    return RedisCommandInbox.from_url(settings.redis_url) if settings.redis_url else None
+
+
+def _redis() -> Redis | None:
+    return Redis.from_url(settings.redis_url) if settings.redis_url else None
 
 
 async def _connect_telegram(agent: AgentOrchestratorPort) -> Shutdown:

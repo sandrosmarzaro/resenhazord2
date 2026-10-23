@@ -1,5 +1,6 @@
 import io
 
+import anyio
 import structlog
 from PIL import Image
 
@@ -38,9 +39,9 @@ class ExtractCommand(Command):
         try:
             buffer = await self._get_media(data)
             if data.media_is_animated:
-                gif_buffer = self._convert_to_gif(buffer)
+                gif_buffer = await anyio.to_thread.run_sync(self._convert_to_gif, buffer)
                 return [Reply.to(data).video_buffer(gif_buffer, gif_playback=True)]
-            png_buffer = self._convert_to_png(buffer)
+            png_buffer = await anyio.to_thread.run_sync(self._convert_to_png, buffer)
             return [Reply.to(data).image_buffer(png_buffer)]
         except Exception:
             logger.exception('extrair_error', jid=data.jid)

@@ -1,5 +1,8 @@
+import asyncio
 import base64
 import json
+from contextlib import AsyncExitStack
+from functools import partial
 from typing import Any, ClassVar
 
 import sentry_sdk
@@ -10,13 +13,14 @@ from opentelemetry import trace
 from bot.adapters.http.schemas import CommandPayload
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Platform
+from bot.domain.commands.base import Command, Platform
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.metrics import record_dlq, record_retry
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
+from bot.ports.command_inbox_port import CommandInboxPort
 
 logger = structlog.get_logger()
 _tracer = trace.get_tracer(__name__)
@@ -32,9 +36,16 @@ class CommandConsumer:
     RETRY_TTL_MS: ClassVar[int] = 30_000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
-    def __init__(self, broker: BrokerPort, command_handler: CommandHandler) -> None:
+    def __init__(
+        self,
+        broker: BrokerPort,
+        command_handler: CommandHandler,
+        inbox: CommandInboxPort | None = None,
+    ) -> None:
         self._broker = broker
         self._command_handler = command_handler
+        self._inbox = inbox
+        self._exclusive_lane = asyncio.Lock()
 
     async def start(self) -> None:
         # Declare the publish targets up front so the publishes from inside the consume
@@ -53,9 +64,12 @@ class CommandConsumer:
         # which the consume tasks share by reference, so the last command's tags used to
         # stamp later, unrelated events (e.g. the deploy shutdown error).
         with sentry_sdk.isolation_scope():
-            await self._process(json.loads(body))
+            # The lane, once entered, is held until the reply is published: serializing
+            # a media reply is the memory peak, not running the command.
+            async with AsyncExitStack() as lane:
+                await self._process(json.loads(body), lane)
 
-    async def _process(self, envelope: dict[str, Any]) -> None:
+    async def _process(self, envelope: dict[str, Any], lane: AsyncExitStack) -> None:
         command_data = self._to_command_data(envelope['data'])
 
         structlog.contextvars.clear_contextvars()
@@ -65,8 +79,13 @@ class CommandConsumer:
             sender=command_data.sender_jid,
         )
         # Same id on every Sentry event for this command, so one filter spans both
-        # processes and the retry/DLQ hops (§12). prefetch=1 keeps it per-message.
+        # processes and the retry/DLQ hops (§12). Each delivery runs in its own task,
+        # under its own isolation scope, so concurrent commands keep their own tags.
         sentry_sdk.set_tag('correlation_id', envelope['id'])
+
+        if await self._already_answered(envelope):
+            logger.info('command_redelivery_skipped')
+            return
 
         # Continue the trace the edge started: the parent context rides in the
         # envelope (not AMQP headers), so the whole command — and any span it
@@ -78,7 +97,9 @@ class CommandConsumer:
         # attribute — so no manual count/latency here.
         with _tracer.start_as_current_span('command.handle', context=parent) as span:
             try:
-                messages = await self._command_handler.handle(command_data)
+                messages = await self._command_handler.handle(
+                    command_data, on_match=partial(self._enter_lane, lane)
+                )
             except ExternalServiceError as error:
                 outcome = 'external_error'
                 await self._retry_or_fail(envelope, command_data, error)
@@ -99,6 +120,10 @@ class CommandConsumer:
                 await self._publish_reply(envelope, messages or [])
             finally:
                 span.set_attribute('command.outcome', outcome)
+
+    async def _enter_lane(self, lane: AsyncExitStack, command: Command) -> None:
+        if command.config.exclusive:
+            await lane.enter_async_context(self._exclusive_lane)
 
     async def _retry_or_fail(
         self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError
@@ -133,6 +158,29 @@ class CommandConsumer:
         # Carry the trace forward so the gateway's reply consumer can join it (Phase 4).
         inject_trace_context(reply)
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
+        # Marked only once the final reply is out: a crash before this line lets the
+        # redelivery run again, and a scheduled retry never reaches here.
+        await self._mark_answered(envelope)
+
+    async def _already_answered(self, envelope: dict[str, Any]) -> bool:
+        key = self._inbox_key(envelope)
+        # A dead letter already got its error reply; a replay asks to run it again.
+        if self._inbox is None or key is None or envelope.get('replayed'):
+            return False
+        return await self._inbox.is_done(key)
+
+    async def _mark_answered(self, envelope: dict[str, Any]) -> None:
+        key = self._inbox_key(envelope)
+        if self._inbox is None or key is None:
+            return
+        await self._inbox.mark_done(key)
+
+    @staticmethod
+    def _inbox_key(envelope: dict[str, Any]) -> str | None:
+        # WhatsApp message ids are only unique within a chat.
+        data = envelope['data']
+        message_id = data.get('message_id')
+        return f'{data["jid"]}:{message_id}' if message_id else None
 
     @staticmethod
     def _serialize(message: BotMessage) -> dict[str, Any]:

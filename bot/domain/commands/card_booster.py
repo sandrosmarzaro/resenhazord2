@@ -2,6 +2,7 @@
 
 from abc import abstractmethod
 from dataclasses import dataclass
+from functools import partial
 
 import anyio
 import structlog
@@ -51,11 +52,14 @@ class CardBoosterCommand(Command):
                     tg.start_soon(_download, i, item.image_url)
 
             image_buffers: list[bytes] = [r for r in results if r is not None]
-            grid_buffer = build_card_grid(
-                image_buffers,
-                columns=cfg.columns,
-                cell_width=cfg.cell_width,
-                cell_height=cfg.cell_height,
+            grid_buffer = await anyio.to_thread.run_sync(
+                partial(
+                    build_card_grid,
+                    image_buffers,
+                    columns=cfg.columns,
+                    cell_width=cfg.cell_width,
+                    cell_height=cfg.cell_height,
+                )
             )
 
             caption = '\n\n'.join(f'*{i + 1}.* {item.label}' for i, item in enumerate(items))

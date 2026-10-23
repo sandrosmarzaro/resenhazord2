@@ -161,6 +161,12 @@ jobs:
             "$VPS_USER@$VPS_HOST" \
             "cd $VPS_APP_DIR && git pull && docker compose -f compose.edge.yml pull && docker compose -f compose.edge.yml up -d --no-build && docker image prune -af"
 
+      # Queue limits are broker policies, applied after every deploy (idempotent).
+      - name: Apply broker policies
+        run: |
+          ssh "$VPS_USER@$VPS_HOST" \
+            "cd $VPS_APP_DIR && docker compose -f compose.edge.yml exec -T rabbitmq sh -s < observability/rabbitmq/policies.sh"
+
   deploy-core:
     name: SSH deploy to core node (bot)
     runs-on: ubuntu-latest
