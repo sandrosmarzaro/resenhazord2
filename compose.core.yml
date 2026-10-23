@@ -24,6 +24,10 @@ services:
     networks:
       - resenha-network
     restart: unless-stopped
+    # Cap the bot so a runaway yt-dlp/ffmpeg OOM-kills this container (the broker
+    # redelivers its command) instead of starving the ~1 GB host. Measured peak: 378 MiB
+    # RAM plus 212 MiB swap; 640m leaves the Alloy cap and the OS their share.
+    mem_limit: 640m
     dns:
       - 1.1.1.1
       - 8.8.8.8

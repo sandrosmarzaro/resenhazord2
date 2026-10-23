@@ -30,19 +30,21 @@ class TestConnectWhatsapp:
         return command_consumer, group_consumer
 
     @pytest.mark.anyio
-    async def test_raises_when_broker_unavailable_so_it_is_retried(self, broker):
+    async def test_raises_when_broker_unavailable_so_it_is_retried(self, broker, mocker):
         broker.connect.side_effect = BrokerConnectionError('down')
+        agent = mocker.Mock()
 
         with pytest.raises(BrokerConnectionError):
-            await app._connect_whatsapp()
+            await app._connect_whatsapp(agent)
 
     @pytest.mark.anyio
-    async def test_closes_the_half_open_broker_when_consumers_fail(self, broker, consumers):
+    async def test_closes_the_half_open_broker_when_consumers_fail(self, broker, consumers, mocker):
         command_consumer, _ = consumers
         command_consumer.return_value.start.side_effect = RuntimeError('declare failed')
+        agent = mocker.Mock()
 
         with pytest.raises(RuntimeError):
-            await app._connect_whatsapp()
+            await app._connect_whatsapp(agent)
 
         broker.close.assert_awaited_once_with()
 
@@ -54,12 +56,36 @@ class TestConnectWhatsapp:
         registry = mocker.MagicMock()
         mocker.patch.object(app.CommandRegistry, 'instance', return_value=registry)
 
-        shutdown = await app._connect_whatsapp()
+        shutdown = await app._connect_whatsapp(mocker.Mock())
 
         assert shutdown == broker.close
         registry.set_whatsapp.assert_called_once()
         command_consumer.return_value.start.assert_awaited_once_with()
         group_consumer.return_value.start.assert_awaited_once_with()
+
+    @pytest.mark.anyio
+    async def test_handler_runs_the_agent_throttled_by_redis(self, mocker, broker, consumers):
+        mocker.patch.object(app.settings, 'redis_url', 'redis://cache')
+        from_url = mocker.patch.object(app.AgentRateLimiter, 'from_url')
+        throttled = mocker.patch.object(app, 'ThrottledAgent')
+        handler = mocker.patch.object(app, 'CommandHandler')
+        agent = mocker.Mock()
+
+        await app._connect_whatsapp(agent)
+
+        from_url.assert_called_once_with('redis://cache')
+        throttled.assert_called_once_with(agent, from_url.return_value)
+        handler.assert_called_once_with(app.CommandRegistry.instance(), throttled.return_value)
+
+    @pytest.mark.anyio
+    async def test_agent_runs_unthrottled_without_redis(self, mocker, broker, consumers):
+        mocker.patch.object(app.settings, 'redis_url', '')
+        throttled = mocker.patch.object(app, 'ThrottledAgent')
+        agent = mocker.Mock()
+
+        await app._connect_whatsapp(agent)
+
+        throttled.assert_called_once_with(agent, None)
 
 
 class TestConnectTelegram:
@@ -71,9 +97,13 @@ class TestConnectTelegram:
         telegram_bot = mocker.patch.object(app, 'TelegramBot')
         telegram_bot.return_value.start = mocker.AsyncMock()
 
-        shutdown = await app._connect_telegram()
+        agent = mocker.Mock()
 
-        telegram_bot.assert_called_once_with('token', 'resenhazord_bot', frozenset({-100, -200}))
+        shutdown = await app._connect_telegram(agent)
+
+        telegram_bot.assert_called_once_with(
+            'token', 'resenhazord_bot', frozenset({-100, -200}), agent
+        )
         telegram_bot.return_value.start.assert_awaited_once_with()
         assert shutdown == telegram_bot.return_value.stop
 
@@ -86,9 +116,11 @@ class TestConnectDiscord:
         discord_bot = mocker.patch.object(app, 'DiscordBot')
         discord_bot.return_value.start = mocker.AsyncMock()
 
-        shutdown = await app._connect_discord()
+        agent = mocker.Mock()
 
-        discord_bot.assert_called_once_with('123')
+        shutdown = await app._connect_discord(agent)
+
+        discord_bot.assert_called_once_with('123', agent)
         discord_bot.return_value.register_commands.assert_called_once_with()
         discord_bot.return_value.start.assert_awaited_once_with('token')
         assert shutdown == discord_bot.return_value.stop
@@ -128,8 +160,10 @@ class TestLifespan:
     async def test_connects_whatsapp_when_rabbitmq_url_is_set(self, mocker):
         mocker.patch.object(app.settings, 'rabbitmq_url', 'amqp://broker')
         connected = asyncio.Event()
+        received: list = []
 
-        async def connect():
+        async def connect(agent):
+            received.append(agent)
             connected.set()
             return mocker.AsyncMock()
 
@@ -140,6 +174,7 @@ class TestLifespan:
             await connected.wait()
 
             assert fastapi_app.state.platforms.statuses() == {Platform.WHATSAPP: PlatformStatus.UP}
+        assert received == [app.register_all_commands.return_value]
 
     @pytest.mark.anyio
     async def test_skips_whatsapp_when_rabbitmq_url_is_unset(self, mocker):

@@ -11,27 +11,16 @@ logger = structlog.get_logger()
 class AgentRateLimiter:
     """Caps agent turns per conversation so a bot on the other end cannot loop with ours."""
 
-    MAX_TURNS: ClassVar[int] = 5
-    WINDOW_SECONDS: ClassVar[int] = 120
+    MAX_TURNS: ClassVar[int] = 8
+    WINDOW_SECONDS: ClassVar[int] = 600
     _KEY_PREFIX: ClassVar[str] = 'agent_turns'
-
-    _instance: ClassVar[AgentRateLimiter | None] = None
 
     def __init__(self, redis: Redis) -> None:
         self._redis = redis
 
     @classmethod
-    def configure(cls, redis_url: str) -> AgentRateLimiter:
-        cls._instance = cls(Redis.from_url(redis_url))
-        return cls._instance
-
-    @classmethod
-    def configured(cls) -> AgentRateLimiter | None:
-        return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        cls._instance = None
+    def from_url(cls, redis_url: str) -> AgentRateLimiter:
+        return cls(Redis.from_url(redis_url))
 
     async def allow(self, conversation: str) -> bool:
         key = f'{self._KEY_PREFIX}:{conversation}'

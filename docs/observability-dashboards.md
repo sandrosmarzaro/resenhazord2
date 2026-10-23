@@ -122,8 +122,11 @@ jq -c '.[]' observability/grafana/alert-rules.json | while read -r rule; do
 done
 ```
 
-Every rule uses `noDataState: OK`: `command_dlq_total` has no series until the first
-dead-letter, and the ratio rules go blank when there is no traffic (~20 commands/day).
+Every rule but one uses `noDataState: OK`: `command_dlq_total` has no series until the
+first dead-letter, and the ratio rules go blank when there is no traffic (~20 commands/day).
+The exception is Scrape target down. The core Alloy scrapes the edge and RabbitMQ too, so
+when the core dies every series vanishes and the other rules read OK. Its `noDataState:
+Alerting` turns that silence into an alert.
 And `execErrState: KeepLast`: Grafana Cloud's evaluator sometimes times out reaching its
 own Prometheus, and `Error` turned each blip into an email.
 
@@ -135,6 +138,7 @@ own Prometheus, and `Error` turned each blip into an email.
 | Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after the retry ladder |
 | Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 100` | 5m | The bot is falling behind / stalled consuming |
 | Agent provider down | `sum(rate(agent_mappings_total{agent_outcome="unavailable"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001) > 0.5` | 10m | Most NL mappings hit no working LLM provider (e.g. GitHub Models retirement) — direct commands still work, but the agent is effectively down |
+| Scrape target down | `up < 1`, no data alerts | 5m | Fires per `instance` (core/edge/edge-rabbitmq) when a scrape fails, and with no labels when the core Alloy stops sending anything |
 
 ## Edge host metrics
 

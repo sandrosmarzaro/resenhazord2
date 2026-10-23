@@ -18,7 +18,7 @@ class TestRegisterAll:
             fake_command(CommandConfig(name='jackpot', platforms=[Platform.DISCORD])),
         ]
         patch_slash_registry(mocker, commands)
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 
@@ -30,7 +30,7 @@ class TestRegisterAll:
             CommandConfig(name='anime', aliases=['manga'], platforms=[Platform.DISCORD])
         )
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 
@@ -47,7 +47,7 @@ class TestRegisterAll:
             )
         )
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 
@@ -61,7 +61,7 @@ class TestRegisterAll:
     def test_commands_registered_globally(self, mocker, fake_command):
         cmd = fake_command(CommandConfig(name='d20', platforms=[Platform.DISCORD]))
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 
@@ -75,7 +75,7 @@ class TestMakeCallback:
     async def test_callback_invokes_handler(self, mocker, fake_command):
         cmd = fake_command(CommandConfig(name='d20', platforms=[Platform.DISCORD]))
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
         bot.register_commands()
 
         callback = bot._registrar._make_callback()
@@ -91,7 +91,7 @@ class TestDuplicateCommand:
     def test_duplicate_name_skipped(self, mocker, fake_command):
         cmd = fake_command(CommandConfig(name='d20', aliases=['d20'], platforms=[Platform.DISCORD]))
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 
@@ -109,7 +109,7 @@ class TestConfigureOptions:
             )
         )
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 
@@ -127,7 +127,7 @@ class TestConfigureOptions:
             )
         )
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 
@@ -147,7 +147,7 @@ class TestConfigureOptions:
             )
         )
         patch_slash_registry(mocker, [cmd])
-        bot = DiscordBot('123456789')
+        bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()
 

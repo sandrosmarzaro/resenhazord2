@@ -289,6 +289,155 @@ class TestImagePost:
         assert 'muito grande' in exc_info.value.user_message
 
 
+class TestXPhotoPost:
+    STATUS_ID = '2113164603517497460'
+    API_URL = f'https://api.fxtwitter.com/status/{STATUS_ID}'
+    PHOTO_URLS = (
+        'https://pbs.twimg.com/media/first.jpg?name=orig',
+        'https://pbs.twimg.com/media/second.jpg?name=orig',
+    )
+    NO_VIDEO = f'ERROR: [twitter] {STATUS_ID}: No video could be found in this tweet'
+
+    @pytest.fixture
+    def photo_tweet(self, mock_subprocess, respx_mock):
+        def _factory(photo_urls: tuple[str, ...] = self.PHOTO_URLS):
+            mock_subprocess(
+                'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+                calls=[(b'\n', b'', 0), (b'', self.NO_VIDEO.encode(), 1)],
+            )
+            tweet = {
+                'author': {'name': 'lucas'},
+                'text': 'o vorcaro é doente',
+                'media': {'photos': [{'url': url} for url in photo_urls]},
+            }
+            self.api_route = respx_mock.get(self.API_URL).mock(
+                return_value=httpx.Response(HTTPStatus.OK, json={'code': 200, 'tweet': tweet})
+            )
+            return [
+                respx_mock.get(url).mock(
+                    return_value=httpx.Response(HTTPStatus.OK, content=f'photo-{index}'.encode())
+                )
+                for index, url in enumerate(photo_urls)
+            ]
+
+        return _factory
+
+    def _data(self, url: str | None = None):
+        url = url or f'https://x.com/mzradona/status/{self.STATUS_ID}'
+        return GroupCommandDataFactory.build(text=f',dl show {url}')
+
+    @pytest.mark.anyio
+    async def test_sends_every_photo_in_order(self, command, photo_tweet):
+        photo_tweet()
+
+        messages = await command.run(self._data())
+
+        assert [message.content.data for message in messages] == [b'photo-0', b'photo-1']
+        assert all(isinstance(message.content, ImageBufferContent) for message in messages)
+
+    @pytest.mark.anyio
+    async def test_identifies_the_bot_to_the_photo_api(self, command, photo_tweet):
+        # FxTwitter answers 403 to httpx's default python-httpx User-Agent.
+        photo_tweet()
+
+        await command.run(self._data())
+
+        assert self.api_route.calls.last.request.headers['user-agent'].startswith('resenhazord2')
+
+    @pytest.mark.anyio
+    async def test_captions_only_the_first_photo(self, command, photo_tweet):
+        photo_tweet()
+
+        messages = await command.run(self._data())
+
+        assert [message.content.caption for message in messages] == [
+            'lucas - o vorcaro é doente',
+            None,
+        ]
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        'url',
+        [
+            f'https://twitter.com/mzradona/status/{STATUS_ID}?s=20',
+            f'https://x.com/i/status/{STATUS_ID}',
+            'https://t.co/AbC123xyz',
+        ],
+    )
+    async def test_takes_the_status_id_from_yt_dlp_for_any_link(self, command, photo_tweet, url):
+        photo_tweet()
+
+        messages = await command.run(self._data(url))
+
+        assert len(messages) == len(self.PHOTO_URLS)
+
+    @pytest.mark.anyio
+    async def test_refuses_photos_outside_the_x_cdn(self, command, photo_tweet):
+        [route] = photo_tweet(('https://pbs.twimg.com.evil.com/media/first.jpg',))
+        data = self._data()
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
+        assert not route.called
+
+    @pytest.mark.anyio
+    async def test_tweet_without_photos_keeps_the_no_video_reply(self, command, photo_tweet):
+        photo_tweet(())
+        data = self._data()
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
+
+    @pytest.mark.anyio
+    async def test_error_without_a_status_id_keeps_the_no_video_reply(
+        self, command, mock_subprocess
+    ):
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[(b'\n', b'', 0), (b'', b'ERROR: No video could be found in this tweet', 1)],
+        )
+        data = self._data()
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
+
+    @pytest.mark.anyio
+    async def test_unreachable_photo_api_keeps_the_no_video_reply(
+        self, command, mock_subprocess, respx_mock
+    ):
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[(b'\n', b'', 0), (b'', self.NO_VIDEO.encode(), 1)],
+        )
+        # 500, not 503: HttpClient retries 502-504 with backoff, which would only slow this down.
+        respx_mock.get(self.API_URL).mock(
+            return_value=httpx.Response(HTTPStatus.INTERNAL_SERVER_ERROR)
+        )
+        data = self._data()
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
+
+    @pytest.mark.anyio
+    async def test_refuses_a_photo_over_the_buffer_limit(self, command, photo_tweet, mocker):
+        photo_tweet()
+        mocker.patch.object(YtDlpService, 'MAX_BUFFER', len(b'photo-0') - 1)
+        data = self._data()
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == 'Vídeo muito grande pra baixar 📦'
+
+
 class TestCookies:
     @pytest.mark.anyio
     async def test_passes_cookies_to_both_subprocesses(self, mock_subprocess):
@@ -405,22 +554,6 @@ class TestErrors:
             await command.run(data)
 
         assert 'bloqueado' in exc_info.value.user_message
-
-    @pytest.mark.anyio
-    async def test_no_video_in_tweet(self, command, mock_subprocess):
-        data = GroupCommandDataFactory.build(text=',dl https://x.com/user/status/123')
-        mock_subprocess(
-            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
-            calls=[
-                (b'Title\n', b'', 0),
-                (b'', b'ERROR: [twitter] 123: No video could be found in this tweet', 1),
-            ],
-        )
-
-        with pytest.raises(DownloadError) as exc_info:
-            await command.run(data)
-
-        assert 'não tem vídeo' in exc_info.value.user_message
 
     @pytest.mark.anyio
     async def test_unsupported_url(self, command, mock_subprocess):

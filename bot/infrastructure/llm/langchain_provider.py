@@ -11,7 +11,7 @@ from langchain_mistralai import ChatMistralAI
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-from bot.infrastructure.llm.providers.base import LLMResponse
+from bot.domain.models.llm_response import LLMResponse
 
 logger = structlog.get_logger()
 
@@ -29,8 +29,7 @@ class LangChainProvider:
     GOOGLE_MODEL: ClassVar[str] = 'gemini-3.6-flash'
     GOOGLE_BASE_URL: ClassVar[str] = 'https://generativelanguage.googleapis.com/v1beta/openai'
     MAX_TOKENS: ClassVar[int] = 500
-
-    _instance: ClassVar['LangChainProvider | None'] = None
+    NO_PROVIDERS_MSG: ClassVar[str] = 'No LLM providers configured'
 
     def __init__(self, models: list[_Model]) -> None:
         self._models = models
@@ -65,25 +64,14 @@ class LangChainProvider:
             models.append(_Model(google, supports_tools=True))
         return cls(models)
 
-    @classmethod
-    def configure(cls, mistral_key: str, groq_key: str, google_key: str) -> 'LangChainProvider':
-        cls._instance = cls.from_credentials(mistral_key, groq_key, google_key)
-        return cls._instance
-
-    @classmethod
-    def configured(cls) -> 'LangChainProvider | None':
-        return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        cls._instance = None
-
     async def complete(self, prompt: str, tools: list[dict]) -> LLMResponse:
         chain = self._build_chain(tools)
         message = await chain.ainvoke([HumanMessage(content=prompt)])
         return self._to_response(message)
 
     def _build_chain(self, tools: list[dict]) -> Runnable:
+        if not self._models:
+            raise RuntimeError(self.NO_PROVIDERS_MSG)
         runnables = [self._bind(model, tools) for model in self._models]
         primary, fallbacks = runnables[0], runnables[1:]
         return primary.with_fallbacks(fallbacks) if fallbacks else primary

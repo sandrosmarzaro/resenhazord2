@@ -1,6 +1,9 @@
 """Register all Python-side commands with the CommandRegistry."""
 
+from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
+from bot.application.example_selector import ExampleSelector
+from bot.application.llm_command_mapper import LLMCommandMapper
 from bot.domain.commands.add import AddCommand
 from bot.domain.commands.adm import AdmCommand
 from bot.domain.commands.animal import AnimalCommand
@@ -54,52 +57,56 @@ from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.services.discord import DiscordService
-from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.database import Database
+from bot.infrastructure.llm.agent_graph_nodes import AgentGraphNodes
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
-from bot.infrastructure.llm.provider_chain import ProviderChain
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
+from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.settings import Settings
 
 
-def register_all_commands(settings: Settings | None = None) -> None:
+def register_all_commands(settings: Settings | None = None) -> AgentOrchestratorPort:
     if settings is None:
         settings = Settings()
 
     MongoDBConnection.configure(settings.mongodb_uri, settings.mongodb_db_name)
     Database.configure(settings.database_url)
-    ProviderChain.configure(
-        settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
-    )
-    if settings.llm_use_langchain:
-        LangChainProvider.configure(
-            settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
-        )
-    if settings.upstash_vector_rest_url:
-        UpstashExampleRetriever.configure(
-            settings.upstash_vector_rest_url, settings.upstash_vector_rest_token
-        )
-    if settings.langsmith_api_key:
-        LangSmithPromptRegistry.configure(
-            settings.langsmith_api_key,
-            settings.langsmith_prompt_name,
-            settings.langsmith_prompt_tag,
-        )
-
-    if settings.redis_url:
-        AgentRateLimiter.configure(settings.redis_url)
-
     registry = CommandRegistry.instance()
     _register_simple_commands(registry)
     _register_configured_commands(registry, settings)
 
-    # After commands are registered, so the graph's inner executor sees the full tool set.
+    # After commands are registered, so the mapper sees the full tool set.
+    return build_agent_graph(registry, settings, settings.redis_url)
+
+
+def build_agent_graph(
+    registry: CommandRegistry, settings: Settings, redis_url: str | None
+) -> GraphAgentOrchestrator:
     # redis_url present -> durable Redis checkpointer; absent -> in-memory MemorySaver.
-    if settings.agent_use_graph:
-        GraphAgentOrchestrator.configure(settings.redis_url)
+    provider = LangChainProvider.from_credentials(
+        settings.mistral_api_key, settings.groq_api_key, settings.google_ai_studio_token
+    )
+    retriever = None
+    if settings.upstash_vector_rest_url:
+        retriever = UpstashExampleRetriever.from_credentials(
+            settings.upstash_vector_rest_url, settings.upstash_vector_rest_token
+        )
+    prompt_registry = None
+    if settings.langsmith_api_key:
+        prompt_registry = LangSmithPromptRegistry.from_credentials(
+            settings.langsmith_api_key,
+            settings.langsmith_prompt_name,
+            settings.langsmith_prompt_tag,
+        )
+    nodes = AgentGraphNodes(
+        ExampleSelector(retriever),
+        LLMCommandMapper(registry, provider, prompt_registry),
+        AgentResponseTranslator(registry),
+    )
+    return GraphAgentOrchestrator(nodes, redis_url)
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:

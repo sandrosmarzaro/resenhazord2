@@ -1,56 +1,61 @@
 import pytest
 
+from bot.application import register_commands
 from bot.application.register_commands import register_all_commands
-from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
-from bot.infrastructure.llm.langchain_provider import LangChainProvider
-from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
-from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.settings import Settings
 
 
-class TestAgentFlagWiring:
-    def test_flags_off_leave_agent_singletons_unconfigured(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('LLM_USE_LANGCHAIN', 'false')
-        monkeypatch.setenv('AGENT_USE_GRAPH', 'false')
+@pytest.fixture
+def factories(mocker):
+    return {
+        name: mocker.patch.object(getattr(register_commands, name), 'from_credentials')
+        for name in ('LangChainProvider', 'UpstashExampleRetriever', 'LangSmithPromptRegistry')
+    }
+
+
+class TestAgentWiring:
+    def test_returns_the_graph_orchestrator(self, monkeypatch: pytest.MonkeyPatch, factories):
+        monkeypatch.setenv('REDIS_URL', '')
+
+        agent = register_all_commands(Settings())
+
+        assert isinstance(agent, GraphAgentOrchestrator)
+
+    def test_builds_the_llm_provider_from_the_keys(
+        self, monkeypatch: pytest.MonkeyPatch, factories
+    ):
+        monkeypatch.setenv('MISTRAL_API_KEY', 'mistral')
+        monkeypatch.setenv('GROQ_API_KEY', 'groq')
+        monkeypatch.setenv('GOOGLE_AI_STUDIO_TOKEN', 'google')
+
+        register_all_commands(Settings())
+
+        factories['LangChainProvider'].assert_called_once_with('mistral', 'groq', 'google')
+
+    def test_optional_services_stay_off_without_credentials(
+        self, monkeypatch: pytest.MonkeyPatch, factories
+    ):
         monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', '')
         monkeypatch.setenv('LANGSMITH_API_KEY', '')
 
-        register_all_commands()
+        register_all_commands(Settings())
 
-        assert LangChainProvider.configured() is None
-        assert UpstashExampleRetriever.configured() is None
-        assert GraphAgentOrchestrator.configured() is None
-        assert LangSmithPromptRegistry.configured() is None
+        factories['UpstashExampleRetriever'].assert_not_called()
+        factories['LangSmithPromptRegistry'].assert_not_called()
 
-    def test_flags_on_configure_agent_singletons(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('LLM_USE_LANGCHAIN', 'true')
-        monkeypatch.setenv('AGENT_USE_GRAPH', 'true')
+    def test_credentials_build_optional_services(self, monkeypatch: pytest.MonkeyPatch, factories):
         monkeypatch.setenv('UPSTASH_VECTOR_REST_URL', 'https://example.upstash.io')
         monkeypatch.setenv('UPSTASH_VECTOR_REST_TOKEN', 'token')
-        monkeypatch.setenv('GROQ_API_KEY', 'groq')
         monkeypatch.setenv('LANGSMITH_API_KEY', 'ls-key')
-        monkeypatch.setenv('REDIS_URL', '')
+        monkeypatch.setenv('LANGSMITH_PROMPT_NAME', 'resenhazord-agent')
+        monkeypatch.setenv('LANGSMITH_PROMPT_TAG', 'prod')
 
         register_all_commands(Settings())
 
-        assert LangChainProvider.configured() is not None
-        assert UpstashExampleRetriever.configured() is not None
-        assert GraphAgentOrchestrator.configured() is not None
-        assert LangSmithPromptRegistry.configured() is not None
-
-
-class TestAgentRateLimiterWiring:
-    def test_redis_url_configures_the_limiter(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('REDIS_URL', 'redis://localhost:6379')
-
-        register_all_commands(Settings())
-
-        assert AgentRateLimiter.configured() is not None
-
-    def test_no_redis_url_leaves_agent_turns_unlimited(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv('REDIS_URL', '')
-
-        register_all_commands(Settings())
-
-        assert AgentRateLimiter.configured() is None
+        factories['UpstashExampleRetriever'].assert_called_once_with(
+            'https://example.upstash.io', 'token'
+        )
+        factories['LangSmithPromptRegistry'].assert_called_once_with(
+            'ls-key', 'resenhazord-agent', 'prod'
+        )

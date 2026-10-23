@@ -149,29 +149,51 @@ early filtering before forwarding to Python.
 
 ## Agentic Command Mapping
 
-`@`-mentions and DMs route to an LLM agent that maps natural language to a command,
-behind flags that parallel-run with the manual comma path. Design:
+`@`-mentions and DMs route to an LLM agent that maps natural language to a command. Design:
 [prd-agentic-command-mapping.md](prd-agentic-command-mapping.md) + ADRs 0007–0011.
 
-Three ports (`bot/ports/`) keep the frameworks out of the domain; each falls back
-when its flag/env is unset:
+Three ports (`bot/ports/`) keep the frameworks out of the domain:
 
 - **`LLMProviderPort`** → `LangChainProvider` (gpt-4o/Groq/Mistral, `bind_tools` +
-  `with_fallbacks`) under `LLM_USE_LANGCHAIN`, else httpx `ProviderChain`.
+  `with_fallbacks`).
 - **`ExampleRetrieverPort`** → `UpstashExampleRetriever` (Upstash Vector, RAG
   few-shot) when `UPSTASH_VECTOR_REST_URL` set, else a static slice. Build:
   `uv run task index:examples`.
-- **`AgentOrchestratorPort`** → `GraphAgentOrchestrator` (LangGraph) under
-  `AGENT_USE_GRAPH`, else single-turn `AgentExecutor`.
+- **`AgentOrchestratorPort`** → `GraphAgentOrchestrator` (LangGraph state machine).
 
 Outcomes are tool calls (ADR 0009): a command tool (execute, gated on a `confidence`
-arg), `clarify(question)`, or `suggest(message, command)`; `AgentResponseTranslator`
-renders a command call into `,command args`. The graph wraps `AgentExecutor` and
-persists the open question per `thread_id` (`platform:chat:user`) so clarify → answer
-survives across messages (resume on quote or within `RESUME_WINDOW_SECONDS`).
-Checkpointer: `AsyncRedisSaver` when `REDIS_URL` (Redis Cloud — needs RediSearch +
-RedisJSON) set, else `MemorySaver`; only primitives persist, `CommandData` rides the
-run config (ADR 0008).
+arg), `clarify(question)`, or `suggest(message, command)`. `LLMCommandMapper` turns the
+reply into an `AgentDecision`; `AgentResponseTranslator` renders a command into
+`,command args`.
+
+The graph is a conversation state machine, one thread per `platform:chat:user`. Every
+message enters at `START`; `route_input` reads what the chat is waiting for:
+
+```text
+START → route_input
+  ├─ awaiting confirmation + "sim"  → execute_proposed   (no LLM)
+  ├─ awaiting confirmation + "não"  → ask_again          (spends an attempt)
+  └─ anything else (pending question becomes context) → retrieve_examples
+retrieve_examples   (top 5, floor 0.75)
+  ├─ score ≥ 0.97, no pending question or quote → execute   (no LLM)
+  └─ otherwise → call_llm
+call_llm → by outcome
+  ├─ command          → execute
+  ├─ confidence < 0.7 → confirm      (stores the proposed command)
+  ├─ clarify          → ask          (spends an attempt; after 2 → menu_hint)
+  ├─ suggest          → suggest
+  └─ unresolvable / unavailable → fallback
+```
+
+`Conversation` (domain) owns the rules: a pending question expires after
+`RESUME_WINDOW_SECONDS` (3 min), `MAX_ATTEMPTS` is 2, and "sim"/"não" (normalized lists
+in `bot/data/agent_replies.py`) only count while a proposal is pending.
+`AgentGraphNodes` is the LangGraph glue; `GraphAgentOrchestrator` owns the edges.
+Checkpointer: `AsyncRedisSaver` (TTL 5 min) when `REDIS_URL` (Redis Cloud — needs
+RediSearch + RedisJSON) is set, else `MemorySaver`; a Redis error reruns the turn on a
+fresh `MemorySaver`. The checkpoint holds primitives only and `CommandData` rides the
+run config (ADR 0008). WhatsApp wraps the graph in `ThrottledAgent` (8 turns per
+conversation per 10 min).
 
 ## Ports & Adapters
 
@@ -332,10 +354,11 @@ decorator pattern. Python consumes it transparently through `WhatsAppPort`.
 
 ## Singletons
 
-Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`,
-`ProviderChain`, plus the agent singletons (`LangChainProvider`,
-`UpstashExampleRetriever`, `GraphAgentOrchestrator`) — all `configure()`d in
-`register_all_commands`.
+Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`, all
+`configure()`d in `register_all_commands`. The agent is not a singleton:
+`register_all_commands` builds the `GraphAgentOrchestrator` and returns it, and the
+FastAPI lifespan injects it into the WhatsApp handler (wrapped in `ThrottledAgent`),
+Discord and Telegram.
 TypeScript: `CommandFactory`, `MongoDBConnection`, `AxiosClient`.
 
 **Always use existing singletons.** Never instantiate `httpx.AsyncClient`,

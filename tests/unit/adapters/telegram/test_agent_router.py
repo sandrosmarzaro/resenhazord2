@@ -10,7 +10,7 @@ from tests.unit.adapters.telegram.conftest import (
     make_strategy,
     make_update,
     patch_registry,
-    stub_agent_executor,
+    stub_agent,
 )
 
 
@@ -20,8 +20,8 @@ def _ok_message() -> BotMessage:
 
 class TestBuiltinPrefix:
     @pytest.mark.anyio
-    async def test_clarify_prefix_replies_message(self, handler, port, mocker):
-        stub_agent_executor(mocker, returns_text=',clarify:IA indisponível. Use ,menu')
+    async def test_clarify_prefix_replies_message(self, agent, handler, port, mocker):
+        stub_agent(mocker, agent, returns_text=',clarify:IA indisponível. Use ,menu')
         patch_registry(mocker, strategy=None)
 
         await handler.handle(port, make_update('oi'))
@@ -31,8 +31,8 @@ class TestBuiltinPrefix:
         assert ',menu' in sent.text
 
     @pytest.mark.anyio
-    async def test_suggest_prefix_replies_suggestion(self, handler, port, mocker):
-        stub_agent_executor(mocker, returns_text=',suggest:Tente usar ,time')
+    async def test_suggest_prefix_replies_suggestion(self, agent, handler, port, mocker):
+        stub_agent(mocker, agent, returns_text=',suggest:Tente usar ,time')
         patch_registry(mocker, strategy=None)
 
         await handler.handle(port, make_update('oi'))
@@ -43,10 +43,10 @@ class TestBuiltinPrefix:
 
 class TestDmAgentMode:
     @pytest.mark.anyio
-    async def test_dm_without_command_triggers_agent(self, handler, port, mocker):
+    async def test_dm_without_command_triggers_agent(self, agent, handler, port, mocker):
         strategy = make_strategy(mocker, messages=[_ok_message()])
         patch_registry(mocker, strategy=strategy)
-        executor = stub_agent_executor(mocker, returns_text=',d20')
+        executor = stub_agent(mocker, agent, returns_text=',d20')
 
         await handler.handle(port, make_update('me mande o g4 do Brasileirão'))
 
@@ -56,9 +56,9 @@ class TestDmAgentMode:
         port.send.assert_called()
 
     @pytest.mark.anyio
-    async def test_dm_unknown_command_replied(self, handler, port, mocker):
+    async def test_dm_unknown_command_replied(self, agent, handler, port, mocker):
         patch_registry(mocker, strategy=None)
-        stub_agent_executor(mocker, returns_text=',foo')
+        stub_agent(mocker, agent, returns_text=',foo')
 
         await handler.handle(port, make_update('foo bar baz'))
 
@@ -74,10 +74,10 @@ class TestGroupAgentMention:
         port.send.assert_not_called()
 
     @pytest.mark.anyio
-    async def test_group_with_mention_triggers_agent(self, handler, port, mocker):
+    async def test_group_with_mention_triggers_agent(self, agent, handler, port, mocker):
         strategy = make_strategy(mocker, messages=[_ok_message()])
         patch_registry(mocker, strategy=strategy)
-        executor = stub_agent_executor(mocker, returns_text=',d20')
+        executor = stub_agent(mocker, agent, returns_text=',d20')
 
         await handler.handle(port, make_mention_update('@resenhazord_bot oi', mention_length=16))
 
@@ -133,7 +133,7 @@ class TestRunAndReply:
     async def test_bot_error_sends_user_message(self, mocker, port):
         renderer = mocker.MagicMock()
         renderer.render_many.return_value = []
-        router = TelegramAgentRouter(renderer)
+        router = TelegramAgentRouter(renderer, mocker.Mock())
         strategy = mocker.MagicMock()
         strategy.run = mocker.AsyncMock(side_effect=BotError('custom error'))
 
@@ -145,7 +145,7 @@ class TestRunAndReply:
     @pytest.mark.anyio
     async def test_generic_error_sends_generic_message(self, mocker, port):
         renderer = mocker.MagicMock()
-        router = TelegramAgentRouter(renderer)
+        router = TelegramAgentRouter(renderer, mocker.Mock())
         strategy = mocker.MagicMock()
         strategy.run = mocker.AsyncMock(side_effect=RuntimeError('boom'))
 
@@ -157,7 +157,7 @@ class TestRunAndReply:
     @pytest.mark.anyio
     async def test_empty_messages_sends_empty_reply(self, mocker, port):
         renderer = mocker.MagicMock()
-        router = TelegramAgentRouter(renderer)
+        router = TelegramAgentRouter(renderer, mocker.Mock())
         strategy = mocker.MagicMock()
         strategy.run = mocker.AsyncMock(return_value=[])
 
@@ -171,7 +171,7 @@ class TestRunAndReply:
         renderer = mocker.MagicMock()
         outbound = mocker.MagicMock()
         renderer.render_many.return_value = [outbound]
-        router = TelegramAgentRouter(renderer)
+        router = TelegramAgentRouter(renderer, mocker.Mock())
         strategy = mocker.MagicMock()
         strategy.run = mocker.AsyncMock(return_value=[_ok_message()])
         mocker.patch(
@@ -190,7 +190,7 @@ class TestSendMessages:
         renderer = mocker.MagicMock()
         outbound = mocker.MagicMock()
         renderer.render_many.return_value = [outbound]
-        router = TelegramAgentRouter(renderer)
+        router = TelegramAgentRouter(renderer, mocker.Mock())
         call_count = 0
 
         class SendFailedError(Exception):

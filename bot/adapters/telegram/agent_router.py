@@ -5,14 +5,13 @@ from telegram import Chat, Message
 
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.adapters.telegram.typing_loop import TypingLoop
-from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.application.message_preprocess import preprocess_for_telegram
 from bot.domain.commands.base import Command
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
-from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
+from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound, TelegramPort
 
 logger = structlog.get_logger()
@@ -26,8 +25,9 @@ class TelegramAgentRouter:
     _CLARIFY_PREFIX: ClassVar[str] = CLARIFY_PREFIX
     _SUGGEST_PREFIX: ClassVar[str] = SUGGEST_PREFIX
 
-    def __init__(self, renderer: TelegramResponseRenderer) -> None:
+    def __init__(self, renderer: TelegramResponseRenderer, agent: AgentOrchestratorPort) -> None:
         self._renderer = renderer
+        self._agent = agent
 
     async def route(
         self,
@@ -90,8 +90,7 @@ class TelegramAgentRouter:
         self, port: TelegramPort, chat_id: int, data: CommandData
     ) -> CommandData | None:
         try:
-            agent = GraphAgentOrchestrator.configured() or AgentExecutor(CommandRegistry.instance())
-            return await agent.run(data)
+            return await self._agent.run(data)
         except Exception:
             logger.exception('telegram_agent_error')
             await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)

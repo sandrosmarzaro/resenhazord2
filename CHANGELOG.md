@@ -2,6 +2,33 @@
 
 <!-- version list -->
 
+## v2.11.0 (2026-10-22)
+
+### Feat
+
+- **commands**: send the photos when ,dl hits a photo-only tweet (#235)
+- **agent**: run the agent as a conversation state machine (#232)
+- **agent**: run near-identical example matches without the llm
+- **agent**: send at most five relevant examples to the llm
+- **agent**: carry similarity score on retrieved examples
+
+### Fix
+
+- **agent**: report missing llm credentials as unavailable
+- **agent**: cap agent turns per conversation
+- **gateway**: ignore messages from verified business accounts
+- **compose**: cap the core bot's memory
+- **broker**: size the rabbitmq watermark from its own memory cap
+- **observability**: alert when a scrape target stops reporting
+
+### Refactor
+
+- **agent**: split the executor into selector, mapper and decision (#230)
+- **agent**: wire the agent through the composition root (#229)
+- **agent**: delete the httpx ProviderChain
+- **agent**: drop the langchain and graph feature flags
+- **agent**: move LLMResponse into the domain
+
 ## v2.10.0 (2026-10-20)
 
 ### Feat

@@ -5,6 +5,7 @@ import pytest
 from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.constants import ChatType, MessageEntityType
 
+from bot.adapters.telegram.agent_router import TelegramAgentRouter
 from bot.adapters.telegram.handler import TelegramUpdateHandler
 from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.domain.commands.base import (
@@ -36,10 +37,18 @@ def port(mocker):
 
 
 @pytest.fixture
-def handler(mock_config_service) -> TelegramUpdateHandler:
+def agent(mocker):
+    agent = mocker.MagicMock()
+    agent.run = mocker.AsyncMock()
+    return agent
+
+
+@pytest.fixture
+def handler(agent, mock_config_service) -> TelegramUpdateHandler:
     return TelegramUpdateHandler(
         bot_username=DEFAULT_BOT_USERNAME,
         nsfw_chat_ids=frozenset({99}),
+        router=TelegramAgentRouter(TelegramResponseRenderer(), agent),
         config_service=mock_config_service,
     )
 
@@ -114,14 +123,9 @@ def patch_registry(mocker, *, strategy=None, by_name=None):
     return registry
 
 
-def stub_agent_executor(mocker, *, returns_text: str):
-    executor = mocker.MagicMock()
-    executor.run = mocker.AsyncMock(return_value=mocker.MagicMock(text=returns_text))
-    mocker.patch(
-        'bot.adapters.telegram.agent_router.AgentExecutor',
-        return_value=executor,
-    )
-    return executor
+def stub_agent(mocker, agent, *, returns_text: str):
+    agent.run.return_value = mocker.MagicMock(text=returns_text)
+    return agent
 
 
 class FakeCommand(Command):

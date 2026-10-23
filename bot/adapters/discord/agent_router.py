@@ -5,12 +5,11 @@ import discord
 import structlog
 
 from bot.adapters.discord.renderer import DiscordReply, DiscordResponseRenderer
-from bot.application.agent_executor import AgentExecutor
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Platform
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.models.command_data import CommandData
-from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
+from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 
 logger = structlog.get_logger()
 
@@ -23,7 +22,10 @@ class DiscordAgentRouter:
     _CLARIFY_PREFIX: ClassVar[str] = CLARIFY_PREFIX
     _SUGGEST_PREFIX: ClassVar[str] = SUGGEST_PREFIX
 
-    def __init__(self, renderer: DiscordResponseRenderer | None = None) -> None:
+    def __init__(
+        self, agent: AgentOrchestratorPort, renderer: DiscordResponseRenderer | None = None
+    ) -> None:
+        self._agent = agent
         self._renderer = renderer or DiscordResponseRenderer()
 
     async def handle_dm(self, message: discord.Message) -> None:
@@ -41,8 +43,7 @@ class DiscordAgentRouter:
             await message.reply(self.GENERIC_ERROR)
 
     async def _run_pipeline(self, message: discord.Message, data: CommandData) -> None:
-        agent = GraphAgentOrchestrator.configured() or AgentExecutor(CommandRegistry.instance())
-        result = await agent.run(data)
+        result = await self._agent.run(data)
 
         if result.text.startswith(self._CLARIFY_PREFIX):
             await message.reply(
