@@ -3,19 +3,28 @@ import json
 
 import pytest
 import sentry_sdk
+from fakeredis.aioredis import FakeRedis
 
 from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError, ValidationError
 from bot.domain.models.contents.image_content import ImageBufferContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
+from bot.infrastructure.command_inbox import RedisCommandInbox
 from tests.fixtures.mock_broker import MockBrokerPort
 
 
-def _envelope(text: str, jid: str = 'g@g.us', attempts: int | None = None) -> bytes:
+def _envelope(
+    text: str, jid: str = 'g@g.us', attempts: int | None = None, message_id: str | None = None
+) -> bytes:
     payload: dict = {
         'id': 'corr-1',
-        'data': {'text': text, 'jid': jid, 'sender_jid': 'u@s.whatsapp.net'},
+        'data': {
+            'text': text,
+            'jid': jid,
+            'sender_jid': 'u@s.whatsapp.net',
+            'message_id': message_id,
+        },
     }
     if attempts is not None:
         payload['attempts'] = attempts
@@ -366,3 +375,65 @@ class TestMetrics:
         )
 
         dlq.assert_called_once()
+
+
+class TestRedelivery:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def inbox(self):
+        return RedisCommandInbox(FakeRedis())
+
+    @pytest.mark.anyio
+    async def test_redelivered_command_is_skipped(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping', message_id='MSG-1')
+
+        await broker.deliver('commands', body)
+        await broker.deliver('commands', body)
+
+        assert handler.handle.await_count == 1
+        assert _queues(broker) == ['replies']
+
+    @pytest.mark.anyio
+    async def test_scheduled_retry_still_runs(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = [ExternalServiceError('api down'), []]
+        await CommandConsumer(broker, handler, inbox).start()
+        await broker.deliver('commands', _envelope('ping', message_id='MSG-1'))
+        _, retry_body = broker.published[0]
+
+        await broker.deliver('commands', retry_body)
+
+        assert handler.handle.await_count == 2
+
+    @pytest.mark.anyio
+    async def test_command_without_message_id_always_runs(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping')
+
+        await broker.deliver('commands', body)
+        await broker.deliver('commands', body)
+
+        assert handler.handle.await_count == 2
+
+    @pytest.mark.anyio
+    async def test_same_message_id_in_another_chat_runs(self, mocker, inbox):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler, inbox).start()
+
+        await broker.deliver('commands', _envelope('ping', jid='a@g.us', message_id='MSG-1'))
+        await broker.deliver('commands', _envelope('ping', jid='b@g.us', message_id='MSG-1'))
+
+        assert handler.handle.await_count == 2

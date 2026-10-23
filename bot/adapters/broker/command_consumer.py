@@ -17,6 +17,7 @@ from bot.domain.models.message import BotMessage
 from bot.infrastructure.metrics import record_dlq, record_retry
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
+from bot.ports.command_inbox_port import CommandInboxPort
 
 logger = structlog.get_logger()
 _tracer = trace.get_tracer(__name__)
@@ -32,9 +33,15 @@ class CommandConsumer:
     RETRY_TTL_MS: ClassVar[int] = 30_000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
-    def __init__(self, broker: BrokerPort, command_handler: CommandHandler) -> None:
+    def __init__(
+        self,
+        broker: BrokerPort,
+        command_handler: CommandHandler,
+        inbox: CommandInboxPort | None = None,
+    ) -> None:
         self._broker = broker
         self._command_handler = command_handler
+        self._inbox = inbox
 
     async def start(self) -> None:
         # Declare the publish targets up front so the publishes from inside the consume
@@ -67,6 +74,10 @@ class CommandConsumer:
         # Same id on every Sentry event for this command, so one filter spans both
         # processes and the retry/DLQ hops (§12). prefetch=1 keeps it per-message.
         sentry_sdk.set_tag('correlation_id', envelope['id'])
+
+        if await self._already_answered(envelope):
+            logger.info('command_redelivery_skipped')
+            return
 
         # Continue the trace the edge started: the parent context rides in the
         # envelope (not AMQP headers), so the whole command — and any span it
@@ -133,6 +144,28 @@ class CommandConsumer:
         # Carry the trace forward so the gateway's reply consumer can join it (Phase 4).
         inject_trace_context(reply)
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
+        # Marked only once the final reply is out: a crash before this line lets the
+        # redelivery run again, and a scheduled retry never reaches here.
+        await self._mark_answered(envelope)
+
+    async def _already_answered(self, envelope: dict[str, Any]) -> bool:
+        key = self._inbox_key(envelope)
+        if self._inbox is None or key is None:
+            return False
+        return await self._inbox.is_done(key)
+
+    async def _mark_answered(self, envelope: dict[str, Any]) -> None:
+        key = self._inbox_key(envelope)
+        if self._inbox is None or key is None:
+            return
+        await self._inbox.mark_done(key)
+
+    @staticmethod
+    def _inbox_key(envelope: dict[str, Any]) -> str | None:
+        # WhatsApp message ids are only unique within a chat.
+        data = envelope['data']
+        message_id = data.get('message_id')
+        return f'{data["jid"]}:{message_id}' if message_id else None
 
     @staticmethod
     def _serialize(message: BotMessage) -> dict[str, Any]:

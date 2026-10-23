@@ -87,6 +87,32 @@ class TestConnectWhatsapp:
 
         throttled.assert_called_once_with(agent, None)
 
+    @pytest.mark.anyio
+    async def test_consumer_skips_redeliveries_through_the_redis_inbox(
+        self, mocker, broker, consumers
+    ):
+        command_consumer, _ = consumers
+        mocker.patch.object(app.settings, 'redis_url', 'redis://cache')
+        from_url = mocker.patch.object(app.RedisCommandInbox, 'from_url')
+        handler = mocker.patch.object(app, 'CommandHandler')
+
+        await app._connect_whatsapp(mocker.Mock())
+
+        from_url.assert_called_once_with('redis://cache')
+        command_consumer.assert_called_once_with(
+            broker, handler.return_value, from_url.return_value
+        )
+
+    @pytest.mark.anyio
+    async def test_consumer_runs_without_inbox_without_redis(self, mocker, broker, consumers):
+        command_consumer, _ = consumers
+        mocker.patch.object(app.settings, 'redis_url', '')
+        handler = mocker.patch.object(app, 'CommandHandler')
+
+        await app._connect_whatsapp(mocker.Mock())
+
+        command_consumer.assert_called_once_with(broker, handler.return_value, None)
+
 
 class TestConnectTelegram:
     @pytest.mark.anyio
