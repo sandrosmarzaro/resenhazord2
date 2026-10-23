@@ -14,6 +14,10 @@ the only non-idempotent ones are two low-stakes counters — `,borges`
 (`services/steal_group.py`, `$inc number`) — whose worst case is a vanity number off
 by one, not data corruption.
 
+**Amended 2026-10-23.** Both counters now count each key once through
+`IdempotentCounter`: `,borges` keys on `message_id`, the colony counter on the group
+JID. The counter document keeps the latest keys and skips a key it has already seen.
+
 ## Considered options
 
 - **`message_id` idempotency key (inbox pattern).** Every inbound WhatsApp message
