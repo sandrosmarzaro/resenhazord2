@@ -82,6 +82,22 @@ class TestNoSticker:
 
 class TestStaticSticker:
     @pytest.mark.anyio
+    async def test_converts_in_a_worker_thread(self, command, mock_whatsapp, pillow_threads):
+        mock_whatsapp.download_media.return_value = _make_webp(animated=False)
+        data = GroupCommandDataFactory.build(
+            text=',extrair',
+            media_type='sticker',
+            media_source='quoted',
+            media_is_animated=False,
+            message_id=MESSAGE_ID,
+        )
+
+        await command.run(data)
+
+        assert pillow_threads
+        assert not any(pillow_threads)
+
+    @pytest.mark.anyio
     async def test_converts_to_png(self, command, mock_whatsapp):
         webp_data = _make_webp(animated=False)
         mock_whatsapp.download_media.return_value = webp_data

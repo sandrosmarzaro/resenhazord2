@@ -3,6 +3,7 @@ import io
 import tempfile
 from pathlib import Path
 
+import anyio
 from PIL import Image, ImageDraw, ImageOps
 
 
@@ -35,9 +36,14 @@ class StickerCreator:
         working_size = cls._effective_working_size(quality_reduction)
         if cls._is_video(buffer):
             return await cls._create_from_video(buffer, quality, working_size)
-        if cls._is_animated_webp(buffer):
-            return cls._create_from_animated_webp(buffer, sticker_type, quality, working_size)
-        return cls._create_from_image(buffer, sticker_type, quality, working_size)
+        # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
+        # keep running.
+        encode = (
+            cls._create_from_animated_webp
+            if cls._is_animated_webp(buffer)
+            else cls._create_from_image
+        )
+        return await anyio.to_thread.run_sync(encode, buffer, sticker_type, quality, working_size)
 
     @classmethod
     def _effective_quality(cls, quality_reduction: int) -> int:

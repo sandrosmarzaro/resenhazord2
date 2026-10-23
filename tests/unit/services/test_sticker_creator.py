@@ -402,3 +402,19 @@ class TestStickerCreatorAnimatedWebp:
         durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=2)
 
         assert all(d == StickerCreator.DEFAULT_FRAME_DURATION_MS for d in durations)
+
+
+class TestOffTheEventLoop:
+    @pytest.mark.anyio
+    async def test_image_sticker_is_encoded_in_a_worker_thread(self, pillow_threads):
+        await StickerCreator.create(_create_test_image())
+
+        assert pillow_threads
+        assert not any(pillow_threads)
+
+    @pytest.mark.anyio
+    async def test_animated_sticker_is_encoded_in_a_worker_thread(self, pillow_threads):
+        await StickerCreator.create(_create_animated_webp())
+
+        assert pillow_threads
+        assert not any(pillow_threads)

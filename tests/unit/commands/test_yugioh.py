@@ -1,5 +1,8 @@
+import io
+
 import httpx
 import pytest
+from PIL import Image
 
 from bot.domain.commands.yugioh import YugiohCommand
 from bot.domain.models.message import ImageBufferContent, ImageContent
@@ -40,6 +43,12 @@ MOCK_SPELL_DATA = {
         }
     ]
 }
+
+
+def _png() -> bytes:
+    buffer = io.BytesIO()
+    Image.new('RGBA', (10, 14), 'red').save(buffer, format='PNG')
+    return buffer.getvalue()
 
 
 class TestMatches:
@@ -141,6 +150,19 @@ class TestSingleCard:
 
 
 class TestBooster:
+    @pytest.mark.anyio
+    async def test_builds_the_grid_in_a_worker_thread(self, command, respx_mock, pillow_threads):
+        data = GroupCommandDataFactory.build(text=', ygo booster')
+        respx_mock.get(YGO_API_URL).mock(return_value=httpx.Response(200, json=MOCK_CARD_DATA))
+        respx_mock.get(url__startswith='https://images.ygoprodeck.com/').mock(
+            return_value=httpx.Response(200, content=_png())
+        )
+
+        await command.run(data)
+
+        assert pillow_threads
+        assert not any(pillow_threads)
+
     @pytest.mark.anyio
     async def test_returns_image_buffer(self, command, respx_mock, mocker):
         data = GroupCommandDataFactory.build(text=', ygo booster')
