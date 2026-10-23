@@ -119,6 +119,15 @@ class TestStealExecution:
         assert 'XLII' in subject_call
 
     @pytest.mark.anyio
+    async def test_counts_each_group_once(self, service, mock_whatsapp, loremflickr_route, mocker):
+        mock_whatsapp.group_metadata.return_value = _metadata()
+        increment = mocker.patch.object(service.COLONY_COUNTER, 'increment', return_value=1)
+
+        await service.run(_group_event())
+
+        increment.assert_called_once_with(self.GROUP_JID)
+
+    @pytest.mark.anyio
     async def test_error_does_not_propagate(self, service, mock_whatsapp):
         mock_whatsapp.group_metadata.side_effect = RuntimeError('network error')
 
