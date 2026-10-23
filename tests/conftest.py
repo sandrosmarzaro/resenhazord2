@@ -1,8 +1,10 @@
+import threading
 from typing import Any
 
 import httpx
 import pytest
 from faker import Faker
+from PIL import Image
 from pydantic import BaseModel
 
 from bot.application.command_registry import CommandRegistry
@@ -223,3 +225,17 @@ def ban_command_instance(mock_whatsapp):
     from bot.domain.commands.ban import BanCommand
 
     return BanCommand(bot_jid=TEST_BOT_JID, whatsapp=mock_whatsapp)
+
+
+@pytest.fixture
+def pillow_threads(mocker):
+    """Records, for every real Image.open, whether it ran on the event-loop thread."""
+    on_main_thread: list[bool] = []
+    real_open = Image.open
+
+    def recording_open(*args, **kwargs):
+        on_main_thread.append(threading.current_thread() is threading.main_thread())
+        return real_open(*args, **kwargs)
+
+    mocker.patch.object(Image, 'open', side_effect=recording_open)
+    return on_main_thread
