@@ -374,9 +374,10 @@ class TestXPhotoPost:
     @pytest.mark.anyio
     async def test_refuses_photos_outside_the_x_cdn(self, command, photo_tweet):
         [route] = photo_tweet(('https://pbs.twimg.com.evil.com/media/first.jpg',))
+        data = self._data()
 
         with pytest.raises(DownloadError) as exc_info:
-            await command.run(self._data())
+            await command.run(data)
 
         assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
         assert not route.called
@@ -384,9 +385,10 @@ class TestXPhotoPost:
     @pytest.mark.anyio
     async def test_tweet_without_photos_keeps_the_no_video_reply(self, command, photo_tweet):
         photo_tweet(())
+        data = self._data()
 
         with pytest.raises(DownloadError) as exc_info:
-            await command.run(self._data())
+            await command.run(data)
 
         assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
 
@@ -398,9 +400,10 @@ class TestXPhotoPost:
             'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[(b'\n', b'', 0), (b'', b'ERROR: No video could be found in this tweet', 1)],
         )
+        data = self._data()
 
         with pytest.raises(DownloadError) as exc_info:
-            await command.run(self._data())
+            await command.run(data)
 
         assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
 
@@ -416,9 +419,10 @@ class TestXPhotoPost:
         respx_mock.get(self.API_URL).mock(
             return_value=httpx.Response(HTTPStatus.INTERNAL_SERVER_ERROR)
         )
+        data = self._data()
 
         with pytest.raises(DownloadError) as exc_info:
-            await command.run(self._data())
+            await command.run(data)
 
         assert exc_info.value.user_message == 'Esse tweet não tem vídeo 📸'
 
@@ -426,9 +430,10 @@ class TestXPhotoPost:
     async def test_refuses_a_photo_over_the_buffer_limit(self, command, photo_tweet, mocker):
         photo_tweet()
         mocker.patch.object(YtDlpService, 'MAX_BUFFER', len(b'photo-0') - 1)
+        data = self._data()
 
         with pytest.raises(DownloadError) as exc_info:
-            await command.run(self._data())
+            await command.run(data)
 
         assert exc_info.value.user_message == 'Vídeo muito grande pra baixar 📦'
 
