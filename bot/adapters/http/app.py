@@ -23,6 +23,7 @@ from bot.domain.services.group_welcome import GroupWelcomeService
 from bot.domain.services.steal_group import StealGroupService
 from bot.infrastructure.agent_rate_limiter import AgentRateLimiter
 from bot.infrastructure.broker import RabbitBroker
+from bot.infrastructure.command_inbox import RedisCommandInbox
 from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.infrastructure.platform_supervisor import PlatformSupervisor, Shutdown
@@ -44,7 +45,8 @@ async def _connect_whatsapp(agent: AgentOrchestratorPort) -> Shutdown:
         whatsapp = BrokerWhatsAppClient(broker)
         registry = CommandRegistry.instance()
         registry.set_whatsapp(whatsapp)
-        await CommandConsumer(broker, CommandHandler(registry, _throttled(agent))).start()
+        handler = CommandHandler(registry, _throttled(agent))
+        await CommandConsumer(broker, handler, _inbox()).start()
         steal_group = StealGroupService(whatsapp, settings.resenhazord2_jid, settings.resenha_jid)
         await GroupEventConsumer(broker, steal_group, GroupWelcomeService(whatsapp)).start()
     except BaseException:
@@ -57,6 +59,10 @@ async def _connect_whatsapp(agent: AgentOrchestratorPort) -> Shutdown:
 def _throttled(agent: AgentOrchestratorPort) -> ThrottledAgent:
     limiter = AgentRateLimiter.from_url(settings.redis_url) if settings.redis_url else None
     return ThrottledAgent(agent, limiter)
+
+
+def _inbox() -> RedisCommandInbox | None:
+    return RedisCommandInbox.from_url(settings.redis_url) if settings.redis_url else None
 
 
 async def _connect_telegram(agent: AgentOrchestratorPort) -> Shutdown:
