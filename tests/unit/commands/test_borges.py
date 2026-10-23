@@ -11,8 +11,8 @@ def command():
 
 
 @pytest.fixture
-def mock_collection(mock_mongodb_collection):
-    return mock_mongodb_collection('borges')
+def mock_increment(command, mocker):
+    return mocker.patch.object(command.COUNTER, 'increment', return_value=42)
 
 
 class TestMatches:
@@ -33,8 +33,7 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_increments_and_returns_count(self, command, mock_collection):
-        mock_collection.find_one_and_update.return_value = {'_id': 'counter', 'nargas': 42}
+    async def test_returns_count(self, command, mock_increment):
         data = GroupCommandDataFactory.build(text=',borges')
 
         messages = await command.run(data)
@@ -44,37 +43,9 @@ class TestRun:
         assert 'Borges já fumou 42 nargas 🚬' in messages[0].content.text
 
     @pytest.mark.anyio
-    async def test_calls_find_one_and_update_with_upsert(self, command, mock_collection):
-        mock_collection.find_one_and_update.return_value = {'nargas': 1}
-        data = GroupCommandDataFactory.build(text=',borges')
+    async def test_counts_by_message_id(self, command, mock_increment):
+        data = GroupCommandDataFactory.build(text=',borges', message_id='MSG-1')
 
         await command.run(data)
 
-        mock_collection.find_one_and_update.assert_called_once_with(
-            {'_id': 'counter'},
-            {'$inc': {'nargas': 1}},
-            return_document=True,
-            upsert=True,
-        )
-
-    @pytest.mark.anyio
-    async def test_first_call_shows_one(self, command, mock_collection):
-        mock_collection.find_one_and_update.return_value = {'nargas': 1}
-        data = GroupCommandDataFactory.build(text=',borges')
-
-        messages = await command.run(data)
-
-        assert '1 nargas' in messages[0].content.text
-
-    @pytest.mark.anyio
-    async def test_uses_borges_collection(self, command, mock_collection, mocker):
-        mock_collection.find_one_and_update.return_value = {'nargas': 1}
-        data = GroupCommandDataFactory.build(text=',borges')
-        collection_spy = mocker.patch(
-            'bot.infrastructure.mongodb.MongoDBConnection.collection',
-            return_value=mock_collection,
-        )
-
-        await command.run(data)
-
-        collection_spy.assert_called_once_with('borges')
+        mock_increment.assert_called_once_with('MSG-1')
