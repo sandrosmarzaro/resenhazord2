@@ -5,7 +5,7 @@ from bot.data.football import LEAGUES
 from bot.domain.models.football import SportsDBTeam
 from bot.domain.services.thesportsdb import TheSportsDBService
 
-_BASE_URL = 'https://www.thesportsdb.com/api/v1/json/3'
+_BASE_URL = 'https://www.thesportsdb.com/api/v1/json/123'
 _LEAGUE = LEAGUES['pl']
 
 _MOCK_TEAM_JSON = {

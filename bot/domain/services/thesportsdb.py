@@ -14,7 +14,7 @@ logger = structlog.get_logger()
 
 
 class TheSportsDBService:
-    _BASE_URL = 'https://www.thesportsdb.com/api/v1/json/3'
+    _BASE_URL = 'https://www.thesportsdb.com/api/v1/json/123'
     _MATCH_MIN_JACCARD = 0.25
     _SUBSTRING_MIN_LEN = 4
 

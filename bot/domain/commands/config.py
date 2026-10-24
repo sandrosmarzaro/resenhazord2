@@ -9,6 +9,7 @@ from bot.domain.commands.base import (
     CommandConfig,
     CommandScope,
     ParsedCommand,
+    Platform,
 )
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -36,11 +37,16 @@ class ConfigCommand(Command):
             args_label='subcomando',
             scope=CommandScope.ADMIN,
             category=Category.GROUP,
+            platforms=[Platform.ALL],
         )
 
     @property
     def menu_description(self) -> str:
-        return 'Liga/desliga comandos neste chat (só admin). Use *,config* para ver o estado.'
+        return (
+            'Liga/desliga comandos neste chat (só admin). Use *,config on nsfw* para liberar'
+            ' os +18, *,config on|off|reset <comando|nsfw|download|group|random|info>*'
+            ' ou *,config* para ver o estado.'
+        )
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         if not await self._admin.is_authorized(data, self._whatsapp):

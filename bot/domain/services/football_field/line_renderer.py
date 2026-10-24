@@ -101,8 +101,8 @@ class LineRenderer:
         a2 = math.degrees(math.atan2(sign * d, sign * h)) % 360
         self._draw.arc(
             [sx - arc_r, sy - arc_r, sx + arc_r, sy + arc_r],
-            start=a1,
-            end=a2,
+            start=a2,
+            end=a1,
             fill=self._lc,
             width=self._lw,
         )
