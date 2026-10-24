@@ -3,9 +3,11 @@
 import asyncio
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 from typing import ClassVar
 
 import httpx
+import structlog
 
 from bot.data.football import LeagueInfo
 from bot.data.transfermarkt_positions import POSITION_FILTERS
@@ -24,9 +26,12 @@ from bot.data.transfermarkt_urls import (
     POSITION_MAX_PAGES,
     SQUAD_VALUES_URL,
 )
+from bot.domain.exceptions import TransfermarktBlockedError
 from bot.domain.models.football import TmClub, TmLiveMatch, TmPlayer, TmSquadStats, TmStandingRow
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
+
+logger = structlog.get_logger()
 
 
 class TransfermarktClient:
@@ -37,6 +42,7 @@ class TransfermarktClient:
     POSITION_MAX_PAGES = POSITION_MAX_PAGES
     BR_TIMEZONE_OFFSET = timedelta(hours=-3)
     MAX_CONCURRENT_REQUESTS = 8
+    WAF_ACTION_HEADER = 'x-amzn-waf-action'
     _semaphore: ClassVar[asyncio.Semaphore | None] = None
 
     @classmethod
@@ -48,7 +54,17 @@ class TransfermarktClient:
     @classmethod
     async def _get(cls, url: str, **kwargs) -> httpx.Response:
         async with cls._get_semaphore():
-            return await HttpClient.get(url, **kwargs)
+            response = await HttpClient.get(url, **kwargs)
+        if response.status_code == HTTPStatus.ACCEPTED or cls.WAF_ACTION_HEADER in response.headers:
+            logger.warning('transfermarkt_blocked', url=url, status=response.status_code)
+            raise TransfermarktBlockedError
+        return response
+
+    @staticmethod
+    def _raise_if_blocked(batches: list) -> None:
+        blocked = next((b for b in batches if isinstance(b, TransfermarktBlockedError)), None)
+        if blocked is not None:
+            raise blocked
 
     @classmethod
     async def fetch_page(cls, page: int, league: LeagueInfo | None = None) -> list[TmPlayer]:
@@ -87,6 +103,7 @@ class TransfermarktClient:
 
         tasks = [_one(pid, page) for pid in pos_ids for page in range(1, pages + 1)]
         batches = await asyncio.gather(*tasks, return_exceptions=True)
+        cls._raise_if_blocked(batches)
         seen: set[str] = set()
         merged: list[TmPlayer] = []
         for batch in batches:
@@ -164,6 +181,7 @@ class TransfermarktClient:
             ]
 
         batches = await asyncio.gather(*[_one(c) for c in clubs], return_exceptions=True)
+        cls._raise_if_blocked(batches)
         seen: set[str] = set()
         merged: list[TmPlayer] = []
         for batch in batches:
