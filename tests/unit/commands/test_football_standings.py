@@ -263,6 +263,13 @@ class TestZoneEmojis:
 
         assert '🔴' in result
 
+    def test_argentina_relegates_last_two_of_thirty(self, command):
+        standings = [_make_standing(28, 'Team', 10), _make_standing(30, 'Last', 5)]
+
+        result = command._format_table(standings, LEAGUES['ar'], LEAGUE_ZONES['ar'])
+
+        assert ('🔴 28.' in result, '🔴 30.' in result) == (False, True)
+
     def test_mid_table_gets_default(self, command):
         standings = [_make_standing(14, 'Team', 10)]
 
