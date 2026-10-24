@@ -6,7 +6,7 @@ from bot.domain.commands.base import Platform
 from bot.domain.commands.football_standings import FootballStandingsCommand
 from bot.domain.models.football import TmStandingRow
 from bot.domain.models.message import TextContent
-from bot.domain.services.transfermarkt.service import TransfermarktService
+from bot.domain.services.espn import EspnService
 from tests.factories.command_data import GroupCommandDataFactory
 
 _LEAGUE = LEAGUES['br']
@@ -83,7 +83,7 @@ class TestDefaultLiga:
     @pytest.mark.anyio
     async def test_defaults_to_brasileirao(self, command, mocker):
         mock_fetch = mocker.AsyncMock(return_value=_MOCK_STANDINGS)
-        mocker.patch.object(TransfermarktService, 'fetch_full_standings', new=mock_fetch)
+        mocker.patch.object(EspnService, 'fetch_standings', new=mock_fetch)
 
         data = GroupCommandDataFactory.build(text=',tabela')
         messages = await command.run(data)
@@ -96,8 +96,8 @@ class TestFullTable:
     @pytest.mark.anyio
     async def test_returns_all_teams(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=_MOCK_STANDINGS),
         )
 
@@ -111,8 +111,8 @@ class TestFullTable:
     @pytest.mark.anyio
     async def test_contains_league_name(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=_MOCK_STANDINGS),
         )
 
@@ -124,8 +124,8 @@ class TestFullTable:
     @pytest.mark.anyio
     async def test_contains_points(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=_MOCK_STANDINGS),
         )
 
@@ -137,8 +137,8 @@ class TestFullTable:
     @pytest.mark.anyio
     async def test_shows_medal_emojis_for_top3(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=_MOCK_STANDINGS),
         )
 
@@ -153,8 +153,8 @@ class TestFullTable:
     @pytest.mark.anyio
     async def test_shows_zone_separators(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=_MOCK_STANDINGS),
         )
 
@@ -170,8 +170,8 @@ class TestG4Flag:
     @pytest.mark.anyio
     async def test_filters_top_zone(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=_MOCK_STANDINGS),
         )
 
@@ -189,8 +189,8 @@ class TestZ4Flag:
     @pytest.mark.anyio
     async def test_filters_bottom_zone(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=_MOCK_STANDINGS),
         )
 
@@ -207,8 +207,8 @@ class TestEmptyStandings:
     @pytest.mark.anyio
     async def test_returns_error(self, command, mocker):
         mocker.patch.object(
-            TransfermarktService,
-            'fetch_full_standings',
+            EspnService,
+            'fetch_standings',
             new=mocker.AsyncMock(return_value=[]),
         )
 

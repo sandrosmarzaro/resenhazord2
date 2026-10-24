@@ -14,6 +14,7 @@ class LeagueInfo:
     sportsdb_id: int
     sportsdb_name: str
     sportsdb_season: str
+    espn_slug: str
 
 
 LEAGUES: dict[str, LeagueInfo] = {
@@ -27,6 +28,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4328,
         sportsdb_name='English Premier League',
         sportsdb_season='2024-2025',
+        espn_slug='eng.1',
     ),
     'la': LeagueInfo(
         code='la',
@@ -38,6 +40,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4335,
         sportsdb_name='Spanish La Liga',
         sportsdb_season='2024-2025',
+        espn_slug='esp.1',
     ),
     'bl': LeagueInfo(
         code='bl',
@@ -49,6 +52,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4331,
         sportsdb_name='German Bundesliga',
         sportsdb_season='2024-2025',
+        espn_slug='ger.1',
     ),
     'sa': LeagueInfo(
         code='sa',
@@ -60,6 +64,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4332,
         sportsdb_name='Italian Serie A',
         sportsdb_season='2024-2025',
+        espn_slug='ita.1',
     ),
     'l1': LeagueInfo(
         code='l1',
@@ -71,6 +76,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4334,
         sportsdb_name='French Ligue 1',
         sportsdb_season='2024-2025',
+        espn_slug='fra.1',
     ),
     'br': LeagueInfo(
         code='br',
@@ -82,6 +88,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4351,
         sportsdb_name='Brazilian Série A',
         sportsdb_season='2024',
+        espn_slug='bra.1',
     ),
     'ar': LeagueInfo(
         code='ar',
@@ -93,6 +100,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4406,
         sportsdb_name='Argentinian Primera Division',
         sportsdb_season='2024',
+        espn_slug='arg.1',
     ),
     'uy': LeagueInfo(
         code='uy',
@@ -104,6 +112,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4431,
         sportsdb_name='Uruguayan Primera Division',
         sportsdb_season='2024',
+        espn_slug='uru.1',
     ),
     'ec': LeagueInfo(
         code='ec',
@@ -115,6 +124,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4779,
         sportsdb_name='Ecuadorian Serie A',
         sportsdb_season='2024',
+        espn_slug='ecu.1',
     ),
     'co': LeagueInfo(
         code='co',
@@ -126,6 +136,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         sportsdb_id=4441,
         sportsdb_name='Colombian Primera A',
         sportsdb_season='2024',
+        espn_slug='col.1',
     ),
 }
 
