@@ -112,14 +112,27 @@ class TestDeezer:
         assert '/152/' in str(request.url)
 
     @pytest.mark.anyio
-    async def test_unknown_genre_defaults_to_all(self, command, deezer_route):
+    async def test_unknown_genre_lists_known_genres(self, command, deezer_route):
         data = GroupCommandDataFactory.build(text=',musica xyzgenre')
+
+        messages = await command.run(data)
+
+        assert not deezer_route.called
+        assert 'sertanejo' in messages[0].content.text
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('text', 'genre_id'),
+        [(',musica Forró', 76), (',musica hip hop', 116), (',musica eletrônica', 106)],
+    )
+    async def test_accented_or_spaced_genre_matches(self, command, deezer_route, text, genre_id):
+        data = GroupCommandDataFactory.build(text=text)
         deezer_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         await command.run(data)
 
         request = deezer_route.calls.last.request
-        assert '/0/' in str(request.url)
+        assert f'/{genre_id}/' in str(request.url)
 
     @pytest.mark.anyio
     async def test_caption_shows_genre_tag(self, command, deezer_route):
@@ -215,9 +228,18 @@ class TestJamendo:
         assert 'tags=rock' in str(request.url)
 
     @pytest.mark.anyio
-    async def test_free_unknown_genre_picks_random(self, command, jamendo_route, mocker):
-        mocker.patch('bot.domain.commands.music.random.choice', return_value='jazz')
+    async def test_free_unknown_genre_lists_known_genres(self, command, jamendo_route):
         data = GroupCommandDataFactory.build(text=',musica free unknowngenre')
+
+        messages = await command.run(data)
+
+        assert not jamendo_route.called
+        assert 'techno' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_free_without_genre_picks_random(self, command, jamendo_route, mocker):
+        mocker.patch('bot.domain.commands.music.random.choice', return_value='jazz')
+        data = GroupCommandDataFactory.build(text=',musica free')
         jamendo_route.mock(return_value=httpx.Response(200, json=self.MOCK_RESPONSE))
 
         await command.run(data)
@@ -272,38 +294,3 @@ class TestDuration:
     )
     def test_format_duration(self, seconds, expected):
         assert MusicCommand._format_duration(seconds) == expected
-
-
-class TestGenreParsing:
-    @pytest.mark.parametrize(
-        ('rest', 'expected_tag', 'expected_id'),
-        [
-            ('rock', 'rock', 152),
-            ('ROCK', 'rock', 152),
-            ('funk', 'funk', 472),
-            ('', 'all', 0),
-            ('unknowngenre', 'all', 0),
-            ('  jazz  ', 'jazz', 129),
-        ],
-    )
-    def test_parse_deezer_genre(self, rest, expected_tag, expected_id):
-        tag, genre_id = MusicCommand._parse_deezer_genre(rest)
-        assert tag == expected_tag
-        assert genre_id == expected_id
-
-    @pytest.mark.parametrize(
-        ('rest', 'expected'),
-        [
-            ('rock', 'rock'),
-            ('ROCK', 'rock'),
-            ('jazz', 'jazz'),
-            ('  pop  ', 'pop'),
-        ],
-    )
-    def test_parse_jamendo_genre_known(self, rest, expected):
-        assert MusicCommand._parse_jamendo_genre(rest) == expected
-
-    def test_parse_jamendo_genre_unknown_picks_random(self, mocker):
-        mocker.patch('bot.domain.commands.music.random.choice', return_value='electronic')
-        result = MusicCommand._parse_jamendo_genre('unknowngenre')
-        assert result == 'electronic'
