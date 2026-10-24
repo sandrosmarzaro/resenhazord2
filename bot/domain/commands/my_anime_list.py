@@ -106,36 +106,37 @@ class MyAnimeListCommand(Command):
 
     @classmethod
     def _build_caption(cls, item: dict, profile: dict) -> str:
-        tags = item.get('tags') or []
-        themes = [tag['name'] for tag in tags if tag['category'].startswith('Theme-')]
-        demographics = [tag['name'] for tag in tags if tag['category'] == 'Demographic']
-        size = item.get(profile['size_key'])
-        year = (item.get('startDate') or {}).get('year')
-        score = item.get('averageScore')
-        rank = cls._rated_rank(item)
+        size = cls._or_unknown(item[profile['size_key']], suffix='x')
+        year = cls._or_unknown(item['startDate']['year'])
+        score = cls._or_unknown(item['averageScore'] and item['averageScore'] / cls.SCORE_SCALE)
+        rank = cls._or_unknown(cls._rated_rank(item))
+        themes = cls._tag_names(item, 'Theme-')[: cls.MAX_THEMES]
         creators = cls._creators(item, profile['creator_key'])
-
-        size_display = f'{size}x' if size else '?'
-        date_display = str(year) if year else '?'
-        score_display = str(score / cls.SCORE_SCALE) if score else '?'
-        rank_display = str(rank) if rank else '?'
 
         return '\n'.join(
             [
                 f'*{item["title"]["romaji"]}*',
                 '',
-                f'{profile["size_emoji"]} {size_display} \t📅 {date_display}',
-                f'⭐️ {score_display} \t🏆 #{rank_display}',
-                f'🧬 {cls._join(item.get("genres") or [])}',
-                f'📜 {cls._join(themes[: cls.MAX_THEMES])}',
-                f'📈 {cls._join(demographics)}',
+                f'{profile["size_emoji"]} {size} \t📅 {year}',
+                f'⭐️ {score} \t🏆 #{rank}',
+                f'🧬 {cls._join(item["genres"])}',
+                f'📜 {cls._join(themes)}',
+                f'📈 {cls._join(cls._tag_names(item, "Demographic"))}',
                 f'{profile["creator_emoji"]} {cls._join(creators)}',
             ]
         )
 
     @staticmethod
+    def _or_unknown(value: object, suffix: str = '') -> str:
+        return f'{value}{suffix}' if value else '?'
+
+    @staticmethod
+    def _tag_names(item: dict, category_prefix: str) -> list[str]:
+        return [tag['name'] for tag in item['tags'] if tag['category'].startswith(category_prefix)]
+
+    @staticmethod
     def _rated_rank(item: dict) -> int | None:
-        rankings = item.get('rankings') or []
+        rankings = item['rankings']
         rated = (r['rank'] for r in rankings if r['type'] == 'RATED' and r['allTime'])
         return next(rated, None)
 
