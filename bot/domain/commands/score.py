@@ -1,4 +1,4 @@
-"""Live football matches from Transfermarkt."""
+"""Live football matches from ESPN."""
 
 from typing import TYPE_CHECKING, ClassVar
 
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from bot.domain.models.command_data import CommandData
     from bot.domain.models.message import BotMessage
 
+from bot.domain.services.espn import EspnService
 from bot.domain.services.score_formatter import (
     apply_soft_cap,
     build_section,
@@ -25,9 +26,6 @@ from bot.domain.services.score_formatter import (
     format_upcoming_row,
     is_within_upcoming_window,
     score_emoji,
-)
-from bot.domain.services.transfermarkt.service import (
-    TransfermarktService,
 )
 
 # Re-export for backward compatibility with tests
@@ -55,7 +53,7 @@ class ScoreCommand(Command):
         return 'Placar ao vivo de jogos de futebol com resultados ao vivo, próximos e encerrados.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        matches = await TransfermarktService.fetch_live_matches()
+        matches = await EspnService.fetch_scoreboard()
         show_past, show_now, show_next = self._resolve_flags(parsed)
 
         live = self._live_matches(matches) if show_now else []
