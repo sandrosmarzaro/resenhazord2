@@ -13,6 +13,7 @@ def _correlation_headers() -> dict[str, str]:
 
 class HttpClient:
     _client: httpx.AsyncClient | None = None
+    _TIMEOUT = httpx.Timeout(30.0, connect=5.0)
 
     @classmethod
     def client(cls) -> httpx.AsyncClient:
@@ -24,7 +25,7 @@ class HttpClient:
             )
             transport = RetryTransport(retry=retry)
             cls._client = httpx.AsyncClient(
-                timeout=30.0, transport=transport, follow_redirects=True
+                timeout=cls._TIMEOUT, transport=transport, follow_redirects=True
             )
         return cls._client
 
