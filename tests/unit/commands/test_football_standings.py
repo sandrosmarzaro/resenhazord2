@@ -217,6 +217,17 @@ class TestEmptyStandings:
 
         assert isinstance(messages[0].content, TextContent)
 
+    @pytest.mark.anyio
+    async def test_falls_back_to_first_stage(self, command, mocker):
+        fetch = mocker.AsyncMock(side_effect=[[], _MOCK_STANDINGS])
+        mocker.patch.object(EspnService, 'fetch_standings', new=fetch)
+
+        data = GroupCommandDataFactory.build(text=',tabela ec')
+        messages = await command.run(data)
+
+        fetch.assert_awaited_with(LEAGUES['ec'], EspnService.FIRST_STAGE)
+        assert '1ª fase' in messages[0].content.text
+
 
 class TestFormatGoalDiff:
     def test_positive_goal_diff(self, command):
@@ -262,6 +273,13 @@ class TestZoneEmojis:
         result = command._format_table(standings, _LEAGUE, _ZONES)
 
         assert '🔴' in result
+
+    def test_argentina_relegates_last_two_of_thirty(self, command):
+        standings = [_make_standing(28, 'Team', 10), _make_standing(30, 'Last', 5)]
+
+        result = command._format_table(standings, LEAGUES['ar'], LEAGUE_ZONES['ar'])
+
+        assert ('🔴 28.' in result, '🔴 30.' in result) == (False, True)
 
     def test_mid_table_gets_default(self, command):
         standings = [_make_standing(14, 'Team', 10)]
