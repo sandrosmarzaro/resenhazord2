@@ -7,7 +7,6 @@ from bot.domain.models.football import (
     TmLiveMatch,
     TmPlayer,
     TmSquadStats,
-    TmStandingRow,
 )
 from bot.domain.services.transfermarkt.club_parser import ClubParser
 from bot.domain.services.transfermarkt.live_parser import LiveMatchParser
@@ -34,10 +33,6 @@ class TransfermarktParser:
     @classmethod
     def parse_tabelle(cls, html: str) -> dict[str, int]:
         return StandingParser.parse_tabelle(html)
-
-    @classmethod
-    def parse_full_tabelle(cls, html: str) -> list[TmStandingRow]:
-        return StandingParser.parse_full_tabelle(html)
 
     @classmethod
     def parse_clubs_page(cls, html: str) -> list[TmClub]:

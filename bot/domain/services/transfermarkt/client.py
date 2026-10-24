@@ -27,7 +27,7 @@ from bot.data.transfermarkt_urls import (
     SQUAD_VALUES_URL,
 )
 from bot.domain.exceptions import TransfermarktBlockedError
-from bot.domain.models.football import TmClub, TmLiveMatch, TmPlayer, TmSquadStats, TmStandingRow
+from bot.domain.models.football import TmClub, TmLiveMatch, TmPlayer, TmSquadStats
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
 
@@ -134,13 +134,6 @@ class TransfermarktClient:
         response = await cls._get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_tabelle(response.text)
-
-    @classmethod
-    async def fetch_full_standings(cls, league: LeagueInfo) -> list[TmStandingRow]:
-        url = f'{TransfermarktParser.TM_BASE}/{league.tm_slug}/tabelle/wettbewerb/{league.tm_id}'
-        response = await cls._get(url, headers=HEADERS)
-        response.raise_for_status()
-        return TransfermarktParser.parse_full_tabelle(response.text)
 
     @classmethod
     async def fetch_top_clubs(cls, count: int) -> list[TmClub]:
