@@ -31,6 +31,7 @@ class EspnService:
     _POSTPONED: ClassVar[str] = 'STATUS_POSTPONED'
     _HALFTIME: ClassVar[str] = 'STATUS_HALFTIME'
     _HALFTIME_LABEL: ClassVar[str] = 'Intervalo'
+    FIRST_STAGE: ClassVar[int] = 1
 
     @classmethod
     async def fetch_scoreboard(cls) -> list[TmLiveMatch]:
@@ -90,14 +91,19 @@ class EspnService:
         return status['displayClock']
 
     @classmethod
-    async def fetch_standings(cls, league: LeagueInfo) -> list[TmStandingRow]:
-        response = await HttpClient.get(cls._STANDINGS_URL.format(slug=league.espn_slug))
+    async def fetch_standings(
+        cls, league: LeagueInfo, season_type: int | None = None
+    ) -> list[TmStandingRow]:
+        params = {'seasontype': season_type} if season_type else None
+        url = cls._STANDINGS_URL.format(slug=league.espn_slug)
+        response = await HttpClient.get(url, params=params)
         response.raise_for_status()
         groups = [child['standings']['entries'] for child in response.json().get('children', [])]
         rows = [cls._parse_row(entry) for entries in groups for entry in entries]
-        if len(groups) == 1:
-            return sorted(rows, key=lambda row: row.rank)
-        return cls._merge_groups(rows)
+        # Ranks repeat across zones (Argentina) and inside LigaPro's mixed-stage table.
+        if len({row.rank for row in rows}) < len(rows):
+            return cls._merge_groups(rows)
+        return sorted(rows, key=lambda row: row.rank)
 
     @staticmethod
     def _parse_row(entry: dict[str, Any]) -> TmStandingRow:

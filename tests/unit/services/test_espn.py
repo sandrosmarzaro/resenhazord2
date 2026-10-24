@@ -85,12 +85,38 @@ class TestFetchStandings:
         assert [(row.rank, row.team) for row in rows] == [(1, 'River'), (2, 'Boca'), (3, 'Lanus')]
 
     @pytest.mark.anyio
+    async def test_reranks_single_group_with_repeated_ranks(self, respx_mock):
+        respx_mock.get(_STANDINGS_URL).mock(
+            return_value=_standings(
+                [_entry('Valle', 1, 74), _entry('Mushuc', 1, 39), _entry('Catolica', 2, 51)]
+            )
+        )
+
+        rows = await EspnService.fetch_standings(LEAGUES['br'])
+
+        assert [(row.rank, row.team) for row in rows] == [
+            (1, 'Valle'),
+            (2, 'Catolica'),
+            (3, 'Mushuc'),
+        ]
+
+    @pytest.mark.anyio
     async def test_league_without_standings_returns_empty(self, respx_mock):
         respx_mock.get(_STANDINGS_URL).mock(return_value=httpx.Response(200, json={}))
 
         rows = await EspnService.fetch_standings(LEAGUES['br'])
 
         assert rows == []
+
+    @pytest.mark.anyio
+    async def test_requests_given_season_type(self, respx_mock):
+        respx_mock.get(_STANDINGS_URL, params={'seasontype': '1'}).mock(
+            return_value=_standings([_entry('Flamengo', 1, 67)])
+        )
+
+        rows = await EspnService.fetch_standings(LEAGUES['br'], EspnService.FIRST_STAGE)
+
+        assert [row.team for row in rows] == ['Flamengo']
 
 
 def _event(state: str, **overrides) -> dict:

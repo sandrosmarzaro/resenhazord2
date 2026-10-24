@@ -217,6 +217,17 @@ class TestEmptyStandings:
 
         assert isinstance(messages[0].content, TextContent)
 
+    @pytest.mark.anyio
+    async def test_falls_back_to_first_stage(self, command, mocker):
+        fetch = mocker.AsyncMock(side_effect=[[], _MOCK_STANDINGS])
+        mocker.patch.object(EspnService, 'fetch_standings', new=fetch)
+
+        data = GroupCommandDataFactory.build(text=',tabela ec')
+        messages = await command.run(data)
+
+        fetch.assert_awaited_with(LEAGUES['ec'], EspnService.FIRST_STAGE)
+        assert '1ª fase' in messages[0].content.text
+
 
 class TestFormatGoalDiff:
     def test_positive_goal_diff(self, command):
