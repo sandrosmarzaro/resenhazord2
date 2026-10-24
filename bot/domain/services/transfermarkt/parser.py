@@ -4,13 +4,10 @@ import structlog
 
 from bot.domain.models.football import (
     TmClub,
-    TmLiveMatch,
     TmPlayer,
     TmSquadStats,
-    TmStandingRow,
 )
 from bot.domain.services.transfermarkt.club_parser import ClubParser
-from bot.domain.services.transfermarkt.live_parser import LiveMatchParser
 from bot.domain.services.transfermarkt.player_parser import PlayerParser
 from bot.domain.services.transfermarkt.row_parser import RowParser
 from bot.domain.services.transfermarkt.squad_value_parser import SquadValueParser
@@ -36,20 +33,12 @@ class TransfermarktParser:
         return StandingParser.parse_tabelle(html)
 
     @classmethod
-    def parse_full_tabelle(cls, html: str) -> list[TmStandingRow]:
-        return StandingParser.parse_full_tabelle(html)
-
-    @classmethod
     def parse_clubs_page(cls, html: str) -> list[TmClub]:
         return ClubParser.parse_clubs_page(html)
 
     @classmethod
     def parse_league_clubs(cls, html: str) -> list[TmClub]:
         return ClubParser.parse_league_clubs(html)
-
-    @classmethod
-    def parse_live_matches(cls, html: str) -> list[TmLiveMatch]:
-        return LiveMatchParser.parse_live_matches(html)
 
     @classmethod
     def parse_player_profile(cls, html: str) -> dict[str, str]:

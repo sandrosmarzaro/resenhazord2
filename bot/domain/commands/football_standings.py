@@ -1,4 +1,4 @@
-"""League standings table from Transfermarkt."""
+"""League standings table from ESPN."""
 
 from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
 from bot.data.football_zones import (
@@ -19,7 +19,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import TmStandingRow
 from bot.domain.models.message import BotMessage
-from bot.domain.services.transfermarkt.service import TransfermarktService
+from bot.domain.services.espn import EspnService
 
 
 class FootballStandingsCommand(Command):
@@ -41,7 +41,7 @@ class FootballStandingsCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga', 'br')
         league = LEAGUES[liga_code]
-        standings = await TransfermarktService.fetch_full_standings(league)
+        standings = await EspnService.fetch_standings(league)
 
         if not standings:
             return [Reply.to(data).text('Ops, não achei essa tabela agora! ⚽')]

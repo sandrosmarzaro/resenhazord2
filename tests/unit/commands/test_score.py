@@ -26,7 +26,7 @@ def _make_match(  # noqa: PLR0913
     home_score: int | None,
     away_score: int | None,
     competition_name: str = 'Brasileirão',
-    competition_code: str = 'BRA1',
+    competition_code: str = 'bra.1',
     country: str = 'Brasil',
     country_flag_emoji: str = '🇧🇷',
     match_time: str = "45'",
@@ -156,7 +156,7 @@ class TestExecute:
         data = GroupCommandDataFactory.build(text='/placar')
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=[],
         ):
@@ -179,14 +179,14 @@ class TestExecute:
                 1,
                 1,
                 competition_name='Premier League',
-                competition_code='GB1',
+                competition_code='eng.1',
                 country='Inglaterra',
                 country_flag_emoji='🏴󠁧󠁢󠁥󠁮󠁧󠁿',
             ),
         ]
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -207,7 +207,7 @@ class TestExecute:
         ]
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -242,7 +242,7 @@ class TestExecute:
         )
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -261,7 +261,7 @@ class TestExecute:
         ]
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -297,7 +297,7 @@ class TestExecute:
         )
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -333,7 +333,7 @@ class TestExecute:
         )
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -367,7 +367,7 @@ class TestExecute:
         )
 
         with patch(
-            'bot.domain.commands.score.TransfermarktService.fetch_live_matches',
+            'bot.domain.commands.score.EspnService.fetch_scoreboard',
             new_callable=AsyncMock,
             return_value=matches,
         ):
@@ -402,58 +402,47 @@ def _finished(
 class TestApplySoftCap:
     def test_brasileirao_always_included_even_when_alphabetically_last(self):
         matches = [
-            _finished('RU1', 'Premier Liga', 'Zenit', 'Spartak', '1'),
-            _finished('SA1', 'Saudi Pro League', 'Al-Hilal', 'Al-Nassr', '2'),
-            _finished('A1', 'Austrian Bundesliga', 'Salzburg', 'Rapid', '3'),
-            _finished('BRA1', 'Brasileirão', 'Flamengo', 'Palmeiras', '4'),
+            _finished('rus.1', 'Premier Liga', 'Zenit', 'Spartak', '1'),
+            _finished('ksa.1', 'Saudi Pro League', 'Al-Hilal', 'Al-Nassr', '2'),
+            _finished('aut.1', 'Austrian Bundesliga', 'Salzburg', 'Rapid', '3'),
+            _finished('bra.1', 'Brasileirão', 'Flamengo', 'Palmeiras', '4'),
         ]
 
         picked = _apply_soft_cap(matches, soft_cap=7)
 
         codes = [m.competition_code for m in picked]
-        assert codes[0] == 'BRA1'
-        assert 'BRA1' in codes
+        assert codes[0] == 'bra.1'
+        assert 'bra.1' in codes
 
     def test_whole_league_kept_even_when_overflow(self):
-        top5 = [_finished('GB1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(6)]
-        ar = [_finished('AR1N', 'Liga Profesional', f'AH{i}', f'AA{i}', f'a{i}') for i in range(3)]
+        top5 = [_finished('eng.1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(6)]
+        ar = [_finished('arg.1', 'Liga Profesional', f'AH{i}', f'AA{i}', f'a{i}') for i in range(3)]
 
         picked = _apply_soft_cap([*top5, *ar], soft_cap=7)
 
         assert len(picked) == 9
-        assert sum(1 for m in picked if m.competition_code == 'GB1') == 6
-        assert sum(1 for m in picked if m.competition_code == 'AR1N') == 3
+        assert sum(1 for m in picked if m.competition_code == 'eng.1') == 6
+        assert sum(1 for m in picked if m.competition_code == 'arg.1') == 3
 
     def test_stops_after_soft_cap_reached(self):
-        top5 = [_finished('GB1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(8)]
+        top5 = [_finished('eng.1', 'Premier League', f'H{i}', f'A{i}', f'g{i}') for i in range(8)]
         low = [_finished('ZZZ', 'Long Tail', 'X', 'Y', 'z')]
 
         picked = _apply_soft_cap([*top5, *low], soft_cap=7)
 
         assert len(picked) == 8
-        assert all(m.competition_code == 'GB1' for m in picked)
+        assert all(m.competition_code == 'eng.1' for m in picked)
 
     def test_priority_ordering_brasileirao_before_europe_before_rest(self):
         matches = [
-            _finished('MEX1', 'Liga MX', 'A', 'B', '1'),
-            _finished('GB1', 'Premier League', 'C', 'D', '2'),
-            _finished('BRA1', 'Brasileirão', 'E', 'F', '3'),
+            _finished('mex.1', 'Liga MX', 'A', 'B', '1'),
+            _finished('eng.1', 'Premier League', 'C', 'D', '2'),
+            _finished('bra.1', 'Brasileirão', 'E', 'F', '3'),
         ]
 
         picked = _apply_soft_cap(matches, soft_cap=7)
 
-        assert [m.competition_code for m in picked] == ['BRA1', 'GB1', 'MEX1']
-
-
-class TestFlagOverridesAreDeduplicated:
-    def test_overrides_resolve_from_nationality_flag(self):
-        from bot.data.nationality_flags import nationality_flag
-        from bot.data.transfermarkt_country_codes import COMPETITION_CODE_OVERRIDES
-
-        assert COMPETITION_CODE_OVERRIDES['BRNE'] == nationality_flag('Brasil')
-        assert COMPETITION_CODE_OVERRIDES['CNAT'] == nationality_flag('Inglaterra')
-        assert COMPETITION_CODE_OVERRIDES['KR1'] == nationality_flag('Croácia')
-        assert COMPETITION_CODE_OVERRIDES['RLB3'] == nationality_flag('Alemanha')
+        assert [m.competition_code for m in picked] == ['bra.1', 'eng.1', 'mex.1']
 
 
 class TestResolveFlags:

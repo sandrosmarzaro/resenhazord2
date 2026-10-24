@@ -1,11 +1,11 @@
 """Transfermarkt HTTP client — all async fetch operations."""
 
 import asyncio
-from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 from typing import ClassVar
 
 import httpx
+import structlog
 
 from bot.data.football import LeagueInfo
 from bot.data.transfermarkt_positions import POSITION_FILTERS
@@ -18,15 +18,17 @@ from bot.data.transfermarkt_urls import (
     HEADERS,
     LEAGUE_MAX_PAGES,
     LEAGUE_URL,
-    LIVE_URL_TEMPLATE,
     PLAYERS_PER_PAGE,
     POSITION_FILTER_URL,
     POSITION_MAX_PAGES,
     SQUAD_VALUES_URL,
 )
-from bot.domain.models.football import TmClub, TmLiveMatch, TmPlayer, TmSquadStats, TmStandingRow
+from bot.domain.exceptions import TransfermarktBlockedError
+from bot.domain.models.football import TmClub, TmPlayer, TmSquadStats
 from bot.domain.services.transfermarkt.parser import TransfermarktParser
 from bot.infrastructure.http_client import HttpClient
+
+logger = structlog.get_logger()
 
 
 class TransfermarktClient:
@@ -35,8 +37,8 @@ class TransfermarktClient:
     GLOBAL_MAX_PAGES = GLOBAL_MAX_PAGES
     LEAGUE_MAX_PAGES = LEAGUE_MAX_PAGES
     POSITION_MAX_PAGES = POSITION_MAX_PAGES
-    BR_TIMEZONE_OFFSET = timedelta(hours=-3)
     MAX_CONCURRENT_REQUESTS = 8
+    WAF_ACTION_HEADER = 'x-amzn-waf-action'
     _semaphore: ClassVar[asyncio.Semaphore | None] = None
 
     @classmethod
@@ -48,7 +50,17 @@ class TransfermarktClient:
     @classmethod
     async def _get(cls, url: str, **kwargs) -> httpx.Response:
         async with cls._get_semaphore():
-            return await HttpClient.get(url, **kwargs)
+            response = await HttpClient.get(url, **kwargs)
+        if response.status_code == HTTPStatus.ACCEPTED or cls.WAF_ACTION_HEADER in response.headers:
+            logger.warning('transfermarkt_blocked', url=url, status=response.status_code)
+            raise TransfermarktBlockedError
+        return response
+
+    @staticmethod
+    def _raise_if_blocked(batches: list) -> None:
+        blocked = next((b for b in batches if isinstance(b, TransfermarktBlockedError)), None)
+        if blocked is not None:
+            raise blocked
 
     @classmethod
     async def fetch_page(cls, page: int, league: LeagueInfo | None = None) -> list[TmPlayer]:
@@ -87,6 +99,7 @@ class TransfermarktClient:
 
         tasks = [_one(pid, page) for pid in pos_ids for page in range(1, pages + 1)]
         batches = await asyncio.gather(*tasks, return_exceptions=True)
+        cls._raise_if_blocked(batches)
         seen: set[str] = set()
         merged: list[TmPlayer] = []
         for batch in batches:
@@ -117,13 +130,6 @@ class TransfermarktClient:
         response = await cls._get(url, headers=HEADERS)
         response.raise_for_status()
         return TransfermarktParser.parse_tabelle(response.text)
-
-    @classmethod
-    async def fetch_full_standings(cls, league: LeagueInfo) -> list[TmStandingRow]:
-        url = f'{TransfermarktParser.TM_BASE}/{league.tm_slug}/tabelle/wettbewerb/{league.tm_id}'
-        response = await cls._get(url, headers=HEADERS)
-        response.raise_for_status()
-        return TransfermarktParser.parse_full_tabelle(response.text)
 
     @classmethod
     async def fetch_top_clubs(cls, count: int) -> list[TmClub]:
@@ -164,6 +170,7 @@ class TransfermarktClient:
             ]
 
         batches = await asyncio.gather(*[_one(c) for c in clubs], return_exceptions=True)
+        cls._raise_if_blocked(batches)
         seen: set[str] = set()
         merged: list[TmPlayer] = []
         for batch in batches:
@@ -173,33 +180,4 @@ class TransfermarktClient:
                 if p.name not in seen:
                     seen.add(p.name)
                     merged.append(p)
-        return merged
-
-    @classmethod
-    async def fetch_live_matches(cls) -> list[TmLiveMatch]:
-        br_time = timezone(TransfermarktClient.BR_TIMEZONE_OFFSET)
-        today = datetime.now(br_time).date()
-        yesterday = today - timedelta(days=1)
-        dates = [yesterday.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')]
-
-        async def _fetch_one(date_str: str) -> list[TmLiveMatch]:
-            try:
-                response = await cls._get(LIVE_URL_TEMPLATE.format(date=date_str), headers=HEADERS)
-                response.raise_for_status()
-                return TransfermarktParser.parse_live_matches(response.text)
-            except OSError:
-                return []
-
-        batches = await asyncio.gather(*[_fetch_one(d) for d in dates], return_exceptions=True)
-
-        seen: set[str] = set()
-        merged: list[TmLiveMatch] = []
-        for date_str, batch in zip(dates, batches, strict=True):
-            if isinstance(batch, BaseException):
-                continue
-            for m in batch:
-                key = m.match_id or f'{m.home_team}|{m.away_team}|{m.competition_code}'
-                if key not in seen:
-                    seen.add(key)
-                    merged.append(replace(m, source_date=date_str))
         return merged

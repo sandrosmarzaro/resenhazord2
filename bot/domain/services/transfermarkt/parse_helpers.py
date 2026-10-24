@@ -14,7 +14,6 @@ class ParseHelpers:
     _PORTRAIT_SIZE_RE = re.compile(r'/portrait/(?:small|medium|header)/')
     _VEREIN_ID_RE = re.compile(r'/verein/(\d+)')
     _WETTBEWERB_ID_RE = re.compile(r'/wettbewerb/([A-Za-z0-9]+)(?:$|[/?])')
-    _WETTBEWERB_ID_RE_V2 = re.compile(r'/[pw]okal?wettbewerb/([A-Za-z0-9]+)(?:$|[/?])')
     _FOREIGNERS_RE = re.compile(r'(\d+)\s*\((\d+)%\)?')
     _VALUE_RE = re.compile(r'€\s*([\d.,]+)\s*(mi\.|mil\.)')
     _AGE_MIN = 15
