@@ -1,6 +1,9 @@
 """Static league metadata for football commands."""
 
 from dataclasses import dataclass
+from datetime import timedelta, timezone
+
+BR_TIMEZONE = timezone(timedelta(hours=-3))
 
 
 @dataclass(frozen=True)
