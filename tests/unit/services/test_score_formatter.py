@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from bot.domain.services.score_formatter import is_within_upcoming_window
+from bot.domain.services.score_formatter import format_date_label, is_within_upcoming_window
 
 _UPCOMING_WINDOW_HOURS = 6
 
@@ -22,3 +22,9 @@ class TestUpcomingWindow:
     @pytest.mark.usefixtures('evening_in_brazil')
     def test_kickoff_tomorrow_afternoon_is_outside_the_window(self):
         assert is_within_upcoming_window('16:00', _UPCOMING_WINDOW_HOURS) is False
+
+
+class TestDateLabel:
+    @pytest.mark.usefixtures('evening_in_brazil')
+    def test_kickoff_later_tonight_is_today_in_brazil(self):
+        assert format_date_label('21:30') == 'Hoje'
