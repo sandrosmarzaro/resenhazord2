@@ -130,9 +130,15 @@ class TestRun:
         assert 'Drama' in caption
 
     @pytest.mark.anyio
-    async def test_top_mode_uses_top_rated(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', filme top100')
-        route = respx_mock.get(url__regex=r'.*top_rated.*').mock(
+    @pytest.mark.parametrize(
+        ('text', 'media_type', 'min_votes'),
+        [(', filme top100', 'movie', '5000'), (', série top100', 'tv', '1000')],
+    )
+    async def test_top_ranks_by_score_among_widely_voted(
+        self, command, respx_mock, text, media_type, min_votes
+    ):
+        data = GroupCommandDataFactory.build(text=text)
+        route = respx_mock.get(f'https://api.themoviedb.org/3/discover/{media_type}').mock(
             return_value=httpx.Response(200, json={'results': [self._movie_item()]})
         )
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
@@ -142,7 +148,9 @@ class TestRun:
 
         await command.run(data)
 
-        assert route.called
+        params = route.calls.last.request.url.params
+        assert params['sort_by'] == 'vote_average.desc'
+        assert params['vote_count.gte'] == min_votes
 
     @pytest.mark.anyio
     async def test_pop_with_n_limits_page_range(self, command, respx_mock, mocker):

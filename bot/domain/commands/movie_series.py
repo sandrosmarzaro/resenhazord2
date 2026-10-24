@@ -23,6 +23,9 @@ class MovieSeriesCommand(Command):
     POSTER_SIZE = 'w500'
     MOVIE_NAMES: frozenset[str] = frozenset({'filme', 'movie'})
     OMDB_BASE_URL: str = 'http://www.omdbapi.com/'
+    TMDB_BASE_URL: str = 'https://api.themoviedb.org/3'
+    # TMDB's own top_rated list lets titles with a few hundred votes lead it.
+    TOP_MIN_VOTES: ClassVar[dict[str, int]] = {'movie': 5000, 'tv': 1000}
     OMDB_SOURCE_MAP: ClassVar[dict[str, str]] = {
         'Internet Movie Database': 'imdb',
         'Rotten Tomatoes': 'rt',
@@ -59,10 +62,11 @@ class MovieSeriesCommand(Command):
 
         mode, max_page, rank_limit = self._resolve_query(pop_str, top_str)
 
-        url = f'https://api.themoviedb.org/3/{media_type}/{mode}'
         page = random.randint(1, max_page)
+        url, ranking = self._listing(media_type, mode)
         response = await HttpClient.get(
-            url, params={'api_key': self._tmdb_api_key, 'language': 'pt-BR', 'page': page}
+            url,
+            params={'api_key': self._tmdb_api_key, 'language': 'pt-BR', 'page': page, **ranking},
         )
         response.raise_for_status()
         results = response.json()['results']
@@ -106,6 +110,12 @@ class MovieSeriesCommand(Command):
             rank_limit = 0
             max_page = self.MAX_PAGE
         return mode, max_page, rank_limit
+
+    def _listing(self, media_type: str, mode: str) -> tuple[str, dict[str, str | int]]:
+        if mode == 'popular':
+            return f'{self.TMDB_BASE_URL}/{media_type}/popular', {}
+        ranking = {'sort_by': 'vote_average.desc', 'vote_count.gte': self.TOP_MIN_VOTES[media_type]}
+        return f'{self.TMDB_BASE_URL}/discover/{media_type}', ranking
 
     async def _fetch_genres(self, media_type: str, genre_ids: list[int]) -> str:
         genres_url = f'https://api.themoviedb.org/3/genre/{media_type}/list'
