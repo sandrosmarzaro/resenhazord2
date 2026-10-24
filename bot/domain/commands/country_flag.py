@@ -2,12 +2,11 @@ import random
 
 import structlog
 
-from bot.data.country_flag import DRIVING_SIDE_PT, REGION_MAP, SUBREGION_PT
+from bot.data.country_flag import DRIVING_SIDE_PT, LANGUAGE_PT, REGION_MAP, SUBREGION_PT
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.domain.services.translator import Translator
 from bot.infrastructure.restcountries_client import RestCountriesClient
 
 logger = structlog.get_logger()
@@ -40,9 +39,8 @@ class CountryFlagCommand(Command):
             renderable = [country for country in countries if self._has_flag(country)]
             country = random.choice(renderable)
             names = country.get('names', {})
-            common_pt = await Translator.to_pt(names.get('common', ''))
-            official_pt = await Translator.to_pt(names.get('official', ''))
-            country = {**country, 'names': {**names, 'common': common_pt, 'official': official_pt}}
+            names_pt = names.get('translations', {}).get('por', names)
+            country = {**country, 'names': names_pt}
             caption = self._build_caption(country, detail='detail' in parsed.flags)
             flag_png = country.get('flag', {}).get('url_png', '')
             return [Reply.to(data).image(flag_png, caption)]
@@ -71,7 +69,11 @@ class CountryFlagCommand(Command):
         area_km = country.get('area', {}).get('kilometers', 0)
         area = f'{round(area_km):,}'.replace(',', '.')
         languages = (
-            ', '.join(language['name'] for language in country.get('languages', [])) or 'N/A'
+            ', '.join(
+                LANGUAGE_PT.get(language['iso639_3'], language['name'])
+                for language in country.get('languages', [])
+            )
+            or 'N/A'
         )
         currencies = (
             ' / '.join(
