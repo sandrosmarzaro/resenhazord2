@@ -73,7 +73,7 @@ def _make_player(name: str, position: str) -> TmPlayer:
         nationality='Brazil',
         club='Manchester City',
         club_id='281',
-        market_value='€ 50,00 mi.',
+        market_value=50_000_000,
         photo_url=f'https://img.a.transfermarkt.technology/portrait/header/{name}.jpg',
         badge_url='https://tmssl.akamaized.net/images/wappen/head/281.png',
         nationality_flag_emoji='🇧🇷',
@@ -337,7 +337,9 @@ class TestFullTeam:
 
         squad.assert_awaited_once_with('GB1')
         assert isinstance(messages[0].content, ImageBufferContent)
-        assert _FORMATION.name in messages[0].content.caption
+        assert messages[0].content.caption == (
+            f'⚽ *Escalação Aleatória* — {_FORMATION.name}\n💰 € {50 * _N_SLOTS},00 mi.'
+        )
 
     @pytest.mark.anyio
     async def test_global_lineup_fills_every_slot(self, command, squad, field):
