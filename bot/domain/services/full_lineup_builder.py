@@ -1,16 +1,20 @@
 """Build full team lineup with field image."""
 
 import asyncio
+from typing import ClassVar
 
-from bot.data.football import LEAGUES, LeagueInfo
+from bot.data.football import LEAGUES
 from bot.data.football_formations import Formation
 from bot.domain.services.football_field.build_field import build_football_field
 from bot.domain.services.lineup_builder import LineupBuilder
+from bot.domain.services.market_dataset import MarketDataset
 from bot.domain.services.player_assets import PlayerAssets
 from bot.domain.services.transfermarkt.service import TransfermarktService
 
 
 class FullLineupBuilder:
+    GLOBAL_ROLE_POOL: ClassVar[int] = 100
+
     @staticmethod
     async def build(
         league_code: str | None,
@@ -18,12 +22,10 @@ class FullLineupBuilder:
         top_n: int,
     ) -> tuple[bytes, str]:
         league = LEAGUES.get(league_code) if league_code else None
-
-        if league:
-            ordered = await FullLineupBuilder._league_lineup(league, formation)
-        else:
-            max_pages = FullLineupBuilder._resolve_global_pages(top_n)
-            ordered = await LineupBuilder.from_position_queries(formation, max_pages, top_n)
+        players = await MarketDataset.players(league.tm_id if league else '')
+        # A league XI draws from whole squads; the world XI from the top of each role.
+        per_role = None if league else (top_n if top_n > 0 else FullLineupBuilder.GLOBAL_ROLE_POOL)
+        ordered = LineupBuilder.from_players(players, formation, per_role)
 
         photos_ordered, badge_images = await PlayerAssets.fetch(ordered)
 
@@ -41,18 +43,3 @@ class FullLineupBuilder:
         if total_value:
             caption += f'\n💰 {total_value}'
         return field_image, caption
-
-    @staticmethod
-    async def _league_lineup(league: LeagueInfo, formation: Formation) -> list:
-        all_players = await TransfermarktService.fetch_league_full_squad(league)
-        return LineupBuilder.from_league_squad(all_players, formation)
-
-    @staticmethod
-    def _resolve_global_pages(top_n: int) -> int:
-        max_pages = TransfermarktService.POSITION_MAX_PAGES
-        if top_n <= 0:
-            return max_pages
-        pages_for_top = (
-            top_n + TransfermarktService.PLAYERS_PER_PAGE - 1
-        ) // TransfermarktService.PLAYERS_PER_PAGE
-        return max(1, min(pages_for_top, TransfermarktService.GLOBAL_MAX_PAGES))
