@@ -185,6 +185,7 @@ class TestClubs:
                 club_id='281',
                 name='Manchester City',
                 badge_url='https://tmssl.akamaized.net/images/wappen/head/281.png',
+                league_id='GB1',
             ),
             TmSquadStats(
                 market_value='€ 30,00 mi.',
@@ -195,6 +196,7 @@ class TestClubs:
                 club_id='1023',
                 name='Palmeiras',
                 badge_url='https://tmssl.akamaized.net/images/wappen/head/1023.png',
+                league_id='BRA1',
             ),
             TmSquadStats(
                 market_value='€ 0 mil.',
@@ -205,6 +207,7 @@ class TestClubs:
                 club_id='77',
                 name='Sem Valor Futebol Clube',
                 badge_url='https://tmssl.akamaized.net/images/wappen/head/77.png',
+                league_id='BRA1',
             ),
         ]
 

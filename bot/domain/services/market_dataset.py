@@ -141,6 +141,7 @@ class MarketDataset:
             club_id=row['club_id'],
             name=row['name'],
             badge_url=_badge_url(row['club_id']),
+            league_id=row['domestic_competition_id'],
         )
 
     @classmethod

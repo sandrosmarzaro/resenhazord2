@@ -1,7 +1,7 @@
 """Build formatted team captions for bot responses."""
 
 from bot.data.football import LeagueInfo
-from bot.domain.models.football import SportsDBTeam, TmClub, TmSquadStats
+from bot.domain.models.football import SportsDBTeam, TmSquadStats
 
 
 class TeamCaptionBuilder:
@@ -9,15 +9,17 @@ class TeamCaptionBuilder:
     def build(
         club: TmSquadStats,
         sports_team: SportsDBTeam | None,
-        league: LeagueInfo,
+        league: LeagueInfo | None,
         rank: int | None,
         global_rank: int | None = None,
     ) -> str:
-        country = sports_team.country if sports_team else league.country
+        name = sports_team.name if sports_team else club.name
+        league_country = league.country if league else ''
+        country = sports_team.country if sports_team else league_country
         founded = sports_team.founded if sports_team else ''
         lines = [
-            f'*{club.name}* — {league.name}',
-            TeamCaptionBuilder._head_line(league.flag, country, founded),
+            f'*{name}* — {league.name}' if league else f'*{name}*',
+            TeamCaptionBuilder._head_line(league.flag if league else '🌍', country, founded),
         ]
         lines.extend(TeamCaptionBuilder._stadium_lines(sports_team))
         if rank:
@@ -67,32 +69,3 @@ class TeamCaptionBuilder:
             return f'{int(raw):,}'.replace(',', '.')
         except ValueError:
             return raw
-
-    @staticmethod
-    def build_bare(
-        club: TmClub,
-        sports_team: SportsDBTeam | None,
-        league: LeagueInfo | None = None,
-    ) -> str:
-        country = TeamCaptionBuilder._resolve_country(club, sports_team, league)
-        founded = sports_team.founded if sports_team else ''
-        name = sports_team.name if sports_team else club.name
-        title = f'*{name}*' if league is None else f'*{name}* — {league.name}'
-        flag = league.flag if league else '🌍'
-        head = TeamCaptionBuilder._head_line(flag, country, founded)
-        lines = [title, head]
-        lines.extend(TeamCaptionBuilder._stadium_lines(sports_team))
-        lines.append(f'🏆 #{club.rank}º mais valioso')
-        if club.squad_value:
-            lines.append(f'💰 {club.squad_value}')
-        return '\n'.join(lines)
-
-    @staticmethod
-    def _resolve_country(
-        club: TmClub, sports_team: SportsDBTeam | None, league: LeagueInfo | None
-    ) -> str:
-        if sports_team:
-            return sports_team.country
-        if league:
-            return league.country
-        return club.country

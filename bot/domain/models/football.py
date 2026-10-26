@@ -58,6 +58,7 @@ class TmSquadStats:
     club_id: str = ''
     name: str = ''
     badge_url: str = ''
+    league_id: str = ''
 
 
 @dataclass(frozen=True)
@@ -83,12 +84,6 @@ class TmStandingRow:
     goals_against: int
     goal_diff: int
     points: int
-
-
-@dataclass(frozen=True)
-class StandingRow:
-    rank: int
-    team: str
 
 
 @dataclass(frozen=True)
