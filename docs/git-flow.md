@@ -68,7 +68,9 @@ This project uses a **two-permanent-branch** flow. Direct pushes to either are b
 1. Sync: `git checkout develop && git pull`
 2. Branch: `git checkout -b feat/description`
 3. Commit using Conventional Commits (atomic — one logical change per commit)
-4. Push and open PR **targeting `develop`**
+4. Push and open PR **targeting `develop`**, assigned to the repo owner
+   (`gh pr create --assignee @me`). When the work comes from an issue, end the body
+   with `Closes #N` so the merge closes it.
 5. Require CI green + 1 approval, then **squash merge**
 6. Delete branch after merge
 
@@ -97,6 +99,12 @@ merge commit.
 
 To restack after amending a lower branch, run `git rebase --update-refs <base>` from the top
 of the stack (this also needs a force push).
+
+Never dodge the force-push block by republishing a rebased branch under a new name
+(`feat/x-v2`, `feat/x-v3`). Each copy leaves a stale remote branch behind, splits the
+branch's history from its PR, and hides the rewrite the hook exists to surface (#252–#256
+did this). Merge parents with a merge commit, or `git merge origin/develop` into the
+child, or ask the owner to run `git push --force-with-lease` on the feature branch.
 
 The squash-merge commit subject **must itself be a Conventional Commit** (`feat: …`, `fix(scope): …`, …) — commitizen reads every commit on `develop` and infers the version bump from these subjects.
 

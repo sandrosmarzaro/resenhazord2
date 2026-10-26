@@ -35,6 +35,14 @@ This file covers commit-time mechanics.
 - **No `--amend` after the commit is pushed.** Amend is for local fixups only.
 - **No force push to `main` or `develop`.** Feature branches only.
 - **No `--no-verify`** to skip hooks. If a hook fails, fix the cause.
+- **No `-v2` / `-vN` branch copies** to get around the force-push block. Follow the
+  stacked-PR rules in [docs/git-flow.md](../../docs/git-flow.md): merge commit for parents,
+  `git merge origin/develop` into the child, or ask the owner for the force push.
+
+## Pull requests
+
+- Open with `gh pr create --assignee @me` so the owner is the PR's assignee.
+- When the PR resolves an issue, end the body with `Closes #N`.
 
 ## File-scope guard
 
