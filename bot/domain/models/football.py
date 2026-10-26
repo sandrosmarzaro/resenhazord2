@@ -87,12 +87,6 @@ class TmStandingRow:
 
 
 @dataclass(frozen=True)
-class StandingRow:
-    rank: int
-    team: str
-
-
-@dataclass(frozen=True)
 class TmLiveMatch:
     competition_code: str
     competition_name: str

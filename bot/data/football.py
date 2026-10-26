@@ -14,9 +14,6 @@ class LeagueInfo:
     flag: str
     tm_id: str
     tm_slug: str
-    sportsdb_id: int
-    sportsdb_name: str
-    sportsdb_season: str
     espn_slug: str
 
 
@@ -28,9 +25,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🏴󠁧󠁢󠁥󠁮󠁧󠁿',
         tm_id='GB1',
         tm_slug='premier-league',
-        sportsdb_id=4328,
-        sportsdb_name='English Premier League',
-        sportsdb_season='2024-2025',
         espn_slug='eng.1',
     ),
     'la': LeagueInfo(
@@ -40,9 +34,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇪🇸',
         tm_id='ES1',
         tm_slug='laliga',
-        sportsdb_id=4335,
-        sportsdb_name='Spanish La Liga',
-        sportsdb_season='2024-2025',
         espn_slug='esp.1',
     ),
     'bl': LeagueInfo(
@@ -52,9 +43,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇩🇪',
         tm_id='L1',
         tm_slug='bundesliga',
-        sportsdb_id=4331,
-        sportsdb_name='German Bundesliga',
-        sportsdb_season='2024-2025',
         espn_slug='ger.1',
     ),
     'sa': LeagueInfo(
@@ -64,9 +52,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇮🇹',
         tm_id='IT1',
         tm_slug='serie-a',
-        sportsdb_id=4332,
-        sportsdb_name='Italian Serie A',
-        sportsdb_season='2024-2025',
         espn_slug='ita.1',
     ),
     'l1': LeagueInfo(
@@ -76,9 +61,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇫🇷',
         tm_id='FR1',
         tm_slug='ligue-1',
-        sportsdb_id=4334,
-        sportsdb_name='French Ligue 1',
-        sportsdb_season='2024-2025',
         espn_slug='fra.1',
     ),
     'br': LeagueInfo(
@@ -88,9 +70,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇧🇷',
         tm_id='BRA1',
         tm_slug='campeonato-brasileiro-serie-a',
-        sportsdb_id=4351,
-        sportsdb_name='Brazilian Série A',
-        sportsdb_season='2024',
         espn_slug='bra.1',
     ),
     'ar': LeagueInfo(
@@ -100,9 +79,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇦🇷',
         tm_id='ARG1',
         tm_slug='superliga',
-        sportsdb_id=4406,
-        sportsdb_name='Argentinian Primera Division',
-        sportsdb_season='2024',
         espn_slug='arg.1',
     ),
     'uy': LeagueInfo(
@@ -112,9 +88,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇺🇾',
         tm_id='URU1',
         tm_slug='primera-division',
-        sportsdb_id=4431,
-        sportsdb_name='Uruguayan Primera Division',
-        sportsdb_season='2024',
         espn_slug='uru.1',
     ),
     'ec': LeagueInfo(
@@ -124,9 +97,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇪🇨',
         tm_id='EC1N',
         tm_slug='ligapro-serie-a',
-        sportsdb_id=4779,
-        sportsdb_name='Ecuadorian Serie A',
-        sportsdb_season='2024',
         espn_slug='ecu.1',
     ),
     'co': LeagueInfo(
@@ -136,9 +106,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         flag='🇨🇴',
         tm_id='COL1',
         tm_slug='primera-a',
-        sportsdb_id=4441,
-        sportsdb_name='Colombian Primera A',
-        sportsdb_season='2024',
         espn_slug='col.1',
     ),
 }
