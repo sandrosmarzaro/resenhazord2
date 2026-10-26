@@ -98,7 +98,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         name='Liga Profesional',
         country='Argentina',
         flag='🇦🇷',
-        tm_id='AR1N',
+        tm_id='ARG1',
         tm_slug='superliga',
         sportsdb_id=4406,
         sportsdb_name='Argentinian Primera Division',
@@ -144,5 +144,7 @@ LEAGUES: dict[str, LeagueInfo] = {
 }
 
 LEAGUE_CODES: list[str] = list(LEAGUES.keys())
+# Leagues covered by the transfermarkt-datasets dump (no Uruguay, Ecuador or Colombia).
+MARKET_LEAGUE_CODES: list[str] = ['pl', 'la', 'bl', 'sa', 'l1', 'br', 'ar']
 
 LEAGUES_BY_TM_ID: dict[str, LeagueInfo] = {lg.tm_id: lg for lg in LEAGUES.values()}

@@ -26,7 +26,7 @@ from bot.data.market_dataset import (
     PLAYER_PHOTO_PREFIX,
 )
 from bot.data.nationality_flags import nationality_flag
-from bot.domain.models.football import TmPlayer, TmSquadStats
+from bot.domain.models.football import PlayerProfile, TmPlayer, TmSquadStats
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -122,6 +122,12 @@ class MarketDataset:
             photo_url=_photo_url(row['image_url']),
             badge_url=_badge_url(row['current_club_id']),
             nationality_flag_emoji=nationality_flag(row['country_of_citizenship']),
+            profile=PlayerProfile(
+                birth_city=row['city_of_birth'].strip(),
+                birth_country=row['country_of_birth'],
+                height_cm=row['height_in_cm'],
+                foot=row['foot'],
+            ),
         )
 
     @classmethod

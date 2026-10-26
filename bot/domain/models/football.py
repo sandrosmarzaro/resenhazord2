@@ -13,6 +13,14 @@ class MatchStatus(StrEnum):
 
 
 @dataclass(frozen=True)
+class PlayerProfile:
+    birth_city: str = ''
+    birth_country: str = ''
+    height_cm: str = ''
+    foot: str = ''
+
+
+@dataclass(frozen=True)
 class TmPlayer:
     name: str
     position: str
@@ -26,6 +34,7 @@ class TmPlayer:
     profile_url: str = ''
     nationality_flag_url: str = ''
     nationality_flag_emoji: str = ''
+    profile: PlayerProfile = PlayerProfile()
 
 
 @dataclass(frozen=True)

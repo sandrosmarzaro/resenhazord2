@@ -8,7 +8,7 @@ import pytest
 
 from bot.data.football import BR_TIMEZONE
 from bot.data.market_dataset import MARKET_DATASET_URL
-from bot.domain.models.football import TmPlayer, TmSquadStats
+from bot.domain.models.football import PlayerProfile, TmPlayer, TmSquadStats
 from bot.domain.services.market_dataset import MarketDataset
 
 _PLAYERS_URL = MARKET_DATASET_URL.format(table='players')
@@ -29,6 +29,10 @@ def _player(name: str, value: str, **overrides: str) -> dict[str, str]:
         'current_club_domestic_competition_id': 'GB1',
         'market_value_in_eur': value,
         'image_url': f'https://img.a.transfermarkt.technology/portrait/header/{name}.jpg',
+        'city_of_birth': 'Leeds\xa0\xa0',
+        'country_of_birth': 'England',
+        'height_in_cm': '195',
+        'foot': 'left',
         **overrides,
     }
 
@@ -116,6 +120,9 @@ class TestPlayers:
             photo_url='https://img.a.transfermarkt.technology/portrait/header/Haaland.jpg',
             badge_url='https://tmssl.akamaized.net/images/wappen/head/281.png',
             nationality_flag_emoji='🇳🇴',
+            profile=PlayerProfile(
+                birth_city='Leeds', birth_country='England', height_cm='195', foot='left'
+            ),
         )
         assert [player.name for player in players] == ['Haaland', 'Foden', 'Vitor Roque', 'Kid']
 

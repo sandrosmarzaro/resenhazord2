@@ -53,3 +53,25 @@ POSITION_FILTERS: dict[str, tuple[str, tuple[int, ...]]] = {
     'RW': ('Sturm', (12,)),
     'ST': ('Sturm', (13, 14)),
 }
+
+POSITION_LABELS: dict[str, str] = {
+    'Goalkeeper': 'Goleiro',
+    'Centre-Back': 'Zagueiro',
+    'Left-Back': 'Lateral-Esquerdo',
+    'Right-Back': 'Lateral-Direito',
+    'Defensive Midfield': 'Volante',
+    'Central Midfield': 'Meia Central',
+    'Left Midfield': 'Meia-Esquerda',
+    'Right Midfield': 'Meia-Direita',
+    'Attacking Midfield': 'Meia Ofensivo',
+    'Left Winger': 'Ponta Esquerda',
+    'Right Winger': 'Ponta Direita',
+    'Second Striker': 'Segundo Atacante',
+    'Centre-Forward': 'Centroavante',
+}
+
+FOOT_LABELS: dict[str, str] = {
+    'left': 'Esquerdo',
+    'right': 'Direito',
+    'both': 'Ambidestro',
+}
