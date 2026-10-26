@@ -1,17 +1,18 @@
 """Fetch player photos and badges in parallel."""
 
 import contextlib
+from collections.abc import Sequence
 
 import anyio
 
-from bot.domain.models.football import TmPlayer
+from bot.domain.models.football import LineupPlayer
 from bot.infrastructure.http_client import HttpClient
 
 
 class PlayerAssets:
     @staticmethod
     async def fetch(
-        ordered: list[TmPlayer | None],
+        ordered: Sequence[LineupPlayer | None],
     ) -> tuple[list[bytes | None], list[bytes | None]]:
         n = len(ordered)
         photos: list[bytes | None] = [None] * n
@@ -22,7 +23,7 @@ class PlayerAssets:
                 return await HttpClient.get_buffer(url)
             return None
 
-        async def _fetch_player(i: int, player: TmPlayer) -> None:
+        async def _fetch_player(i: int, player: LineupPlayer) -> None:
             if player.photo_url:
                 photos[i] = await _get(player.photo_url)
             if player.badge_url:

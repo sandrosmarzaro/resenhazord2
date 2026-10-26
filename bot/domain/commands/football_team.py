@@ -53,16 +53,21 @@ class FootballTeamCommand(Command):
                 OptionDef(name='top', pattern=r'top\d+'),
                 OptionDef(name='liga', values=MARKET_LEAGUE_CODES),
             ],
-            flags=['full', Flag.SHOW, Flag.DM],
+            flags=['full', 'fifa', Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
             platforms=[Platform.ALL],
         )
 
     @property
     def menu_description(self) -> str:
-        return 'Time aleatório com valor de elenco e posição na tabela. Use full para escalação.'
+        return (
+            'Time aleatório com valor de elenco e posição na tabela. '
+            'Use full para escalação e fifa para um time com os ratings do EA FC.'
+        )
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        if 'fifa' in parsed.flags:
+            return await self._fifa_team(data, parsed)
         if 'full' in parsed.flags:
             return await self._full_team(data, parsed)
         return await self._random_team(data, parsed)
@@ -141,4 +146,12 @@ class FootballTeamCommand(Command):
         top_n = _parse_top_n(parsed.options.get('top', ''))
 
         field_image, caption = await FullLineupBuilder.build(liga_code, formation, top_n)
+        return [Reply.to(data).image_buffer(field_image, caption)]
+
+    async def _fifa_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        if parsed.options.get('liga'):
+            reply = 'O time FIFA ainda não filtra por liga. Usa *,time fifa*! ⚽'
+            return [Reply.to(data).text(reply)]
+        top_n = _parse_top_n(parsed.options.get('top', ''))
+        field_image, caption = await FullLineupBuilder.build_fifa(random_formation(), top_n)
         return [Reply.to(data).image_buffer(field_image, caption)]

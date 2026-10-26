@@ -2,11 +2,18 @@ import httpx
 import pytest
 
 from bot.data.football import LEAGUES, MARKET_LEAGUE_CODES
-from bot.data.football_formations import FORMATIONS
+from bot.data.football_formations import FORMATIONS, specific_roles
 from bot.domain.commands.football_team import FootballTeamCommand
-from bot.domain.models.football import SportsDBTeam, TmPlayer, TmSquadStats, TmStandingRow
+from bot.domain.models.football import (
+    FifaPlayer,
+    SportsDBTeam,
+    TmPlayer,
+    TmSquadStats,
+    TmStandingRow,
+)
 from bot.domain.models.message import ImageBufferContent, TextContent
 from bot.domain.services.espn import EspnService
+from bot.domain.services.fifa_ratings import FifaRatings
 from bot.domain.services.market_dataset import MarketDataset
 from bot.domain.services.team_caption_builder import TeamCaptionBuilder
 from bot.domain.services.thesportsdb import TheSportsDBService
@@ -360,6 +367,67 @@ class TestFullTeam:
         await command.run(GroupCommandDataFactory.build(text=',time top1 full'))
 
         badge.assert_any_await('https://img.a.transfermarkt.technology/portrait/header/GK1.jpg')
+
+
+def _fifa_player(name: str, overall: int) -> FifaPlayer:
+    return FifaPlayer(
+        name=name,
+        overall=overall,
+        photo_url=f'https://ratings-images-prod.pulse.ea.com/{name}.png',
+        badge_url='https://drop-assets.ea.com/images/crest.png',
+        nationality_flag_emoji='🇧🇷',
+    )
+
+
+class TestFifaTeam:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def ratings(self, mocker, badge):
+        roles = set(specific_roles(_FORMATION))
+        pools = {
+            role: [_fifa_player(f'{role}-best', 90)]
+            + [_fifa_player(f'{role}-{i}', 80) for i in range(4)]
+            for role in roles
+        }
+        fetch = mocker.AsyncMock(return_value=pools)
+        mocker.patch.object(FifaRatings, 'role_pools', new=fetch)
+        mocker.patch('bot.domain.commands.football_team.random_formation', return_value=_FORMATION)
+        return fetch
+
+    @pytest.fixture
+    def field(self, mocker):
+        return mocker.patch(
+            'bot.domain.services.full_lineup_builder.build_football_field',
+            return_value=b'fake-field-image',
+        )
+
+    @pytest.mark.anyio
+    async def test_top1_fields_the_best_of_each_role(self, command, ratings, field):
+        messages = await command.run(GroupCommandDataFactory.build(text=',time fifa top1'))
+
+        ratings.assert_awaited_once_with(set(specific_roles(_FORMATION)))
+        assert messages[0].content.caption == (
+            f'⚽ *Escalação FIFA* — {_FORMATION.name}\n⭐ Overall médio: 90'
+        )
+        assert field.call_args.args[4] == 'OVR médio 90'
+
+    @pytest.mark.anyio
+    async def test_fills_every_slot(self, command, ratings, field):
+        messages = await command.run(GroupCommandDataFactory.build(text=',time fifa'))
+
+        names = field.call_args.args[1]
+        assert isinstance(messages[0].content, ImageBufferContent)
+        assert (len(names), all(names)) == (_N_SLOTS, True)
+
+    @pytest.mark.anyio
+    async def test_league_filter_is_not_supported(self, command, ratings):
+        messages = await command.run(GroupCommandDataFactory.build(text=',time pl fifa'))
+
+        assert isinstance(messages[0].content, TextContent)
+        ratings.assert_not_awaited()
 
 
 class TestBuildTeamCaption:
