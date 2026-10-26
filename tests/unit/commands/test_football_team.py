@@ -10,7 +10,6 @@ from bot.domain.services.espn import EspnService
 from bot.domain.services.market_dataset import MarketDataset
 from bot.domain.services.team_caption_builder import TeamCaptionBuilder
 from bot.domain.services.thesportsdb import TheSportsDBService
-from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
@@ -75,28 +74,27 @@ def _make_player(name: str, position: str) -> TmPlayer:
         club='Manchester City',
         club_id='281',
         market_value='€ 50,00 mi.',
-        photo_url='',
-        badge_url='',
+        photo_url=f'https://img.a.transfermarkt.technology/portrait/header/{name}.jpg',
+        badge_url='https://tmssl.akamaized.net/images/wappen/head/281.png',
         nationality_flag_emoji='🇧🇷',
     )
 
 
 _MOCK_SQUAD = [
-    _make_player('GK1', 'Goleiro'),
-    _make_player('CB1', 'Zagueiro'),
-    _make_player('CB2', 'Zagueiro'),
-    _make_player('CB3', 'Zagueiro'),
-    _make_player('LB1', 'Lateral Esq.'),
-    _make_player('RB1', 'Lateral Dir.'),
-    _make_player('CM1', 'Meia-Central'),
-    _make_player('CM2', 'Meia-Central'),
-    _make_player('CM3', 'Meia-Central'),
-    _make_player('CM4', 'Meia-Central'),
-    _make_player('LW1', 'Ponta Esquerda'),
-    _make_player('ST1', 'Centroavante'),
-    _make_player('RW1', 'Ponta Direita'),
-    _make_player('AM1', 'Meia Ofensivo'),
-    _make_player('DM1', 'Volante'),
+    _make_player('GK1', 'Goalkeeper'),
+    _make_player('GK2', 'Goalkeeper'),
+    _make_player('CB1', 'Centre-Back'),
+    _make_player('CB2', 'Centre-Back'),
+    _make_player('CB3', 'Centre-Back'),
+    _make_player('LB1', 'Left-Back'),
+    _make_player('RB1', 'Right-Back'),
+    _make_player('DM1', 'Defensive Midfield'),
+    _make_player('CM1', 'Central Midfield'),
+    _make_player('CM2', 'Central Midfield'),
+    _make_player('AM1', 'Attacking Midfield'),
+    _make_player('LW1', 'Left Winger'),
+    _make_player('RW1', 'Right Winger'),
+    _make_player('ST1', 'Centre-Forward'),
 ]
 
 
@@ -310,79 +308,56 @@ class TestGlobalTopTeam:
         assert '🏆 #1º mais valioso do mundo' in caption
 
 
-class TestFullTeamWithLiga:
+class TestFullTeam:
     @pytest.fixture
     def anyio_backend(self):
         return 'asyncio'
 
-    @pytest.mark.anyio
-    async def test_returns_field_image(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_league_full_squad',
-            new=mocker.AsyncMock(return_value=_MOCK_SQUAD),
-        )
-        mocker.patch(
+    @pytest.fixture
+    def squad(self, mocker, badge):
+        fetch = mocker.AsyncMock(return_value=_MOCK_SQUAD)
+        mocker.patch.object(MarketDataset, 'players', new=fetch)
+        mocker.patch('bot.domain.commands.football_team.random_formation', return_value=_FORMATION)
+        return fetch
+
+    @pytest.fixture
+    def field(self, mocker):
+        return mocker.patch(
             'bot.domain.services.full_lineup_builder.build_football_field',
             return_value=b'fake-field-image',
         )
-        mocker.patch(
-            'bot.domain.commands.football_team.random_formation',
-            return_value=_FORMATION,
-        )
 
-        data = GroupCommandDataFactory.build(text=',time pl full')
-        messages = await command.run(data)
+    @staticmethod
+    def _names(field) -> list[str]:
+        return field.call_args.args[1]
 
+    @pytest.mark.anyio
+    async def test_league_lineup_uses_league_players(self, command, squad, field):
+        messages = await command.run(GroupCommandDataFactory.build(text=',time pl full'))
+
+        squad.assert_awaited_once_with('GB1')
         assert isinstance(messages[0].content, ImageBufferContent)
-
-    @pytest.mark.anyio
-    async def test_caption_contains_formation_name(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_league_full_squad',
-            new=mocker.AsyncMock(return_value=_MOCK_SQUAD),
-        )
-        mocker.patch(
-            'bot.domain.services.full_lineup_builder.build_football_field',
-            return_value=b'fake-field-image',
-        )
-        mocker.patch(
-            'bot.domain.commands.football_team.random_formation',
-            return_value=_FORMATION,
-        )
-
-        data = GroupCommandDataFactory.build(text=',time pl full')
-        messages = await command.run(data)
-
         assert _FORMATION.name in messages[0].content.caption
 
+    @pytest.mark.anyio
+    async def test_global_lineup_fills_every_slot(self, command, squad, field):
+        await command.run(GroupCommandDataFactory.build(text=',time full'))
 
-class TestFullTeamGlobal:
-    @pytest.fixture
-    def anyio_backend(self):
-        return 'asyncio'
+        squad.assert_awaited_once_with('')
+        assert len(self._names(field)) == _N_SLOTS
+        assert all(self._names(field))
 
     @pytest.mark.anyio
-    async def test_returns_field_image(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_by_specific_position',
-            new=mocker.AsyncMock(return_value=_MOCK_SQUAD[:3]),
-        )
-        mocker.patch(
-            'bot.domain.services.full_lineup_builder.build_football_field',
-            return_value=b'fake-field-image',
-        )
-        mocker.patch(
-            'bot.domain.commands.football_team.random_formation',
-            return_value=_FORMATION,
-        )
+    async def test_top_n_keeps_the_most_valuable_per_role(self, command, squad, field):
+        await command.run(GroupCommandDataFactory.build(text=',time top1 full'))
 
-        data = GroupCommandDataFactory.build(text=',time full')
-        messages = await command.run(data)
+        assert ('GK1' in self._names(field), 'GK2' in self._names(field)) == (True, False)
 
-        assert isinstance(messages[0].content, ImageBufferContent)
+    @pytest.mark.anyio
+    async def test_fetches_photos_without_transfermarkt_headers(self, command, squad, field, badge):
+        await command.run(GroupCommandDataFactory.build(text=',time top1 full'))
+
+        badge.assert_any_await('https://img.a.transfermarkt.technology/portrait/header/GK1.jpg')
 
 
 class TestBuildTeamCaption:

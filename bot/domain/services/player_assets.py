@@ -5,7 +5,6 @@ import contextlib
 import anyio
 
 from bot.domain.models.football import TmPlayer
-from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -20,7 +19,7 @@ class PlayerAssets:
 
         async def _get(url: str) -> bytes | None:
             with contextlib.suppress(Exception):
-                return await HttpClient.get_buffer(url, headers=TransfermarktService.HEADERS)
+                return await HttpClient.get_buffer(url)
             return None
 
         async def _fetch_player(i: int, player: TmPlayer) -> None:
