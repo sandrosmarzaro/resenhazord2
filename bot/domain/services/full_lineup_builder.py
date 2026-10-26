@@ -48,5 +48,7 @@ class FullLineupBuilder:
         league = LEAGUES.get(league_code) if league_code else None
         players = await MarketDataset.players(league.tm_id if league else '')
         # A league XI draws from whole squads; the world XI from the top of each role.
-        per_role = None if league else (top_n if top_n > 0 else cls.GLOBAL_ROLE_POOL)
+        if league:
+            return LineupBuilder.from_players(players, formation)
+        per_role = top_n if top_n > 0 else cls.GLOBAL_ROLE_POOL
         return LineupBuilder.from_players(players, formation, per_role)
