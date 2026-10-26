@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 
 class MatchStatus(StrEnum):
@@ -18,6 +19,26 @@ class PlayerProfile:
     birth_country: str = ''
     height_cm: str = ''
     foot: str = ''
+
+
+class LineupPlayer(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def photo_url(self) -> str: ...
+    @property
+    def badge_url(self) -> str: ...
+    @property
+    def nationality_flag_emoji(self) -> str: ...
+
+
+@dataclass(frozen=True)
+class FifaPlayer:
+    name: str
+    overall: int
+    photo_url: str
+    badge_url: str
+    nationality_flag_emoji: str
 
 
 @dataclass(frozen=True)

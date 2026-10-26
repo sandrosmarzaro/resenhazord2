@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from PIL import Image, ImageDraw, ImageFont
 from PIL.Image import Resampling
 
+from bot.data.player_names import GENERATIONAL_SUFFIXES, SURNAME_PARTICLES
 from bot.domain.services.football_field.field_config import (
     DEFAULT_CONFIG,
     FieldConfig,
@@ -139,10 +140,22 @@ def shorten_name(name: str, max_len: int = 13) -> str:
     parts = name.split()
     if len(parts) <= 1:
         return name[:max_len]
-    last = parts[-1]
+    start = _surname_start(parts)
+    if start == 0 and len(name) <= max_len:
+        return name
+    last = ' '.join(parts[max(start, 1) :])
     if len(last) > max_len:
         return last[:max_len]
     abbreviated = f'{parts[0][0]}. {last}'
     if len(abbreviated) <= max_len:
         return abbreviated
     return last
+
+
+def _surname_start(parts: list[str]) -> int:
+    start = len(parts) - 1
+    if parts[start].lower() in GENERATIONAL_SUFFIXES:
+        start -= 1
+    while start > 1 and parts[start - 1].lower() in SURNAME_PARTICLES:
+        start -= 1
+    return start
