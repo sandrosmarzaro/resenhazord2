@@ -1,13 +1,12 @@
 """TheSportsDB client for team info and league standings."""
 
-import difflib
 from typing import Any
 
 import structlog
 
 from bot.data.football import LeagueInfo
-from bot.data.football_team_prefixes import CLUB_PREFIXES
 from bot.domain.models.football import SportsDBTeam, StandingRow
+from bot.domain.services.team_name_matcher import TeamNameMatcher
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -15,8 +14,6 @@ logger = structlog.get_logger()
 
 class TheSportsDBService:
     _BASE_URL = 'https://www.thesportsdb.com/api/v1/json/123'
-    _MATCH_MIN_JACCARD = 0.25
-    _SUBSTRING_MIN_LEN = 4
 
     @classmethod
     async def get_teams(cls, league: LeagueInfo) -> list[SportsDBTeam]:
@@ -59,56 +56,11 @@ class TheSportsDBService:
             return None
         return cls._parse_team(teams[0])
 
-    @classmethod
-    def find_best_match(cls, tm_name: str, sports_teams: list[SportsDBTeam]) -> SportsDBTeam | None:
-        if not sports_teams:
-            return None
-        tm_tokens = cls._name_tokens(tm_name)
-        if not tm_tokens:
-            return None
-        best: SportsDBTeam | None = None
-        best_jaccard = 0.0
-        best_ratio = 0.0
-        for t in sports_teams:
-            t_tokens = cls._name_tokens(t.name)
-            if not t_tokens:
-                continue
-            jaccard, ratio = cls._score_candidate(tm_name, tm_tokens, t.name, t_tokens)
-            if jaccard > best_jaccard or (jaccard == best_jaccard and ratio > best_ratio):
-                best = t
-                best_jaccard = jaccard
-                best_ratio = ratio
-        if best_jaccard < cls._MATCH_MIN_JACCARD:
-            return None
-        return best
-
-    @classmethod
-    def _score_candidate(
-        cls, tm_name: str, tm_tokens: set[str], t_name: str, t_tokens: set[str]
-    ) -> tuple[float, float]:
-        union = len(tm_tokens | t_tokens)
-        jaccard = len(tm_tokens & t_tokens) / union if union else 0.0
-        if jaccard == 0 and cls._token_substring_hit(tm_tokens, t_tokens):
-            jaccard = cls._MATCH_MIN_JACCARD
-        ratio = difflib.SequenceMatcher(None, tm_name.lower(), t_name.lower()).ratio()
-        return jaccard, ratio
-
     @staticmethod
-    def _name_tokens(name: str) -> set[str]:
-        raw = name.lower().replace('.', ' ').replace('-', ' ')
-        tokens = {t for t in raw.split() if t}
-        filtered = tokens - CLUB_PREFIXES
-        return filtered or tokens
-
-    @staticmethod
-    def _token_substring_hit(tm_tokens: set[str], t_tokens: set[str]) -> bool:
-        return any(
-            a.startswith(b) or b.startswith(a)
-            for a in tm_tokens
-            if len(a) >= TheSportsDBService._SUBSTRING_MIN_LEN
-            for b in t_tokens
-            if len(b) >= TheSportsDBService._SUBSTRING_MIN_LEN
-        )
+    def find_best_match(tm_name: str, sports_teams: list[SportsDBTeam]) -> SportsDBTeam | None:
+        by_name = {team.name: team for team in sports_teams}
+        match = TeamNameMatcher.best(tm_name, list(by_name))
+        return by_name[match] if match else None
 
     @staticmethod
     def _parse_team(t: dict) -> SportsDBTeam:

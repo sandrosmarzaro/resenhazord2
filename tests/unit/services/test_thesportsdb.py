@@ -168,12 +168,3 @@ class TestFindBestMatch:
         )
         result = TheSportsDBService.find_best_match('Fluminense', [team])
         assert result is None
-
-    def test_score_candidate_returns_jaccard_and_ratio(self):
-        tm_tokens = {'fluminense'}
-        t_tokens = {'fluminense'}
-        jaccard, ratio = TheSportsDBService._score_candidate(
-            'Fluminense', tm_tokens, 'Fluminense', t_tokens
-        )
-        assert jaccard == pytest.approx(1.0)
-        assert ratio == pytest.approx(1.0)
