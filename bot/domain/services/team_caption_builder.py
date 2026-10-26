@@ -14,7 +14,8 @@ class TeamCaptionBuilder:
         global_rank: int | None = None,
     ) -> str:
         name = sports_team.name if sports_team else club.name
-        country = sports_team.country if sports_team else (league.country if league else '')
+        league_country = league.country if league else ''
+        country = sports_team.country if sports_team else league_country
         founded = sports_team.founded if sports_team else ''
         lines = [
             f'*{name}* — {league.name}' if league else f'*{name}*',
