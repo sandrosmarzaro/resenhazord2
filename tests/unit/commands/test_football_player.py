@@ -19,7 +19,7 @@ def _make_player(name: str = 'Lionel Messi', profile: PlayerProfile | None = Non
         nationality='Argentina',
         club='Inter Miami',
         club_id='50251',
-        market_value='€ 20,00 mi.',
+        market_value=20_000_000,
         photo_url=_PHOTO,
         badge_url='https://tmssl.akamaized.net/images/wappen/head/50251.png',
         nationality_flag_emoji='🇦🇷',

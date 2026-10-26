@@ -10,7 +10,6 @@ from bot.domain.services.football_field.build_field import build_football_field
 from bot.domain.services.lineup_builder import LineupBuilder
 from bot.domain.services.market_dataset import MarketDataset
 from bot.domain.services.player_assets import PlayerAssets
-from bot.domain.services.transfermarkt.service import TransfermarktService
 
 
 class FullLineupBuilder:
@@ -31,7 +30,8 @@ class FullLineupBuilder:
             (p.nationality_flag_emoji if p and p.nationality_flag_emoji else None) for p in ordered
         ]
         overlays = list(zip(flag_emojis, badge_images, strict=False))
-        total_value = TransfermarktService.sum_market_values(ordered)
+        total = sum(player.market_value for player in ordered if player)
+        total_value = MarketDataset.format_euros(total) if total else None
         field_image = await asyncio.to_thread(
             build_football_field, photos_ordered, names, formation, overlays, total_value
         )

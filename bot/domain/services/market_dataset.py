@@ -118,7 +118,7 @@ class MarketDataset:
             nationality=row['country_of_citizenship'],
             club=row['current_club_name'],
             club_id=row['current_club_id'],
-            market_value=cls._euros(int(row['market_value_in_eur'])),
+            market_value=int(row['market_value_in_eur']),
             photo_url=_photo_url(row['image_url']),
             badge_url=_badge_url(row['current_club_id']),
             nationality_flag_emoji=nationality_flag(row['country_of_citizenship']),
@@ -133,7 +133,7 @@ class MarketDataset:
     @classmethod
     def _club(cls, row: dict[str, str], squad_value: int) -> TmSquadStats:
         return TmSquadStats(
-            market_value=cls._euros(squad_value),
+            market_value=cls.format_euros(squad_value),
             squad_size=row['squad_size'],
             avg_age=row['average_age'].replace('.', ','),
             foreigners_count=row['foreigners_number'],
@@ -145,7 +145,7 @@ class MarketDataset:
         )
 
     @classmethod
-    def _euros(cls, value: int) -> str:
+    def format_euros(cls, value: int) -> str:
         if value < cls._MILLION:
             return f'€ {value // cls._THOUSAND} mil.'
         millions = f'{value / cls._MILLION:,.2f}'

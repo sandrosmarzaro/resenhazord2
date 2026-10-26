@@ -116,7 +116,7 @@ class TestPlayers:
             nationality='Norway',
             club='Manchester City',
             club_id='281',
-            market_value='€ 200,00 mi.',
+            market_value=200_000_000,
             photo_url='https://img.a.transfermarkt.technology/portrait/header/Haaland.jpg',
             badge_url='https://tmssl.akamaized.net/images/wappen/head/281.png',
             nationality_flag_emoji='🇳🇴',
@@ -132,7 +132,7 @@ class TestPlayers:
 
         players = await MarketDataset.players()
 
-        assert players[-1].market_value == '€ 500 mil.'
+        assert MarketDataset.format_euros(players[-1].market_value) == '€ 500 mil.'
 
     @pytest.mark.anyio
     async def test_filters_by_league(self, dataset_routes):
@@ -248,3 +248,16 @@ class TestCache:
         await MarketDataset.players()
 
         logger.warning.assert_called_once_with('market_dataset_stale', last_modified=_STALE)
+
+
+class TestFormatEuros:
+    @pytest.mark.parametrize(
+        ('euros', 'label'),
+        [
+            (500_000, '€ 500 mil.'),
+            (30_000_000, '€ 30,00 mi.'),
+            (1_234_560_000, '€ 1.234,56 mi.'),
+        ],
+    )
+    def test_uses_transfermarkt_brazilian_notation(self, euros, label):
+        assert MarketDataset.format_euros(euros) == label

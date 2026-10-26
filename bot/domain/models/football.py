@@ -28,7 +28,7 @@ class TmPlayer:
     nationality: str
     club: str
     club_id: str
-    market_value: str
+    market_value: int
     photo_url: str
     badge_url: str
     profile_url: str = ''

@@ -77,7 +77,7 @@ class FootballPlayerCommand(Command):
         lines.extend(cls._birth_line(player.profile))
         lines.append(f'🏟️ {player.club} {club_flag}')
         lines.extend(cls._physical_line(player.profile))
-        lines.extend(['', f'💰 {player.market_value}'])
+        lines.extend(['', f'💰 {MarketDataset.format_euros(player.market_value)}'])
         return '\n'.join(lines)
 
     @staticmethod
