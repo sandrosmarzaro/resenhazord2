@@ -4,7 +4,7 @@ import random
 from typing import ClassVar
 
 from bot.data.football import LEAGUES, MARKET_LEAGUE_CODES, LeagueInfo
-from bot.data.nationality_flags import nationality_flag
+from bot.data.nationality_flags import nationality_flag, nationality_pt
 from bot.data.transfermarkt_positions import FOOT_LABELS, POSITION_LABELS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
@@ -69,10 +69,11 @@ class FootballPlayerCommand(Command):
     def _build_caption(cls, player: TmPlayer, league: LeagueInfo | None) -> str:
         club_flag = league.flag if league else ''
         position = POSITION_LABELS.get(player.position, player.position)
+        nationality = nationality_pt(player.nationality)
         lines: list[str] = [
             f'*{player.name}* — {position}',
             '',
-            f'🎂 {player.age} anos   {player.nationality_flag_emoji} {player.nationality}',
+            f'🎂 {player.age} anos   {player.nationality_flag_emoji} {nationality}',
         ]
         lines.extend(cls._birth_line(player.profile))
         lines.append(f'🏟️ {player.club} {club_flag}')
@@ -85,7 +86,8 @@ class FootballPlayerCommand(Command):
         city, country = profile.birth_city, profile.birth_country
         if not city and not country:
             return []
-        parts = [city, country] if country and country != city else [city or country]
+        country_name = nationality_pt(country)
+        parts = [country_name] if city == country else [city, country_name]
         display = ', '.join(part for part in parts if part)
         prefix = nationality_flag(country) or '📍'
         return [f'{prefix} {display}']

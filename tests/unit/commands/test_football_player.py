@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from bot.data.football import LEAGUES
@@ -115,6 +117,20 @@ class TestReply:
         )
 
     @pytest.mark.anyio
+    async def test_countries_show_in_portuguese(self, command, dataset):
+        player = replace(
+            _make_player(),
+            nationality='Netherlands',
+            nationality_flag_emoji='🇳🇱',
+            profile=PlayerProfile(birth_city='Amsterdam', birth_country='Netherlands'),
+        )
+        dataset([player])
+
+        caption = await _caption(command)
+
+        assert caption.splitlines()[2:4] == ['🎂 36 anos   🇳🇱 Holanda', '🇳🇱 Amsterdam, Holanda']
+
+    @pytest.mark.anyio
     async def test_missing_profile_details_are_skipped(self, command, dataset):
         dataset([_make_player(profile=PlayerProfile())])
 
@@ -133,6 +149,8 @@ class TestReply:
             (PlayerProfile(height_cm='185'), '📏 1,85 m'),
             (PlayerProfile(foot='both'), '👟 Ambidestro'),
             (PlayerProfile(birth_city='Leeds'), '📍 Leeds'),
+            (PlayerProfile(birth_country='Brazil'), '🇧🇷 Brasil'),
+            (PlayerProfile(birth_city='Luxembourg', birth_country='Luxembourg'), '🇱🇺 Luxemburgo'),
         ],
     )
     async def test_partial_profile_shows_what_it_has(self, command, dataset, profile, line):
