@@ -2,28 +2,31 @@ import pytest
 
 from bot.data.football import LEAGUES
 from bot.domain.commands.football_player import FootballPlayerCommand
-from bot.domain.models.football import TmPlayer
-from bot.domain.models.message import ImageBufferContent
-from bot.domain.services.transfermarkt.service import TransfermarktService
+from bot.domain.models.football import PlayerProfile, TmPlayer
+from bot.domain.models.message import ImageBufferContent, TextContent
+from bot.domain.services.market_dataset import MarketDataset
 from bot.infrastructure.http_client import HttpClient
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
-_LEAGUE = LEAGUES['pl']
+_PHOTO = 'https://img.a.transfermarkt.technology/portrait/header/28003.jpg'
 
 
-def _make_player(name: str = 'Lionel Messi') -> TmPlayer:
+def _make_player(name: str = 'Lionel Messi', profile: PlayerProfile | None = None) -> TmPlayer:
     return TmPlayer(
         name=name,
-        position='Ponta Direita',
+        position='Right Winger',
         age=36,
         nationality='Argentina',
         club='Inter Miami',
         club_id='50251',
         market_value='€ 20,00 mi.',
-        photo_url='https://img.tm.com/portrait/big/28003.jpg',
+        photo_url=_PHOTO,
         badge_url='https://tmssl.akamaized.net/images/wappen/head/50251.png',
-        profile_url='https://www.transfermarkt.com.br/lionel-messi/profil/spieler/28003',
         nationality_flag_emoji='🇦🇷',
+        profile=profile
+        or PlayerProfile(
+            birth_city='Rosario', birth_country='Argentina', height_cm='170', foot='left'
+        ),
     )
 
 
@@ -33,20 +36,32 @@ def command():
 
 
 @pytest.fixture
-def mock_players(mocker):
-    players = [_make_player()]
-    mocker.patch.object(
-        TransfermarktService,
-        'fetch_page',
-        new=mocker.AsyncMock(return_value=players),
+def photo(mocker):
+    return mocker.patch.object(
+        HttpClient, 'get_buffer', new=mocker.AsyncMock(return_value=b'fake-photo')
     )
-    mocker.patch.object(
-        TransfermarktService,
-        'fetch_player_profile',
-        new=mocker.AsyncMock(return_value={'Altura': '1,70 m', 'Pé': 'esquerdo'}),
+
+
+@pytest.fixture
+def dataset(mocker, photo):
+    def mount(players: list[TmPlayer]):
+        fetch = mocker.AsyncMock(return_value=players)
+        mocker.patch.object(MarketDataset, 'players', new=fetch)
+        return fetch
+
+    return mount
+
+
+@pytest.fixture
+def pick_first(mocker):
+    return mocker.patch(
+        'bot.domain.commands.football_player.random.choice', side_effect=lambda pool: pool[0]
     )
-    mocker.patch.object(HttpClient, 'get_buffer', new=mocker.AsyncMock(return_value=b'fake-photo'))
-    return players
+
+
+async def _caption(command, text: str = ',jogador') -> str:
+    messages = await command.run(GroupCommandDataFactory.build(text=text))
+    return messages[0].content.caption
 
 
 class TestMatches:
@@ -57,10 +72,12 @@ class TestMatches:
             (', jogador', True),
             (',JOGADOR', True),
             (',jogador pl', True),
+            (',jogador ar', True),
             (',jogador top50', True),
             (',jogador pl top50', True),
             (',jogador show', True),
             (',jogador dm', True),
+            (',jogador uy', False),
             ('jogador', False),
             (',jogadore', False),
             (',jogador hello', False),
@@ -70,190 +87,137 @@ class TestMatches:
         assert command.matches(text) is expected
 
 
-class TestExecute:
+class TestReply:
     @pytest.mark.anyio
-    async def test_returns_single_image(self, command, mock_players):
-        data = GroupCommandDataFactory.build(text=',jogador')
-        messages = await command.run(data)
+    async def test_sends_player_photo(self, command, dataset, photo):
+        dataset([_make_player()])
 
-        assert len(messages) == 1
+        messages = await command.run(GroupCommandDataFactory.build(text=',jogador'))
+
         assert isinstance(messages[0].content, ImageBufferContent)
+        photo.assert_awaited_once_with(_PHOTO)
 
     @pytest.mark.anyio
-    async def test_caption_contains_player_info(self, command, mock_players):
-        data = GroupCommandDataFactory.build(text=',jogador')
-        messages = await command.run(data)
+    async def test_caption_describes_player_in_portuguese(self, command, dataset):
+        dataset([_make_player()])
 
-        caption = messages[0].content.caption
-        assert 'Lionel Messi' in caption
-        assert 'Ponta Direita' in caption
-        assert 'Argentina' in caption
-        assert 'Inter Miami' in caption
-        assert '€ 20,00 mi.' in caption
+        caption = await _caption(command)
 
-    @pytest.mark.anyio
-    async def test_caption_includes_profile_details(self, command, mock_players):
-        data = GroupCommandDataFactory.build(text=',jogador')
-        messages = await command.run(data)
-
-        caption = messages[0].content.caption
-        assert '1,70 m' in caption
-        assert 'Esquerdo' in caption
+        assert caption == (
+            '*Lionel Messi* — Ponta Direita\n'
+            '\n'
+            '🎂 36 anos   🇦🇷 Argentina\n'
+            '🇦🇷 Rosario, Argentina\n'
+            '🏟️ Inter Miami \n'
+            '📏 1,70 m   👟 Esquerdo\n'
+            '\n'
+            '💰 € 20,00 mi.'
+        )
 
     @pytest.mark.anyio
-    async def test_view_once_by_default(self, command, mock_players):
-        data = GroupCommandDataFactory.build(text=',jogador')
-        messages = await command.run(data)
+    async def test_missing_profile_details_are_skipped(self, command, dataset):
+        dataset([_make_player(profile=PlayerProfile())])
+
+        caption = await _caption(command)
+
+        assert ('📏' not in caption, '👟' not in caption, 'Rosario' not in caption) == (
+            True,
+            True,
+            True,
+        )
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('profile', 'line'),
+        [
+            (PlayerProfile(height_cm='185'), '📏 1,85 m'),
+            (PlayerProfile(foot='both'), '👟 Ambidestro'),
+            (PlayerProfile(birth_city='Leeds'), '📍 Leeds'),
+        ],
+    )
+    async def test_partial_profile_shows_what_it_has(self, command, dataset, profile, line):
+        dataset([_make_player(profile=profile)])
+
+        caption = await _caption(command)
+
+        assert line in caption.splitlines()
+
+    @pytest.mark.anyio
+    async def test_no_players_replies_with_text(self, command, dataset):
+        dataset([])
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',jogador'))
+
+        assert isinstance(messages[0].content, TextContent)
+
+    @pytest.mark.anyio
+    async def test_view_once_by_default(self, command, dataset):
+        dataset([_make_player()])
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',jogador'))
 
         assert messages[0].content.view_once is True
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command, mock_players):
-        data = GroupCommandDataFactory.build(text=',jogador show')
-        messages = await command.run(data)
+    async def test_show_flag_disables_view_once(self, command, dataset):
+        dataset([_make_player()])
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',jogador show'))
 
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_dm_flag_redirects_to_participant(self, command, mock_players):
+    async def test_dm_flag_redirects_to_participant(self, command, dataset):
+        dataset([_make_player()])
         data = GroupCommandDataFactory.build(text=',jogador dm')
+
         messages = await command.run(data)
 
         assert messages[0].jid == data.participant
 
     @pytest.mark.anyio
-    async def test_dm_flag_private_keeps_jid(self, command, mock_players):
+    async def test_dm_flag_private_keeps_jid(self, command, dataset):
+        dataset([_make_player()])
         data = PrivateCommandDataFactory.build(text=',jogador dm')
+
         messages = await command.run(data)
 
         assert messages[0].jid == data.jid
 
 
-class TestWithLiga:
+class TestPool:
     @pytest.mark.anyio
-    async def test_passes_league_to_fetch_page(self, command, mocker):
-        mock_fetch = mocker.AsyncMock(return_value=[_make_player()])
-        mocker.patch.object(TransfermarktService, 'fetch_page', new=mock_fetch)
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_player_profile',
-            new=mocker.AsyncMock(return_value={}),
-        )
-        mocker.patch.object(HttpClient, 'get_buffer', new=mocker.AsyncMock(return_value=b'img'))
+    async def test_global_pool_is_the_most_valuable(self, command, dataset, pick_first):
+        fetch = dataset([_make_player(f'P{i}') for i in range(1200)])
 
-        data = GroupCommandDataFactory.build(text=',jogador pl')
-        await command.run(data)
+        await command.run(GroupCommandDataFactory.build(text=',jogador'))
 
-        call_args = mock_fetch.call_args
-        assert call_args.args[1] == _LEAGUE
-
-
-class TestWithTop:
-    @pytest.mark.anyio
-    async def test_limits_pages_based_on_top_n(self, command, mocker):
-        mock_fetch = mocker.AsyncMock(return_value=[_make_player()])
-        mocker.patch.object(TransfermarktService, 'fetch_page', new=mock_fetch)
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_player_profile',
-            new=mocker.AsyncMock(return_value={}),
-        )
-        mocker.patch.object(HttpClient, 'get_buffer', new=mocker.AsyncMock(return_value=b'img'))
-        mocker.patch('bot.domain.commands.football_player.random.randint', return_value=1)
-
-        data = GroupCommandDataFactory.build(text=',jogador top25')
-        await command.run(data)
-
-        mock_fetch.assert_called_once_with(1, None)
+        fetch.assert_awaited_once_with('')
+        assert len(pick_first.call_args.args[0]) == FootballPlayerCommand.GLOBAL_POOL
 
     @pytest.mark.anyio
-    async def test_trims_last_page_to_top_n(self, command, mocker):
-        players = [_make_player(f'Player{i}') for i in range(25)]
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_page',
-            new=mocker.AsyncMock(return_value=players),
-        )
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_player_profile',
-            new=mocker.AsyncMock(return_value={}),
-        )
-        mocker.patch.object(HttpClient, 'get_buffer', new=mocker.AsyncMock(return_value=b'img'))
-        mocker.patch('bot.domain.commands.football_player.random.randint', return_value=1)
-        mocker.patch('bot.domain.commands.football_player.random.choice', return_value=players[0])
+    async def test_league_pool_uses_dataset_league_id(self, command, dataset, pick_first):
+        fetch = dataset([_make_player(f'P{i}') for i in range(150)])
 
-        data = GroupCommandDataFactory.build(text=',jogador top10')
-        await command.run(data)
+        caption = await _caption(command, ',jogador ar')
 
-        choice_call = mocker.patch.object
-        _ = choice_call
-
-
-class TestProfileFetchFailure:
-    @pytest.mark.anyio
-    async def test_still_returns_image_when_profile_fails(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_page',
-            new=mocker.AsyncMock(return_value=[_make_player()]),
-        )
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_player_profile',
-            new=mocker.AsyncMock(side_effect=Exception('network error')),
-        )
-        mocker.patch.object(HttpClient, 'get_buffer', new=mocker.AsyncMock(return_value=b'img'))
-
-        data = GroupCommandDataFactory.build(text=',jogador')
-        messages = await command.run(data)
-
-        assert len(messages) == 1
-        assert isinstance(messages[0].content, ImageBufferContent)
+        fetch.assert_awaited_once_with('ARG1')
+        assert len(pick_first.call_args.args[0]) == FootballPlayerCommand.LEAGUE_POOL
+        assert LEAGUES['ar'].flag in caption
 
     @pytest.mark.anyio
-    async def test_returns_error_text_when_no_players(self, command, mocker):
-        mocker.patch.object(
-            TransfermarktService,
-            'fetch_page',
-            new=mocker.AsyncMock(return_value=[]),
-        )
+    async def test_top_n_limits_pool(self, command, dataset, pick_first):
+        players = [_make_player(f'P{i}') for i in range(5)]
+        dataset(players)
 
-        data = GroupCommandDataFactory.build(text=',jogador')
-        messages = await command.run(data)
+        await command.run(GroupCommandDataFactory.build(text=',jogador top2'))
 
-        from bot.domain.models.message import TextContent
+        pick_first.assert_called_once_with(players[:2])
 
-        assert isinstance(messages[0].content, TextContent)
+    @pytest.mark.anyio
+    async def test_top_zero_falls_back_to_default_pool(self, command, dataset, pick_first):
+        dataset([_make_player(f'P{i}') for i in range(1200)])
 
+        await command.run(GroupCommandDataFactory.build(text=',jogador top0'))
 
-class TestBuildCaption:
-    def test_includes_club_flag_when_league_provided(self):
-        player = _make_player()
-
-        caption = FootballPlayerCommand._build_caption(player, _LEAGUE, {})
-
-        assert _LEAGUE.flag in caption
-
-    def test_no_flag_when_no_league(self):
-        player = _make_player()
-
-        caption = FootballPlayerCommand._build_caption(player, None, {})
-
-        assert _LEAGUE.flag not in caption
-
-    def test_includes_foot_capitalized(self):
-        player = _make_player()
-
-        caption = FootballPlayerCommand._build_caption(player, None, {'Pé': 'esquerdo'})
-
-        assert 'Esquerdo' in caption
-
-    def test_includes_other_positions(self):
-        player = _make_player()
-
-        caption = FootballPlayerCommand._build_caption(
-            player, None, {'Posições secundárias': 'Centroavante'}
-        )
-
-        assert 'Centroavante' in caption
+        assert len(pick_first.call_args.args[0]) == FootballPlayerCommand.GLOBAL_POOL
