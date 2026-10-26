@@ -143,6 +143,23 @@ class TestPlayers:
 
         assert players[-1].age == 0
 
+    @pytest.mark.anyio
+    async def test_drops_assets_outside_transfermarkt_cdn(self, respx_mock):
+        tampered = _player(
+            'Tampered',
+            '1000000',
+            image_url='http://169.254.169.254/latest/meta-data',
+            current_club_id='../admin',
+        )
+        respx_mock.get(_PLAYERS_URL).mock(
+            return_value=httpx.Response(200, content=_gzip_csv([tampered]))
+        )
+        respx_mock.get(_CLUBS_URL).mock(return_value=httpx.Response(200, content=_gzip_csv(_CLUBS)))
+
+        players = await MarketDataset.players()
+
+        assert (players[0].photo_url, players[0].badge_url) == ('', '')
+
 
 class TestClubs:
     @pytest.mark.anyio

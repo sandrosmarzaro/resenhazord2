@@ -23,6 +23,7 @@ from bot.data.market_dataset import (
     MARKET_DATASET_STALE_AFTER,
     MARKET_DATASET_TTL,
     MARKET_DATASET_URL,
+    PLAYER_PHOTO_PREFIX,
 )
 from bot.data.nationality_flags import nationality_flag
 from bot.domain.models.football import TmPlayer, TmSquadStats
@@ -118,8 +119,8 @@ class MarketDataset:
             club=row['current_club_name'],
             club_id=row['current_club_id'],
             market_value=cls._euros(int(row['market_value_in_eur'])),
-            photo_url=row['image_url'],
-            badge_url=CLUB_BADGE_URL.format(club_id=row['current_club_id']),
+            photo_url=_photo_url(row['image_url']),
+            badge_url=_badge_url(row['current_club_id']),
             nationality_flag_emoji=nationality_flag(row['country_of_citizenship']),
         )
 
@@ -133,7 +134,7 @@ class MarketDataset:
             foreigners_pct=row['foreigners_percentage'].replace('.', ','),
             club_id=row['club_id'],
             name=row['name'],
-            badge_url=CLUB_BADGE_URL.format(club_id=row['club_id']),
+            badge_url=_badge_url(row['club_id']),
         )
 
     @classmethod
@@ -148,6 +149,14 @@ def _rows(gzipped_csv: bytes) -> Iterator[dict[str, str]]:
     # Streamed: decoding the whole players dump at once peaks around 100 MB.
     with gzip.open(io.BytesIO(gzipped_csv), 'rt', encoding='utf-8') as text:
         yield from csv.DictReader(text)
+
+
+def _photo_url(url: str) -> str:
+    return url if url.startswith(PLAYER_PHOTO_PREFIX) else ''
+
+
+def _badge_url(club_id: str) -> str:
+    return CLUB_BADGE_URL.format(club_id=club_id) if club_id.isdigit() else ''
 
 
 def _age(date_of_birth: str) -> int:
