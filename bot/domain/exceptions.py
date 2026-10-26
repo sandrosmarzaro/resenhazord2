@@ -28,10 +28,3 @@ class ExternalServiceError(CommandError):
 
 class DownloadError(ExternalServiceError):
     """yt-dlp or download failure."""
-
-
-class TransfermarktBlockedError(ExternalServiceError):
-    """Transfermarkt's bot firewall answered with a challenge instead of the page."""
-
-    def __init__(self) -> None:
-        super().__init__('O Transfermarkt está bloqueando o bot agora. Tenta mais tarde! ⚽')

@@ -13,7 +13,6 @@ class LeagueInfo:
     country: str
     flag: str
     tm_id: str
-    tm_slug: str
     espn_slug: str
 
 
@@ -24,7 +23,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='England',
         flag='🏴󠁧󠁢󠁥󠁮󠁧󠁿',
         tm_id='GB1',
-        tm_slug='premier-league',
         espn_slug='eng.1',
     ),
     'la': LeagueInfo(
@@ -33,7 +31,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Spain',
         flag='🇪🇸',
         tm_id='ES1',
-        tm_slug='laliga',
         espn_slug='esp.1',
     ),
     'bl': LeagueInfo(
@@ -42,7 +39,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Germany',
         flag='🇩🇪',
         tm_id='L1',
-        tm_slug='bundesliga',
         espn_slug='ger.1',
     ),
     'sa': LeagueInfo(
@@ -51,7 +47,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Italy',
         flag='🇮🇹',
         tm_id='IT1',
-        tm_slug='serie-a',
         espn_slug='ita.1',
     ),
     'l1': LeagueInfo(
@@ -60,7 +55,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='France',
         flag='🇫🇷',
         tm_id='FR1',
-        tm_slug='ligue-1',
         espn_slug='fra.1',
     ),
     'br': LeagueInfo(
@@ -69,7 +63,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Brasil',
         flag='🇧🇷',
         tm_id='BRA1',
-        tm_slug='campeonato-brasileiro-serie-a',
         espn_slug='bra.1',
     ),
     'ar': LeagueInfo(
@@ -78,7 +71,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Argentina',
         flag='🇦🇷',
         tm_id='ARG1',
-        tm_slug='superliga',
         espn_slug='arg.1',
     ),
     'uy': LeagueInfo(
@@ -87,7 +79,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Uruguai',
         flag='🇺🇾',
         tm_id='URU1',
-        tm_slug='primera-division',
         espn_slug='uru.1',
     ),
     'ec': LeagueInfo(
@@ -96,7 +87,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Equador',
         flag='🇪🇨',
         tm_id='EC1N',
-        tm_slug='ligapro-serie-a',
         espn_slug='ecu.1',
     ),
     'co': LeagueInfo(
@@ -105,7 +95,6 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Colômbia',
         flag='🇨🇴',
         tm_id='COL1',
-        tm_slug='primera-a',
         espn_slug='col.1',
     ),
 }

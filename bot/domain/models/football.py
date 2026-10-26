@@ -31,21 +31,8 @@ class TmPlayer:
     market_value: int
     photo_url: str
     badge_url: str
-    profile_url: str = ''
-    nationality_flag_url: str = ''
     nationality_flag_emoji: str = ''
     profile: PlayerProfile = PlayerProfile()
-
-
-@dataclass(frozen=True)
-class TmClub:
-    rank: int
-    name: str
-    country: str
-    squad_value: str
-    club_id: str
-    badge_url: str
-    league_tm_id: str = ''
 
 
 @dataclass(frozen=True)
