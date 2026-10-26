@@ -58,6 +58,7 @@ class TmSquadStats:
     club_id: str = ''
     name: str = ''
     badge_url: str = ''
+    league_id: str = ''
 
 
 @dataclass(frozen=True)

@@ -2,11 +2,12 @@
 
 import asyncio
 import random
-from collections.abc import Sequence
+from typing import ClassVar
 
+import httpx
 import structlog
 
-from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
+from bot.data.football import LEAGUES, LEAGUES_BY_TM_ID, MARKET_LEAGUE_CODES, LeagueInfo
 from bot.data.football_formations import random_formation
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
@@ -19,13 +20,14 @@ from bot.domain.commands.base import (
     Platform,
 )
 from bot.domain.models.command_data import CommandData
-from bot.domain.models.football import SportsDBTeam, TmClub, TmSquadStats
+from bot.domain.models.football import SportsDBTeam, TmSquadStats
 from bot.domain.models.message import BotMessage
+from bot.domain.services.espn import EspnService
 from bot.domain.services.full_lineup_builder import FullLineupBuilder
-from bot.domain.services.global_top_team import GlobalTopTeam
+from bot.domain.services.market_dataset import MarketDataset
 from bot.domain.services.team_caption_builder import TeamCaptionBuilder
+from bot.domain.services.team_name_matcher import TeamNameMatcher
 from bot.domain.services.thesportsdb import TheSportsDBService
-from bot.domain.services.transfermarkt.service import TransfermarktService
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -41,13 +43,15 @@ def _parse_top_n(top_str: str) -> int:
 
 
 class FootballTeamCommand(Command):
+    _NO_RANK: ClassVar[tuple[int, str]] = (0, '')
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='time',
             options=[
                 OptionDef(name='top', pattern=r'top\d+'),
-                OptionDef(name='liga', values=LEAGUE_CODES),
+                OptionDef(name='liga', values=MARKET_LEAGUE_CODES),
             ],
             flags=['full', Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
@@ -56,7 +60,7 @@ class FootballTeamCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Time aleatório com tabela ao vivo. Use -full para escalação com imagem do campo.'
+        return 'Time aleatório com valor de elenco e posição na tabela. Use full para escalação.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         if 'full' in parsed.flags:
@@ -65,106 +69,71 @@ class FootballTeamCommand(Command):
 
     async def _random_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
-        top_str = parsed.options.get('top', '')
+        top_n = _parse_top_n(parsed.options.get('top', ''))
+        if top_n > 0 and not liga_code:
+            return await self._global_top_team(data, top_n)
 
-        if top_str and not liga_code:
-            return await self._global_top_team(data, _parse_top_n(top_str))
-
-        effective_liga = liga_code or random.choice(LEAGUE_CODES)
-        league = LEAGUES[effective_liga]
-        squad_values, standings, sports_teams = await self._fetch_league_data(league)
-
-        clubs = list(squad_values.values())
+        league = LEAGUES[liga_code or random.choice(MARKET_LEAGUE_CODES)]
+        clubs, table = await self._league_data(league)
         if not clubs:
-            logger.warning('squad_values_empty', league=league.tm_id)
             return [Reply.to(data).text('Não achei esse time. Tenta de novo! ⚽')]
 
-        clubs = self._apply_top_filter(top_str, clubs, standings)
-        return await self._reply_random_team(data, clubs, standings, sports_teams, league)
-
-    @staticmethod
-    def _apply_top_filter(
-        top_str: str,
-        clubs: Sequence[TmSquadStats],
-        standings: dict[str, int],
-    ) -> list[TmSquadStats]:
-        if not top_str or not standings:
-            return list(clubs)
-        top_n = _parse_top_n(top_str)
-        if top_n <= 0:
-            return list(clubs)
-        top_ids = {cid for cid, rank in standings.items() if rank <= top_n}
-        filtered = [c for c in clubs if c.club_id in top_ids]
-        return filtered or list(clubs)
-
-    async def _reply_random_team(
-        self,
-        data: CommandData,
-        clubs: list[TmSquadStats],
-        standings: dict[str, int],
-        sports_teams: list[SportsDBTeam],
-        league: LeagueInfo,
-    ) -> list[BotMessage]:
-        club = random.choice(clubs)
-        rank = standings.get(club.club_id)
-        sports_team: SportsDBTeam | None = TheSportsDBService.find_best_match(
-            club.name, sports_teams
-        )
-        caption = TeamCaptionBuilder.build(club, sports_team, league, rank, global_rank=None)
-        buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
-        return [Reply.to(data).image_buffer(buffer, caption)]
-
-    @staticmethod
-    async def _fetch_league_data(
-        league: LeagueInfo,
-    ) -> tuple[dict[str, TmSquadStats], dict[str, int], list[SportsDBTeam]]:
-        return await asyncio.gather(
-            TransfermarktService.fetch_squad_values(league),
-            TransfermarktService.fetch_standings(league),
-            TheSportsDBService.get_teams(league),
-        )
+        ranked = [club for club in clubs if 0 < table.get(club.club_id, self._NO_RANK)[0] <= top_n]
+        club = random.choice(ranked or clubs)
+        caption = await self._caption(club, league, table.get(club.club_id))
+        return await self._reply(data, club, caption)
 
     async def _global_top_team(self, data: CommandData, top_n: int) -> list[BotMessage]:
-        top_club = await GlobalTopTeam.fetch(top_n)
-        if not top_club:
-            return [Reply.to(data).text('Ops, não consegui buscar o ranking agora! ⚽')]
+        clubs = await MarketDataset.clubs()
+        club = random.choice(clubs[:top_n])
+        league = LEAGUES_BY_TM_ID.get(club.league_id)
+        table = (await self._league_data(league))[1] if league else {}
+        global_rank = clubs.index(club) + 1
+        caption = await self._caption(club, league, table.get(club.club_id), global_rank)
+        return await self._reply(data, club, caption)
 
-        league_code = GlobalTopTeam.find_league(top_club)
-        if league_code is None:
-            return await self._global_top_bare(data, top_club)
-
-        league = LEAGUES[league_code]
-        squad_values, standings, sports_teams = await self._fetch_league_data(league)
-
-        club = squad_values.get(top_club.club_id)
-        if club is None:
-            return await self._global_top_bare(data, top_club, league=league)
-
-        rank = standings.get(club.club_id)
-        sports_team: SportsDBTeam | None = TheSportsDBService.find_best_match(
-            club.name, sports_teams
+    @staticmethod
+    async def _league_data(
+        league: LeagueInfo,
+    ) -> tuple[list[TmSquadStats], dict[str, tuple[int, str]]]:
+        clubs, standings = await asyncio.gather(
+            MarketDataset.clubs(league.tm_id),
+            EspnService.fetch_standings(league),
         )
-        caption = TeamCaptionBuilder.build(
-            club, sports_team, league, rank, global_rank=top_club.rank
-        )
-        buffer = await HttpClient.get_buffer(club.badge_url, headers=TransfermarktService.HEADERS)
+        rank_by_team = {row.team: row.rank for row in standings}
+        pairs = TeamNameMatcher.pair([club.name for club in clubs], list(rank_by_team))
+        table = {
+            club.club_id: (rank_by_team[pairs[club.name]], pairs[club.name])
+            for club in clubs
+            if club.name in pairs
+        }
+        return clubs, table
+
+    @classmethod
+    async def _caption(
+        cls,
+        club: TmSquadStats,
+        league: LeagueInfo | None,
+        table_entry: tuple[int, str] | None,
+        global_rank: int | None = None,
+    ) -> str:
+        rank, short_name = table_entry or (None, club.name)
+        sports_team = await cls._sports_team(short_name)
+        return TeamCaptionBuilder.build(club, sports_team, league, rank, global_rank)
+
+    @staticmethod
+    async def _sports_team(name: str) -> SportsDBTeam | None:
+        # Stadium and founding year are extras; TheSportsDB's free key rate-limits hard.
+        try:
+            return await TheSportsDBService.search_team(name)
+        except httpx.HTTPError as error:
+            logger.warning('thesportsdb_search_failed', team=name, error=str(error))
+            return None
+
+    @staticmethod
+    async def _reply(data: CommandData, club: TmSquadStats, caption: str) -> list[BotMessage]:
+        buffer = await HttpClient.get_buffer(club.badge_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
-
-    async def _global_top_bare(
-        self, data: CommandData, club: TmClub, league: LeagueInfo | None = None
-    ) -> list[BotMessage]:
-        ts_team: SportsDBTeam | None = await TheSportsDBService.search_team(club.name)
-
-        badge: bytes = b''
-        if club.badge_url:
-            badge = await HttpClient.get_buffer(
-                club.badge_url, headers=TransfermarktService.HEADERS
-            )
-        elif ts_team and ts_team.badge_url:
-            badge = await HttpClient.get_buffer(ts_team.badge_url)
-
-        caption = TeamCaptionBuilder.build_bare(club, ts_team, league)
-        return [Reply.to(data).image_buffer(badge, caption)]
 
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
