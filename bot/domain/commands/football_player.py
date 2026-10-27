@@ -34,7 +34,7 @@ class FootballPlayerCommand(Command):
         return CommandConfig(
             name='jogador',
             options=[
-                OptionDef(name='top', pattern=r'top\d+'),
+                OptionDef(name='top', pattern=r'top\s?\d+'),
                 OptionDef(name='liga', values=MARKET_LEAGUE_CODES),
             ],
             flags=[Flag.SHOW, Flag.DM],
@@ -50,7 +50,7 @@ class FootballPlayerCommand(Command):
         liga_code = parsed.options.get('liga')
         league = LEAGUES[liga_code] if liga_code else None
         players = await MarketDataset.players(league.tm_id if league else '')
-        pool = players[: self._pool_size(parsed.options.get('top', ''), league)]
+        pool = players[: self._pool_size(parsed.number('top'), league)]
 
         if not pool:
             return [Reply.to(data).text('Não achei esse jogador. Tenta de novo! ⚽')]
@@ -60,8 +60,7 @@ class FootballPlayerCommand(Command):
         buffer = await HttpClient.get_buffer(player.photo_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
 
-    def _pool_size(self, top_str: str, league: LeagueInfo | None) -> int:
-        top_n = int(top_str[3:]) if top_str else 0
+    def _pool_size(self, top_n: int, league: LeagueInfo | None) -> int:
         if top_n > 0:
             return top_n
         return self.LEAGUE_POOL if league else self.GLOBAL_POOL

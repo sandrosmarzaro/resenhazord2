@@ -43,8 +43,8 @@ class MovieSeriesCommand(Command):
             name='filme',
             aliases=['série', 'movie', 'series'],
             options=[
-                OptionDef(name='pop', pattern=r'pop\d*'),
-                OptionDef(name='top', pattern=r'top\d+'),
+                OptionDef(name='pop', pattern=r'pop(?:\s?\d+)?'),
+                OptionDef(name='top', pattern=r'top\s?\d+'),
             ],
             flags=[Flag.SHOW, Flag.DM, 'tmdb'],
             category=Category.RANDOM,
@@ -57,10 +57,7 @@ class MovieSeriesCommand(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         media_type = 'movie' if parsed.command_name in self.MOVIE_NAMES else 'tv'
-        pop_str = parsed.options.get('pop', '')
-        top_str = parsed.options.get('top', '')
-
-        mode, max_page, rank_limit = self._resolve_query(pop_str, top_str)
+        mode, max_page, rank_limit = self._resolve_query(parsed)
 
         page = random.randint(1, max_page)
         url, ranking = self._listing(media_type, mode)
@@ -91,25 +88,17 @@ class MovieSeriesCommand(Command):
         )
         return [Reply.to(data).image(poster_url, caption)]
 
-    def _resolve_query(self, pop_str: str, top_str: str) -> tuple[str, int, int]:
-        if pop_str:
-            mode = 'popular'
-            pop_n = pop_str[3:]
-            rank_limit = int(pop_n) if pop_n else 0
-            max_page = (
-                max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
-                if rank_limit
-                else self.MAX_PAGE
-            )
-        elif top_str:
-            rank_limit = int(top_str[3:])
-            mode = 'top_rated'
-            max_page = max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
-        else:
-            mode = 'popular'
-            rank_limit = 0
-            max_page = self.MAX_PAGE
-        return mode, max_page, rank_limit
+    def _resolve_query(self, parsed: ParsedCommand) -> tuple[str, int, int]:
+        top_n = parsed.number('top')
+        mode = 'top_rated' if top_n and 'pop' not in parsed.options else 'popular'
+        rank_limit = parsed.number('pop') if mode == 'popular' else top_n
+        if not rank_limit:
+            return mode, self.MAX_PAGE, 0
+        return (
+            mode,
+            max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE),
+            rank_limit,
+        )
 
     def _listing(self, media_type: str, mode: str) -> tuple[str, dict[str, str | int]]:
         if mode == 'popular':

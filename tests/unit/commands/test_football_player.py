@@ -77,6 +77,7 @@ class TestMatches:
             (',jogador pl', True),
             (',jogador ar', True),
             (',jogador top50', True),
+            (',jogador top 5', True),
             (',jogador pl top50', True),
             (',jogador show', True),
             (',jogador dm', True),
@@ -230,7 +231,7 @@ class TestPool:
         players = [_make_player(f'P{i}') for i in range(5)]
         dataset(players)
 
-        await command.run(GroupCommandDataFactory.build(text=',jogador top2'))
+        await command.run(GroupCommandDataFactory.build(text=',jogador top 2'))
 
         pick_first.assert_called_once_with(players[:2])
 

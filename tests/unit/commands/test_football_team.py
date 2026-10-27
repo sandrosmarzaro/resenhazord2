@@ -162,6 +162,7 @@ class TestMatches:
             (',TIME', True),
             (',time pl', True),
             (',time top10', True),
+            (',time top 3', True),
             (',time full', True),
             (',time pl top10 full', True),
             (',time show', True),
@@ -294,7 +295,7 @@ class TestGlobalTopTeam:
     async def test_picks_among_most_valuable_clubs(self, command, sources, search, pick_first):
         sources.return_value = [_CITY, _CHELSEA, _AL_HILAL]
 
-        caption = await _caption(command, ',time top2')
+        caption = await _caption(command, ',time top 2')
 
         pick_first.assert_called_once_with([_CITY, _CHELSEA])
         assert '🏆 #1º mais valioso do mundo' in caption

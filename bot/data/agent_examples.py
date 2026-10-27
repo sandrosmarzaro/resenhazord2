@@ -71,6 +71,9 @@ AGENT_EXAMPLES = [
     ('jogo aleatório', ',game'),
     ('filme aleatório', ',filme'),
     ('série aleatória', ',série'),
+    ('um dos 10 melhores filmes', ',filme top10'),
+    ('anime do top 50', ',anime top50'),
+    ('jogador entre os 5 mais caros', ',jogador top5'),
     # Random - other
     ('fato aleatório', ',fato'),
     ('horóscopo', ',horóscopo'),
