@@ -58,7 +58,10 @@ class FullLineupBuilder:
     async def _render(
         ordered: Sequence[LineupPlayer | None], formation: Formation, label: str | None
     ) -> bytes:
-        photos, badges = await PlayerAssets.fetch(ordered)
+        photos, badges = await asyncio.gather(
+            PlayerAssets.download([player.photo_url if player else '' for player in ordered]),
+            PlayerAssets.download([player.badge_url if player else '' for player in ordered]),
+        )
         names = [player.name if player else '' for player in ordered]
         flags = [(player.nationality_flag_emoji or None) if player else None for player in ordered]
         overlays = list(zip(flags, badges, strict=False))
