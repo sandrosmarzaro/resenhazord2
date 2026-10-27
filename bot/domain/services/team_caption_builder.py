@@ -1,6 +1,7 @@
 """Build formatted team captions for bot responses."""
 
 from bot.data.football import LeagueInfo
+from bot.data.nationality_flags import nationality_pt
 from bot.domain.models.football import SportsDBTeam, TmSquadStats
 
 
@@ -15,7 +16,7 @@ class TeamCaptionBuilder:
     ) -> str:
         name = sports_team.name if sports_team else club.name
         league_country = league.country if league else ''
-        country = sports_team.country if sports_team else league_country
+        country = nationality_pt(sports_team.country) if sports_team else league_country
         founded = sports_team.founded if sports_team else ''
         lines = [
             f'*{name}* — {league.name}' if league else f'*{name}*',

@@ -20,7 +20,7 @@ LEAGUES: dict[str, LeagueInfo] = {
     'pl': LeagueInfo(
         code='pl',
         name='Premier League',
-        country='England',
+        country='Inglaterra',
         flag='🏴󠁧󠁢󠁥󠁮󠁧󠁿',
         tm_id='GB1',
         espn_slug='eng.1',
@@ -28,7 +28,7 @@ LEAGUES: dict[str, LeagueInfo] = {
     'la': LeagueInfo(
         code='la',
         name='La Liga',
-        country='Spain',
+        country='Espanha',
         flag='🇪🇸',
         tm_id='ES1',
         espn_slug='esp.1',
@@ -36,7 +36,7 @@ LEAGUES: dict[str, LeagueInfo] = {
     'bl': LeagueInfo(
         code='bl',
         name='Bundesliga',
-        country='Germany',
+        country='Alemanha',
         flag='🇩🇪',
         tm_id='L1',
         espn_slug='ger.1',
@@ -44,7 +44,7 @@ LEAGUES: dict[str, LeagueInfo] = {
     'sa': LeagueInfo(
         code='sa',
         name='Serie A',
-        country='Italy',
+        country='Itália',
         flag='🇮🇹',
         tm_id='IT1',
         espn_slug='ita.1',
@@ -52,7 +52,7 @@ LEAGUES: dict[str, LeagueInfo] = {
     'l1': LeagueInfo(
         code='l1',
         name='Ligue 1',
-        country='France',
+        country='França',
         flag='🇫🇷',
         tm_id='FR1',
         espn_slug='fra.1',
