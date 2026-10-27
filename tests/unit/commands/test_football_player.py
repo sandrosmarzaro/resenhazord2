@@ -48,6 +48,7 @@ def photo(mocker):
 def dataset(mocker, photo):
     def mount(players: list[TmPlayer]):
         fetch = mocker.AsyncMock(return_value=players)
+        mocker.patch.object(MarketDataset, 'season', new=mocker.AsyncMock(return_value='2025/26'))
         mocker.patch.object(MarketDataset, 'players', new=fetch)
         return fetch
 
@@ -113,7 +114,8 @@ class TestReply:
             '🏟️ Inter Miami \n'
             '📏 1,70 m   👟 Esquerdo\n'
             '\n'
-            '💰 € 20,00 mi.'
+            '💰 € 20,00 mi.\n'
+            '📅 Valores da temporada 2025/26'
         )
 
     @pytest.mark.anyio

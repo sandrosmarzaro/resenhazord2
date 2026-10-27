@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from bot.data.football import LEAGUES
 from bot.data.football_formations import Formation, specific_roles
+from bot.data.market_dataset import SEASON_FOOTER
 from bot.domain.models.football import LineupPlayer, TmPlayer
 from bot.domain.services.fifa_ratings import FifaRatings
 from bot.domain.services.football_field.build_field import build_football_field
@@ -35,6 +36,7 @@ class FullLineupBuilder:
         caption = f'⚽ *Escalação Aleatória* — {formation.name}'
         if total_value:
             caption += f'\n💰 {total_value}'
+        caption += f'\n{SEASON_FOOTER.format(season=await MarketDataset.season())}'
         return field_image, caption
 
     @classmethod

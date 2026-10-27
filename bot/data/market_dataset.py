@@ -11,3 +11,4 @@ CLUB_BADGE_URL = 'https://tmssl.akamaized.net/images/wappen/head/{club_id}.png'
 PLAYER_PHOTO_PREFIX = 'https://img.a.transfermarkt.technology/'
 EUROS_PER_MILLION = 1_000_000
 EUROS_PER_THOUSAND = 1_000
+SEASON_FOOTER = '📅 Valores da temporada {season}'
