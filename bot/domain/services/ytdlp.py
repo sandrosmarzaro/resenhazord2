@@ -7,6 +7,7 @@ from bot.infrastructure.http_client import HttpClient
 
 class YtDlpService:
     MAX_BUFFER = 100 * 1024 * 1024  # 100 MB
+    MAX_FILESIZE = '50M'
     IMAGE_HOST_SUFFIX = '.fbcdn.net'
 
     @classmethod
@@ -34,8 +35,11 @@ class YtDlpService:
             '1',
             '-f',
             'best[ext=mp4]/best',
+            # Pick the best format under the cap; --max-filesize alone aborts on the top one.
+            '-S',
+            f'size:{cls.MAX_FILESIZE}',
             '--max-filesize',
-            '50m',
+            cls.MAX_FILESIZE,
             '-o',
             '-',
             url,
@@ -44,7 +48,8 @@ class YtDlpService:
         )
         video_stdout, video_stderr = await video_proc.communicate()
 
-        if video_proc.returncode != 0:
+        # An over-cap file aborts with exit 0 and an empty stdout.
+        if video_proc.returncode != 0 or not video_stdout:
             error_msg = video_stderr.decode().strip()
             msg = f'yt-dlp failed: {error_msg}'
             raise RuntimeError(msg)
