@@ -19,8 +19,8 @@ on:
   workflow_dispatch:
     inputs:
       prompt_tag:
-        description: Prompt alias to evaluate (dev or a commit hash)
-        default: dev
+        description: Prompt alias to evaluate (prod, dev or a commit hash)
+        default: prod
 
 permissions:
   contents: read
@@ -48,10 +48,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_MODELS_TOKEN }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          # Present key evaluates the hub prompt at this alias; absent key evaluates
-          # the in-code SYSTEM_PROMPT_TEMPLATE.
+          # Present key evaluates the hub prompt at this alias, prod falling back to
+          # dev while prod is unpublished; absent key evaluates the in-code
+          # SYSTEM_PROMPT_TEMPLATE.
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          LANGSMITH_PROMPT_TAG: ${{ github.event.inputs.prompt_tag || 'dev' }}
+          LANGSMITH_PROMPT_TAG: ${{ github.event.inputs.prompt_tag || 'prod' }}
           # Absent Upstash keys skip the recall eval; absent OTLP keys keep its
           # result out of Grafana.
           UPSTASH_VECTOR_REST_URL: ${{ secrets.UPSTASH_VECTOR_REST_URL }}
