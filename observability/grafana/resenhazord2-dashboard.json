@@ -507,6 +507,50 @@
           "legendFormat": "{{agent_prompt_version}}"
         }
       ]
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Retrieval recall@5 (live, 7d)",
+      "description": "Share of executed or confirmed commands that were among the examples retrieval handed the LLM. Labelled by the command that ran, so it measures agreement with the LLM.",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 57 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(agent_retrievals_total{agent_retrieval_hit=\"true\"}[7d])) / clamp_min(sum(increase(agent_retrievals_total[7d])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Retrieval recall@5 (eval)",
+      "description": "Recall@5 over the held-out eval dataset, pushed by the prompt-eval workflow (weekly and on prompt PRs).",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 57 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "last_over_time(agent_eval_recall{k=\"5\"}[30d])"
+        }
+      ]
     }
   ]
 }
