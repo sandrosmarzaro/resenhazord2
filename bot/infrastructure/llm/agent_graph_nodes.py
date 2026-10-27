@@ -16,6 +16,7 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.conversation import Conversation
 from bot.domain.models.conversation_status import ConversationStatus
 from bot.domain.models.retrieved_example import RetrievedExample
+from bot.infrastructure.llm.agent_feedback import AgentFeedback
 from bot.infrastructure.metrics import record_agent_mapping
 
 logger = structlog.get_logger()
@@ -54,11 +55,6 @@ class AgentGraphNodes:
     _REPLIES: ClassVar[dict[str, _ReplySpec]] = {
         'confirm': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=True),
         'ask': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=True),
-        'ask_again': _ReplySpec(
-            CLARIFY_PREFIX,
-            keeps_waiting=True,
-            fixed=AgentDecision(AgentOutcome.DENIED, text=ASK_AGAIN_QUESTION),
-        ),
         'menu_hint': _ReplySpec(
             CLARIFY_PREFIX,
             keeps_waiting=False,
@@ -67,6 +63,11 @@ class AgentGraphNodes:
         'suggest': _ReplySpec(SUGGEST_PREFIX, keeps_waiting=False),
         'fallback': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=False),
     }
+    _DENIAL: ClassVar[_ReplySpec] = _ReplySpec(
+        CLARIFY_PREFIX,
+        keeps_waiting=True,
+        fixed=AgentDecision(AgentOutcome.DENIED, text=ASK_AGAIN_QUESTION),
+    )
 
     def __init__(
         self,
@@ -77,6 +78,7 @@ class AgentGraphNodes:
         self._selector = selector
         self._mapper = mapper
         self._translator = translator
+        self._ask_again = self._reply_node(self._DENIAL)
 
     def nodes(self) -> dict[str, Node]:
         replies = {name: self._reply_node(spec) for name, spec in self._REPLIES.items()}
@@ -86,6 +88,7 @@ class AgentGraphNodes:
             'call_llm': self._call_llm,
             'execute': self._execute,
             'execute_proposed': self._execute_proposed,
+            'ask_again': self._deny,
             **replies,
         }
 
@@ -122,12 +125,18 @@ class AgentGraphNodes:
 
     def _execute(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
         decision = self._decision(state)
+        AgentFeedback.executed(state.get('examples', []), decision.outcome, decision.command)
         return self._finish(decision, self._run(config, decision.command), Conversation())
 
     def _execute_proposed(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
         command = self.conversation_of(state).proposed_command
+        AgentFeedback.executed(state.get('examples', []), AgentOutcome.CONFIRMED, command)
         result = self._run(config, command)
         return self._finish(AgentDecision(AgentOutcome.CONFIRMED), result, Conversation())
+
+    def _deny(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
+        AgentFeedback.denied(self.conversation_of(state), self._data(config).text)
+        return cast('dict[str, Any]', self._ask_again(state, config))
 
     def _reply_node(self, spec: _ReplySpec) -> Node:
         def reply(state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
@@ -135,7 +144,10 @@ class AgentGraphNodes:
             conversation = Conversation()
             if spec.keeps_waiting:
                 conversation = self.conversation_of(state).awaiting(
-                    decision.text, time.time(), proposed_command=decision.command
+                    decision.text,
+                    time.time(),
+                    proposed_command=decision.command,
+                    request=self._data(config).text,
                 )
             result = replace(self._data(config), text=f'{spec.prefix}{decision.text}')
             return self._finish(decision, result, conversation)

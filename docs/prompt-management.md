@@ -69,6 +69,36 @@ The agent stamps every mapping with the serving prompt version and outcome, in G
 To investigate a bad-mapping wave: filter `agent.mappings` by `agent.outcome` and split by
 `agent.prompt.version` to see whether a prompt version correlates, then roll back.
 
+## Learning from denials
+
+When a user answers "não" to a proposed command, the bot logs `agent_denied` with the
+original `request`, the `proposed` command and the `reply`. List them from Loki (needs
+`GRAFANA_URL` and a Viewer `GRAFANA_TOKEN` in `.env`) with the command below.
+
+```bash
+uv run task agent:denials             # last 14 days
+```
+
+Each printed line is a `DENIED_CASES` entry for `tests/eval/dataset.py`, and the eval
+fails when the prompt keeps mapping those requests to the denied command. Once you know
+what the user wanted, add the pair to `PROMPT_REGRESSION_CASES` as well, and to
+`bot/data/agent_examples.py` followed by `uv run task index:examples` so retrieval
+learns it too. A request that keeps getting denied may instead call for a new rule in
+the prompt.
+
+## Retrieval recall@k
+
+Two series in Grafana track whether retrieval hands the LLM the right examples, with
+k being `ExampleSelector.MAX_EXAMPLES` (5).
+
+- `agent_eval_recall{k}` is the true recall over `PROMPT_REGRESSION_CASES`. The
+  prompt-eval workflow pushes it on every run, weekly included, and fails below 80%.
+  It needs the `UPSTASH_VECTOR_REST_*` and `OTEL_EXPORTER_OTLP_*` repo secrets.
+- `agent_retrievals_total{agent_outcome, agent_retrieval_hit}` counts live runs. Each
+  command the LLM ran, and each proposal a user confirmed, is a hit when its command
+  was among the retrieved examples. The label is the command that ran, so this series
+  measures agreement with the LLM and is strongest on `confirmed`.
+
 ## Failure behavior
 
 If the pull fails (cold start with no cache, hub down, bad key), the agent returns

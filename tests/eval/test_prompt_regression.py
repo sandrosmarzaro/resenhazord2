@@ -5,7 +5,7 @@ from bot.application.llm_command_mapper import LLMCommandMapper
 from bot.application.register_commands import build_agent_graph, register_all_commands
 from bot.domain.models.command_data import CommandData
 from bot.settings import Settings
-from tests.eval.dataset import PROMPT_REGRESSION_CASES
+from tests.eval.dataset import DENIED_CASES, PROMPT_REGRESSION_CASES
 
 _ACCURACY_THRESHOLD = 0.7
 
@@ -23,34 +23,56 @@ def anyio_backend() -> str:
 @pytest.mark.eval
 @pytest.mark.anyio
 async def test_prompt_maps_held_out_requests_above_threshold():
+    answers = await _answers(PROMPT_REGRESSION_CASES)
+
+    misses = [
+        f'{text!r} -> {answer!r} (wanted {expected!r})'
+        for text, expected, answer in answers
+        if not answer.startswith(expected)
+    ]
+    _assert_above_threshold(answers, misses)
+
+
+@pytest.mark.eval
+@pytest.mark.anyio
+async def test_prompt_stops_repeating_denied_mappings():
+    if not DENIED_CASES:
+        pytest.skip('no denied mapping collected yet')
+    answers = await _answers(DENIED_CASES)
+
+    repeats = [
+        f'{text!r} -> {answer!r} (denied before)'
+        for text, denied, answer in answers
+        if answer.startswith(denied)
+    ]
+    _assert_above_threshold(answers, repeats)
+
+
+async def _answers(cases: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
     register_all_commands(Settings())
     # No Redis: each case runs in its own in-memory thread, so a pending question
     # from one case never becomes context for the next.
     agent = build_agent_graph(CommandRegistry.instance(), Settings(), redis_url=None)
 
-    hits = 0
-    conclusive = 0
-    misses = []
-    for case, (text, expected) in enumerate(PROMPT_REGRESSION_CASES):
+    answers = []
+    for case, (text, target) in enumerate(cases):
         try:
             result = await agent.run(_data(text, case))
         except Exception:  # noqa: BLE001
             continue
         if _PROVIDER_UNAVAILABLE in result.text:
             continue
-        conclusive += 1
-        if result.text.startswith(expected):
-            hits += 1
-        else:
-            misses.append(f'{text!r} -> {result.text!r} (wanted {expected!r})')
-
-    if conclusive == 0:
+        answers.append((text, target, result.text))
+    if not answers:
         pytest.skip('no working LLM provider; cannot evaluate the prompt')
+    return answers
 
-    accuracy = hits / conclusive
-    report = '\n'.join(misses)
+
+def _assert_above_threshold(answers: list[tuple[str, str, str]], failures: list[str]) -> None:
+    accuracy = 1 - len(failures) / len(answers)
+    report = '\n'.join(failures)
     assert accuracy >= _ACCURACY_THRESHOLD, (
-        f'accuracy {accuracy:.0%} over {conclusive} conclusive '
+        f'accuracy {accuracy:.0%} over {len(answers)} conclusive '
         f'below {_ACCURACY_THRESHOLD:.0%}\n{report}'
     )
 

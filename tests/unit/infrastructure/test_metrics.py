@@ -2,7 +2,12 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from bot.infrastructure.metrics import record_agent_mapping, record_dlq, record_retry
+from bot.infrastructure.metrics import (
+    record_agent_mapping,
+    record_agent_retrieval,
+    record_dlq,
+    record_retry,
+)
 
 
 class TestRetryAndDlq:
@@ -49,3 +54,14 @@ class TestAgentMapping:
         assert attributes['agent.outcome'] == 'command'
         assert attributes['agent.provider'] == 'github'
         assert attributes['agent.prompt.version'] == 'c0ffee'
+
+
+class TestAgentRetrieval:
+    def test_record_agent_retrieval_carries_the_outcome_and_the_hit(self, mocker):
+        retrievals = mocker.patch('bot.infrastructure.metrics._agent_retrievals')
+
+        record_agent_retrieval('confirmed', hit=True)
+
+        retrievals.add.assert_called_once_with(
+            1, {'agent.outcome': 'confirmed', 'agent.retrieval.hit': 'true'}
+        )

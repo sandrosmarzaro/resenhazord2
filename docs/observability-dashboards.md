@@ -25,7 +25,9 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | Command latency | `traces_span_metrics_duration_milliseconds_bucket` / `_sum` / `_count` | same |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
-| Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/clarify/suggest/confirm/unresolvable/unavailable), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
+| Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/direct/confirm/confirmed/denied/clarify/suggest/menu_hint/unresolvable/unavailable), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
+| Agent retrieval (live) | `agent_retrievals_total` | `agent_outcome` (command/confirmed), `agent_retrieval_hit` (true/false) |
+| Agent retrieval (eval) | `agent_eval_recall` | `k`; `job="resenhazord2/prompt-eval"`, pushed by the prompt-eval workflow |
 | Host memory | `node_memory_MemAvailable_bytes`, `node_memory_MemTotal_bytes` | `instance` (core/edge) |
 | Host swap | `node_memory_SwapFree_bytes`, `node_memory_SwapTotal_bytes` | `instance` (core/edge) |
 | Host CPU | `node_cpu_seconds_total` | `mode`, `instance` (core/edge) |
@@ -96,6 +98,14 @@ clamp_min(sum(rate(agent_mappings_total[5m])), 0.0001)
 ```promql
 sum by (agent_provider) (rate(agent_mappings_total[5m]))
 sum by (agent_prompt_version) (rate(agent_mappings_total[5m]))   # correlate an outcome shift to a prompt rollout
+```
+
+### Agent — retrieval recall@5
+```promql
+sum(increase(agent_retrievals_total{agent_retrieval_hit="true"}[7d]))
+/
+clamp_min(sum(increase(agent_retrievals_total[7d])), 1)       # live, labelled by the command that ran
+last_over_time(agent_eval_recall{k="5"}[30d])                 # eval dataset, see prompt-management.md
 ```
 
 ## Alert rules
