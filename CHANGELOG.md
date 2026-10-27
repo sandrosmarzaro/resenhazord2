@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v2.13.0 (2026-10-27)
+
+### Feat
+
+- **agent**: add topN examples to the command mapper
+- **commands**: price foreign currencies in reais in ,moeda
+- **football**: show the market values season in captions
+- **football**: add ,time fifa with ea fc ratings
+- **football**: build ,time full lineups from the dataset snapshot (#255)
+- **football**: build ,time from the transfermarkt-datasets snapshot (#254)
+- **football**: pick ,jogador from the transfermarkt-datasets snapshot (#253)
+- **football**: load players and squads from transfermarkt-datasets (#252)
+
+### Fix
+
+- **commands**: accept top N and pop N with a space
+- **football**: show the team caption country in portuguese
+- **football**: flag the market dump by season, not file date
+- **football**: keep surname particles and suffixes when shortening names
+- **beer**: search openfoodfacts.org with a logged-in session (#251)
+- **football**: ligapro first-stage fallback and argentina relegation zone (#250)
+- **commands**: sane tmdb top ranking and pt-br bandeira (#249)
+- **football**: move tabela and placar to espn, surface transfermarkt blocks (#248)
+- **anime**: move anime and manga to anilist (#247)
+- **commands**: batch of quick command fixes (#246)
+- **discord**: reconnect when the gateway connection dies
+
+### Refactor
+
+- **football**: delete the transfermarkt scraper (#256)
+
 ## v2.12.0 (2026-10-23)
 
 ### Feat
