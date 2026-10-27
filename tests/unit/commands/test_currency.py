@@ -48,103 +48,65 @@ class TestMatches:
         assert command.matches(text) is expected
 
 
+API_URL = 'https://cdn.moneyconvert.net/api/latest.json'
+
+
+@pytest.fixture
+def rates(respx_mock):
+    return respx_mock.get(API_URL).mock(return_value=httpx.Response(200, json=MOCK_RATES))
+
+
+async def _reply(command, text: str) -> str:
+    messages = await command.run(GroupCommandDataFactory.build(text=text))
+    assert isinstance(messages[0].content, TextContent)
+    return messages[0].content.text
+
+
 class TestExecute:
     @pytest.mark.anyio
-    async def test_converts_brl_to_all_currencies(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=',moeda 100')
-        respx_mock.get('https://cdn.moneyconvert.net/api/latest.json').mock(
-            return_value=httpx.Response(200, json=MOCK_RATES)
-        )
+    async def test_prices_one_unit_of_each_currency_in_reais(self, command, rates):
+        text = await _reply(command, ',moeda')
 
-        messages = await command.run(data)
-
-        assert len(messages) == 1
-        assert isinstance(messages[0].content, TextContent)
-        text = messages[0].content.text
-        assert 'Cotação do Real' in text
-        assert '💵' in text
-        assert '💰' in text
-        assert 'R$ 100,00' in text
-        assert 'USD:' in text
-        assert 'EUR:' in text
-        assert 'GBP:' in text
+        assert '🇺🇸 1 USD = R$ 5,01' in text
+        assert '🇪🇺 1 EUR = R$ 5,87' in text
 
     @pytest.mark.anyio
-    async def test_handles_decimal_comma_input(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=',moeda 50,50')
-        respx_mock.get('https://cdn.moneyconvert.net/api/latest.json').mock(
-            return_value=httpx.Response(200, json=MOCK_RATES)
-        )
+    async def test_small_rates_keep_two_significant_digits(self, command, rates):
+        text = await _reply(command, ',moeda')
 
-        messages = await command.run(data)
-
-        text = messages[0].content.text
-        assert 'R$ 50,50' in text
+        assert '🇯🇵 1 JPY = R$ 0,031' in text
+        assert '🇦🇷 1 ARS = R$ 0,0037' in text
 
     @pytest.mark.anyio
-    async def test_defaults_to_one_when_no_amount(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=',moeda')
-        respx_mock.get('https://cdn.moneyconvert.net/api/latest.json').mock(
-            return_value=httpx.Response(200, json=MOCK_RATES)
-        )
+    async def test_prices_the_given_amount(self, command, rates):
+        text = await _reply(command, ',moeda 100')
 
-        messages = await command.run(data)
-
-        assert len(messages) == 1
-        text = messages[0].content.text
-        assert 'R$ 1,00' in text
-        assert 'USD:' in text
+        assert '🇯🇵 100 JPY = R$ 3,15' in text
 
     @pytest.mark.anyio
-    async def test_returns_error_for_invalid_amount(self, command):
-        data = GroupCommandDataFactory.build(text=',moeda abc')
+    async def test_handles_decimal_comma_input(self, command, rates):
+        text = await _reply(command, ',moeda 2,5')
 
-        messages = await command.run(data)
-
-        assert 'Valor inválido' in messages[0].content.text
-        assert '🙂' in messages[0].content.text
+        assert '🇺🇸 2,50 USD = R$ 12,52' in text
 
     @pytest.mark.anyio
-    async def test_shows_all_12_currencies(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=',moeda 100')
-        respx_mock.get('https://cdn.moneyconvert.net/api/latest.json').mock(
-            return_value=httpx.Response(200, json=MOCK_RATES)
-        )
+    async def test_lists_every_currency(self, command, rates):
+        text = await _reply(command, ',currency')
 
-        messages = await command.run(data)
-
-        text = messages[0].content.text
-        assert 'USD:' in text
-        assert 'EUR:' in text
-        assert 'GBP:' in text
-        assert 'CHF:' in text
-        assert 'JPY:' in text
-        assert 'CNY:' in text
-        assert 'HKD:' in text
-        assert 'CAD:' in text
-        assert 'AUD:' in text
-        assert 'INR:' in text
-        assert 'AOA:' in text
-        assert 'ARS:' in text
+        currency_lines = [line for line in text.splitlines() if ' = R$ ' in line]
+        assert len(currency_lines) == len(MOCK_RATES['rates']) - 1
 
     @pytest.mark.anyio
-    async def test_english_alias_works(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=',currency 200')
-        respx_mock.get('https://cdn.moneyconvert.net/api/latest.json').mock(
-            return_value=httpx.Response(200, json=MOCK_RATES)
-        )
+    @pytest.mark.parametrize('amount', ['abc', '0', '-5', 'inf', 'nan'])
+    async def test_rejects_non_positive_or_invalid_amount(self, command, amount):
+        text = await _reply(command, f',moeda {amount}')
 
-        messages = await command.run(data)
-
-        assert len(messages) == 1
-        assert 'R$ 200,00' in messages[0].content.text
+        assert text == 'Valor inválido! Manda um número positivo 🙂'
 
     @pytest.mark.anyio
     async def test_raises_on_api_failure(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=',moeda 100')
-        respx_mock.get('https://cdn.moneyconvert.net/api/latest.json').mock(
-            return_value=httpx.Response(500)
-        )
+        respx_mock.get(API_URL).mock(return_value=httpx.Response(500))
 
         with pytest.raises(httpx.HTTPStatusError):
             await command.run(data)
