@@ -4,8 +4,9 @@ import pytest
 
 from bot.data.football import LEAGUES
 from bot.domain.commands.football_player import FootballPlayerCommand
-from bot.domain.models.football import PlayerProfile, TmPlayer
+from bot.domain.models.football import FifaPlayer, PlayerProfile, TmPlayer
 from bot.domain.models.message import ImageBufferContent, TextContent
+from bot.domain.services.fifa_ratings import FifaRatings
 from bot.domain.services.market_dataset import MarketDataset
 from bot.infrastructure.http_client import HttpClient
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
@@ -242,3 +243,53 @@ class TestPool:
         await command.run(GroupCommandDataFactory.build(text=',jogador top0'))
 
         assert len(pick_first.call_args.args[0]) == FootballPlayerCommand.GLOBAL_POOL
+
+
+def _card_url(name: str) -> str:
+    return f'https://ratings-images-prod.pulse.ea.com/FC25/full/player-shields/en/{name}.png'
+
+
+class TestFifaCard:
+    @pytest.fixture
+    def ratings(self, mocker, photo):
+        players = [FifaPlayer('Mohamed Salah', 91, _card_url('salah'))] + [
+            FifaPlayer(f'P{i}', 85, _card_url(f'p{i}')) for i in range(99)
+        ]
+        fetch = mocker.AsyncMock(return_value=players)
+        mocker.patch.object(FifaRatings, 'top', new=fetch)
+        return fetch
+
+    @pytest.mark.anyio
+    async def test_sends_the_ea_card(self, command, ratings, photo, pick_first):
+        messages = await command.run(GroupCommandDataFactory.build(text=',jogador fifa'))
+
+        photo.assert_awaited_once_with(_card_url('salah'))
+        assert isinstance(messages[0].content, ImageBufferContent)
+        assert messages[0].content.caption == '*Mohamed Salah* — ⭐ 91'
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('text', 'pool_size'), [(',jogador fifa', 100), (',jogador fifa top 5', 5)]
+    )
+    async def test_draws_from_the_top_rated(self, command, ratings, pick_first, text, pool_size):
+        await command.run(GroupCommandDataFactory.build(text=text))
+
+        assert len(pick_first.call_args.args[0]) == pool_size
+
+    @pytest.mark.anyio
+    async def test_skips_players_without_a_trusted_card(self, command, ratings, pick_first):
+        ratings.return_value = [
+            FifaPlayer('Tampered', 90, ''),
+            FifaPlayer('Kane', 90, _card_url('kane')),
+        ]
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',jogador fifa'))
+
+        assert messages[0].content.caption == '*Kane* — ⭐ 90'
+
+    @pytest.mark.anyio
+    async def test_league_filter_is_not_supported(self, command, ratings):
+        messages = await command.run(GroupCommandDataFactory.build(text=',jogador pl fifa'))
+
+        assert isinstance(messages[0].content, TextContent)
+        ratings.assert_not_awaited()

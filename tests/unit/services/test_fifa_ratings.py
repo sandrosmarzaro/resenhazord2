@@ -81,6 +81,19 @@ class TestRolePools:
             await FifaRatings.role_pools({'ST'})
 
 
+class TestTop:
+    @pytest.mark.anyio
+    async def test_ranks_every_position_together(self, respx_mock):
+        route = respx_mock.get(FIFA_RATINGS_URL).mock(
+            return_value=_page(_item('Mohamed', 'Salah', 91))
+        )
+
+        players = await FifaRatings.top()
+
+        assert players[0].name == 'Mohamed Salah'
+        assert 'position' not in route.calls.last.request.url.params
+
+
 class TestCache:
     @pytest.mark.anyio
     async def test_reuses_a_position_within_ttl(self, strikers):
