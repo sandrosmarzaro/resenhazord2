@@ -3,14 +3,19 @@ name: Prompt eval
 # Homologation gate for the decoupled system prompt. Runs the held-out regression
 # eval against real LLM providers when the prompt seed or the eval changes, and
 # on demand before promoting a hub commit to `prod`. Green here is the signal to
-# run `uv run task prompt:promote`.
+# run `uv run task prompt:promote`. It also measures retrieval recall@k against
+# the Upstash index and pushes it to Grafana; the weekly run keeps that series
+# alive between prompt changes.
 on:
   pull_request:
     paths:
       - bot/data/agent_examples.py
+      - bot/application/example_selector.py
       - tests/eval/**
       - scripts/push_prompt.py
       - scripts/promote_prompt.py
+  schedule:
+    - cron: '0 12 * * 1'
   workflow_dispatch:
     inputs:
       prompt_tag:
@@ -47,3 +52,9 @@ jobs:
           # the in-code SYSTEM_PROMPT_TEMPLATE.
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           LANGSMITH_PROMPT_TAG: ${{ github.event.inputs.prompt_tag || 'dev' }}
+          # Absent Upstash keys skip the recall eval; absent OTLP keys keep its
+          # result out of Grafana.
+          UPSTASH_VECTOR_REST_URL: ${{ secrets.UPSTASH_VECTOR_REST_URL }}
+          UPSTASH_VECTOR_REST_TOKEN: ${{ secrets.UPSTASH_VECTOR_REST_TOKEN }}
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

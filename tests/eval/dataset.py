@@ -25,3 +25,8 @@ PROMPT_REGRESSION_CASES: Final[list[tuple[str, str]]] = [
     ('qual é o meu horóscopo hoje', ',horóscopo'),
     ('me mostra a lista de comandos', ',menu'),
 ]
+
+# Requests users denied in production (the agent_denied log), each paired with the
+# command the agent wrongly proposed. The eval asserts the prompt stops mapping them
+# there. Once someone labels the right command, the case also joins the list above.
+DENIED_CASES: Final[list[tuple[str, str]]] = []
