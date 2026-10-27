@@ -34,15 +34,6 @@ from bot.infrastructure.http_client import HttpClient
 logger = structlog.get_logger()
 
 
-def _parse_top_n(top_str: str) -> int:
-    if not top_str:
-        return 0
-    try:
-        return int(top_str[3:])
-    except ValueError:
-        return 0
-
-
 class FootballTeamCommand(Command):
     _NO_RANK: ClassVar[tuple[int, str]] = (0, '')
 
@@ -51,7 +42,7 @@ class FootballTeamCommand(Command):
         return CommandConfig(
             name='time',
             options=[
-                OptionDef(name='top', pattern=r'top\d+'),
+                OptionDef(name='top', pattern=r'top\s?\d+'),
                 OptionDef(name='liga', values=MARKET_LEAGUE_CODES),
             ],
             flags=['full', 'fifa', Flag.SHOW, Flag.DM],
@@ -75,7 +66,7 @@ class FootballTeamCommand(Command):
 
     async def _random_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
-        top_n = _parse_top_n(parsed.options.get('top', ''))
+        top_n = parsed.number('top')
         if top_n > 0 and not liga_code:
             return await self._global_top_team(data, top_n)
 
@@ -145,7 +136,7 @@ class FootballTeamCommand(Command):
     async def _full_team(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga')
         formation = random_formation()
-        top_n = _parse_top_n(parsed.options.get('top', ''))
+        top_n = parsed.number('top')
 
         field_image, caption = await FullLineupBuilder.build(liga_code, formation, top_n)
         return [Reply.to(data).image_buffer(field_image, caption)]
@@ -154,6 +145,6 @@ class FootballTeamCommand(Command):
         if parsed.options.get('liga'):
             reply = 'O time FIFA ainda não filtra por liga. Usa *,time fifa*! ⚽'
             return [Reply.to(data).text(reply)]
-        top_n = _parse_top_n(parsed.options.get('top', ''))
+        top_n = parsed.number('top')
         field_image, caption = await FullLineupBuilder.build_fifa(random_formation(), top_n)
         return [Reply.to(data).image_buffer(field_image, caption)]

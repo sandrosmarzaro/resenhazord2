@@ -224,6 +224,24 @@ class TestCommandWithPatternOption:
         assert result.rest == 'hello world'
 
 
+class TestCommandWithSpacedPatternOption:
+    def setup_method(self):
+        self.parser = CommandParser(
+            CommandConfig(name='filme', options=[OptionDef(name='top', pattern=r'top\s?\d+')])
+        )
+
+    @pytest.mark.parametrize('text', [',filme top5', ',filme top 5', ',filme TOP 5'])
+    def test_matches_with_or_without_space(self, text):
+        assert self.parser.matches(text) is True
+
+    @pytest.mark.parametrize('text', [',filme top5', ',filme top 5'])
+    def test_parses_the_number(self, text):
+        assert self.parser.parse(text).number('top') == 5
+
+    def test_missing_option_is_zero(self):
+        assert self.parser.parse(',filme').number('top') == 0
+
+
 class TestCommandWithNameContainingSpace:
     def setup_method(self):
         self.parser = CommandParser(CommandConfig(name='rule 34', flags=['show', 'dm']))

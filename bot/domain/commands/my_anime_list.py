@@ -47,8 +47,8 @@ class MyAnimeListCommand(Command):
             aliases=['manga'],
             flags=[Flag.SHOW, Flag.DM],
             options=[
-                OptionDef(name='pop', pattern=r'pop\d*'),
-                OptionDef(name='top', pattern=r'top\d+'),
+                OptionDef(name='pop', pattern=r'pop(?:\s?\d+)?'),
+                OptionDef(name='top', pattern=r'top\s?\d+'),
             ],
             category=Category.RANDOM,
             platforms=[Platform.ALL],
@@ -88,21 +88,10 @@ class MyAnimeListCommand(Command):
         return [Reply.to(data).image(item['coverImage']['extraLarge'], caption)]
 
     def _resolve_page_range(self, parsed: ParsedCommand) -> tuple[int, int]:
-        if 'pop' in parsed.options:
-            pop_str = parsed.options['pop']
-            pop_n = pop_str.removeprefix('pop')
-            if pop_n:
-                rank_limit = int(pop_n)
-                return rank_limit, max(
-                    1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE
-                )
+        rank_limit = parsed.number('pop' if 'pop' in parsed.options else 'top')
+        if not rank_limit:
             return 0, self.DEFAULT_MAX_PAGE
-
-        top_str = parsed.options.get('top', '')
-        if not top_str:
-            return 0, self.DEFAULT_MAX_PAGE
-        top_n = int(top_str.removeprefix('top'))
-        return top_n, max(1, (top_n + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
+        return rank_limit, max(1, (rank_limit + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE)
 
     @classmethod
     def _build_caption(cls, item: dict, profile: dict) -> str:

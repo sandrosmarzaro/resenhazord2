@@ -85,6 +85,8 @@ class TestMatches:
             (', anime dm', True),
             (', anime top100', True),
             (', anime top50', True),
+            (', anime top 10', True),
+            (', manga pop 10', True),
             (', manga top250', True),
             (', anime pop', True),
             (', anime pop100', True),
@@ -188,6 +190,8 @@ class TestRun:
         [
             (', anime', 20),
             (', anime top100', 4),
+            (', anime top 100', 4),
+            (', anime top0', 20),
             (', anime pop', 20),
             (', anime pop100', 4),
         ],

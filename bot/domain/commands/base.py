@@ -83,6 +83,10 @@ class ParsedCommand:
     options: dict[str, str] = field(default_factory=dict)
     rest: str = ''
 
+    def number(self, option: str) -> int:
+        digits = ''.join(filter(str.isdigit, self.options.get(option, '')))
+        return int(digits or 0)
+
 
 class Command(ABC):
     def __init__(self, whatsapp: WhatsAppPort | None = None) -> None:
