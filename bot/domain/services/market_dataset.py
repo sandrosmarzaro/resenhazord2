@@ -11,19 +11,21 @@ from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from email.utils import parsedate_to_datetime
 from typing import ClassVar
 
 import anyio
+import sentry_sdk
 import structlog
 
 from bot.data.football import BR_TIMEZONE
 from bot.data.market_dataset import (
     CLUB_BADGE_URL,
-    MARKET_DATASET_STALE_AFTER,
+    EUROS_PER_MILLION,
+    EUROS_PER_THOUSAND,
     MARKET_DATASET_TTL,
     MARKET_DATASET_URL,
     PLAYER_PHOTO_PREFIX,
+    SEASON_START_MONTH,
 )
 from bot.data.nationality_flags import nationality_flag
 from bot.domain.models.football import PlayerProfile, TmPlayer, TmSquadStats
@@ -35,6 +37,7 @@ logger = structlog.get_logger()
 @dataclass(frozen=True)
 class _Snapshot:
     loaded_at: datetime
+    season: int
     players: dict[str, list[TmPlayer]] = field(default_factory=dict)
     clubs: dict[str, list[TmSquadStats]] = field(default_factory=dict)
 
@@ -42,8 +45,6 @@ class _Snapshot:
 class MarketDataset:
     _TTL: ClassVar = MARKET_DATASET_TTL
     _ALL: ClassVar[str] = ''
-    _MILLION: ClassVar[int] = 1_000_000
-    _THOUSAND: ClassVar[int] = 1_000
     _snapshot: ClassVar[_Snapshot | None] = None
 
     @classmethod
@@ -57,6 +58,11 @@ class MarketDataset:
         return snapshot.clubs.get(league_id, [])
 
     @classmethod
+    async def season(cls) -> str:
+        start = (await cls._current()).season
+        return f'{start}/{(start + 1) % 100:02d}'
+
+    @classmethod
     async def _current(cls) -> _Snapshot:
         snapshot = cls._snapshot
         if snapshot is None or datetime.now(UTC) - snapshot.loaded_at >= cls._TTL:
@@ -68,17 +74,17 @@ class MarketDataset:
     async def _load(cls) -> _Snapshot:
         players = await cls._download('players')
         clubs = await cls._download('clubs')
-        return await anyio.to_thread.run_sync(cls._parse, players, clubs)
+        snapshot = await anyio.to_thread.run_sync(cls._parse, players, clubs)
+        if snapshot.season < _current_season():
+            # Upstream paused in July 2026 (transfermarkt-datasets discussion #383).
+            logger.warning('market_dataset_stale', season=snapshot.season)
+            sentry_sdk.capture_message('market_dataset_stale', level='warning')
+        return snapshot
 
     @staticmethod
     async def _download(table: str) -> bytes:
         response = await HttpClient.get(MARKET_DATASET_URL.format(table=table))
         response.raise_for_status()
-        last_modified = response.headers.get('last-modified')
-        if last_modified:
-            age = datetime.now(UTC) - parsedate_to_datetime(last_modified)
-            if age > MARKET_DATASET_STALE_AFTER:
-                logger.warning('market_dataset_stale', last_modified=last_modified)
         return response.content
 
     @classmethod
@@ -93,7 +99,7 @@ class MarketDataset:
             ),
             key=lambda row: -int(row['market_value_in_eur']),
         )
-        snapshot = _Snapshot(loaded_at=datetime.now(UTC))
+        snapshot = _Snapshot(loaded_at=datetime.now(UTC), season=int(season))
         squad_values: dict[str, int] = defaultdict(int)
         for row in current:
             player = cls._player(row)
@@ -133,7 +139,7 @@ class MarketDataset:
     @classmethod
     def _club(cls, row: dict[str, str], squad_value: int) -> TmSquadStats:
         return TmSquadStats(
-            market_value=cls.format_euros(squad_value),
+            market_value=format_euros(squad_value),
             squad_size=row['squad_size'],
             avg_age=row['average_age'].replace('.', ','),
             foreigners_count=row['foreigners_number'],
@@ -144,12 +150,17 @@ class MarketDataset:
             league_id=row['domestic_competition_id'],
         )
 
-    @classmethod
-    def format_euros(cls, value: int) -> str:
-        if value < cls._MILLION:
-            return f'€ {value // cls._THOUSAND} mil.'
-        millions = f'{value / cls._MILLION:,.2f}'
-        return f'€ {millions.replace(",", "X").replace(".", ",").replace("X", ".")} mi.'
+
+def format_euros(value: int) -> str:
+    if value < EUROS_PER_MILLION:
+        return f'€ {value // EUROS_PER_THOUSAND} mil.'
+    millions = f'{value / EUROS_PER_MILLION:,.2f}'
+    return f'€ {millions.replace(",", "X").replace(".", ",").replace("X", ".")} mi.'
+
+
+def _current_season() -> int:
+    today = datetime.now(BR_TIMEZONE).date()
+    return today.year if today.month >= SEASON_START_MONTH else today.year - 1
 
 
 def _rows(gzipped_csv: bytes) -> Iterator[dict[str, str]]:

@@ -19,7 +19,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import PlayerProfile, TmPlayer
 from bot.domain.models.message import BotMessage
-from bot.domain.services.market_dataset import MarketDataset
+from bot.domain.services.market_dataset import MarketDataset, format_euros
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -78,7 +78,7 @@ class FootballPlayerCommand(Command):
         lines.extend(cls._birth_line(player.profile))
         lines.append(f'🏟️ {player.club} {club_flag}')
         lines.extend(cls._physical_line(player.profile))
-        lines.extend(['', f'💰 {MarketDataset.format_euros(player.market_value)}'])
+        lines.extend(['', f'💰 {format_euros(player.market_value)}'])
         return '\n'.join(lines)
 
     @staticmethod
