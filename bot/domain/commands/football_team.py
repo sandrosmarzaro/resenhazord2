@@ -9,6 +9,7 @@ import structlog
 
 from bot.data.football import LEAGUES, LEAGUES_BY_TM_ID, MARKET_LEAGUE_CODES, LeagueInfo
 from bot.data.football_formations import random_formation
+from bot.data.market_dataset import SEASON_FOOTER
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     Category,
@@ -124,7 +125,8 @@ class FootballTeamCommand(Command):
     ) -> str:
         rank, short_name = table_entry or (None, club.name)
         sports_team = await cls._sports_team(short_name)
-        return TeamCaptionBuilder.build(club, sports_team, league, rank, global_rank)
+        caption = TeamCaptionBuilder.build(club, sports_team, league, rank, global_rank)
+        return f'{caption}\n{SEASON_FOOTER.format(season=await MarketDataset.season())}'
 
     @staticmethod
     async def _sports_team(name: str) -> SportsDBTeam | None:

@@ -8,12 +8,13 @@ from typing import ClassVar
 
 from bot.data.football import LEAGUES
 from bot.data.football_formations import Formation, specific_roles
+from bot.data.market_dataset import SEASON_FOOTER
 from bot.domain.models.football import LineupPlayer, TmPlayer
 from bot.domain.services.fifa_ratings import FifaRatings
 from bot.domain.services.football_field.build_field import build_football_field
 from bot.domain.services.lineup_assigner import LineupAssigner
 from bot.domain.services.lineup_builder import LineupBuilder
-from bot.domain.services.market_dataset import MarketDataset
+from bot.domain.services.market_dataset import MarketDataset, format_euros
 from bot.domain.services.player_assets import PlayerAssets
 
 
@@ -29,12 +30,13 @@ class FullLineupBuilder:
     ) -> tuple[bytes, str]:
         ordered = await cls._lineup(league_code, formation, top_n)
         total = sum(player.market_value for player in ordered if player)
-        total_value = MarketDataset.format_euros(total) if total else None
+        total_value = format_euros(total) if total else None
         field_image = await cls._render(ordered, formation, total_value)
 
         caption = f'⚽ *Escalação Aleatória* — {formation.name}'
         if total_value:
             caption += f'\n💰 {total_value}'
+        caption += f'\n{SEASON_FOOTER.format(season=await MarketDataset.season())}'
         return field_image, caption
 
     @classmethod

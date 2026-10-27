@@ -4,6 +4,7 @@ import random
 from typing import ClassVar
 
 from bot.data.football import LEAGUES, MARKET_LEAGUE_CODES, LeagueInfo
+from bot.data.market_dataset import SEASON_FOOTER
 from bot.data.nationality_flags import nationality_flag, nationality_pt
 from bot.data.transfermarkt_positions import FOOT_LABELS, POSITION_LABELS
 from bot.domain.builders.reply import Reply
@@ -19,7 +20,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import PlayerProfile, TmPlayer
 from bot.domain.models.message import BotMessage
-from bot.domain.services.market_dataset import MarketDataset
+from bot.domain.services.market_dataset import MarketDataset, format_euros
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -55,7 +56,7 @@ class FootballPlayerCommand(Command):
             return [Reply.to(data).text('Não achei esse jogador. Tenta de novo! ⚽')]
 
         player = random.choice(pool)
-        caption = self._build_caption(player, league)
+        caption = self._build_caption(player, league, await MarketDataset.season())
         buffer = await HttpClient.get_buffer(player.photo_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
 
@@ -66,7 +67,7 @@ class FootballPlayerCommand(Command):
         return self.LEAGUE_POOL if league else self.GLOBAL_POOL
 
     @classmethod
-    def _build_caption(cls, player: TmPlayer, league: LeagueInfo | None) -> str:
+    def _build_caption(cls, player: TmPlayer, league: LeagueInfo | None, season: str) -> str:
         club_flag = league.flag if league else ''
         position = POSITION_LABELS.get(player.position, player.position)
         nationality = nationality_pt(player.nationality)
@@ -78,7 +79,9 @@ class FootballPlayerCommand(Command):
         lines.extend(cls._birth_line(player.profile))
         lines.append(f'🏟️ {player.club} {club_flag}')
         lines.extend(cls._physical_line(player.profile))
-        lines.extend(['', f'💰 {MarketDataset.format_euros(player.market_value)}'])
+        lines.extend(
+            ['', f'💰 {format_euros(player.market_value)}', SEASON_FOOTER.format(season=season)]
+        )
         return '\n'.join(lines)
 
     @staticmethod

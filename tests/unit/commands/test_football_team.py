@@ -127,6 +127,7 @@ def pick_first(mocker):
 @pytest.fixture
 def sources(mocker, badge):
     clubs = mocker.AsyncMock(return_value=[_CITY, _CHELSEA])
+    mocker.patch.object(MarketDataset, 'season', new=mocker.AsyncMock(return_value='2025/26'))
     mocker.patch.object(MarketDataset, 'clubs', new=clubs)
     mocker.patch.object(
         EspnService,
@@ -186,7 +187,7 @@ class TestLeagueTeam:
 
         assert caption.splitlines()[0] == '*Manchester City* — Premier League'
         assert '📊 3º na tabela' in caption
-        assert '💰 € 1.200,00 mi.' in caption
+        assert caption.splitlines()[-2:] == ['💰 € 1.200,00 mi.', '📅 Valores da temporada 2025/26']
 
     @pytest.mark.anyio
     async def test_searches_details_by_espn_short_name(self, command, sources, search, pick_first):
@@ -323,6 +324,7 @@ class TestFullTeam:
     @pytest.fixture
     def squad(self, mocker, badge):
         fetch = mocker.AsyncMock(return_value=_MOCK_SQUAD)
+        mocker.patch.object(MarketDataset, 'season', new=mocker.AsyncMock(return_value='2025/26'))
         mocker.patch.object(MarketDataset, 'players', new=fetch)
         mocker.patch('bot.domain.commands.football_team.random_formation', return_value=_FORMATION)
         return fetch
@@ -345,7 +347,8 @@ class TestFullTeam:
         squad.assert_awaited_once_with('GB1')
         assert isinstance(messages[0].content, ImageBufferContent)
         assert messages[0].content.caption == (
-            f'⚽ *Escalação Aleatória* — {_FORMATION.name}\n💰 € {50 * _N_SLOTS},00 mi.'
+            f'⚽ *Escalação Aleatória* — {_FORMATION.name}\n💰 € {50 * _N_SLOTS},00 mi.\n'
+            '📅 Valores da temporada 2025/26'
         )
 
     @pytest.mark.anyio

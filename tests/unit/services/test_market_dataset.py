@@ -9,12 +9,10 @@ import pytest
 from bot.data.football import BR_TIMEZONE
 from bot.data.market_dataset import MARKET_DATASET_URL
 from bot.domain.models.football import PlayerProfile, TmPlayer, TmSquadStats
-from bot.domain.services.market_dataset import MarketDataset
+from bot.domain.services.market_dataset import MarketDataset, format_euros
 
 _PLAYERS_URL = MARKET_DATASET_URL.format(table='players')
 _CLUBS_URL = MARKET_DATASET_URL.format(table='clubs')
-_FRESH = 'Sat, 05 Sep 2099 09:12:22 GMT'
-_STALE = 'Sat, 05 Sep 2020 09:12:22 GMT'
 
 
 def _player(name: str, value: str, **overrides: str) -> dict[str, str]:
@@ -88,14 +86,18 @@ def empty_cache(mocker):
 
 @pytest.fixture
 def dataset_routes(respx_mock):
-    def mount(last_modified: str = _FRESH):
+    def mount(season: str = '2025'):
+        def in_season(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+            return [
+                {**row, 'last_season': season} if row['last_season'] == '2025' else row
+                for row in rows
+            ]
+
         players = respx_mock.get(_PLAYERS_URL).mock(
-            return_value=httpx.Response(
-                200, content=_gzip_csv(_PLAYERS), headers={'last-modified': last_modified}
-            )
+            return_value=httpx.Response(200, content=_gzip_csv(in_season(_PLAYERS)))
         )
         clubs = respx_mock.get(_CLUBS_URL).mock(
-            return_value=httpx.Response(200, content=_gzip_csv(_CLUBS))
+            return_value=httpx.Response(200, content=_gzip_csv(in_season(_CLUBS)))
         )
         return players, clubs
 
@@ -132,7 +134,7 @@ class TestPlayers:
 
         players = await MarketDataset.players()
 
-        assert MarketDataset.format_euros(players[-1].market_value) == '€ 500 mil.'
+        assert format_euros(players[-1].market_value) == '€ 500 mil.'
 
     @pytest.mark.anyio
     async def test_filters_by_league(self, dataset_routes):
@@ -240,14 +242,31 @@ class TestCache:
 
         assert players_route.call_count == 2
 
+
+class TestSeason:
     @pytest.mark.anyio
-    async def test_warns_when_upstream_stopped_publishing(self, dataset_routes, mocker):
-        dataset_routes(last_modified=_STALE)
-        logger = mocker.patch('bot.domain.services.market_dataset.logger')
+    async def test_labels_the_dump_season(self, dataset_routes):
+        dataset_routes()
+
+        assert await MarketDataset.season() == '2025/26'
+
+    @pytest.mark.anyio
+    async def test_alerts_when_the_dump_is_seasons_behind(self, dataset_routes, mocker):
+        dataset_routes(season='2020')
+        alert = mocker.patch('bot.domain.services.market_dataset.sentry_sdk.capture_message')
 
         await MarketDataset.players()
 
-        logger.warning.assert_called_once_with('market_dataset_stale', last_modified=_STALE)
+        alert.assert_called_once_with('market_dataset_stale', level='warning')
+
+    @pytest.mark.anyio
+    async def test_current_season_raises_no_alert(self, dataset_routes, mocker):
+        dataset_routes(season='2999')
+        alert = mocker.patch('bot.domain.services.market_dataset.sentry_sdk.capture_message')
+
+        await MarketDataset.players()
+
+        alert.assert_not_called()
 
 
 class TestFormatEuros:
@@ -260,4 +279,4 @@ class TestFormatEuros:
         ],
     )
     def test_uses_transfermarkt_brazilian_notation(self, euros, label):
-        assert MarketDataset.format_euros(euros) == label
+        assert format_euros(euros) == label
