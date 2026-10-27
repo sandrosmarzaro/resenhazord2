@@ -147,6 +147,19 @@ class TestConfirmation:
         provider.complete.assert_awaited_once()
 
     @pytest.mark.anyio
+    async def test_no_logs_the_request_the_proposal_and_the_denial(self, provider, clock, mocker):
+        logger = mocker.patch(f'{_NODES_MODULE}.logger')
+        _replies(provider, _command(confidence=0.3))
+        orchestrator = _orchestrator(provider)
+        await orchestrator.run(_data('placar'))
+
+        await orchestrator.run(_data('não'))
+
+        logger.info.assert_called_once_with(
+            'agent_denied', request='placar', proposed=',placar now', reply='não'
+        )
+
+    @pytest.mark.anyio
     async def test_other_reply_is_a_new_request_with_the_proposal_as_context(self, provider, clock):
         _replies(provider, _command(confidence=0.3), _command())
         orchestrator = _orchestrator(provider)
