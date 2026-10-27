@@ -312,7 +312,7 @@ class TestGlobalTopTeam:
         caption = await _caption(command, ',time top1')
 
         search.assert_awaited_once_with(_AL_HILAL.name)
-        assert caption.splitlines()[:3] == ['*Al-Hilal*', '', '🌍 England   📅 1880']
+        assert caption.splitlines()[:3] == ['*Al-Hilal*', '', '🌍 Inglaterra   📅 1880']
         assert '🏆 #1º mais valioso do mundo' in caption
 
 
@@ -434,6 +434,19 @@ class TestFifaTeam:
 
 
 class TestBuildTeamCaption:
+    @pytest.mark.parametrize(
+        ('sports_team', 'league', 'head'),
+        [
+            (_make_sports_team(), _LEAGUE, '🏴󠁧󠁢󠁥󠁮󠁧󠁿 Inglaterra   📅 1880'),
+            (None, LEAGUES['sa'], '🇮🇹 Itália'),
+            (None, None, '🌍'),
+        ],
+    )
+    def test_country_shows_in_portuguese(self, sports_team, league, head):
+        caption = TeamCaptionBuilder.build(_CITY, sports_team, league, rank=None)
+
+        assert caption.splitlines()[2] == head
+
     def test_includes_team_and_league(self):
         caption = TeamCaptionBuilder.build(_CITY, _make_sports_team(), _LEAGUE, rank=1)
 
