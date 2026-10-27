@@ -14,7 +14,7 @@ was decoupled into the LangSmith Prompt Hub ([ADR 0013](./adr/0013-prompt-regist
 - **What the bot serves:** `resenhazord-agent:prod`, pulled at runtime and cached
   stale-while-revalidate (TTL ~5 min). Promoting a new commit to `prod` reaches
   production within that window — **no re-deploy**.
-- **What the bot never serves:** `dev`. That alias is the eval target.
+- **What the bot never serves:** `dev`. Evaluate it on demand before promoting.
 
 ## One-time setup
 
@@ -42,11 +42,12 @@ uv run task prompt:promote           # re-tag the dev commit as `prod`
 
 The `prompt-eval` GitHub workflow runs the same eval automatically on changes to
 `bot/data/agent_examples.py`, `tests/eval/**`, or the prompt scripts, and on demand
-(`workflow_dispatch`, input `prompt_tag`). It needs a provider secret to do real work
-(`GH_MODELS_TOKEN` — a PAT, since the built-in Actions token does not authenticate
-GitHub Models — `MISTRAL_API_KEY`, or `GROQ_API_KEY`); a provider outage is inconclusive,
-so when none answers it self-skips and stays green. **Promote only a commit whose eval is
-green (not skipped).**
+(`workflow_dispatch`, input `prompt_tag`). By default it evaluates `prod`, the prompt
+the bot serves, and falls back to `dev` while `prod` is unpublished. Dispatch it with
+`prompt_tag=dev` before promoting. A tag that can't be pulled fails the eval. It needs a
+provider secret to do real work (`MISTRAL_API_KEY` or `GROQ_API_KEY`), and a provider
+outage is inconclusive, so when none answers it self-skips and stays green. **Promote
+only a commit whose eval is green (not skipped).**
 
 ## Rollback
 
