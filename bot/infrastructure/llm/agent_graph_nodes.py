@@ -16,6 +16,7 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.conversation import Conversation
 from bot.domain.models.conversation_status import ConversationStatus
 from bot.domain.models.retrieved_example import RetrievedExample
+from bot.infrastructure.llm.agent_feedback import AgentFeedback
 from bot.infrastructure.metrics import record_agent_mapping
 
 logger = structlog.get_logger()
@@ -124,23 +125,17 @@ class AgentGraphNodes:
 
     def _execute(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
         decision = self._decision(state)
+        AgentFeedback.executed(state.get('examples', []), decision.outcome, decision.command)
         return self._finish(decision, self._run(config, decision.command), Conversation())
 
     def _execute_proposed(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
         command = self.conversation_of(state).proposed_command
+        AgentFeedback.executed(state.get('examples', []), AgentOutcome.CONFIRMED, command)
         result = self._run(config, command)
         return self._finish(AgentDecision(AgentOutcome.CONFIRMED), result, Conversation())
 
     def _deny(self, state: AgentTurnState, config: RunnableConfig) -> dict[str, Any]:
-        # One event holding the wrong mapping and its context: the raw material for
-        # new retrieval examples and eval cases.
-        conversation = self.conversation_of(state)
-        logger.info(
-            'agent_denied',
-            request=conversation.request,
-            proposed=conversation.proposed_command,
-            reply=self._data(config).text,
-        )
+        AgentFeedback.denied(self.conversation_of(state), self._data(config).text)
         return cast('dict[str, Any]', self._ask_again(state, config))
 
     def _reply_node(self, spec: _ReplySpec) -> Node:

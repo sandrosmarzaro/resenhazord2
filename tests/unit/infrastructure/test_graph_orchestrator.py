@@ -4,6 +4,7 @@ from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
 from bot.application.example_selector import ExampleSelector
 from bot.application.llm_command_mapper import LLMCommandMapper
+from bot.domain.commands.score import ScoreCommand
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.conversation import Conversation
@@ -13,6 +14,7 @@ from bot.infrastructure.llm.agent_graph_nodes import AgentGraphNodes
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 
 _NODES_MODULE = 'bot.infrastructure.llm.agent_graph_nodes'
+_FEEDBACK_MODULE = 'bot.infrastructure.llm.agent_feedback'
 _PROPOSAL = 'Você quis dizer `,placar now`?'
 
 
@@ -67,6 +69,14 @@ def _data(text: str, *, jid: str = 'g@g.us', quoted_text: str | None = None) -> 
     return CommandData(
         text=text, jid=jid, sender_jid='u@s.whatsapp.net', is_group=True, quoted_text=quoted_text
     )
+
+
+def _retriever(mocker, command: str):
+    retriever = mocker.Mock()
+    retriever.retrieve = mocker.AsyncMock(
+        return_value=[RetrievedExample('placar do jogo', command, 0.8)]
+    )
+    return retriever
 
 
 def _prompt(provider, call: int) -> str:
@@ -148,7 +158,7 @@ class TestConfirmation:
 
     @pytest.mark.anyio
     async def test_no_logs_the_request_the_proposal_and_the_denial(self, provider, clock, mocker):
-        logger = mocker.patch(f'{_NODES_MODULE}.logger')
+        logger = mocker.patch(f'{_FEEDBACK_MODULE}.logger')
         _replies(provider, _command(confidence=0.3))
         orchestrator = _orchestrator(provider)
         await orchestrator.run(_data('placar'))
@@ -168,6 +178,76 @@ class TestConfirmation:
         await orchestrator.run(_data('na verdade a tabela'))
 
         assert f'Contexto da mensagem anterior: "{_PROPOSAL}"' in _prompt(provider, 1)
+
+
+class TestRetrievalRecall:
+    @pytest.fixture(autouse=True)
+    def _score(self):
+        CommandRegistry.instance().register(ScoreCommand())
+
+    @pytest.mark.anyio
+    async def test_an_executed_command_among_the_examples_is_a_hit(self, provider, clock, mocker):
+        record = mocker.patch(f'{_FEEDBACK_MODULE}.record_agent_retrieval')
+        _replies(provider, _command())
+        orchestrator = _orchestrator(provider, retriever=_retriever(mocker, ',placar'))
+
+        await orchestrator.run(_data('placar agora'))
+
+        record.assert_called_once_with('command', hit=True)
+
+    @pytest.mark.anyio
+    async def test_an_example_spelled_by_an_alias_is_a_hit(self, provider, clock, mocker):
+        record = mocker.patch(f'{_FEEDBACK_MODULE}.record_agent_retrieval')
+        _replies(provider, _command())
+        orchestrator = _orchestrator(provider, retriever=_retriever(mocker, ',score'))
+
+        await orchestrator.run(_data('placar agora'))
+
+        record.assert_called_once_with('command', hit=True)
+
+    @pytest.mark.anyio
+    async def test_a_command_missing_from_the_examples_is_a_miss(self, provider, clock, mocker):
+        record = mocker.patch(f'{_FEEDBACK_MODULE}.record_agent_retrieval')
+        _replies(provider, _command())
+        orchestrator = _orchestrator(provider, retriever=_retriever(mocker, ',tabela br'))
+
+        await orchestrator.run(_data('placar agora'))
+
+        record.assert_called_once_with('command', hit=False)
+
+    @pytest.mark.anyio
+    async def test_a_confirmed_proposal_is_judged_on_its_own_examples(
+        self, provider, clock, mocker
+    ):
+        record = mocker.patch(f'{_FEEDBACK_MODULE}.record_agent_retrieval')
+        _replies(provider, _command(confidence=0.3))
+        orchestrator = _orchestrator(provider, retriever=_retriever(mocker, ',placar'))
+        await orchestrator.run(_data('placar'))
+
+        await orchestrator.run(_data('sim'))
+
+        record.assert_called_once_with('confirmed', hit=True)
+
+    @pytest.mark.anyio
+    async def test_a_direct_match_is_not_judged(self, provider, clock, mocker):
+        record = mocker.patch(f'{_FEEDBACK_MODULE}.record_agent_retrieval')
+        retriever = mocker.Mock()
+        retriever.retrieve = mocker.AsyncMock(
+            return_value=[RetrievedExample('time do flamengo', ',time flamengo', 0.999)]
+        )
+
+        await _orchestrator(provider, retriever=retriever).run(_data('time do flamengo'))
+
+        record.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_the_static_fallback_examples_are_not_judged(self, provider, clock, mocker):
+        record = mocker.patch(f'{_FEEDBACK_MODULE}.record_agent_retrieval')
+        _replies(provider, _command())
+
+        await _orchestrator(provider).run(_data('placar agora'))
+
+        record.assert_not_called()
 
 
 class TestClarification:
