@@ -147,7 +147,15 @@ class TestSyncWithRetries:
 
         await bot._sync_with_retries(bot._client, bot._tree, bot._guild)
 
-        cast('Any', bot._tree.sync).assert_called_once()
+        assert cast('Any', bot._tree.sync).call_args_list[0] == mocker.call()
+
+    @pytest.mark.anyio
+    async def test_clears_the_stale_guild_copies(self, bot, mocker):
+        bot._tree.sync = mocker.AsyncMock(return_value=[])
+
+        await bot._sync_with_retries(bot._client, bot._tree, bot._guild)
+
+        cast('Any', bot._tree.sync).assert_called_with(guild=bot._guild)
 
     @pytest.mark.anyio
     async def test_retries_on_connector_error_then_succeeds(self, bot, mocker):
@@ -155,13 +163,14 @@ class TestSyncWithRetries:
             side_effect=[
                 aiohttp.ClientConnectorError(mocker.MagicMock(), OSError('boom')),
                 [],
+                [],
             ]
         )
         sleep = mocker.patch('bot.adapters.discord.bot.asyncio.sleep', mocker.AsyncMock())
 
         await bot._sync_with_retries(bot._client, bot._tree, bot._guild)
 
-        assert cast('Any', bot._tree.sync).call_count == 2
+        assert cast('Any', bot._tree.sync).call_count == 3
         sleep.assert_called_once()
 
     @pytest.mark.anyio
