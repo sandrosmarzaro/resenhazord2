@@ -4,7 +4,7 @@ import pytest
 from PIL import Image
 
 from bot.data.football_formations import FORMATIONS
-from bot.domain.services.football_field.build_field import build_football_field
+from bot.domain.services.football_field.build_field import build_card_field, build_football_field
 from bot.domain.services.football_field.field_config import field_xy
 from bot.domain.services.football_field.player_renderer import shorten_name
 
@@ -49,6 +49,37 @@ class TestBuildFootballField:
         result = build_football_field([], [], _FORMATION)
 
         assert isinstance(result, bytes)
+
+
+def _card(color: tuple[int, int, int, int]) -> bytes:
+    output = io.BytesIO()
+    Image.new('RGBA', (680, 895), color).save(output, format='PNG')
+    return output.getvalue()
+
+
+class TestBuildCardField:
+    def test_pastes_each_card_on_its_slot(self):
+        result = build_card_field([_card((200, 160, 40, 255))] * _N, _FORMATION, 'OVR médio 90')
+
+        img = Image.open(io.BytesIO(result)).convert('RGB')
+        slot = _FORMATION.slots[0]
+        red, green, blue = img.getpixel(field_xy(slot.x, slot.y))
+        assert max(abs(red - 200), abs(green - 160), abs(blue - 40)) < 8
+
+    def test_keeps_the_lawn_under_transparent_corners(self):
+        cards = [_card((0, 0, 0, 0))] * _N
+
+        result = build_card_field(cards, _FORMATION, None)
+
+        img = Image.open(io.BytesIO(result)).convert('RGB')
+        slot = _FORMATION.slots[0]
+        red, green, _ = img.getpixel(field_xy(slot.x, slot.y))
+        assert green > red
+
+    def test_missing_cards_leave_a_placeholder(self):
+        result = build_card_field([None] * _N, _FORMATION, None)
+
+        assert Image.open(io.BytesIO(result)).size == (2000, 2750)
 
 
 class TestShortenName:

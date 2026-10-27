@@ -5,14 +5,13 @@ from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from bot.data.fifa_ratings import (
-    FIFA_IMAGE_PREFIXES,
+    FIFA_CARD_PREFIX,
     FIFA_MEN_GENDER,
     FIFA_PAGE_SIZE,
     FIFA_POSITION_IDS,
     FIFA_RATINGS_TTL,
     FIFA_RATINGS_URL,
 )
-from bot.data.nationality_flags import nationality_flag
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.football import FifaPlayer
 from bot.infrastructure.http_client import HttpClient
@@ -56,11 +55,9 @@ class FifaRatings:
         return FifaPlayer(
             name=item['commonName'] or f'{item["firstName"]} {item["lastName"]}',
             overall=item['overallRating'],
-            photo_url=_trusted(item['avatarUrl']),
-            badge_url=_trusted((item['team'] or {}).get('imageUrl', '')),
-            nationality_flag_emoji=nationality_flag(item['nationality']['label']),
+            card_url=_trusted(item['shieldUrl']),
         )
 
 
 def _trusted(url: str) -> str:
-    return url if url.startswith(FIFA_IMAGE_PREFIXES) else ''
+    return url if url.startswith(FIFA_CARD_PREFIX) else ''

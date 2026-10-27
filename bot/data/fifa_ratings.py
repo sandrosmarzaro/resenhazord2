@@ -21,8 +21,5 @@ FIFA_POSITION_IDS: dict[str, int] = {
     'LW': 27,
 }
 
-# The bot downloads these images, so only EA's own hosts pass.
-FIFA_IMAGE_PREFIXES: tuple[str, ...] = (
-    'https://ratings-images-prod.pulse.ea.com/',
-    'https://drop-assets.ea.com/',
-)
+# The bot downloads the card image, so only EA's own host passes.
+FIFA_CARD_PREFIX = 'https://ratings-images-prod.pulse.ea.com/'

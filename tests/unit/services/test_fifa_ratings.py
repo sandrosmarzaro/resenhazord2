@@ -8,8 +8,7 @@ from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.football import FifaPlayer
 from bot.domain.services.fifa_ratings import FifaRatings
 
-_PORTRAIT = 'https://ratings-images-prod.pulse.ea.com/FC25/full/player-portraits/p209331.png'
-_CREST = 'https://drop-assets.ea.com/images/l9.png'
+_CARD = 'https://ratings-images-prod.pulse.ea.com/FC25/full/player-shields/en/209331.png'
 
 
 def _item(first: str, last: str, overall: int, **overrides) -> dict:
@@ -18,9 +17,7 @@ def _item(first: str, last: str, overall: int, **overrides) -> dict:
         'lastName': last,
         'commonName': None,
         'overallRating': overall,
-        'avatarUrl': _PORTRAIT,
-        'nationality': {'label': 'Egypt'},
-        'team': {'label': 'Liverpool', 'imageUrl': _CREST},
+        'shieldUrl': _CARD,
         **overrides,
     }
 
@@ -51,13 +48,7 @@ class TestRolePools:
     async def test_maps_the_best_men_of_each_position(self, strikers):
         pools = await FifaRatings.role_pools({'ST'})
 
-        assert pools['ST'][0] == FifaPlayer(
-            name='Mohamed Salah',
-            overall=91,
-            photo_url=_PORTRAIT,
-            badge_url=_CREST,
-            nationality_flag_emoji='🇪🇬',
-        )
+        assert pools['ST'][0] == FifaPlayer(name='Mohamed Salah', overall=91, card_url=_CARD)
         params = strikers.calls.last.request.url.params
         assert (params['gender'], params['limit']) == ('0', '100')
 
@@ -72,31 +63,15 @@ class TestRolePools:
         assert pools['GK'][0].name == 'Alisson'
 
     @pytest.mark.anyio
-    async def test_drops_images_outside_ea_hosts(self, respx_mock):
-        tampered = _item(
-            'Tampered',
-            'Player',
-            80,
-            avatarUrl='http://169.254.169.254/latest/meta-data',
-            team={'label': 'X', 'imageUrl': 'https://evil.example/crest.png'},
-        )
+    async def test_drops_cards_outside_ea_hosts(self, respx_mock):
+        tampered = _item('Tampered', 'Player', 80, shieldUrl='http://169.254.169.254/latest')
         respx_mock.get(FIFA_RATINGS_URL, params={'position': '25'}).mock(
             return_value=_page(tampered)
         )
 
         pools = await FifaRatings.role_pools({'ST'})
 
-        assert (pools['ST'][0].photo_url, pools['ST'][0].badge_url) == ('', '')
-
-    @pytest.mark.anyio
-    async def test_player_without_team_has_no_badge(self, respx_mock):
-        respx_mock.get(FIFA_RATINGS_URL, params={'position': '25'}).mock(
-            return_value=_page(_item('Wout', 'Weghorst', 78, team=None))
-        )
-
-        pools = await FifaRatings.role_pools({'ST'})
-
-        assert pools['ST'][0].badge_url == ''
+        assert pools['ST'][0].card_url == ''
 
     @pytest.mark.anyio
     async def test_empty_position_is_an_upstream_failure(self, respx_mock):
