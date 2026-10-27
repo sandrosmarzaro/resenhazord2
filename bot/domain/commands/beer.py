@@ -1,5 +1,6 @@
 import random
 import re
+from http import HTTPStatus
 
 import httpx
 import structlog
@@ -15,10 +16,16 @@ logger = structlog.get_logger()
 
 
 class BeerCommand(Command):
-    SEARCH_URL = 'https://world.openfoodfacts.net/cgi/search.pl'
+    SEARCH_URL = 'https://world.openfoodfacts.org/cgi/search.pl'
     PAGE_SIZE = 20
-    MAX_PAGE = 200
-    RETRY_MAX_PAGE = 50
+    # Anonymous search answers 401 past page ~10; a logged-in session reaches the
+    # whole catalogue (~12k beers, ~620 pages).
+    ANONYMOUS_MAX_PAGE = 10
+    SESSION_MAX_PAGE = 600
+
+    def __init__(self, off_session: str = '') -> None:
+        super().__init__()
+        self._off_session = off_session
 
     @property
     def config(self) -> CommandConfig:
@@ -63,11 +70,12 @@ class BeerCommand(Command):
             return [Reply.to(data).text('Ops, não achei uma cerveja agora! 🍺')]
 
     async def _get_random_beer(self) -> dict:
-        page = random.randint(1, self.MAX_PAGE)
+        max_page = self.SESSION_MAX_PAGE if self._off_session else self.ANONYMOUS_MAX_PAGE
+        page = random.randint(1, max_page)
         try:
             return await self._fetch_beer_from_page(page)
         except ValueError, httpx.HTTPError:
-            retry_page = random.randint(1, self.RETRY_MAX_PAGE)
+            retry_page = random.randint(1, self.ANONYMOUS_MAX_PAGE)
             return await self._fetch_beer_from_page(retry_page)
 
     async def _fetch_beer_from_page(self, page: int) -> dict:
@@ -82,7 +90,10 @@ class BeerCommand(Command):
                 'page': page,
                 'json': 1,
             },
+            headers={'Cookie': f'session={self._off_session}'} if self._off_session else None,
         )
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            logger.warning('off_search_unauthorized', page=page)
         response.raise_for_status()
         all_products = response.json()['products']
         products = [p for p in all_products if p.get('product_name') and p.get('image_front_url')]

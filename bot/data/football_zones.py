@@ -55,7 +55,7 @@ LEAGUE_ZONES: dict[str, list[ClassificationZone]] = {
     'ar': [
         ClassificationZone('Libertadores', 1, 6, '🟢'),
         ClassificationZone('Sul-Americana', 7, 12, '🟡'),
-        ClassificationZone('Rebaixamento', 25, 28, '🔴'),
+        ClassificationZone('Rebaixamento', 29, 30, '🔴'),
     ],
     'uy': [
         ClassificationZone('Libertadores', 1, 4, '🟢'),

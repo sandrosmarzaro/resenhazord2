@@ -239,6 +239,17 @@ jobs:
         if: env.SKIP_MUTMUT != 'true'
         run: |
           set -f  # keep the * in $MUTMUT_FILTERS literal, no shell globbing
-          uv run mutmut run $MUTMUT_FILTERS
+          # mutmut skips decorated functions, so a change touching only
+          # @staticmethod/@classmethod code yields no mutants and mutmut aborts.
+          set +e
+          uv run mutmut run $MUTMUT_FILTERS 2>&1 | tee mutmut.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ] && grep -q 'Filtered for specific mutants, but nothing matches' mutmut.log; then
+            echo "Changed modules hold only decorated functions; nothing to mutate"
+            echo "SKIP_MUTMUT=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          exit "$status"
       - run: uv run mutmut results
         if: env.SKIP_MUTMUT != 'true'

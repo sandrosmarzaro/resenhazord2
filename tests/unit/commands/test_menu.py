@@ -140,6 +140,20 @@ class TestFormatOptions:
         assert ',anime* ou *,manga*' in text
 
     @pytest.mark.anyio
+    @pytest.mark.parametrize('platform', ['whatsapp', 'discord'])
+    async def test_shows_how_to_enable_nsfw(self, command, mocker, platform):
+        from bot.domain.commands.config import ConfigCommand
+
+        registry = CommandRegistry.instance()
+        registry.register(ConfigCommand(admin=mocker.AsyncMock(), editor=mocker.AsyncMock()))
+        registry.register(command)
+        data = GroupCommandDataFactory.build(text=',menu', platform=platform)
+
+        messages = await command.run(data)
+
+        assert ',config on nsfw' in messages[0].content.text
+
+    @pytest.mark.anyio
     async def test_shows_flags(self, command):
         from bot.domain.commands.fact import FactCommand
 

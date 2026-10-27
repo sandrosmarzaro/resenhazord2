@@ -58,6 +58,12 @@ class CommandParser:
         flags: set[str],
         rest_parts: list[str],
     ) -> int:
+        # A pattern that allows a space (top\s?\d+) spans two tokens: "top 5".
+        pair = self._try_match_option(' '.join(tokens[index : index + 2]), options)
+        if pair:
+            options[pair[0]] = pair[1]
+            return index + 2
+
         token = tokens[index]
         opt = self._try_match_option(token, options)
         if opt:

@@ -21,24 +21,22 @@ def reset_cache():
     RestCountriesClient.reset_cache()
 
 
-@pytest.fixture(autouse=True)
-def mock_translator(mocker):
-    mocker.patch(
-        'bot.domain.commands.country_flag.Translator.to_pt',
-        side_effect=lambda text: text,
-    )
-
-
 def _mock_country(**overrides):
     return {
-        'names': {'common': 'Brazil', 'official': 'Federative Republic of Brazil'},
+        'names': {
+            'common': 'Brazil',
+            'official': 'Federative Republic of Brazil',
+            'translations': {
+                'por': {'common': 'Brasil', 'official': 'República Federativa do Brasil'}
+            },
+        },
         'flag': {'url_png': 'https://flags.restcountries.com/v5/w160/br.png', 'emoji': '🇧🇷'},
         'capitals': [{'name': 'Brasília'}],
         'region': 'Americas',
         'subregion': 'South America',
         'population': 212559417,
         'area': {'kilometers': 8515767},
-        'languages': [{'name': 'Portuguese'}],
+        'languages': [{'name': 'Portuguese', 'iso639_3': 'por'}],
         'currencies': [{'code': 'BRL', 'name': 'Brazilian real', 'symbol': 'R$'}],
         'timezones': ['UTC-03:00'],
         'coordinates': {'lat': -15.79, 'lng': -47.88},
@@ -88,10 +86,10 @@ class TestRun:
         assert messages[0].content.url == 'https://flags.restcountries.com/v5/w160/br.png'
         caption = messages[0].content.caption
         assert caption is not None
-        assert 'Brazil' in caption
+        assert 'Brasil' in caption
         assert 'Brasília' in caption
         assert 'América do Sul' in caption
-        assert 'Portuguese' in caption
+        assert 'Português' in caption
         assert 'Brazilian real' in caption
 
     @pytest.mark.anyio
@@ -103,7 +101,7 @@ class TestRun:
 
         caption = messages[0].content.caption
         assert caption is not None
-        assert 'Federative Republic of Brazil' in caption
+        assert 'República Federativa do Brasil' in caption
 
     @pytest.mark.anyio
     async def test_omits_official_name_when_same(self, command, respx_mock):
@@ -116,6 +114,20 @@ class TestRun:
         caption = messages[0].content.caption
         assert caption is not None
         assert caption.count('Japan') == 1
+
+    @pytest.mark.anyio
+    async def test_untranslated_names_fall_back_to_english(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', bandeira')
+        names = {'common': 'Khoisania', 'official': 'Khoisania', 'translations': {}}
+        languages = [{'name': 'Khoisan languages', 'iso639_3': ''}]
+        country = _mock_country(names=names, languages=languages)
+        respx_mock.get(url__startswith=V5_LIST_URL).mock(return_value=_v5_response(country))
+
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert caption.startswith('*Khoisania*')
+        assert '🗣️ Khoisan languages' in caption
 
     @pytest.mark.anyio
     async def test_handles_missing_subregion(self, command, respx_mock):

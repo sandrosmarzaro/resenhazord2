@@ -6,20 +6,20 @@ from bot.data.football_formations import (
     Formation,
     specific_roles,
 )
-from bot.domain.models.football import TmPlayer
+from bot.domain.models.football import LineupPlayer
 
 
 class LineupAssigner:
     _DEFAULT_SCARCITY = 3
 
     @classmethod
-    def assign_slots(
+    def assign_slots[P: LineupPlayer](
         cls,
-        role_pools: dict[str, list[TmPlayer]],
+        role_pools: dict[str, list[P]],
         formation: Formation,
-    ) -> list[TmPlayer | None]:
+    ) -> list[P | None]:
         slot_specific = specific_roles(formation)
-        ordered: list[TmPlayer | None] = [None] * len(formation.slots)
+        ordered: list[P | None] = [None] * len(formation.slots)
         used: set[str] = set()
 
         slot_order = sorted(
@@ -37,14 +37,14 @@ class LineupAssigner:
         return ordered
 
     @classmethod
-    def _find_player(
+    def _find_player[P: LineupPlayer](
         cls,
         specific: str,
-        role_pools: dict[str, list[TmPlayer]],
+        role_pools: dict[str, list[P]],
         used: set[str],
         *,
         role: str | None = None,
-    ) -> TmPlayer | None:
+    ) -> P | None:
         pool = role_pools.get(specific, [])
         player = next((p for p in pool if p.name not in used), None)
         if player:

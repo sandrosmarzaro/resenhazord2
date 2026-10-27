@@ -47,3 +47,10 @@ class TestPost:
             mock.post('https://api.example.com/ping').respond(200)
 
             await HttpClient.post('https://api.example.com/ping', headers=None)
+
+
+class TestTimeouts:
+    def test_connect_gives_up_before_the_read_timeout(self):
+        timeout = HttpClient.client().timeout
+
+        assert timeout.connect < timeout.read

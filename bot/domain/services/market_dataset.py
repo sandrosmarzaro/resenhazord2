@@ -1,0 +1,185 @@
+"""Players and club squads from the transfermarkt-datasets dump, cached in memory.
+
+Transfermarkt itself blocks datacenter IPs, so market values come from this weekly
+public scrape instead of live pages.
+"""
+
+import csv
+import gzip
+import io
+from collections import defaultdict
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
+from typing import ClassVar
+
+import anyio
+import sentry_sdk
+import structlog
+
+from bot.data.football import BR_TIMEZONE
+from bot.data.market_dataset import (
+    CLUB_BADGE_URL,
+    EUROS_PER_MILLION,
+    EUROS_PER_THOUSAND,
+    MARKET_DATASET_TTL,
+    MARKET_DATASET_URL,
+    PLAYER_PHOTO_PREFIX,
+    SEASON_START_MONTH,
+)
+from bot.data.nationality_flags import nationality_flag
+from bot.domain.models.football import PlayerProfile, TmPlayer, TmSquadStats
+from bot.infrastructure.http_client import HttpClient
+
+logger = structlog.get_logger()
+
+
+@dataclass(frozen=True)
+class _Snapshot:
+    loaded_at: datetime
+    season: int
+    players: dict[str, list[TmPlayer]] = field(default_factory=dict)
+    clubs: dict[str, list[TmSquadStats]] = field(default_factory=dict)
+
+
+class MarketDataset:
+    _TTL: ClassVar = MARKET_DATASET_TTL
+    _ALL: ClassVar[str] = ''
+    _snapshot: ClassVar[_Snapshot | None] = None
+
+    @classmethod
+    async def players(cls, league_id: str = _ALL) -> list[TmPlayer]:
+        snapshot = await cls._current()
+        return snapshot.players.get(league_id, [])
+
+    @classmethod
+    async def clubs(cls, league_id: str = _ALL) -> list[TmSquadStats]:
+        snapshot = await cls._current()
+        return snapshot.clubs.get(league_id, [])
+
+    @classmethod
+    async def season(cls) -> str:
+        start = (await cls._current()).season
+        return f'{start}/{(start + 1) % 100:02d}'
+
+    @classmethod
+    async def _current(cls) -> _Snapshot:
+        snapshot = cls._snapshot
+        if snapshot is None or datetime.now(UTC) - snapshot.loaded_at >= cls._TTL:
+            snapshot = await cls._load()
+            cls._snapshot = snapshot
+        return snapshot
+
+    @classmethod
+    async def _load(cls) -> _Snapshot:
+        players = await cls._download('players')
+        clubs = await cls._download('clubs')
+        snapshot = await anyio.to_thread.run_sync(cls._parse, players, clubs)
+        if snapshot.season < _current_season():
+            # Upstream paused in July 2026 (transfermarkt-datasets discussion #383).
+            logger.warning('market_dataset_stale', season=snapshot.season)
+            sentry_sdk.capture_message('market_dataset_stale', level='warning')
+        return snapshot
+
+    @staticmethod
+    async def _download(table: str) -> bytes:
+        response = await HttpClient.get(MARKET_DATASET_URL.format(table=table))
+        response.raise_for_status()
+        return response.content
+
+    @classmethod
+    def _parse(cls, players_csv: bytes, clubs_csv: bytes) -> _Snapshot:
+        clubs = list(_rows(clubs_csv))
+        season = max(row['last_season'] for row in clubs)
+        current = sorted(
+            (
+                row
+                for row in _rows(players_csv)
+                if row['last_season'] == season and row['market_value_in_eur']
+            ),
+            key=lambda row: -int(row['market_value_in_eur']),
+        )
+        snapshot = _Snapshot(loaded_at=datetime.now(UTC), season=int(season))
+        squad_values: dict[str, int] = defaultdict(int)
+        for row in current:
+            player = cls._player(row)
+            snapshot.players.setdefault(cls._ALL, []).append(player)
+            league_id = row['current_club_domestic_competition_id']
+            snapshot.players.setdefault(league_id, []).append(player)
+            squad_values[row['current_club_id']] += int(row['market_value_in_eur'])
+
+        current_clubs = [row for row in clubs if row['last_season'] == season]
+        for row in sorted(current_clubs, key=lambda row: -squad_values[row['club_id']]):
+            club = cls._club(row, squad_values[row['club_id']])
+            snapshot.clubs.setdefault(cls._ALL, []).append(club)
+            snapshot.clubs.setdefault(row['domestic_competition_id'], []).append(club)
+        return snapshot
+
+    @classmethod
+    def _player(cls, row: dict[str, str]) -> TmPlayer:
+        return TmPlayer(
+            name=row['name'],
+            position=row['sub_position'],
+            age=_age(row['date_of_birth']),
+            nationality=row['country_of_citizenship'],
+            club=row['current_club_name'],
+            club_id=row['current_club_id'],
+            market_value=int(row['market_value_in_eur']),
+            photo_url=_photo_url(row['image_url']),
+            badge_url=_badge_url(row['current_club_id']),
+            nationality_flag_emoji=nationality_flag(row['country_of_citizenship']),
+            profile=PlayerProfile(
+                birth_city=row['city_of_birth'].strip(),
+                birth_country=row['country_of_birth'],
+                height_cm=row['height_in_cm'],
+                foot=row['foot'],
+            ),
+        )
+
+    @classmethod
+    def _club(cls, row: dict[str, str], squad_value: int) -> TmSquadStats:
+        return TmSquadStats(
+            market_value=format_euros(squad_value),
+            squad_size=row['squad_size'],
+            avg_age=row['average_age'].replace('.', ','),
+            foreigners_count=row['foreigners_number'],
+            foreigners_pct=row['foreigners_percentage'].replace('.', ','),
+            club_id=row['club_id'],
+            name=row['name'],
+            badge_url=_badge_url(row['club_id']),
+            league_id=row['domestic_competition_id'],
+        )
+
+
+def format_euros(value: int) -> str:
+    if value < EUROS_PER_MILLION:
+        return f'€ {value // EUROS_PER_THOUSAND} mil.'
+    millions = f'{value / EUROS_PER_MILLION:,.2f}'
+    return f'€ {millions.replace(",", "X").replace(".", ",").replace("X", ".")} mi.'
+
+
+def _current_season() -> int:
+    today = datetime.now(BR_TIMEZONE).date()
+    return today.year if today.month >= SEASON_START_MONTH else today.year - 1
+
+
+def _rows(gzipped_csv: bytes) -> Iterator[dict[str, str]]:
+    # Streamed: decoding the whole players dump at once peaks around 100 MB.
+    with gzip.open(io.BytesIO(gzipped_csv), 'rt', encoding='utf-8') as text:
+        yield from csv.DictReader(text)
+
+
+def _photo_url(url: str) -> str:
+    return url if url.startswith(PLAYER_PHOTO_PREFIX) else ''
+
+
+def _badge_url(club_id: str) -> str:
+    return CLUB_BADGE_URL.format(club_id=club_id) if club_id.isdigit() else ''
+
+
+def _age(date_of_birth: str) -> int:
+    if not date_of_birth:
+        return 0
+    born = date.fromisoformat(date_of_birth[:10])
+    today = datetime.now(BR_TIMEZONE).date()
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))

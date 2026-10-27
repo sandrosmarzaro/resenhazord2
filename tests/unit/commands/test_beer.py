@@ -48,7 +48,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_image_with_beer_info(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', cerveja')
-        respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
+        respx_mock.get(url__startswith='https://world.openfoodfacts.org/cgi/search.pl').mock(
             return_value=httpx.Response(200, json={'products': [self._beer_product()]})
         )
         messages = await command.run(data)
@@ -64,7 +64,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_strips_language_prefixes(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', cerveja')
-        respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
+        respx_mock.get(url__startswith='https://world.openfoodfacts.org/cgi/search.pl').mock(
             return_value=httpx.Response(200, json={'products': [self._beer_product()]})
         )
         messages = await command.run(data)
@@ -81,7 +81,7 @@ class TestRun:
             {'product_name': None, 'image_front_url': 'https://example.com/x.jpg'},
             self._beer_product(),
         ]
-        respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
+        respx_mock.get(url__startswith='https://world.openfoodfacts.org/cgi/search.pl').mock(
             return_value=httpx.Response(200, json={'products': products})
         )
         messages = await command.run(data)
@@ -92,7 +92,7 @@ class TestRun:
     @pytest.mark.anyio
     async def test_returns_error_on_failure(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', cerveja')
-        respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
+        respx_mock.get(url__startswith='https://world.openfoodfacts.org/cgi/search.pl').mock(
             side_effect=httpx.ConnectError('API down')
         )
         messages = await command.run(data)
@@ -111,10 +111,64 @@ class TestRun:
             countries=None,
             ingredients_text=None,
         )
-        respx_mock.get(url__startswith='https://world.openfoodfacts.net/cgi/search.pl').mock(
+        respx_mock.get(url__startswith='https://world.openfoodfacts.org/cgi/search.pl').mock(
             return_value=httpx.Response(200, json={'products': [product]})
         )
         messages = await command.run(data)
 
         assert len(messages) == 1
+        assert isinstance(messages[0].content, ImageContent)
+
+
+class TestCatalogueDepth:
+    _SEARCH_URL = 'https://world.openfoodfacts.org/cgi/search.pl'
+    _PRODUCT = TestRun._beer_product()
+
+    @pytest.fixture
+    def deepest_page(self, mocker):
+        mocker.patch('bot.domain.commands.beer.random.randint', side_effect=lambda _, high: high)
+
+    @pytest.mark.anyio
+    async def test_session_reaches_whole_catalogue(self, respx_mock, deepest_page):
+        route = respx_mock.get(url__startswith=self._SEARCH_URL).mock(
+            return_value=httpx.Response(200, json={'products': [self._PRODUCT]})
+        )
+
+        command = BeerCommand(off_session='user&abc')
+
+        await command.run(GroupCommandDataFactory.build(text=',cerveja'))
+
+        request = route.calls.last.request
+        assert request.url.params['page'] == '600'
+        assert request.headers['cookie'] == 'session=user&abc'
+
+    @pytest.mark.anyio
+    async def test_anonymous_stays_on_first_pages(self, command, respx_mock, deepest_page):
+        route = respx_mock.get(url__startswith=self._SEARCH_URL).mock(
+            return_value=httpx.Response(200, json={'products': [self._PRODUCT]})
+        )
+
+        await command.run(GroupCommandDataFactory.build(text=',cerveja'))
+
+        request = route.calls.last.request
+        assert (request.url.params['page'], 'cookie' in request.headers) == ('10', False)
+
+    @pytest.mark.anyio
+    async def test_rejected_session_is_logged_and_retried_on_first_pages(
+        self, respx_mock, deepest_page, mocker
+    ):
+        logger = mocker.patch('bot.domain.commands.beer.logger')
+        route = respx_mock.get(url__startswith=self._SEARCH_URL).mock(
+            side_effect=[
+                httpx.Response(401),
+                httpx.Response(200, json={'products': [self._PRODUCT]}),
+            ]
+        )
+
+        messages = await BeerCommand(off_session='expired').run(
+            GroupCommandDataFactory.build(text=',cerveja')
+        )
+
+        logger.warning.assert_called_once_with('off_search_unauthorized', page=600)
+        assert route.calls.last.request.url.params['page'] == '10'
         assert isinstance(messages[0].content, ImageContent)

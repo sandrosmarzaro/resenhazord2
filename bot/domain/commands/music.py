@@ -1,4 +1,6 @@
 import random
+import unicodedata
+from collections.abc import Iterable
 from typing import Any
 
 import structlog
@@ -61,7 +63,10 @@ class MusicCommand(Command):
             return [Reply.to(data).text('Ops, não consegui buscar música agora! 🎵')]
 
     async def _run_deezer(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        tag, genre_id = self._parse_deezer_genre(parsed.rest)
+        genre = self._parse_deezer_genre(parsed.rest)
+        if genre is None:
+            return [self._unknown_genre_reply(data, DEEZER_GENRES)]
+        tag, genre_id = genre
 
         res = await HttpClient.get(
             f'{self.DEEZER_CHART_URL}/{genre_id}/tracks',
@@ -88,6 +93,8 @@ class MusicCommand(Command):
 
     async def _run_jamendo(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         genre = self._parse_jamendo_genre(parsed.rest)
+        if genre is None:
+            return [self._unknown_genre_reply(data, MUSIC_GENRES)]
 
         res = await HttpClient.get(
             self.JAMENDO_TRACKS_URL,
@@ -122,18 +129,30 @@ class MusicCommand(Command):
         ]
 
     @staticmethod
-    def _parse_deezer_genre(rest: str) -> tuple[str, int]:
-        cleaned = rest.strip().lower()
-        if cleaned and cleaned in DEEZER_GENRES:
-            return cleaned, DEEZER_GENRES[cleaned]
-        return 'all', 0
+    def _parse_deezer_genre(rest: str) -> tuple[str, int] | None:
+        genre = MusicCommand._normalize_genre(rest)
+        if not genre:
+            return 'all', 0
+        if genre not in DEEZER_GENRES:
+            return None
+        return genre, DEEZER_GENRES[genre]
 
     @staticmethod
-    def _parse_jamendo_genre(rest: str) -> str:
-        cleaned = rest.strip().lower()
-        if cleaned and cleaned in MUSIC_GENRES:
-            return cleaned
-        return random.choice(MUSIC_GENRES)
+    def _parse_jamendo_genre(rest: str) -> str | None:
+        genre = MusicCommand._normalize_genre(rest)
+        if not genre:
+            return random.choice(MUSIC_GENRES)
+        return genre if genre in MUSIC_GENRES else None
+
+    @staticmethod
+    def _normalize_genre(rest: str) -> str:
+        decomposed = unicodedata.normalize('NFKD', rest.lower())
+        return ''.join(c for c in decomposed if c.isalnum() and not unicodedata.combining(c))
+
+    @staticmethod
+    def _unknown_genre_reply(data: CommandData, genres: Iterable[str]) -> BotMessage:
+        known = ', '.join(sorted(set(genres)))
+        return Reply.to(data).text(f'Não conheço esse gênero! 🎵\n\nTenta um destes: {known}')
 
     @staticmethod
     def _format_duration(seconds: int) -> str:

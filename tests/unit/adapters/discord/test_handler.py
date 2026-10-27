@@ -287,6 +287,28 @@ class TestBuildCommandText:
 
         assert result == ',stic crop'
 
+    def test_pattern_option_value_gets_name_prefix(self, mocker):
+        config = CommandConfig(name='filme', options=[OptionDef(name='top', pattern=r'top\d+')])
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
+
+        result = handler._build_command_text('filme', {'top': '1'})
+
+        assert result == ',filme top1'
+
+    def test_pattern_option_value_matching_pattern_kept_as_is(self, mocker):
+        config = CommandConfig(
+            name='áudio',
+            options=[OptionDef(name='lang', pattern=r'[A-Za-z]{2}-[A-Za-z]{2}')],
+            args=ArgType.REQUIRED,
+        )
+        strategy = self._make_strategy(mocker, config)
+        handler = self._make_handler(mocker, strategy)
+
+        result = handler._build_command_text('áudio', {'lang': 'en-us', 'args': 'test sound'})
+
+        assert result == ',áudio en-us test sound'
+
     def test_command_with_flag_true(self, mocker):
         config = CommandConfig(name='bandeira', flags=['detail'])
         strategy = self._make_strategy(mocker, config)

@@ -1,4 +1,7 @@
-from bot.data.currency import CURRENCIES
+import math
+from typing import ClassVar
+
+from bot.data.currency import CURRENCY_FLAGS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     ArgType,
@@ -15,6 +18,8 @@ from bot.infrastructure.http_client import HttpClient
 
 class CurrencyCommand(Command):
     API_URL = 'https://cdn.moneyconvert.net/api/latest.json'
+    _MIN_DECIMALS: ClassVar[int] = 2
+    _SIGNIFICANT_DIGITS: ClassVar[int] = 2
 
     @property
     def config(self) -> CommandConfig:
@@ -29,39 +34,35 @@ class CurrencyCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Converte valores de BRL para outras moedas.'
+        return 'Cotação de outras moedas em reais.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         amount_str = parsed.rest.strip()
-        amount = 1.0
-        if amount_str:
-            try:
-                amount = float(amount_str.replace(',', '.'))
-            except ValueError:
-                return [Reply.to(data).text('Valor inválido! Manda um número 🙂')]
+        try:
+            amount = float(amount_str.replace(',', '.')) if amount_str else 1.0
+        except ValueError:
+            amount = math.nan
+        if not (math.isfinite(amount) and amount > 0):
+            return [Reply.to(data).text('Valor inválido! Manda um número positivo 🙂')]
 
         response = await HttpClient.get(self.API_URL)
         response.raise_for_status()
         rates = response.json()['rates']
 
-        brl_rate = rates.get('BRL', 1)
-        amount_formatted = self._format_number(amount, 2)
-        lines = [
-            '💵 Cotação do Real — BRL 💰',
-            '',
-            f'R$ {amount_formatted}',
-            '',
-        ]
-        for code, info in CURRENCIES.items():
+        amount_formatted = self._format_number(amount, 0 if amount.is_integer() else 2)
+        lines = ['💵 Cotação em Reais 💰', '']
+        for code, flag in CURRENCY_FLAGS.items():
             if code in rates:
-                rate = rates[code] / brl_rate
-                converted = amount * rate
-                symbol = info.symbol
-                decimals = info.decimals
-                formatted = self._format_number(converted, decimals)
-                lines.append(f'{symbol} {code}: {formatted}')
+                reais = amount * rates['BRL'] / rates[code]
+                formatted = self._format_number(reais, self._decimals(reais))
+                lines.append(f'{flag} {amount_formatted} {code} = R$ {formatted}')
 
         return [Reply.to(data).text('\n'.join(lines))]
+
+    @classmethod
+    def _decimals(cls, value: float) -> int:
+        magnitude = math.floor(math.log10(value))
+        return max(cls._MIN_DECIMALS, cls._SIGNIFICANT_DIGITS - 1 - magnitude)
 
     @staticmethod
     def _format_number(value: float, decimals: int) -> str:

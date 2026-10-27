@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 
 class MatchStatus(StrEnum):
@@ -13,6 +14,34 @@ class MatchStatus(StrEnum):
 
 
 @dataclass(frozen=True)
+class PlayerProfile:
+    birth_city: str = ''
+    birth_country: str = ''
+    height_cm: str = ''
+    foot: str = ''
+
+
+class LineupPlayer(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def photo_url(self) -> str: ...
+    @property
+    def badge_url(self) -> str: ...
+    @property
+    def nationality_flag_emoji(self) -> str: ...
+
+
+@dataclass(frozen=True)
+class FifaPlayer:
+    name: str
+    overall: int
+    photo_url: str
+    badge_url: str
+    nationality_flag_emoji: str
+
+
+@dataclass(frozen=True)
 class TmPlayer:
     name: str
     position: str
@@ -20,23 +49,11 @@ class TmPlayer:
     nationality: str
     club: str
     club_id: str
-    market_value: str
+    market_value: int
     photo_url: str
     badge_url: str
-    profile_url: str = ''
-    nationality_flag_url: str = ''
     nationality_flag_emoji: str = ''
-
-
-@dataclass(frozen=True)
-class TmClub:
-    rank: int
-    name: str
-    country: str
-    squad_value: str
-    club_id: str
-    badge_url: str
-    league_tm_id: str = ''
+    profile: PlayerProfile = PlayerProfile()
 
 
 @dataclass(frozen=True)
@@ -49,6 +66,7 @@ class TmSquadStats:
     club_id: str = ''
     name: str = ''
     badge_url: str = ''
+    league_id: str = ''
 
 
 @dataclass(frozen=True)
@@ -74,12 +92,6 @@ class TmStandingRow:
     goals_against: int
     goal_diff: int
     points: int
-
-
-@dataclass(frozen=True)
-class StandingRow:
-    rank: int
-    team: str
 
 
 @dataclass(frozen=True)

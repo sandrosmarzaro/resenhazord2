@@ -1,8 +1,9 @@
 """Format live match data for display."""
 
 from collections.abc import Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 
+from bot.data.football import BR_TIMEZONE
 from bot.data.football_league_priority import league_priority
 from bot.data.number_emoji import MAX_EMOJI_SCORE, NUMBER_EMOJI
 from bot.domain.models.football import MatchStatus, TmLiveMatch
@@ -115,8 +116,8 @@ def is_within_upcoming_window(match_time: str, window_hours: int) -> bool:
 
 
 def _get_current_datetime() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(BR_TIMEZONE)
 
 
 def _get_current_date() -> date:
-    return datetime.now(UTC).date()
+    return datetime.now(BR_TIMEZONE).date()

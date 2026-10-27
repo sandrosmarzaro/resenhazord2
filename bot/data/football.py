@@ -1,6 +1,9 @@
 """Static league metadata for football commands."""
 
 from dataclasses import dataclass
+from datetime import timedelta, timezone
+
+BR_TIMEZONE = timezone(timedelta(hours=-3))
 
 
 @dataclass(frozen=True)
@@ -10,67 +13,49 @@ class LeagueInfo:
     country: str
     flag: str
     tm_id: str
-    tm_slug: str
-    sportsdb_id: int
-    sportsdb_name: str
-    sportsdb_season: str
+    espn_slug: str
 
 
 LEAGUES: dict[str, LeagueInfo] = {
     'pl': LeagueInfo(
         code='pl',
         name='Premier League',
-        country='England',
+        country='Inglaterra',
         flag='🏴󠁧󠁢󠁥󠁮󠁧󠁿',
         tm_id='GB1',
-        tm_slug='premier-league',
-        sportsdb_id=4328,
-        sportsdb_name='English Premier League',
-        sportsdb_season='2024-2025',
+        espn_slug='eng.1',
     ),
     'la': LeagueInfo(
         code='la',
         name='La Liga',
-        country='Spain',
+        country='Espanha',
         flag='🇪🇸',
         tm_id='ES1',
-        tm_slug='laliga',
-        sportsdb_id=4335,
-        sportsdb_name='Spanish La Liga',
-        sportsdb_season='2024-2025',
+        espn_slug='esp.1',
     ),
     'bl': LeagueInfo(
         code='bl',
         name='Bundesliga',
-        country='Germany',
+        country='Alemanha',
         flag='🇩🇪',
         tm_id='L1',
-        tm_slug='bundesliga',
-        sportsdb_id=4331,
-        sportsdb_name='German Bundesliga',
-        sportsdb_season='2024-2025',
+        espn_slug='ger.1',
     ),
     'sa': LeagueInfo(
         code='sa',
         name='Serie A',
-        country='Italy',
+        country='Itália',
         flag='🇮🇹',
         tm_id='IT1',
-        tm_slug='serie-a',
-        sportsdb_id=4332,
-        sportsdb_name='Italian Serie A',
-        sportsdb_season='2024-2025',
+        espn_slug='ita.1',
     ),
     'l1': LeagueInfo(
         code='l1',
         name='Ligue 1',
-        country='France',
+        country='França',
         flag='🇫🇷',
         tm_id='FR1',
-        tm_slug='ligue-1',
-        sportsdb_id=4334,
-        sportsdb_name='French Ligue 1',
-        sportsdb_season='2024-2025',
+        espn_slug='fra.1',
     ),
     'br': LeagueInfo(
         code='br',
@@ -78,21 +63,15 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Brasil',
         flag='🇧🇷',
         tm_id='BRA1',
-        tm_slug='campeonato-brasileiro-serie-a',
-        sportsdb_id=4351,
-        sportsdb_name='Brazilian Série A',
-        sportsdb_season='2024',
+        espn_slug='bra.1',
     ),
     'ar': LeagueInfo(
         code='ar',
         name='Liga Profesional',
         country='Argentina',
         flag='🇦🇷',
-        tm_id='AR1N',
-        tm_slug='superliga',
-        sportsdb_id=4406,
-        sportsdb_name='Argentinian Primera Division',
-        sportsdb_season='2024',
+        tm_id='ARG1',
+        espn_slug='arg.1',
     ),
     'uy': LeagueInfo(
         code='uy',
@@ -100,10 +79,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Uruguai',
         flag='🇺🇾',
         tm_id='URU1',
-        tm_slug='primera-division',
-        sportsdb_id=4431,
-        sportsdb_name='Uruguayan Primera Division',
-        sportsdb_season='2024',
+        espn_slug='uru.1',
     ),
     'ec': LeagueInfo(
         code='ec',
@@ -111,10 +87,7 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Equador',
         flag='🇪🇨',
         tm_id='EC1N',
-        tm_slug='ligapro-serie-a',
-        sportsdb_id=4779,
-        sportsdb_name='Ecuadorian Serie A',
-        sportsdb_season='2024',
+        espn_slug='ecu.1',
     ),
     'co': LeagueInfo(
         code='co',
@@ -122,13 +95,12 @@ LEAGUES: dict[str, LeagueInfo] = {
         country='Colômbia',
         flag='🇨🇴',
         tm_id='COL1',
-        tm_slug='primera-a',
-        sportsdb_id=4441,
-        sportsdb_name='Colombian Primera A',
-        sportsdb_season='2024',
+        espn_slug='col.1',
     ),
 }
 
 LEAGUE_CODES: list[str] = list(LEAGUES.keys())
+# Leagues covered by the transfermarkt-datasets dump (no Uruguay, Ecuador or Colombia).
+MARKET_LEAGUE_CODES: list[str] = ['pl', 'la', 'bl', 'sa', 'l1', 'br', 'ar']
 
 LEAGUES_BY_TM_ID: dict[str, LeagueInfo] = {lg.tm_id: lg for lg in LEAGUES.values()}

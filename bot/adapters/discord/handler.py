@@ -1,3 +1,5 @@
+import re
+
 import discord
 import structlog
 
@@ -118,7 +120,7 @@ class DiscordInteractionHandler:
     @staticmethod
     def _format_option(opt: OptionDef, value) -> str:
         val_str = str(value)
-        if opt.pattern and not val_str.lower().startswith(opt.name.lower()):
+        if opt.pattern and not re.fullmatch(opt.pattern, val_str, re.IGNORECASE):
             return f'{opt.name}{val_str}'
         return val_str
 

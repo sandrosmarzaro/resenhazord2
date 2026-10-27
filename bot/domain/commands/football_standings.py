@@ -1,4 +1,4 @@
-"""League standings table from Transfermarkt."""
+"""League standings table from ESPN."""
 
 from bot.data.football import LEAGUE_CODES, LEAGUES, LeagueInfo
 from bot.data.football_zones import (
@@ -19,7 +19,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import TmStandingRow
 from bot.domain.models.message import BotMessage
-from bot.domain.services.transfermarkt.service import TransfermarktService
+from bot.domain.services.espn import EspnService
 
 
 class FootballStandingsCommand(Command):
@@ -41,7 +41,7 @@ class FootballStandingsCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         liga_code = parsed.options.get('liga', 'br')
         league = LEAGUES[liga_code]
-        standings = await TransfermarktService.fetch_full_standings(league)
+        standings, stage = await self._fetch(league)
 
         if not standings:
             return [Reply.to(data).text('Ops, não achei essa tabela agora! ⚽')]
@@ -53,16 +53,25 @@ class FootballStandingsCommand(Command):
         elif 'z4' in parsed.flags and zones:
             standings = [r for r in standings if r.rank >= zones[-1].start]
 
-        caption = self._format_table(standings, league, zones)
+        caption = self._format_table(standings, league, zones, stage)
         return [Reply.to(data).text(caption)]
+
+    @staticmethod
+    async def _fetch(league: LeagueInfo) -> tuple[list[TmStandingRow], str]:
+        standings = await EspnService.fetch_standings(league)
+        if standings:
+            return standings, ''
+        # Multi-stage leagues (LigaPro) publish no table for the stage in progress.
+        return await EspnService.fetch_standings(league, EspnService.FIRST_STAGE), ' · 1ª fase'
 
     @staticmethod
     def _format_table(
         standings: list[TmStandingRow],
         league: LeagueInfo,
         zones: list[ClassificationZone],
+        stage: str = '',
     ) -> str:
-        lines: list[str] = [f'⚽ *{league.name}* {league.flag}']
+        lines: list[str] = [f'⚽ *{league.name}* {league.flag}{stage}']
         first_zone = _find_zone(standings[0].rank, zones) if standings else None
         prev_zone: ClassificationZone | None = first_zone
         is_first = True

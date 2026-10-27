@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -13,34 +15,61 @@ def command():
 
 def _anime_item(**overrides):
     return {
-        'title': 'Naruto',
-        'images': {'webp': {'large_image_url': 'https://example.com/naruto.webp'}},
-        'genres': [{'name': 'Action'}, {'name': 'Adventure'}],
-        'themes': [{'name': 'Shounen'}],
-        'demographics': [{'name': 'Shounen'}],
-        'studios': [{'name': 'Studio Pierrot'}],
-        'aired': {'prop': {'from': {'year': 2002}}},
+        'title': {'romaji': 'Naruto'},
+        'coverImage': {'extraLarge': 'https://example.com/naruto.jpg'},
+        'genres': ['Action', 'Adventure'],
+        'tags': [
+            {'name': 'Ninja', 'category': 'Theme-Action'},
+            {'name': 'Shounen', 'category': 'Demographic'},
+            {'name': 'Male Protagonist', 'category': 'Cast-Main Cast'},
+        ],
+        'studios': {'nodes': [{'name': 'Studio Pierrot'}]},
+        'staff': {'edges': []},
+        'startDate': {'year': 2002},
         'episodes': 220,
-        'score': 8.0,
-        'rank': 500,
+        'chapters': None,
+        'averageScore': 80,
+        'rankings': [
+            {'rank': 30, 'type': 'POPULAR', 'allTime': True},
+            {'rank': 500, 'type': 'RATED', 'allTime': True},
+        ],
         **overrides,
     }
 
 
 def _manga_item(**overrides):
     return {
-        'title': 'One Piece',
-        'images': {'webp': {'large_image_url': 'https://example.com/onepiece.webp'}},
-        'genres': [{'name': 'Adventure'}],
-        'themes': [{'name': 'Pirates'}],
-        'demographics': [{'name': 'Shounen'}],
-        'authors': [{'name': 'Oda, Eiichiro'}],
-        'published': {'prop': {'from': {'year': 1997}}},
+        'title': {'romaji': 'One Piece'},
+        'coverImage': {'extraLarge': 'https://example.com/onepiece.jpg'},
+        'genres': ['Adventure'],
+        'tags': [{'name': 'Pirates', 'category': 'Theme-Other'}],
+        'studios': {'nodes': []},
+        'staff': {
+            'edges': [
+                {'role': 'Story & Art', 'node': {'name': {'full': 'Eiichiro Oda'}}},
+                {'role': 'Translator (English)', 'node': {'name': {'full': 'Stephen Paul'}}},
+            ]
+        },
+        'startDate': {'year': 1997},
+        'episodes': None,
         'chapters': 1100,
-        'score': 9.2,
-        'rank': 1,
+        'averageScore': 92,
+        'rankings': [{'rank': 1, 'type': 'RATED', 'allTime': True}],
         **overrides,
     }
+
+
+def _page(*items):
+    return httpx.Response(200, json={'data': {'Page': {'media': list(items)}}})
+
+
+@pytest.fixture
+def anilist_route(respx_mock):
+    return respx_mock.post('https://graphql.anilist.co')
+
+
+def _variables(route):
+    return json.loads(route.calls.last.request.content)['variables']
 
 
 class TestMatches:
@@ -56,6 +85,8 @@ class TestMatches:
             (', anime dm', True),
             (', anime top100', True),
             (', anime top50', True),
+            (', anime top 10', True),
+            (', manga pop 10', True),
             (', manga top250', True),
             (', anime pop', True),
             (', anime pop100', True),
@@ -71,136 +102,118 @@ class TestMatches:
 
 class TestRun:
     @pytest.mark.anyio
-    async def test_anime_returns_image_with_info(self, command, respx_mock):
+    async def test_anime_returns_image_with_info(self, command, anilist_route):
         data = GroupCommandDataFactory.build(text=', anime')
-        respx_mock.get(url__regex=r'.*/top/anime.*').mock(
-            return_value=httpx.Response(200, json={'data': [_anime_item()]})
-        )
+        anilist_route.mock(return_value=_page(_anime_item()))
+
         messages = await command.run(data)
 
-        assert len(messages) == 1
         assert isinstance(messages[0].content, ImageContent)
-        caption = messages[0].content.caption
-        assert caption is not None
-        assert 'Naruto' in caption
-        assert 'Action' in caption
-        assert 'Studio Pierrot' in caption
-        assert '🎥' in caption
+        assert messages[0].content.url == 'https://example.com/naruto.jpg'
+        assert messages[0].content.caption == (
+            '*Naruto*\n\n'
+            '🎥 220x \t📅 2002\n'
+            '⭐️ 8.0 \t🏆 #500\n'
+            '🧬 Action, Adventure\n'
+            '📜 Ninja\n'
+            '📈 Shounen\n'
+            '🎙️ Studio Pierrot'
+        )
 
     @pytest.mark.anyio
-    async def test_manga_returns_image_with_info(self, command, respx_mock):
+    async def test_manga_lists_only_story_and_art_staff(self, command, anilist_route):
         data = GroupCommandDataFactory.build(text=', manga')
-        respx_mock.get(url__regex=r'.*/top/manga.*').mock(
-            return_value=httpx.Response(200, json={'data': [_manga_item()]})
-        )
+        anilist_route.mock(return_value=_page(_manga_item()))
+
         messages = await command.run(data)
 
-        assert len(messages) == 1
-        assert isinstance(messages[0].content, ImageContent)
         caption = messages[0].content.caption
-        assert caption is not None
-        assert 'One Piece' in caption
-        assert 'Oda, Eiichiro' in caption
-        assert '📚' in caption
+        assert '🖋 Eiichiro Oda' in caption
+        assert 'Stephen Paul' not in caption
 
     @pytest.mark.anyio
-    async def test_calls_correct_api_for_anime(self, command, respx_mock):
+    async def test_anime_credits_only_the_studio(self, command, anilist_route):
         data = GroupCommandDataFactory.build(text=', anime')
-        route = respx_mock.get(url__regex=r'.*/top/anime.*').mock(
-            return_value=httpx.Response(200, json={'data': [_anime_item()]})
-        )
-        await command.run(data)
+        staff = {'edges': [{'role': 'Art Director', 'node': {'name': {'full': 'Someone'}}}]}
+        anilist_route.mock(return_value=_page(_anime_item(staff=staff)))
 
-        url = str(route.calls.last.request.url)
-        assert '/top/anime' in url
+        messages = await command.run(data)
 
-    @pytest.mark.anyio
-    async def test_calls_correct_api_for_manga(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', manga')
-        route = respx_mock.get(url__regex=r'.*/top/manga.*').mock(
-            return_value=httpx.Response(200, json={'data': [_manga_item()]})
-        )
-        await command.run(data)
-
-        url = str(route.calls.last.request.url)
-        assert '/top/manga' in url
+        assert messages[0].content.caption.endswith('🎙️ Studio Pierrot')
 
     @pytest.mark.anyio
-    async def test_top100_limits_page_range(self, command, respx_mock, mocker):
-        data = GroupCommandDataFactory.build(text=', anime top100')
-        respx_mock.get(url__regex=r'.*/top/anime.*').mock(
-            return_value=httpx.Response(200, json={'data': [_anime_item()]})
-        )
-        mock_randint = mocker.patch(
-            'bot.domain.commands.my_anime_list.random.randint', return_value=1
-        )
-
-        await command.run(data)
-
-        mock_randint.assert_called_once_with(1, 4)
-
-    @pytest.mark.anyio
-    async def test_default_uses_full_range(self, command, respx_mock, mocker):
+    async def test_missing_fields_fall_back(self, command, anilist_route):
         data = GroupCommandDataFactory.build(text=', anime')
-        respx_mock.get(url__regex=r'.*/top/anime.*').mock(
-            return_value=httpx.Response(200, json={'data': [_anime_item()]})
+        item = _anime_item(
+            episodes=None,
+            startDate={'year': None},
+            averageScore=None,
+            rankings=[],
+            genres=[],
+            tags=[],
+            studios={'nodes': []},
         )
+        anilist_route.mock(return_value=_page(item))
+
+        messages = await command.run(data)
+
+        caption = messages[0].content.caption
+        assert '🎥 ? \t📅 ?' in caption
+        assert '⭐️ ? \t🏆 #?' in caption
+        assert '🧬 Desconhecido' in caption
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('text', 'media_type', 'sort'),
+        [
+            (', anime', 'ANIME', 'SCORE_DESC'),
+            (', manga', 'MANGA', 'SCORE_DESC'),
+            (', anime pop', 'ANIME', 'POPULARITY_DESC'),
+            (', manga pop', 'MANGA', 'POPULARITY_DESC'),
+        ],
+    )
+    async def test_queries_media_type_and_sort(
+        self, command, anilist_route, text, media_type, sort
+    ):
+        data = GroupCommandDataFactory.build(text=text)
+        anilist_route.mock(return_value=_page(_manga_item(), _anime_item()))
+
+        await command.run(data)
+
+        variables = _variables(anilist_route)
+        assert variables['type'] == media_type
+        assert variables['sort'] == [sort]
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('text', 'max_page'),
+        [
+            (', anime', 20),
+            (', anime top100', 4),
+            (', anime top 100', 4),
+            (', anime top0', 20),
+            (', anime pop', 20),
+            (', anime pop100', 4),
+        ],
+    )
+    async def test_page_range(self, command, anilist_route, mocker, text, max_page):
+        data = GroupCommandDataFactory.build(text=text)
+        anilist_route.mock(return_value=_page(_anime_item()))
         mock_randint = mocker.patch(
             'bot.domain.commands.my_anime_list.random.randint', return_value=1
         )
 
         await command.run(data)
 
-        mock_randint.assert_called_once_with(1, 20)
+        mock_randint.assert_called_once_with(1, max_page)
+        assert _variables(anilist_route)['page'] == 1
 
     @pytest.mark.anyio
-    async def test_pop_uses_bypopularity_filter(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', anime pop')
-        route = respx_mock.get(url__regex=r'.*/top/anime.*').mock(
-            return_value=httpx.Response(200, json={'data': [_anime_item()]})
-        )
+    async def test_top1_picks_only_the_first(self, command, anilist_route):
+        data = GroupCommandDataFactory.build(text=', anime top1')
+        first = _anime_item(title={'romaji': 'Frieren'})
+        anilist_route.mock(return_value=_page(first, _anime_item(), _anime_item()))
 
-        await command.run(data)
+        messages = await command.run(data)
 
-        url = str(route.calls.last.request.url)
-        assert 'filter=bypopularity' in url
-
-    @pytest.mark.anyio
-    async def test_pop100_limits_page_range(self, command, respx_mock, mocker):
-        data = GroupCommandDataFactory.build(text=', anime pop100')
-        respx_mock.get(url__regex=r'.*/top/anime.*').mock(
-            return_value=httpx.Response(200, json={'data': [_anime_item()]})
-        )
-        mock_randint = mocker.patch(
-            'bot.domain.commands.my_anime_list.random.randint', return_value=1
-        )
-
-        await command.run(data)
-
-        mock_randint.assert_called_once_with(1, 4)
-
-    @pytest.mark.anyio
-    async def test_pop_without_number_uses_full_range(self, command, respx_mock, mocker):
-        data = GroupCommandDataFactory.build(text=', anime pop')
-        respx_mock.get(url__regex=r'.*/top/anime.*').mock(
-            return_value=httpx.Response(200, json={'data': [_anime_item()]})
-        )
-        mock_randint = mocker.patch(
-            'bot.domain.commands.my_anime_list.random.randint', return_value=1
-        )
-
-        await command.run(data)
-
-        mock_randint.assert_called_once_with(1, 20)
-
-    @pytest.mark.anyio
-    async def test_pop_manga_uses_bypopularity_filter(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', manga pop')
-        route = respx_mock.get(url__regex=r'.*/top/manga.*').mock(
-            return_value=httpx.Response(200, json={'data': [_manga_item()]})
-        )
-
-        await command.run(data)
-
-        url = str(route.calls.last.request.url)
-        assert 'filter=bypopularity' in url
+        assert messages[0].content.caption.startswith('*Frieren*')
