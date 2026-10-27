@@ -377,9 +377,7 @@ def _fifa_player(name: str, overall: int) -> FifaPlayer:
     return FifaPlayer(
         name=name,
         overall=overall,
-        photo_url=f'https://ratings-images-prod.pulse.ea.com/{name}.png',
-        badge_url='https://drop-assets.ea.com/images/crest.png',
-        nationality_flag_emoji='🇧🇷',
+        card_url=f'https://ratings-images-prod.pulse.ea.com/FC25/full/player-shields/en/{name}.png',
     )
 
 
@@ -404,7 +402,7 @@ class TestFifaTeam:
     @pytest.fixture
     def field(self, mocker):
         return mocker.patch(
-            'bot.domain.services.full_lineup_builder.build_football_field',
+            'bot.domain.services.full_lineup_builder.build_card_field',
             return_value=b'fake-field-image',
         )
 
@@ -416,15 +414,17 @@ class TestFifaTeam:
         assert messages[0].content.caption == (
             f'⚽ *Escalação FIFA* — {_FORMATION.name}\n⭐ Overall médio: 90'
         )
-        assert field.call_args.args[4] == 'OVR médio 90'
+        assert field.call_args.args[2] == 'OVR médio 90'
 
     @pytest.mark.anyio
-    async def test_fills_every_slot(self, command, ratings, field):
+    async def test_fields_a_card_in_every_slot(self, command, ratings, field, badge):
         messages = await command.run(GroupCommandDataFactory.build(text=',time fifa'))
 
-        names = field.call_args.args[1]
+        cards = field.call_args.args[0]
+        fetched = [call.args[0] for call in badge.await_args_list]
         assert isinstance(messages[0].content, ImageBufferContent)
-        assert (len(names), all(names)) == (_N_SLOTS, True)
+        assert cards == [b'fake-badge'] * _N_SLOTS
+        assert all('/player-shields/' in url for url in fetched)
 
     @pytest.mark.anyio
     async def test_league_filter_is_not_supported(self, command, ratings):

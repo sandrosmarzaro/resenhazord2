@@ -9,9 +9,9 @@ from typing import ClassVar
 from bot.data.football import LEAGUES
 from bot.data.football_formations import Formation, specific_roles
 from bot.data.market_dataset import SEASON_FOOTER
-from bot.domain.models.football import LineupPlayer, TmPlayer
+from bot.domain.models.football import TmPlayer
 from bot.domain.services.fifa_ratings import FifaRatings
-from bot.domain.services.football_field.build_field import build_football_field
+from bot.domain.services.football_field.build_field import build_card_field, build_football_field
 from bot.domain.services.lineup_assigner import LineupAssigner
 from bot.domain.services.lineup_builder import LineupBuilder
 from bot.domain.services.market_dataset import MarketDataset, format_euros
@@ -50,15 +50,23 @@ class FullLineupBuilder:
         ordered = LineupAssigner.assign_slots(role_pools, formation)
         ratings = [player.overall for player in ordered if player]
         average = round(mean(ratings))
+        cards = await PlayerAssets.download(
+            [player.card_url if player else '' for player in ordered]
+        )
         # The field font has no emoji glyphs.
-        field_image = await cls._render(ordered, formation, f'OVR médio {average}')
+        field_image = await asyncio.to_thread(
+            build_card_field, cards, formation, f'OVR médio {average}'
+        )
         return field_image, f'⚽ *Escalação FIFA* — {formation.name}\n⭐ Overall médio: {average}'
 
     @staticmethod
     async def _render(
-        ordered: Sequence[LineupPlayer | None], formation: Formation, label: str | None
+        ordered: Sequence[TmPlayer | None], formation: Formation, label: str | None
     ) -> bytes:
-        photos, badges = await PlayerAssets.fetch(ordered)
+        photos, badges = await asyncio.gather(
+            PlayerAssets.download([player.photo_url if player else '' for player in ordered]),
+            PlayerAssets.download([player.badge_url if player else '' for player in ordered]),
+        )
         names = [player.name if player else '' for player in ordered]
         flags = [(player.nationality_flag_emoji or None) if player else None for player in ordered]
         overlays = list(zip(flags, badges, strict=False))

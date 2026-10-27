@@ -24,21 +24,13 @@ class PlayerProfile:
 class LineupPlayer(Protocol):
     @property
     def name(self) -> str: ...
-    @property
-    def photo_url(self) -> str: ...
-    @property
-    def badge_url(self) -> str: ...
-    @property
-    def nationality_flag_emoji(self) -> str: ...
 
 
 @dataclass(frozen=True)
 class FifaPlayer:
     name: str
     overall: int
-    photo_url: str
-    badge_url: str
-    nationality_flag_emoji: str
+    card_url: str
 
 
 @dataclass(frozen=True)
