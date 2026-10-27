@@ -124,6 +124,9 @@ class DiscordBot:
         for attempt in range(1, self.MAX_SYNC_RETRIES + 1):
             try:
                 synced = await tree.sync()
+                # Commands were once synced to this guild too. The tree holds no guild
+                # commands, so this sync overwrites those stale duplicates with nothing.
+                await tree.sync(guild=guild)
             except aiohttp.ClientConnectorError:
                 if attempt == self.MAX_SYNC_RETRIES:
                     logger.exception('discord_sync_failed', guild_id=guild.id, attempts=attempt)
