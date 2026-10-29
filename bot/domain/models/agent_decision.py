@@ -10,6 +10,7 @@ class AgentOutcome(StrEnum):
     SUGGEST = 'suggest'
     UNRESOLVABLE = 'unresolvable'
     UNAVAILABLE = 'unavailable'
+    OVER_BUDGET = 'over_budget'
     # Outcomes the conversation graph adds on a reply to the bot's own question.
     CONFIRMED = 'confirmed'
     DENIED = 'denied'

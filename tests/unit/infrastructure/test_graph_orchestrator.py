@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from bot.application.agent_response import AgentResponseTranslator
@@ -37,11 +39,11 @@ def clock(mocker):
     return clock
 
 
-def _orchestrator(provider, *, retriever=None, redis_url: str | None = None):
+def _orchestrator(provider, *, retriever=None, redis_url: str | None = None, budget=None):
     registry = CommandRegistry.instance()
     nodes = AgentGraphNodes(
         ExampleSelector(retriever),
-        LLMCommandMapper(registry, provider),
+        LLMCommandMapper(registry, provider, budget=budget),
         AgentResponseTranslator(registry),
     )
     return GraphAgentOrchestrator(nodes, redis_url)
@@ -328,6 +330,17 @@ class TestOpenEndedReplies:
         result = await _orchestrator(provider).run(_data('placar'))
 
         assert result.text == f'{CLARIFY_PREFIX}{LLMCommandMapper.UNAVAILABLE_MSG}'
+
+    @pytest.mark.anyio
+    async def test_an_exhausted_budget_replies_when_it_refills(self, provider, clock, mocker):
+        budget = mocker.Mock(
+            refill_at=mocker.AsyncMock(return_value=datetime(2026, 1, 1, 9, 5, tzinfo=UTC))
+        )
+
+        result = await _orchestrator(provider, budget=budget).run(_data('placar'))
+
+        message = LLMCommandMapper.OVER_BUDGET_MSG.format(refill='09:05')
+        assert result.text == f'{CLARIFY_PREFIX}{message}'
 
     @pytest.mark.anyio
     async def test_reply_keeps_the_media(self, provider, clock):

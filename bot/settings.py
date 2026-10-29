@@ -83,4 +83,12 @@ class Settings(BaseSettings):
     langsmith_prompt_name: str = 'resenhazord-agent'
     langsmith_prompt_tag: str = 'prod'
 
+    # Agent token budget: a day's LLM tokens per sender and per group, refilled
+    # continuously (needs redis_url). While enforce is off it only counts the calls
+    # it would refuse. The owners (comma-separated JIDs) are exempt.
+    agent_tokens_per_day_user: int = 150_000
+    agent_tokens_per_day_group: int = 750_000
+    agent_budget_enforce: bool = False
+    owner_jids: str = ''
+
     model_config = {'env_file': '.env', 'extra': 'ignore'}

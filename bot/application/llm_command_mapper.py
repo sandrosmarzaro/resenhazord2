@@ -26,6 +26,7 @@ from bot.infrastructure.llm.tools import (
 )
 from bot.ports.llm_provider_port import LLMProviderPort
 from bot.ports.prompt_registry_port import PromptRegistryError, PromptRegistryPort
+from bot.ports.token_budget_port import TokenBudgetPort
 
 logger = structlog.get_logger()
 
@@ -37,6 +38,9 @@ class LLMCommandMapper:
     MAX_CONTEXT_LENGTH: ClassVar[int] = 2000
     UNAVAILABLE_MSG: ClassVar[str] = f'🤖 IA indisponível no momento. {AGENT_MENU_HINT}'
     UNRESOLVABLE_MSG: ClassVar[str] = f'🤖 Não consegui entender. {AGENT_MENU_HINT}'
+    OVER_BUDGET_MSG: ClassVar[str] = (
+        f'🤖 Limite de IA atingido, volta às {{refill}}. {AGENT_MENU_HINT}'
+    )
     _UNAVAILABLE_EVENT: ClassVar[str] = 'agent_unavailable'
 
     def __init__(
@@ -44,14 +48,19 @@ class LLMCommandMapper:
         registry: CommandRegistry,
         provider: LLMProviderPort,
         prompt_registry: PromptRegistryPort | None = None,
+        budget: TokenBudgetPort | None = None,
     ) -> None:
         self._provider = provider
         self._prompt_registry = prompt_registry
+        self._budget = budget
         self._tools = self._with_confidence(build_tools_for_prompt(registry)) + AGENT_META_TOOLS
         self._command_list = get_command_list_with_descriptions(registry)
         self._translator = AgentResponseTranslator(registry)
 
     async def map(self, data: CommandData, examples: list[RetrievedExample]) -> AgentDecision:
+        if self._budget and (refill := await self._budget.refill_at(data)):
+            text = self.OVER_BUDGET_MSG.format(refill=f'{refill:%H:%M}')
+            return AgentDecision(AgentOutcome.OVER_BUDGET, text=text)
         logger.info('agent_executing', user_input=data.text, tool_count=len(self._tools))
         version = ''
         try:
@@ -68,6 +77,8 @@ class LLMCommandMapper:
             return AgentDecision(
                 AgentOutcome.UNAVAILABLE, text=self.UNAVAILABLE_MSG, prompt_version=version
             )
+        if self._budget:
+            await self._budget.spend(data, response.tokens)
         decision = self._interpret(data, response)
         return AgentDecision(
             decision.outcome,

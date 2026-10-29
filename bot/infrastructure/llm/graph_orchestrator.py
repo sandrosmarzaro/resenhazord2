@@ -39,6 +39,7 @@ class GraphAgentOrchestrator:
         AgentOutcome.SUGGEST: 'suggest',
         AgentOutcome.UNRESOLVABLE: 'fallback',
         AgentOutcome.UNAVAILABLE: 'fallback',
+        AgentOutcome.OVER_BUDGET: 'fallback',
     }
     _TERMINALS: ClassVar[tuple[str, ...]] = (
         'execute',
