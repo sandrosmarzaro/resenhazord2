@@ -15,8 +15,8 @@ def _call(text: str, needs: str = '') -> object:
 
 # One real invocation per upstream a command reaches, with the setting its key lives
 # in. A command passes when it replies without logging an error or upstream_failed,
-# the event every swallowed upstream failure logs. ,dl is left out: its upstreams
-# need the login cookies only the core node has.
+# the event every swallowed upstream failure logs. The ,dl videos need the core
+# node's login cookies; the photo-only tweet goes through FxTwitter without them.
 _CALLS = [
     _call(',alcorão'),
     _call(',animal'),
@@ -72,6 +72,9 @@ _CALLS = [
     _call(',música'),
     _call(',música free', 'jamendo_client_id'),
     _call(',cerveja'),
+    _call(',dl https://x.com/captainamerica/status/719944021058060289', 'ytdlp_cookies'),
+    _call(',dl https://www.instagram.com/reel/CDUMkliABpa/', 'ytdlp_cookies'),
+    _call(',dl https://x.com/TheEllenShow/status/440322224407314432'),
 ]
 
 

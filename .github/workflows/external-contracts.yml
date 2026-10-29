@@ -28,6 +28,10 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}
       - run: uv sync --frozen
+      # The core node's login cookies, so ,dl reaches X and Instagram as in prod.
+      - run: printf '%s\n' "$COOKIES" > "$RUNNER_TEMP/cookies.txt"
+        env:
+          COOKIES: ${{ secrets.YTDLP_COOKIES_TXT }}
       # The failures run once more, so a single upstream blip files no issue.
       - run: |
           uv run task test:external tests/integration/external --junitxml=contracts.xml \
@@ -44,6 +48,7 @@ jobs:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          YTDLP_COOKIES: ${{ runner.temp }}/cookies.txt
       - if: failure() && github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
