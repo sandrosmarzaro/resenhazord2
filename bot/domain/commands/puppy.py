@@ -64,5 +64,5 @@ class PuppyCommand(Command):
                 return await self._fetch_dog(data)
             return await self._fetch_cat(data)
         except Exception:
-            logger.exception('puppy_fetch_error')
+            logger.exception('upstream_failed', upstream='dog.ceo/cataas')
             return [Reply.to(data).text('Ops, não consegui pegar a imagem agora! 🐾')]

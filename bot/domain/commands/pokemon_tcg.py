@@ -52,7 +52,7 @@ class PokemonTCGCommand(CardBoosterCommand):
             )
             return [Reply.to(data).image_buffer(image_buffer, caption)]
         except Exception:
-            logger.exception('pokemon_tcg_error')
+            logger.exception('upstream_failed', upstream='tcgdex')
             return [
                 Reply.to(data).text(
                     'Não foi possível buscar uma carta no momento. Tente novamente.'

@@ -69,7 +69,7 @@ class LotteryCommand(Command):
 
             return await self._fallback_yesterday(data, region)
         except Exception:
-            logger.exception('bicho_fetch_error')
+            logger.exception('upstream_failed', upstream='eojogodobicho')
             return [
                 Reply.to(data).text(
                     'Erro ao buscar resultados do Jogo do Bicho. Tente novamente! 🎲'
@@ -86,7 +86,7 @@ class LotteryCommand(Command):
             if published:
                 return [self._format_draw(data, published[-1], yesterday=True)]
         except httpx.HTTPError, ValueError, KeyError:
-            logger.warning('bicho_yesterday_fetch_failed', date=date_str)
+            logger.warning('upstream_failed', upstream='eojogodobicho', date=date_str)
         return [Reply.to(data).text('Nenhum sorteio publicado ainda hoje. 🎲')]
 
     @staticmethod

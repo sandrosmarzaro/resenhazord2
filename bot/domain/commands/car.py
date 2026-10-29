@@ -69,7 +69,9 @@ class CarCommand(Command):
             try:
                 thumb = await self._find_image(brand.name, wiki_name, base_name, parsed)
             except httpx.HTTPError, KeyError, ValueError:
-                logger.warning('carro_image_search_failed', brand=brand.name, model=model['nome'])
+                logger.warning(
+                    'upstream_failed', upstream='wikipedia', brand=brand.name, model=model['nome']
+                )
                 thumb = None
 
             if not thumb:
@@ -88,7 +90,7 @@ class CarCommand(Command):
             )
             return [Reply.to(data).image_buffer(buffer, caption)]
         except Exception:
-            logger.exception('carro_command_error')
+            logger.exception('upstream_failed', upstream='parallelum/wikipedia')
             return [Reply.to(data).text('Ops, não achei esse carro agora! 🚗')]
 
     async def _fetch_details(self, base: str, model_code: int, years: list[dict]) -> dict | None:

@@ -28,5 +28,7 @@ class Translator:
             segments = response.json()[0]
             return ''.join(seg[0] for seg in segments if seg[0])
         except httpx.HTTPError, KeyError, IndexError, TypeError:
-            logger.warning('translation_failed', source=source, target=target)
+            logger.warning(
+                'upstream_failed', upstream='google-translate', source=source, target=target
+            )
             return text

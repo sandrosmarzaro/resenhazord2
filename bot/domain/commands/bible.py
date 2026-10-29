@@ -47,7 +47,7 @@ class BibleCommand(Command):
                 return [await self._random(data)]
             return [await self._passage(data, reference)]
         except httpx.HTTPError:
-            logger.exception('bible_command_error')
+            logger.exception('upstream_failed', upstream='bible-api')
             return [
                 Reply.to(data).text(
                     'A API da bíblia está fora do ar agora... 😔 Tenta de novo daqui a pouco 🙏'

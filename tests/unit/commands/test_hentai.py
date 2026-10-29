@@ -2,6 +2,7 @@ import struct
 
 import httpx
 import pytest
+from structlog.testing import capture_logs
 
 from bot.data.hentai_gallery import HentaiGallery
 from bot.domain.commands.hentai import HentaiCommand
@@ -235,6 +236,26 @@ class TestDefaultFallback:
         messages = await command.run(data)
 
         assert isinstance(messages[0].content, ImageBufferContent)
+
+
+class TestCoverRetry:
+    @pytest.mark.anyio
+    async def test_a_failed_cover_is_retried_and_logged(self, command, nhentai_route, respx_mock):
+        data = GroupCommandDataFactory.build(text=',hentai nhentai')
+        nhentai_route.mock(
+            return_value=httpx.Response(200, json={'result': [MOCK_NHENTAI_RESPONSE]})
+        )
+        respx_mock.get(url__startswith='https://t.nhentai.net/galleries/').mock(
+            side_effect=[httpx.Response(404), httpx.Response(200, content=b'cover')]
+        )
+
+        with capture_logs() as logs:
+            messages = await command.run(data)
+
+        assert isinstance(messages[0].content, ImageBufferContent)
+        assert [log['upstream'] for log in logs if log['event'] == 'upstream_failed'] == [
+            'hitomi/nhentai'
+        ]
 
 
 class TestCaption:

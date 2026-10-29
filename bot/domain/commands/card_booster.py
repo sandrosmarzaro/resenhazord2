@@ -65,5 +65,5 @@ class CardBoosterCommand(Command):
             caption = '\n\n'.join(f'*{i + 1}.* {item.label}' for i, item in enumerate(items))
             return [Reply.to(data).image_buffer(grid_buffer, caption)]
         except Exception:
-            logger.exception('booster_error', command=type(self).__name__)
+            logger.exception('upstream_failed', upstream=self.config.name)
             return [Reply.to(data).text('Ops, não consegui montar o booster agora! 🃏')]

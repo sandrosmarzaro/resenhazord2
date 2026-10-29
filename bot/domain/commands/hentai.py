@@ -61,7 +61,7 @@ class HentaiCommand(Command):
                 raise
             except Exception as exc:
                 last_error = exc
-                logger.exception('hentai_fetch_error')
+                logger.exception('upstream_failed', upstream='hitomi/nhentai')
 
         if last_error:
             raise last_error
@@ -79,6 +79,7 @@ class HentaiCommand(Command):
         try:
             return await HitomiScraper.fetch()
         except httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError:
+            logger.warning('upstream_failed', upstream='hitomi')
             return await self._nhentai.fetch()
 
     @classmethod

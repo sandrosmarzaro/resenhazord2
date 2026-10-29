@@ -66,7 +66,7 @@ class BeerCommand(Command):
 
             return [Reply.to(data).image(beer['image_url'], '\n'.join(lines))]
         except Exception:
-            logger.exception('beer_fetch_error')
+            logger.exception('upstream_failed', upstream='openfoodfacts')
             return [Reply.to(data).text('Ops, não achei uma cerveja agora! 🍺')]
 
     async def _get_random_beer(self) -> dict:

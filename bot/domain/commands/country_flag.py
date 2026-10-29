@@ -45,7 +45,7 @@ class CountryFlagCommand(Command):
             flag_png = country.get('flag', {}).get('url_png', '')
             return [Reply.to(data).image(flag_png, caption)]
         except Exception:
-            logger.exception('country_flag_fetch_error')
+            logger.exception('upstream_failed', upstream='restcountries')
             return [Reply.to(data).text('Ops, não achei essa bandeira agora! 🌍')]
 
     @staticmethod

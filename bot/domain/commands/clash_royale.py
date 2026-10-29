@@ -66,7 +66,7 @@ class ClashRoyaleCommand(CardBoosterCommand):
 
             return [Reply.to(data).image(image_url, '\n'.join(lines))]
         except Exception:
-            logger.exception('clash_royale_fetch_error')
+            logger.exception('upstream_failed', upstream='royaleapi')
             return [
                 Reply.to(data).text(
                     'Erro ao buscar carta de Clash Royale. Tente novamente mais tarde! ⚔️'

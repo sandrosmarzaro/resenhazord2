@@ -125,7 +125,7 @@ class FootballTeamCommand(Command):
         try:
             return await TheSportsDBService.search_team(name)
         except httpx.HTTPError as error:
-            logger.warning('thesportsdb_search_failed', team=name, error=str(error))
+            logger.warning('upstream_failed', upstream='thesportsdb', team=name, error=str(error))
             return None
 
     @staticmethod
