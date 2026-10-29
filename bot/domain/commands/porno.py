@@ -78,7 +78,7 @@ class PornoCommand(Command):
             result = await self._scrape_random_video()
             return [Reply.to(data).video(result['url'], result['title'])]
         except Exception:
-            logger.exception('porno_scrape_failed')
+            logger.exception('upstream_failed', upstream='xvideos/nsfwhub')
             return [
                 Reply.to(data).text(
                     'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'

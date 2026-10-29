@@ -59,7 +59,7 @@ class FipeCommand(Command):
 
             return [Reply.to(data).text(text)]
         except Exception:
-            logger.exception('fipe_command_error')
+            logger.exception('upstream_failed', upstream='parallelum')
             return [Reply.to(data).text('Ops, não consegui consultar a FIPE agora! 🚗')]
 
     async def _fetch_details(self, base: str, model_code: int, years: list[dict]) -> dict | None:

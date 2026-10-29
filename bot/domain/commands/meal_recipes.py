@@ -31,7 +31,7 @@ class MealRecipesCommand(Command):
         try:
             return await self._fetch_and_build(data)
         except Exception:
-            logger.exception('meal_recipes_error')
+            logger.exception('upstream_failed', upstream='themealdb')
             return [Reply.to(data).text('Ops, não achei essa receita agora! 🍽️')]
 
     async def _fetch_and_build(self, data: CommandData) -> list[BotMessage]:

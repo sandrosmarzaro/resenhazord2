@@ -67,7 +67,7 @@ class GameCommand(Command):
                 caption = self._build_caption(game)
                 return [Reply.to(data).image(game.cover_url, caption)]
             except Exception:
-                logger.exception('game_source_error', source=source.__class__.__name__)
+                logger.exception('upstream_failed', upstream=type(source).__name__)
                 continue
         return [Reply.to(data).text('Ops, não achei esse jogo agora! 🎮')]
 

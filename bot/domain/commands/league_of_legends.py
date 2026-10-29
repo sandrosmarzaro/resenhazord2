@@ -95,7 +95,7 @@ class LeagueOfLegendsCommand(Command):
 
             return [Reply.to(data).image(splash_url, '\n'.join(lines))]
         except Exception:
-            logger.exception('lol_fetch_error')
+            logger.exception('upstream_failed', upstream='ddragon')
             return [Reply.to(data).text('Ops, não achei esse campeão agora! 🎮')]
 
     async def _fetch_opgg_build(self, champion_name: str) -> list[str] | None:
@@ -103,10 +103,10 @@ class LeagueOfLegendsCommand(Command):
             analysis = await opgg_client.get_champion_analysis(champion_name=champion_name)
             data = analysis.get('lolgetchampionanalysis', {}).get('data', {})
         except OpggMcpError:
-            logger.warning('opgg_build_fetch_failed', champion=champion_name)
+            logger.warning('upstream_failed', upstream='op.gg', champion=champion_name)
             return None
         except Exception:
-            logger.exception('opgg_unexpected_error', champion=champion_name)
+            logger.exception('upstream_failed', upstream='op.gg', champion=champion_name)
             return None
         else:
             if not data:

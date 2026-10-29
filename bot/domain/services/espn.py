@@ -42,7 +42,9 @@ class EspnService:
         matches: list[TmLiveMatch] = []
         for league, batch in zip(SCOREBOARD_LEAGUES, batches, strict=True):
             if isinstance(batch, BaseException):
-                logger.warning('espn_scoreboard_failed', league=league.slug, error=str(batch))
+                logger.warning(
+                    'upstream_failed', upstream='espn', league=league.slug, error=str(batch)
+                )
                 continue
             matches.extend(batch)
         return matches
