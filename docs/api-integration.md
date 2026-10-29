@@ -25,3 +25,17 @@
    that swallows all errors and exhausts retries is worse than no fallback: it silently
    delays the real error. If the fallback source is known-broken (e.g. nhentai.xxx API),
    either remove it or gate it behind a guard that throws immediately.
+
+9. **Log a swallowed failure as `upstream_failed`** — a command that answers "não
+   achei" instead of raising logs `upstream_failed` with `upstream=<host or provider>`:
+   `logger.exception` when the command gives up, `logger.warning` when it degrades (a
+   missing image, untranslated text, a fallback source). Loki can then alert per
+   upstream, and the contract tests below fail on the same event.
+
+10. **Add a contract call** — every command that reaches a new upstream gets one row in
+    `tests/integration/external/test_command_contracts.py`, with the setting that holds
+    its key when it needs one. The row runs the real command and fails when it logs an
+    error or `upstream_failed`. Run them with `uv run task test:external`. The
+    `external-contracts` workflow runs them every night, retries the failures once, and
+    files or comments on one issue labelled `external-api`. It is not a PR gate. Keyed
+    calls skip until their key is a repo secret.
