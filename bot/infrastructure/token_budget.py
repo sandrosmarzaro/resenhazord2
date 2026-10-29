@@ -45,7 +45,7 @@ class TokenBudget:
     _KEY_PREFIX: ClassVar[str] = 'agent_budget'
     # Refills the bucket up to now, then debits the cost. The key expires when the
     # bucket would be full again, since a missing bucket reads as full.
-    _SETTLE: ClassVar[str] = """
+    _SETTLE_SCRIPT: ClassVar[str] = """
 local capacity, rate = tonumber(ARGV[1]), tonumber(ARGV[2])
 local now, cost = tonumber(ARGV[3]), tonumber(ARGV[4])
 local bucket = redis.call('HMGET', KEYS[1], 'balance', 'at')
@@ -59,7 +59,7 @@ return tostring(balance)
 
     def __init__(self, redis: Redis, policy: TokenBudgetPolicy) -> None:
         self._policy = policy
-        self._settle = redis.register_script(self._SETTLE)
+        self._settle = redis.register_script(self._SETTLE_SCRIPT)
 
     @classmethod
     def from_url(cls, redis_url: str, policy: TokenBudgetPolicy) -> TokenBudget:
