@@ -100,6 +100,25 @@ k being `ExampleSelector.MAX_EXAMPLES` (5).
   was among the retrieved examples. The label is the command that ran, so this series
   measures agreement with the LLM and is strongest on `confirmed`.
 
+## Token budget
+
+Every sender and every group has a token bucket in Redis that holds a day's budget
+(`AGENT_TOKENS_PER_DAY_USER`, `AGENT_TOKENS_PER_DAY_GROUP`) and refills continuously.
+The mapper checks it before each LLM call and debits the usage the provider reports
+afterwards. The 0.97 direct match and yes/no replies skip the LLM and cost nothing. A
+call that runs past the balance leaves it negative, and the next one waits until it
+refills. The bot then answers with the time the budget comes back.
+
+It starts as a dry run. `agent_budget_rejections_total{agent_budget_enforced="false"}`
+counts the calls it would have refused, and `agent_tokens_total` shows what the chats
+really spend (queries in [observability-dashboards.md](./observability-dashboards.md)).
+Size the budgets from those, then set `AGENT_BUDGET_ENFORCE=true` on the core node.
+JIDs in `OWNER_JIDS` are exempt. Without `REDIS_URL` there is no budget, and a Redis
+error lets the call through and logs `agent_budget_unavailable`.
+
+`AgentRateLimiter` stays in front of the agent. It caps turns to stop bot-to-bot loops,
+and the budget caps cost.
+
 ## Failure behavior
 
 If the pull fails (cold start with no cache, hub down, bad key), the agent returns

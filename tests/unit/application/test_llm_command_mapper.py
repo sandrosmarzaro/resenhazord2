@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 
@@ -54,6 +56,18 @@ class _FakePromptRegistry:
 
     def system_prompt(self) -> SystemPrompt:
         return self._system_prompt
+
+
+class _FakeBudget:
+    def __init__(self, refill_at: datetime | None = None) -> None:
+        self._refill_at = refill_at
+        self.spent: list[int] = []
+
+    async def refill_at(self, data: CommandData) -> datetime | None:
+        return self._refill_at
+
+    async def spend(self, data: CommandData, tokens: int) -> None:
+        self.spent.append(tokens)
 
 
 class TestPrompt:
@@ -214,3 +228,40 @@ class TestProviderFailure:
         await mapper.map(_data('placar'), [])
 
         capture.assert_called_once_with('agent_unavailable', level='error')
+
+
+class TestTokenBudget:
+    @pytest.mark.anyio
+    async def test_an_exhausted_budget_says_when_it_refills(self, provider):
+        budget = _FakeBudget(refill_at=datetime(2026, 10, 29, 14, 32, tzinfo=UTC))
+        mapper = LLMCommandMapper(CommandRegistry.instance(), provider, budget=budget)
+
+        decision = await mapper.map(_data('placar'), [])
+
+        assert decision == AgentDecision(
+            AgentOutcome.OVER_BUDGET,
+            text=LLMCommandMapper.OVER_BUDGET_MSG.format(refill='14:32'),
+        )
+        provider.complete.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_a_call_is_debited_its_reported_usage(self, provider):
+        budget = _FakeBudget()
+        provider.complete.return_value = LLMResponse(
+            content=',menu', provider='groq', model='m', tokens=7460
+        )
+        mapper = LLMCommandMapper(CommandRegistry.instance(), provider, budget=budget)
+
+        await mapper.map(_data('menu'), [])
+
+        assert budget.spent == [7460]
+
+    @pytest.mark.anyio
+    async def test_a_failed_call_is_not_debited(self, provider):
+        budget = _FakeBudget()
+        provider.complete.side_effect = httpx.HTTPError('timeout')
+        mapper = LLMCommandMapper(CommandRegistry.instance(), provider, budget=budget)
+
+        await mapper.map(_data('placar'), [])
+
+        assert budget.spent == []

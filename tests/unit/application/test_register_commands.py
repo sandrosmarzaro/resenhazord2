@@ -1,8 +1,10 @@
 import pytest
 
 from bot.application import register_commands
-from bot.application.register_commands import register_all_commands
+from bot.application.command_registry import CommandRegistry
+from bot.application.register_commands import build_agent_graph, register_all_commands
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
+from bot.infrastructure.token_budget import TokenBudgetPolicy
 from bot.settings import Settings
 
 
@@ -59,3 +61,30 @@ class TestAgentWiring:
         factories['LangSmithPromptRegistry'].assert_called_once_with(
             'ls-key', 'resenhazord-agent', 'prod'
         )
+
+
+class TestTokenBudgetWiring:
+    def test_redis_builds_the_budget_from_the_settings(
+        self, monkeypatch: pytest.MonkeyPatch, factories, mocker
+    ):
+        mocker.patch.object(register_commands, 'GraphAgentOrchestrator')
+        from_url = mocker.patch.object(register_commands.TokenBudget, 'from_url')
+        monkeypatch.setenv('AGENT_TOKENS_PER_DAY_USER', '1000')
+        monkeypatch.setenv('AGENT_TOKENS_PER_DAY_GROUP', '5000')
+        monkeypatch.setenv('AGENT_BUDGET_ENFORCE', 'true')
+        monkeypatch.setenv('OWNER_JIDS', 'owner@s.whatsapp.net, owner@lid')
+
+        build_agent_graph(CommandRegistry.instance(), Settings(), 'redis://localhost')
+
+        policy = TokenBudgetPolicy(
+            1000, 5000, enforce=True, owners=frozenset({'owner@s.whatsapp.net', 'owner@lid'})
+        )
+        from_url.assert_called_once_with('redis://localhost', policy)
+
+    def test_no_redis_means_no_budget(self, factories, mocker):
+        mocker.patch.object(register_commands, 'GraphAgentOrchestrator')
+        from_url = mocker.patch.object(register_commands.TokenBudget, 'from_url')
+
+        build_agent_graph(CommandRegistry.instance(), Settings(), None)
+
+        from_url.assert_not_called()

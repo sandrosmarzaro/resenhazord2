@@ -65,6 +65,7 @@ from bot.infrastructure.llm.langchain_provider import LangChainProvider
 from bot.infrastructure.llm.langsmith_prompt_registry import LangSmithPromptRegistry
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 from bot.infrastructure.mongodb import MongoDBConnection
+from bot.infrastructure.token_budget import TokenBudget, TokenBudgetPolicy
 from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.settings import Settings
 
@@ -102,12 +103,23 @@ def build_agent_graph(
             settings.langsmith_prompt_name,
             settings.langsmith_prompt_tag,
         )
+    budget = TokenBudget.from_url(redis_url, _budget_policy(settings)) if redis_url else None
     nodes = AgentGraphNodes(
         ExampleSelector(retriever),
-        LLMCommandMapper(registry, provider, prompt_registry),
+        LLMCommandMapper(registry, provider, prompt_registry, budget),
         AgentResponseTranslator(registry),
     )
     return GraphAgentOrchestrator(nodes, redis_url)
+
+
+def _budget_policy(settings: Settings) -> TokenBudgetPolicy:
+    owners = frozenset(jid.strip() for jid in settings.owner_jids.split(',') if jid.strip())
+    return TokenBudgetPolicy(
+        settings.agent_tokens_per_day_user,
+        settings.agent_tokens_per_day_group,
+        enforce=settings.agent_budget_enforce,
+        owners=owners,
+    )
 
 
 def _register_simple_commands(registry: CommandRegistry) -> None:
