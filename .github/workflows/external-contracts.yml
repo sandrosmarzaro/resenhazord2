@@ -1,0 +1,65 @@
+name: External contracts
+
+# Runs every command against its real upstream each night, so a broken third-party
+# API shows up here before a user reports it. It is not a PR gate, because an
+# upstream outage must not block merges. A failing night files or comments on one
+# issue labelled external-api. The GitHub-hosted runner is a datacenter IP like the
+# OCI nodes, so IP-based blocks show up here as they do in prod.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: External API contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+        with:
+          cache-suffix: ${{ github.job }}
+      - run: uv sync --frozen
+      # The failures run once more, so a single upstream blip files no issue.
+      - run: |
+          uv run task test:external tests/integration/external --junitxml=contracts.xml \
+            || uv run task test:external tests/integration/external --lf --junitxml=contracts.xml
+        env:
+          # Calls that need an absent key skip.
+          BNET_ID: ${{ secrets.BNET_ID }}
+          BNET_SECRET: ${{ secrets.BNET_SECRET }}
+          JAMENDO_CLIENT_ID: ${{ secrets.JAMENDO_CLIENT_ID }}
+          OFF_SESSION: ${{ secrets.OFF_SESSION }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
+          RESTCOUNTRIES_API_KEY: ${{ secrets.RESTCOUNTRIES_API_KEY }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+      - if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          failed=$(python3 - <<'EOF'
+          import xml.etree.ElementTree as ElementTree
+          for case in ElementTree.parse('contracts.xml').iter('testcase'):
+              if case.find('failure') is not None or case.find('error') is not None:
+                  print(f"- `{case.get('name').partition('[')[2].rstrip(']')}`")
+          EOF
+          )
+          body=$(printf 'Failed on %s:\n\n%s\n\nRun: %s' "$(date -u +%F)" "$failed" "$RUN_URL")
+          issue=$(gh issue list --label external-api --state open --json number --jq '.[0].number')
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title 'External API contracts failing' --label external-api --body "$body"
+          fi
