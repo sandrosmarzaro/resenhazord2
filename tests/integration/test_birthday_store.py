@@ -1,7 +1,6 @@
 from datetime import date
 
 import pytest
-from testcontainers.mongodb import MongoDbContainer
 
 from bot.domain.models.birthday import Birthday
 from bot.domain.services.birthday_book import BirthdayBook
@@ -12,12 +11,6 @@ CHAT_JID = '120363044041082732@g.us'
 OTHER_CHAT_JID = '120363000000000000@g.us'
 ALICE = '5511999990001@s.whatsapp.net'
 BOB = '5511999990002@s.whatsapp.net'
-
-
-@pytest.fixture(scope='module')
-def mongo_uri():
-    with MongoDbContainer('mongo:7') as container:
-        yield container.get_connection_url()
 
 
 @pytest.fixture
