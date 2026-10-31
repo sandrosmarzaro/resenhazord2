@@ -2,6 +2,45 @@
 
 <!-- version list -->
 
+## v2.14.0 (2026-10-31)
+
+### Feat
+
+- **hentai**: add e-hentai as the main source and use the nhentai v2 api
+- **commands**: log every swallowed upstream failure as upstream_failed
+- **observability**: chart the agent token spend and budget rejections
+- **agent**: check the token budget before each llm call
+- **agent**: keep a token bucket per sender and group in redis
+- **llm**: report the provider token usage on the llm response
+- **observability**: chart the live and eval retrieval recall@5
+- **scripts**: list the denied agent mappings from loki
+- **agent**: count whether retrieval surfaced the command users ran
+- **agent**: log the request, proposal and reply when a user denies
+- **football**: send a random ea fc card with ,jogador fifa
+- **football**: field the ea fc cards in ,time fifa
+
+### Fix
+
+- **rule34**: prefer rule34.xxx and fall back to paheal (#291)
+- **discord**: stop repeating slash commands in the autocomplete (#289)
+- **telegram**: let ,config decide nsfw and list what chats can run (#288)
+- **placar**: retry a scoreboard that comes back without json (#286)
+- **rule34**: get images from paheal (#285)
+- **hentai**: never send a gallery that may depict minors
+- **gateway**: stop an older creds save overwriting a newer one (#283)
+- **broker**: skip a duplicate of a command still running (#282)
+- **config**: write chat config with upserts (#281)
+- **mentions**: report success only when the write took effect (#280)
+- **mentions**: decide create and rename inside the update
+- **eval**: evaluate the served prompt and fail on an unpullable tag
+- **discord**: clear the stale guild copies of the slash commands
+- **download**: pick the best format under the size cap
+
+### Refactor
+
+- **agent**: name the token bucket script apart from its handle
+- **football**: download lineup images from a plain url list
+
 ## v2.13.0 (2026-10-27)
 
 ### Feat
