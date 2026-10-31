@@ -46,7 +46,7 @@ class MagicTheGatheringCommand(CardBoosterCommand):
             caption = self._build_caption(card)
             return [Reply.to(data).image(card['imageUrl'], caption)]
         except Exception:
-            logger.exception('mtg_fetch_error')
+            logger.exception('upstream_failed', upstream='magicthegathering.io')
             return [Reply.to(data).text('Ops, não achei essa carta de MTG agora! 🃏')]
 
     @staticmethod

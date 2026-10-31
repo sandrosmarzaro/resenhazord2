@@ -32,6 +32,18 @@ class TestResponseMapping:
 
         assert response.tool_call is None
 
+    def test_maps_the_reported_token_usage(self, provider):
+        usage = {'input_tokens': 7400, 'output_tokens': 60, 'total_tokens': 7460}
+
+        response = provider._to_response(AIMessage(content='oi', usage_metadata=usage))
+
+        assert response.tokens == 7460
+
+    def test_unreported_usage_maps_to_zero_tokens(self, provider):
+        response = provider._to_response(AIMessage(content='oi'))
+
+        assert response.tokens == 0
+
 
 class TestProviderSelection:
     def test_skips_providers_without_credentials(self):

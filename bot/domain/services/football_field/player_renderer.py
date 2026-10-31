@@ -1,4 +1,4 @@
-"""Player rendering — photo circles, name labels, flag/badge overlays."""
+"""Player rendering — photo circles or EA FC cards, name labels, flag/badge overlays."""
 
 import contextlib
 import io
@@ -100,6 +100,16 @@ class PlayerRenderer:
             self._overlay.render(overlays, cx, cy, r)
 
         self._draw_name_label(name, cx, cy, r)
+
+    def draw_card(self, card_bytes: bytes | None, cx: int, cy: int) -> None:
+        if not card_bytes:
+            self._draw_placeholder(cx, cy, self.cfg.player.photo_diameter // 2)
+            return
+        with contextlib.suppress(OSError, ValueError):
+            card = Image.open(io.BytesIO(card_bytes)).convert('RGBA')
+            width = self.cfg.player.card_width
+            card = card.resize((width, card.height * width // card.width), Resampling.LANCZOS)
+            self.canvas.paste(card, (cx - card.width // 2, cy - card.height // 2), card)
 
     def _paste_photo(self, photo_bytes: bytes, cx: int, cy: int, r: int) -> None:
         d = self.cfg.player.photo_diameter

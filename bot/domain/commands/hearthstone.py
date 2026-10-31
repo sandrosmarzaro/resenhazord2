@@ -169,7 +169,7 @@ class HearthstoneCommand(CardBoosterCommand):
             response.raise_for_status()
             HearthstoneCommand._cached_token = response.json()['access_token']
         except Exception:
-            logger.exception('hearthstone_oauth_failed')
+            logger.exception('upstream_failed', upstream='battle.net')
             return None
         else:
             return HearthstoneCommand._cached_token

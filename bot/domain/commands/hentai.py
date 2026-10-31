@@ -1,3 +1,6 @@
+from collections.abc import Awaitable, Callable
+from typing import ClassVar
+
 import httpx
 import structlog
 
@@ -15,6 +18,7 @@ from bot.domain.commands.base import (
 from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.hentai.ehentai_scraper import EHentaiScraper
 from bot.domain.services.hentai.hitomi_scraper import HitomiScraper
 from bot.domain.services.hentai.nhentai_scraper import NhentaiScraper
 from bot.infrastructure.http_client import HttpClient
@@ -25,16 +29,18 @@ logger = structlog.get_logger()
 class HentaiCommand(Command):
     MAX_TAGS_SHOWN = 10
     COVER_RETRIES = 3
-
-    def __init__(self, nhentai_mirror_url: str = 'https://nhentai.to') -> None:
-        super().__init__()
-        self._nhentai = NhentaiScraper(mirror_url=nhentai_mirror_url)
+    # In the order the default tries them.
+    SOURCES: ClassVar[dict[str, Callable[[], Awaitable[HentaiGallery]]]] = {
+        'ehentai': EHentaiScraper.fetch,
+        'hitomi': HitomiScraper.fetch,
+        'nhentai': NhentaiScraper.fetch,
+    }
 
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='hentai',
-            flags=[Flag.DM, Flag.SHOW, 'hitomi', 'nhentai'],
+            flags=[Flag.DM, Flag.SHOW, *self.SOURCES],
             category=Category.RANDOM,
             scope=CommandScope.NSFW,
             platforms=[Platform.ALL],
@@ -42,7 +48,7 @@ class HentaiCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Recebe um hentai aleatório com infos do Hitomi.la (18+).'
+        return 'Recebe um hentai aleatório com infos do E-Hentai (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         fetch_fn = self._select_source(parsed)
@@ -51,6 +57,8 @@ class HentaiCommand(Command):
         for _ in range(self.COVER_RETRIES):
             try:
                 gallery = await fetch_fn()
+                if gallery.may_depict_minors:
+                    continue
                 cover = await HttpClient.get_buffer(
                     gallery.cover_url,
                     headers=gallery.cover_headers,
@@ -61,25 +69,25 @@ class HentaiCommand(Command):
                 raise
             except Exception as exc:
                 last_error = exc
-                logger.exception('hentai_fetch_error')
+                logger.exception('upstream_failed', upstream='hentai')
 
         if last_error:
             raise last_error
         msg = 'All hentai fetch attempts failed'
-        raise RuntimeError(msg)
+        raise ExternalServiceError(msg)
 
-    def _select_source(self, parsed: ParsedCommand):
-        if 'hitomi' in parsed.flags:
-            return HitomiScraper.fetch
-        if 'nhentai' in parsed.flags:
-            return self._nhentai.fetch
-        return self._fetch_default
+    def _select_source(self, parsed: ParsedCommand) -> Callable[[], Awaitable[HentaiGallery]]:
+        chosen = (fetch for flag, fetch in self.SOURCES.items() if flag in parsed.flags)
+        return next(chosen, self._fetch_default)
 
     async def _fetch_default(self) -> HentaiGallery:
-        try:
-            return await HitomiScraper.fetch()
-        except httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError:
-            return await self._nhentai.fetch()
+        *fallbacks, (_, last) = self.SOURCES.items()
+        for name, fetch in fallbacks:
+            try:
+                return await fetch()
+            except httpx.HTTPError, ValueError, KeyError, IndexError, ExternalServiceError:
+                logger.warning('upstream_failed', upstream=name)
+        return await last()
 
     @classmethod
     def _build_caption(cls, g: HentaiGallery) -> str:

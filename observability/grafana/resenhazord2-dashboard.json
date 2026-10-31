@@ -507,6 +507,141 @@
           "legendFormat": "{{agent_prompt_version}}"
         }
       ]
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Retrieval recall@5 (live, 7d)",
+      "description": "Share of executed or confirmed commands that were among the examples retrieval handed the LLM. Labelled by the command that ran, so it measures agreement with the LLM.",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 57 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(agent_retrievals_total{agent_retrieval_hit=\"true\"}[7d])) / clamp_min(sum(increase(agent_retrievals_total[7d])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Retrieval recall@5 (eval)",
+      "description": "Recall@5 over the held-out eval dataset, pushed by the prompt-eval workflow (weekly and on prompt PRs).",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 57 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "last_over_time(agent_eval_recall{k=\"5\"}[30d])"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "LLM tokens (24h)",
+      "description": "Provider-reported tokens the agent spent across all chats. Sizes AGENT_TOKENS_PER_DAY_*.",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 61 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(agent_tokens_total[1d]))"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Tokens per LLM call (24h)",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 61 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(agent_tokens_total[1d])) / clamp_min(sum(increase(agent_mappings_total{agent_provider!=\"\"}[1d])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Budget rejections (24h)",
+      "description": "LLM calls over a token budget, dry run included (agent_budget_enforced=false counts the calls it would have refused).",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 61 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(agent_budget_rejections_total[1d])) or vector(0)"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Budget rejections by scope",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 65 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (agent_budget_scope, agent_budget_enforced) (increase(agent_budget_rejections_total[1h]))",
+          "legendFormat": "{{agent_budget_scope}} (enforced={{agent_budget_enforced}})"
+        }
+      ]
     }
   ]
 }

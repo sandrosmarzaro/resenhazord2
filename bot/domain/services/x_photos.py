@@ -49,7 +49,7 @@ class XPhotoService:
             response.raise_for_status()
         except httpx.HTTPError as error:
             # A third-party API: when it is down the user still gets the no-video reply.
-            logger.warning('x_photo_api_failed', error=str(error))
+            logger.warning('upstream_failed', upstream='fxtwitter', error=str(error))
             return {}
         return response.json().get('tweet') or {}
 

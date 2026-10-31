@@ -172,7 +172,6 @@ class TestConnectTelegram:
     async def test_starts_the_bot_and_hands_back_its_stop(self, mocker):
         mocker.patch.object(app.settings, 'telegram_token', 'token')
         mocker.patch.object(app.settings, 'telegram_bot_username', 'resenhazord_bot')
-        mocker.patch.object(app.settings, 'telegram_nsfw_chat_ids', '-100, -200')
         telegram_bot = mocker.patch.object(app, 'TelegramBot')
         telegram_bot.return_value.start = mocker.AsyncMock()
 
@@ -180,9 +179,7 @@ class TestConnectTelegram:
 
         shutdown = await app._connect_telegram(agent)
 
-        telegram_bot.assert_called_once_with(
-            'token', 'resenhazord_bot', frozenset({-100, -200}), agent
-        )
+        telegram_bot.assert_called_once_with('token', 'resenhazord_bot', agent)
         telegram_bot.return_value.start.assert_awaited_once_with()
         assert shutdown == telegram_bot.return_value.stop
 

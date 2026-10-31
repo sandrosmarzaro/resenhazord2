@@ -89,6 +89,7 @@ class LangChainProvider:
             provider=self.PROVIDER_NAME,
             model=model_name,
             tool_call=self._first_tool_call(message),
+            tokens=message.usage_metadata['total_tokens'] if message.usage_metadata else 0,
         )
 
     @staticmethod

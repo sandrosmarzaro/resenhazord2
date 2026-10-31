@@ -123,6 +123,34 @@ class TestRun:
 
         assert messages[0].content.caption == 'Vídeo'
 
+    @pytest.mark.anyio
+    async def test_prefers_the_best_format_under_the_size_cap(self, command, mock_subprocess):
+        data = GroupCommandDataFactory.build(text=',dl https://x.com/i/status/123')
+        mock_exec = mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[(b'Title\n', b'', 0), (b'video-data', b'', 0)],
+        )
+
+        await command.run(data)
+
+        video_args = mock_exec.call_args_list[1][0]
+        assert video_args[video_args.index('-S') + 1] == 'size:50M'
+
+    @pytest.mark.anyio
+    async def test_empty_download_is_too_large(self, command, mock_subprocess):
+        # yt-dlp aborts an over-cap file with exit 0 and nothing on stdout.
+        data = GroupCommandDataFactory.build(text=',dl https://x.com/i/status/123')
+        stderr = b'[download] File is larger than max-filesize (72228985 bytes > 52428800 bytes).'
+        mock_subprocess(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
+            calls=[(b'Title\n', b'', 0), (b'', stderr, 0)],
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == 'Vídeo muito grande pra baixar 📦'
+
 
 def _box(kind: bytes, payload: bytes) -> bytes:
     return (len(payload) + 8).to_bytes(4, 'big') + kind + payload

@@ -5,14 +5,13 @@ from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from bot.data.fifa_ratings import (
-    FIFA_IMAGE_PREFIXES,
+    FIFA_CARD_PREFIX,
     FIFA_MEN_GENDER,
     FIFA_PAGE_SIZE,
     FIFA_POSITION_IDS,
     FIFA_RATINGS_TTL,
     FIFA_RATINGS_URL,
 )
-from bot.data.nationality_flags import nationality_flag
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.football import FifaPlayer
 from bot.infrastructure.http_client import HttpClient
@@ -20,7 +19,7 @@ from bot.infrastructure.http_client import HttpClient
 
 class FifaRatings:
     _TTL: ClassVar = FIFA_RATINGS_TTL
-    _cache: ClassVar[dict[str, tuple[datetime, list[FifaPlayer]]]] = {}
+    _cache: ClassVar[dict[str | None, tuple[datetime, list[FifaPlayer]]]] = {}
 
     @classmethod
     async def role_pools(cls, roles: set[str]) -> dict[str, list[FifaPlayer]]:
@@ -29,18 +28,23 @@ class FifaRatings:
         return dict(zip(ordered, pools, strict=True))
 
     @classmethod
-    async def _players(cls, role: str) -> list[FifaPlayer]:
+    async def top(cls) -> list[FifaPlayer]:
+        return await cls._players(None)
+
+    @classmethod
+    async def _players(cls, role: str | None) -> list[FifaPlayer]:
         cached = cls._cache.get(role)
         if cached and datetime.now(UTC) - cached[0] < cls._TTL:
             return cached[1]
+        position = {'position': FIFA_POSITION_IDS[role]} if role else {}
         response = await HttpClient.get(
             FIFA_RATINGS_URL,
             params={
                 'limit': FIFA_PAGE_SIZE,
                 'offset': 0,
                 'gender': FIFA_MEN_GENDER,
-                'position': FIFA_POSITION_IDS[role],
                 'locale': 'en',
+                **position,
             },
         )
         response.raise_for_status()
@@ -56,11 +60,9 @@ class FifaRatings:
         return FifaPlayer(
             name=item['commonName'] or f'{item["firstName"]} {item["lastName"]}',
             overall=item['overallRating'],
-            photo_url=_trusted(item['avatarUrl']),
-            badge_url=_trusted((item['team'] or {}).get('imageUrl', '')),
-            nationality_flag_emoji=nationality_flag(item['nationality']['label']),
+            card_url=_trusted(item['shieldUrl']),
         )
 
 
 def _trusted(url: str) -> str:
-    return url if url.startswith(FIFA_IMAGE_PREFIXES) else ''
+    return url if url.startswith(FIFA_CARD_PREFIX) else ''

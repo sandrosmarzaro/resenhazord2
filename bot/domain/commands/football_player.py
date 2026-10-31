@@ -20,6 +20,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.football import PlayerProfile, TmPlayer
 from bot.domain.models.message import BotMessage
+from bot.domain.services.fifa_ratings import FifaRatings
 from bot.domain.services.market_dataset import MarketDataset, format_euros
 from bot.infrastructure.http_client import HttpClient
 
@@ -37,16 +38,21 @@ class FootballPlayerCommand(Command):
                 OptionDef(name='top', pattern=r'top\s?\d+'),
                 OptionDef(name='liga', values=MARKET_LEAGUE_CODES),
             ],
-            flags=[Flag.SHOW, Flag.DM],
+            flags=['fifa', Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
             platforms=[Platform.ALL],
         )
 
     @property
     def menu_description(self) -> str:
-        return 'Jogador aleatório do top de mais valiosos. Use --liga <código> e top<N>.'
+        return (
+            'Jogador aleatório do top de mais valiosos. Use --liga <código> e top<N>, '
+            'ou fifa para uma carta do EA FC.'
+        )
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        if 'fifa' in parsed.flags:
+            return await self._fifa_card(data, parsed)
         liga_code = parsed.options.get('liga')
         league = LEAGUES[liga_code] if liga_code else None
         players = await MarketDataset.players(league.tm_id if league else '')
@@ -59,6 +65,17 @@ class FootballPlayerCommand(Command):
         caption = self._build_caption(player, league, await MarketDataset.season())
         buffer = await HttpClient.get_buffer(player.photo_url)
         return [Reply.to(data).image_buffer(buffer, caption)]
+
+    @staticmethod
+    async def _fifa_card(data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        if parsed.options.get('liga'):
+            reply = 'A carta FIFA ainda não filtra por liga. Usa *,jogador fifa*! ⚽'
+            return [Reply.to(data).text(reply)]
+        players = [player for player in await FifaRatings.top() if player.card_url]
+        top_n = parsed.number('top')
+        player = random.choice(players[:top_n] if top_n else players)
+        card = await HttpClient.get_buffer(player.card_url)
+        return [Reply.to(data).image_buffer(card, f'*{player.name}* — ⭐ {player.overall}')]
 
     def _pool_size(self, top_n: int, league: LeagueInfo | None) -> int:
         if top_n > 0:

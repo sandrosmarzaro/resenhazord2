@@ -1,37 +1,25 @@
-"""Fetch player photos and badges in parallel."""
+"""Download lineup images (photos, badges, cards) in parallel."""
 
 import contextlib
 from collections.abc import Sequence
 
 import anyio
 
-from bot.domain.models.football import LineupPlayer
 from bot.infrastructure.http_client import HttpClient
 
 
 class PlayerAssets:
     @staticmethod
-    async def fetch(
-        ordered: Sequence[LineupPlayer | None],
-    ) -> tuple[list[bytes | None], list[bytes | None]]:
-        n = len(ordered)
-        photos: list[bytes | None] = [None] * n
-        badges: list[bytes | None] = [None] * n
+    async def download(urls: Sequence[str]) -> list[bytes | None]:
+        images: list[bytes | None] = [None] * len(urls)
 
-        async def _get(url: str) -> bytes | None:
+        async def _get(i: int, url: str) -> None:
             with contextlib.suppress(Exception):
-                return await HttpClient.get_buffer(url)
-            return None
-
-        async def _fetch_player(i: int, player: LineupPlayer) -> None:
-            if player.photo_url:
-                photos[i] = await _get(player.photo_url)
-            if player.badge_url:
-                badges[i] = await _get(player.badge_url)
+                images[i] = await HttpClient.get_buffer(url)
 
         async with anyio.create_task_group() as tg:
-            for i, player in enumerate(ordered):
-                if player:
-                    tg.start_soon(_fetch_player, i, player)
+            for i, url in enumerate(urls):
+                if url:
+                    tg.start_soon(_get, i, url)
 
-        return photos, badges
+        return images

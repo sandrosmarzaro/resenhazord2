@@ -1,15 +1,8 @@
 import pytest
-from testcontainers.mongodb import MongoDbContainer
 
 from bot.domain.commands.borges import BorgesCommand
 from bot.infrastructure.mongodb import MongoDBConnection
 from tests.factories.command_data import GroupCommandDataFactory
-
-
-@pytest.fixture(scope='module')
-def mongo_uri():
-    with MongoDbContainer('mongo:7') as container:
-        yield container.get_connection_url()
 
 
 @pytest.fixture

@@ -65,7 +65,7 @@ class AnimalCommand(Command):
             )
             return [Reply.to(data).image_buffer(buffer, caption)]
         except Exception:
-            logger.exception('animal_command_error')
+            logger.exception('upstream_failed', upstream='wikipedia/github')
             return [Reply.to(data).text('Ops, não achei nenhum bichinho agora! 🐾')]
 
     async def _fetch_with_rate_limit(self, wiki_title: str) -> dict | None:

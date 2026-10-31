@@ -101,8 +101,8 @@ dependency is Postgres, since the container runs `alembic upgrade head` first.
 4. `TelegramResponseRenderer` turns each `BotMessage` into one or more
    `TelegramOutbound` values; `TelegramBotAdapter` dispatches them to
    `send_message` / `send_photo` / `send_video` / etc.
-5. NSFW-scoped commands are refused outside the `telegram_nsfw_chat_ids`
-   allowlist and also published via `BotCommandScopeChat` to those chats only.
+5. NSFW-scoped commands follow `,config` like on every platform: off until a chat
+   enables them. The command menu lists them for all chats, aliases left out.
 
 ### Shared pipeline
 

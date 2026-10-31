@@ -19,28 +19,21 @@ class AddToMentionList:
     ) -> dict:
         try:
             col = MongoDBConnection.collection(COLLECTION_NAME)
-            has_group = await col.find_one({'_id': chat_jid, GROUP_NAME_FIELD: group_name})
-            if not has_group:
+            added = (
+                {'$each': normalize_jids(participants)}
+                if participants
+                else normalize_jid(sender_jid)
+            )
+            result = await col.update_one(
+                {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
+                {'$addToSet': {'groups.$.participants': added}},
+            )
+            if not result.matched_count:
                 return {
                     'ok': False,
                     'message': f'Não existe um grupo com o nome *{group_name}* 😔',
                 }
-
-            normalized_sender = normalize_jid(sender_jid)
-
-            if not participants:
-                await col.update_one(
-                    {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
-                    {'$addToSet': {'groups.$.participants': normalized_sender}},
-                )
-                return {'ok': True, 'group_name': group_name, 'self_only': True}
-
-            normalized = normalize_jids(participants)
-            await col.update_one(
-                {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
-                {'$addToSet': {'groups.$.participants': {'$each': normalized}}},
-            )
         except Exception:
             logger.exception('group_mentions_add_error', chat_jid=chat_jid)
             return {'ok': False, 'message': 'Não consegui adicionar os participantes 😔'}
-        return {'ok': True, 'group_name': group_name, 'self_only': False}
+        return {'ok': True, 'group_name': group_name, 'self_only': not participants}

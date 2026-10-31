@@ -7,3 +7,4 @@ class LLMResponse:
     provider: str
     model: str
     tool_call: dict | None = None
+    tokens: int = 0

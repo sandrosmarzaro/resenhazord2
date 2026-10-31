@@ -47,7 +47,6 @@ def agent(mocker):
 def handler(agent, mock_config_service) -> TelegramUpdateHandler:
     return TelegramUpdateHandler(
         bot_username=DEFAULT_BOT_USERNAME,
-        nsfw_chat_ids=frozenset({99}),
         router=TelegramAgentRouter(TelegramResponseRenderer(), agent),
         config_service=mock_config_service,
     )

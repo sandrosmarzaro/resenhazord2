@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 from bot.domain.models.removal_targets import RemovalTargets
@@ -66,15 +68,16 @@ class _StatefulMockCollection:
         doc_id = query.get('_id')
         doc = self._docs.get(doc_id)
         if doc is None:
-            return
+            return SimpleNamespace(modified_count=0)
 
         group_idx = self._resolve_group_idx(doc, query.get('groups.name'))
         if group_idx is None and 'groups.name' in query:
-            return
+            return SimpleNamespace(modified_count=0)
 
         for operator, fields in update.items():
             if operator == '$pull':
                 self._apply_pull(doc, group_idx, fields)
+        return SimpleNamespace(modified_count=1)
 
 
 @pytest.fixture

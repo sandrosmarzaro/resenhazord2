@@ -1,4 +1,5 @@
 import structlog
+from motor.motor_asyncio import AsyncIOMotorCollection
 
 from bot.domain.jid import normalize_jid
 from bot.domain.models.removal_targets import RemovalTargets
@@ -36,33 +37,33 @@ class ExitMentionList:
                 }
             participants = group_doc['groups'][0]['participants']
 
-            if targets.is_self_exit:
-                stored_jids = _matching_participants(sender_jid, participants)
-                if not stored_jids:
-                    return {
-                        'ok': False,
-                        'message': f'Você não está no grupo *{group_name}* 😔',
-                    }
-
-                await col.update_one(
-                    {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
-                    {'$pull': {'groups.$.participants': {'$in': stored_jids}}},
-                )
-                return {'ok': True, 'group_name': group_name, 'self_only': True}
-
-            to_remove = targets.resolve(participants)
-
-            if not to_remove:
-                return {
-                    'ok': False,
-                    'message': 'Nenhum participante encontrado para remover 😔',
-                }
-
-            await col.update_one(
-                {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
-                {'$pull': {'groups.$.participants': {'$in': to_remove}}},
+            is_self_exit = targets.is_self_exit
+            to_remove = (
+                _matching_participants(sender_jid, participants)
+                if is_self_exit
+                else targets.resolve(participants)
             )
+            if not await self._pull(col, chat_jid, group_name, to_remove):
+                message = (
+                    f'Você não está no grupo *{group_name}* 😔'
+                    if is_self_exit
+                    else 'Nenhum participante encontrado para remover 😔'
+                )
+                return {'ok': False, 'message': message}
         except Exception:
             logger.exception('group_mentions_exit_error', chat_jid=chat_jid)
             return {'ok': False, 'message': 'Não consegui remover os participantes 😔'}
-        return {'ok': True, 'group_name': group_name, 'self_only': False}
+        return {'ok': True, 'group_name': group_name, 'self_only': is_self_exit}
+
+    @staticmethod
+    async def _pull(
+        col: AsyncIOMotorCollection, chat_jid: str, group_name: str, to_remove: list[str]
+    ) -> bool:
+        if not to_remove:
+            return False
+        # The list above can be stale by now, so only the write says what was removed.
+        result = await col.update_one(
+            {'_id': chat_jid, GROUP_NAME_FIELD: group_name},
+            {'$pull': {'groups.$.participants': {'$in': to_remove}}},
+        )
+        return result.modified_count > 0

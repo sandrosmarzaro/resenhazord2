@@ -48,6 +48,9 @@ known-first-party = ["bot"]
 "scripts/replay_dlq.py" = [
     "T201", # lists the dead letters and asks the operator before replaying them
 ]
+"scripts/list_denials.py" = [
+    "T201", # prints the denied mappings for the operator to paste into the eval
+]
 "bot/domain/parsers/command_parser.py" = [
     "TC004",   # TYPE_CHECKING imports needed to break circular dependency with commands.base
     "PLC0415", # local imports needed to break circular dependency

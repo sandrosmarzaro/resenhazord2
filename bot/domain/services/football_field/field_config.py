@@ -45,6 +45,8 @@ class PlayerDisplayConfig:
     stroke_width: int = 5
     overlay_cy_ratio: float = 0.62
     overlay_offset_x_ratio: float = 0.78
+    # Widest EA FC card that overlaps no other slot in any formation.
+    card_width: int = 230
 
     @property
     def badge_size(self) -> int:

@@ -46,6 +46,7 @@ class CommandConsumer:
         self._command_handler = command_handler
         self._inbox = inbox
         self._exclusive_lane = asyncio.Lock()
+        self._running: set[str] = set()
 
     async def start(self) -> None:
         # Declare the publish targets up front so the publishes from inside the consume
@@ -83,6 +84,26 @@ class CommandConsumer:
         # under its own isolation scope, so concurrent commands keep their own tags.
         sentry_sdk.set_tag('correlation_id', envelope['id'])
 
+        # The inbox only knows finished commands, so a duplicate arriving mid-run gets past
+        # it (and ,dl stays mid-run for its whole wait in the lane). This has to die with
+        # the process: a durable claim would outlive a crash and block the redelivery that
+        # ADR 0001 counts on. No await between the check and the add, so asyncio can't
+        # interleave them; it holds while a single process consumes.
+        key = self._inbox_key(envelope)
+        if key in self._running:
+            logger.info('command_duplicate_skipped')
+            return
+        if key:
+            self._running.add(key)
+        try:
+            await self._answer(envelope, command_data, lane)
+        finally:
+            if key:
+                self._running.discard(key)
+
+    async def _answer(
+        self, envelope: dict[str, Any], command_data: CommandData, lane: AsyncExitStack
+    ) -> None:
         if await self._already_answered(envelope):
             logger.info('command_redelivery_skipped')
             return

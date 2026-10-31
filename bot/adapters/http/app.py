@@ -37,10 +37,6 @@ logger = structlog.get_logger()
 settings = Settings()
 
 
-def _parse_chat_ids(raw: str) -> frozenset[int]:
-    return frozenset(int(part) for part in raw.split(',') if part.strip())
-
-
 async def _connect_whatsapp(agent: AgentOrchestratorPort) -> Shutdown:
     broker = RabbitBroker()
     try:
@@ -84,7 +80,6 @@ async def _connect_telegram(agent: AgentOrchestratorPort) -> Shutdown:
     telegram_bot = TelegramBot(
         settings.telegram_token,
         settings.telegram_bot_username,
-        _parse_chat_ids(settings.telegram_nsfw_chat_ids),
         agent,
     )
     await telegram_bot.start()

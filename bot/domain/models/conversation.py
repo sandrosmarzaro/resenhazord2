@@ -22,6 +22,8 @@ class Conversation:
     status: ConversationStatus = ConversationStatus.IDLE
     question: str = ''
     proposed_command: str = ''
+    # The text that led to the proposal, so a denial can be logged next to it.
+    request: str = ''
     attempts: int = 0
     asked_at: float = 0.0
 
@@ -34,7 +36,9 @@ class Conversation:
             return Conversation()
         return self
 
-    def awaiting(self, question: str, now: float, *, proposed_command: str = '') -> Conversation:
+    def awaiting(
+        self, question: str, now: float, *, proposed_command: str = '', request: str = ''
+    ) -> Conversation:
         # A proposal is answered by yes/no; only open questions spend an attempt.
         if proposed_command:
             return replace(
@@ -42,6 +46,7 @@ class Conversation:
                 status=ConversationStatus.AWAITING_CONFIRMATION,
                 question=question,
                 proposed_command=proposed_command,
+                request=request,
                 asked_at=now,
             )
         return replace(
@@ -49,6 +54,7 @@ class Conversation:
             status=ConversationStatus.AWAITING_ANSWER,
             question=question,
             proposed_command='',
+            request='',
             attempts=self.attempts + 1,
             asked_at=now,
         )

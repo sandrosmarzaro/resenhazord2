@@ -2,7 +2,14 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from bot.infrastructure.metrics import record_agent_mapping, record_dlq, record_retry
+from bot.infrastructure.metrics import (
+    record_agent_budget_rejection,
+    record_agent_mapping,
+    record_agent_retrieval,
+    record_agent_tokens,
+    record_dlq,
+    record_retry,
+)
 
 
 class TestRetryAndDlq:
@@ -49,3 +56,32 @@ class TestAgentMapping:
         assert attributes['agent.outcome'] == 'command'
         assert attributes['agent.provider'] == 'github'
         assert attributes['agent.prompt.version'] == 'c0ffee'
+
+
+class TestAgentRetrieval:
+    def test_record_agent_retrieval_carries_the_outcome_and_the_hit(self, mocker):
+        retrievals = mocker.patch('bot.infrastructure.metrics._agent_retrievals')
+
+        record_agent_retrieval('confirmed', hit=True)
+
+        retrievals.add.assert_called_once_with(
+            1, {'agent.outcome': 'confirmed', 'agent.retrieval.hit': 'true'}
+        )
+
+
+class TestAgentBudget:
+    def test_record_agent_tokens_adds_the_reported_usage(self, mocker):
+        tokens = mocker.patch('bot.infrastructure.metrics._agent_tokens')
+
+        record_agent_tokens(7460)
+
+        tokens.add.assert_called_once_with(7460)
+
+    def test_record_agent_budget_rejection_carries_the_scope_and_the_mode(self, mocker):
+        rejections = mocker.patch('bot.infrastructure.metrics._agent_budget_rejections')
+
+        record_agent_budget_rejection('group', enforced=False)
+
+        rejections.add.assert_called_once_with(
+            1, {'agent.budget.scope': 'group', 'agent.budget.enforced': 'false'}
+        )

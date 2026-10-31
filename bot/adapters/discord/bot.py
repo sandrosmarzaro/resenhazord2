@@ -82,11 +82,10 @@ class DiscordBot:
 
     def _make_on_ready(self) -> Callable[[], Coroutine[Any, Any, None]]:
         client = self._client
-        guild = self._guild
         tree = self._tree
 
         async def on_ready() -> None:
-            await self._sync_with_retries(client, tree, guild)
+            await self._sync_with_retries(client, tree)
 
         return on_ready
 
@@ -119,19 +118,19 @@ class DiscordBot:
         self,
         client: discord.Client,
         tree: app_commands.CommandTree,
-        guild: discord.Object,
     ) -> None:
         for attempt in range(1, self.MAX_SYNC_RETRIES + 1):
             try:
                 synced = await tree.sync()
+                for guild in client.guilds:
+                    await self._clear_guild_commands(tree, guild)
             except aiohttp.ClientConnectorError:
                 if attempt == self.MAX_SYNC_RETRIES:
-                    logger.exception('discord_sync_failed', guild_id=guild.id, attempts=attempt)
+                    logger.exception('discord_sync_failed', attempts=attempt)
                     return
                 delay = self.SYNC_RETRY_DELAY_SECS * attempt
                 logger.warning(
                     'discord_sync_retry',
-                    guild_id=guild.id,
                     attempt=attempt,
                     retry_in=delay,
                 )
@@ -143,3 +142,12 @@ class DiscordBot:
                 synced_commands=[c.name for c in synced],
             )
             return
+
+    @staticmethod
+    async def _clear_guild_commands(tree: app_commands.CommandTree, guild: discord.Guild) -> None:
+        # Commands were once synced per guild too. The tree holds no guild commands, so
+        # this overwrites those stale duplicates with nothing.
+        try:
+            await tree.sync(guild=guild)
+        except discord.Forbidden:
+            logger.warning('discord_guild_clear_refused', guild_id=guild.id)

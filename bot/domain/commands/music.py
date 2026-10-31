@@ -59,7 +59,7 @@ class MusicCommand(Command):
                 return await self._run_jamendo(data, parsed)
             return await self._run_deezer(data, parsed)
         except Exception:
-            logger.exception('music_command_error')
+            logger.exception('upstream_failed', upstream='deezer/jamendo')
             return [Reply.to(data).text('Ops, não consegui buscar música agora! 🎵')]
 
     async def _run_deezer(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
