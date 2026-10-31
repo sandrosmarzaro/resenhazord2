@@ -36,19 +36,12 @@ class DiscordSlashRegistrar:
             if not Platform.supports(command.config.platforms, Platform.DISCORD):
                 continue
             self._register(command)
-            for alias in command.config.aliases:
-                self._register_alias(command, alias)
             logger.info('discord_command_registered', name=command.config.name)
 
     def _register(self, command: Command) -> None:
         config = command.config
         discord_name = self._normalize_name(config.name)
         self._handler.register_name(discord_name, f',{config.name}')
-        self._add_to_tree(discord_name, command)
-
-    def _register_alias(self, command: Command, alias: str) -> None:
-        discord_name = self._normalize_name(alias)
-        self._handler.register_name(discord_name, f',{alias}')
         self._add_to_tree(discord_name, command)
 
     def _add_to_tree(self, discord_name: str, command: Command) -> None:
