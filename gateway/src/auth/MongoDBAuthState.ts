@@ -12,8 +12,18 @@ function safeId(id: string): string {
   return id;
 }
 
+function isDuplicateKey(error: unknown): boolean {
+  const duplicateKeyCode = 11000;
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === duplicateKeyCode
+  );
+}
+
 export const useMongoDBAuthState = async (collection: Collection): Promise<MongoDBAuthResult> => {
-  const col = collection as unknown as Collection<{ _id: string; data: string }>;
+  const col = collection as unknown as Collection<{ _id: string; data: string; version?: number }>;
 
   const writeData = async (data: unknown, id: string) => {
     await col.replaceOne(
@@ -33,7 +43,9 @@ export const useMongoDBAuthState = async (collection: Collection): Promise<Mongo
     await col.deleteOne({ _id: safeId(id) });
   };
 
-  const creds = (await readData('creds')) || initAuthCreds();
+  const storedCreds = await col.findOne({ _id: 'creds' });
+  const creds = storedCreds ? JSON.parse(storedCreds.data, BufferJSON.reviver) : initAuthCreds();
+  let credsVersion = storedCreds?.version ?? 0;
 
   const getKeys: AuthenticationState['keys']['get'] = async (type, ids) => {
     const data: Record<string, unknown> = {};
@@ -60,8 +72,22 @@ export const useMongoDBAuthState = async (collection: Collection): Promise<Mongo
     await Promise.all(tasks);
   };
 
+  // Pooled connections can land concurrent writes out of order, and unlike the keys, which
+  // Baileys queues by type, nothing queues creds.update. The version makes a late older
+  // snapshot miss the filter instead of overwriting a newer one.
   const saveCreds = async () => {
-    await writeData(creds, 'creds');
+    credsVersion += 1;
+    const query = { _id: 'creds', version: { $not: { $gte: credsVersion } } };
+    const update = {
+      $set: { data: JSON.stringify(creds, BufferJSON.replacer), version: credsVersion },
+    };
+    try {
+      await col.updateOne(query, update, { upsert: true });
+    } catch (error) {
+      if (!isDuplicateKey(error)) throw error;
+      // The filter missed: a newer write landed, or another save just created the document.
+      await col.updateOne(query, update);
+    }
   };
 
   return {
