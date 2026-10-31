@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from sqlalchemy import text
 from testcontainers.postgres import PostgresContainer
@@ -30,6 +32,15 @@ async def store(database_url):
     yield SqlConfigStore()
 
     await Database.close()
+
+
+# One round can pass by luck of scheduling; twenty can't.
+ROUNDS = 20
+
+
+async def wipe() -> None:
+    async with Database.engine().begin() as connection:
+        await connection.execute(text('TRUNCATE chat, command_override RESTART IDENTITY CASCADE'))
 
 
 def group_key(native_id: str = '120@g.us') -> ChatKey:
@@ -98,3 +109,66 @@ class TestSetPolicy:
         config = await store.load('whatsapp', '120@g.us')
 
         assert config.policy is ChatPolicy.CURATED
+
+
+class TestConcurrentWrites:
+    @pytest.mark.anyio
+    async def test_same_override_in_a_new_chat_stores_one(self, store):
+        for _ in range(ROUNDS):
+            await wipe()
+
+            await asyncio.gather(
+                *(store.set_override(group_key(), 'fuck', enabled=False) for _ in range(2))
+            )
+
+            config = await store.load('whatsapp', '120@g.us')
+            assert config.overrides == {'fuck': False}
+
+    @pytest.mark.anyio
+    async def test_same_override_in_an_existing_chat_stores_one(self, store):
+        for _ in range(ROUNDS):
+            await wipe()
+            await store.set_policy(group_key(), ChatPolicy.OPEN)
+
+            await asyncio.gather(
+                *(store.set_override(group_key(), 'fuck', enabled=False) for _ in range(2))
+            )
+
+            config = await store.load('whatsapp', '120@g.us')
+            assert config.overrides == {'fuck': False}
+
+    @pytest.mark.anyio
+    async def test_different_overrides_in_a_new_chat_store_both(self, store):
+        for _ in range(ROUNDS):
+            await wipe()
+
+            await asyncio.gather(
+                store.set_override(group_key(), 'fuck', enabled=False),
+                store.set_override(group_key(), 'hentai', enabled=True),
+            )
+
+            config = await store.load('whatsapp', '120@g.us')
+            assert config.overrides == {'fuck': False, 'hentai': True}
+
+    @pytest.mark.anyio
+    async def test_same_policy_in_a_new_chat_creates_one_chat(self, store):
+        for _ in range(ROUNDS):
+            await wipe()
+
+            await asyncio.gather(
+                *(store.set_policy(group_key(), ChatPolicy.CURATED) for _ in range(2))
+            )
+
+            config = await store.load('whatsapp', '120@g.us')
+            assert config.policy is ChatPolicy.CURATED
+
+    @pytest.mark.anyio
+    async def test_same_reset_twice_clears_the_override(self, store):
+        for _ in range(ROUNDS):
+            await wipe()
+            await store.set_override(group_key(), 'fuck', enabled=False)
+
+            await asyncio.gather(*(store.clear_override(group_key(), 'fuck') for _ in range(2)))
+
+            config = await store.load('whatsapp', '120@g.us')
+            assert config.overrides == {}
