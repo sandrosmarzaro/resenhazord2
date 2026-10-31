@@ -13,7 +13,7 @@ class NhentaiScraper:
     SEARCH_URL = SITE_URL + '/api/v2/search'
     GALLERY_URL = SITE_URL + '/api/v2/galleries/{id}'
     COVER_DOMAIN = 'https://t.nhentai.net'
-    SEARCH_QUERY = '-lolicon -shotacon'
+    SEARCH_QUERY = '-lolicon -shotacon -toddlercon'
     # The API docs ask for a User-Agent that identifies the app.
     HEADERS: ClassVar[dict[str, str]] = {
         'User-Agent': 'Resenhazord2 (https://github.com/sandrosmarzaro/resenhazord2)'
@@ -70,6 +70,7 @@ class NhentaiScraper:
             date=datetime.fromtimestamp(data['upload_date'], tz=UTC).strftime('%Y-%m'),
             cover_url=f'{cls.COVER_DOMAIN}/{data["cover"]["path"]}',
             url=f'{cls.SITE_URL}/g/{data["id"]}/',
+            hidden_tags=[tag['name'] for tag in tags],
         )
 
     @staticmethod

@@ -274,7 +274,9 @@ class TestNhentai:
 
         await command.run(data)
 
-        assert nhentai_route.calls[0].request.url.params['query'] == '-lolicon -shotacon'
+        assert nhentai_route.calls[0].request.url.params['query'] == (
+            '-lolicon -shotacon -toddlercon'
+        )
 
     @pytest.mark.anyio
     async def test_nhentai_cover_comes_from_the_gallery_path(
@@ -344,7 +346,7 @@ class TestEHentai:
 
         params = ehentai_route.calls[0].request.url.params
         assert params['f_cats'] == '993'
-        assert params['f_search'] == '-"female:lolicon$" -"male:shotacon$"'
+        assert params['f_search'] == '-lolicon -shotacon -toddlercon'
 
     @pytest.mark.anyio
     async def test_gallery_requested_by_its_id_and_token(
@@ -376,7 +378,11 @@ class TestEHentai:
     ):
         data = GroupCommandDataFactory.build(text=',hentai ehentai')
         ehentai_route.mock(return_value=httpx.Response(200, text=MOCK_EHENTAI_LISTING))
-        bare = {**MOCK_EHENTAI_METADATA, 'title_jpn': '', 'tags': ['language:translated']}
+        bare = {
+            **MOCK_EHENTAI_METADATA,
+            'title_jpn': '',
+            'tags': ['female:x', 'language:translated'],
+        }
         respx_mock.post('https://api.e-hentai.org/api.php').mock(
             return_value=httpx.Response(200, json={'gmetadata': [bare]})
         )
@@ -386,6 +392,130 @@ class TestEHentai:
 
         assert '🗾' not in caption
         assert '🌐 unknown' in caption
+
+
+class TestMinorTags:
+    @staticmethod
+    def _hitomi_gallery(tag: str) -> str:
+        return MOCK_HITOMI_GALLERY_JS.replace('"tag1"', f'"{tag}"')
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        'tag',
+        [
+            'lolicon',
+            'Shotacon',
+            'toddlercon',
+            'oppai loli',
+            'child',
+            'infant',
+            'preteen',
+            'schoolgirl uniform',
+            'little girl',
+            'teen',
+        ],
+    )
+    async def test_tagged_gallery_is_replaced_by_the_next_one(
+        self, command, nozomi_route, gallery_js_route, hitomi_cover_route, tag
+    ):
+        data = GroupCommandDataFactory.build(text=',hentai hitomi')
+        nozomi_route.mock(return_value=httpx.Response(206, content=_build_nozomi_data(1234567)))
+        gallery_js_route.mock(
+            side_effect=[
+                httpx.Response(200, text=self._hitomi_gallery(tag)),
+                httpx.Response(200, text=MOCK_HITOMI_GALLERY_JS),
+            ]
+        )
+
+        messages = await command.run(data)
+
+        assert tag not in messages[0].content.caption
+        assert len(hitomi_cover_route.calls) == 1
+
+    @pytest.mark.anyio
+    async def test_never_sends_when_every_attempt_is_tagged(
+        self, command, nozomi_route, gallery_js_route, hitomi_cover_route
+    ):
+        data = GroupCommandDataFactory.build(text=',hentai hitomi')
+        nozomi_route.mock(return_value=httpx.Response(206, content=_build_nozomi_data(1234567)))
+        gallery_js_route.mock(
+            return_value=httpx.Response(200, text=self._hitomi_gallery('lolicon'))
+        )
+
+        with pytest.raises(ExternalServiceError):
+            await command.run(data)
+
+        assert not hitomi_cover_route.called
+
+
+class TestUnverifiableGalleries:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        'tags',
+        [
+            ['female:x', 'lolicon'],
+            ['female:x', 'temp:lolicon'],
+            ['female:x', 'character:shota kun'],
+            ['parody:only', 'language:english'],
+            [],
+        ],
+    )
+    async def test_ehentai_checks_every_tag_and_refuses_no_tags(
+        self, command, ehentai_route, ehentai_cover_route, respx_mock, tags
+    ):
+        data = GroupCommandDataFactory.build(text=',hentai ehentai')
+        ehentai_route.mock(return_value=httpx.Response(200, text=MOCK_EHENTAI_LISTING))
+        respx_mock.post('https://api.e-hentai.org/api.php').mock(
+            return_value=httpx.Response(
+                200, json={'gmetadata': [{**MOCK_EHENTAI_METADATA, 'tags': tags}]}
+            )
+        )
+
+        with pytest.raises(ExternalServiceError):
+            await command.run(data)
+
+        assert not ehentai_cover_route.called
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        'titles',
+        [
+            {'title': 'A Loli Story', 'title_jpn': ''},
+            {'title': 'Underage Plot', 'title_jpn': ''},
+            {'title': 'Plain', 'title_jpn': 'ロリの本'},
+            {'title': 'Plain', 'title_jpn': 'ショタの本'},
+        ],
+    )
+    async def test_titles_are_checked_too(
+        self, command, ehentai_route, ehentai_cover_route, respx_mock, titles
+    ):
+        data = GroupCommandDataFactory.build(text=',hentai ehentai')
+        ehentai_route.mock(return_value=httpx.Response(200, text=MOCK_EHENTAI_LISTING))
+        metadata = {**MOCK_EHENTAI_METADATA, **titles}
+        respx_mock.post('https://api.e-hentai.org/api.php').mock(
+            return_value=httpx.Response(200, json={'gmetadata': [metadata]})
+        )
+
+        with pytest.raises(ExternalServiceError):
+            await command.run(data)
+
+        assert not ehentai_cover_route.called
+
+    @pytest.mark.anyio
+    async def test_nhentai_checks_tags_outside_the_caption(
+        self, command, nhentai_route, nhentai_cover_route, respx_mock
+    ):
+        data = GroupCommandDataFactory.build(text=',hentai nhentai')
+        nhentai_route.mock(return_value=httpx.Response(200, json=MOCK_NHENTAI_SEARCH))
+        tags = [*MOCK_NHENTAI_RESPONSE['tags'], {'type': 'character', 'name': 'loli chan'}]
+        respx_mock.get(url__startswith='https://nhentai.net/api/v2/galleries/999999').mock(
+            return_value=httpx.Response(200, json={**MOCK_NHENTAI_RESPONSE, 'tags': tags})
+        )
+
+        with pytest.raises(ExternalServiceError):
+            await command.run(data)
+
+        assert not nhentai_cover_route.called
 
 
 class TestDefaultFallback:

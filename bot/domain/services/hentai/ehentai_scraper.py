@@ -17,7 +17,7 @@ class EHentaiScraper:
     # A bitmask of the categories to hide. Leaves doujinshi, manga, artist CG and game CG,
     # since the others hold real people and non-H.
     HIDDEN_CATEGORIES = 993
-    SEARCH_QUERY = '-"female:lolicon$" -"male:shotacon$"'
+    SEARCH_QUERY = '-lolicon -shotacon -toddlercon'
     # The listing has no random order, so a random gallery id is the page cursor. Both
     # bounds sit inside the id range (past 4.29M in 2026), and it only ever grows.
     MIN_CURSOR = 100_000
@@ -73,6 +73,7 @@ class EHentaiScraper:
             date=posted.strftime('%Y-%m'),
             cover_url=data['thumb'],
             url=f'{cls.SITE_URL}/g/{data["gid"]}/{data["token"]}/',
+            hidden_tags=[tag.partition(':')[2] or tag for tag in data['tags']],
         )
 
     @staticmethod

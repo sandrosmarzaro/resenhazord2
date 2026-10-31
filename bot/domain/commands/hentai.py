@@ -57,6 +57,8 @@ class HentaiCommand(Command):
         for _ in range(self.COVER_RETRIES):
             try:
                 gallery = await fetch_fn()
+                if gallery.may_depict_minors:
+                    continue
                 cover = await HttpClient.get_buffer(
                     gallery.cover_url,
                     headers=gallery.cover_headers,
@@ -72,7 +74,7 @@ class HentaiCommand(Command):
         if last_error:
             raise last_error
         msg = 'All hentai fetch attempts failed'
-        raise RuntimeError(msg)
+        raise ExternalServiceError(msg)
 
     def _select_source(self, parsed: ParsedCommand) -> Callable[[], Awaitable[HentaiGallery]]:
         chosen = (fetch for flag, fetch in self.SOURCES.items() if flag in parsed.flags)
