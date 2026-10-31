@@ -102,27 +102,28 @@ class TestScopeAndAccess:
         assert sent.text == handler.GROUP_ONLY_MESSAGE
 
     @pytest.mark.anyio
-    async def test_nsfw_refused_outside_allowlist(self, handler, port, mocker):
-        strategy = make_strategy(mocker, scope=CommandScope.NSFW)
+    async def test_nsfw_runs_in_any_chat_where_config_enables_it(self, handler, port, mocker):
+        strategy = make_strategy(
+            mocker,
+            scope=CommandScope.NSFW,
+            messages=[BotMessage(jid='123', content=TextContent(text='ok'))],
+        )
         patch_registry(mocker, strategy=strategy)
 
         await handler.handle(port, make_update('/hentai', chat_id=123))
 
-        sent = port.send.call_args.args[0]
-        assert sent.text == handler.NSFW_ONLY_MESSAGE
+        strategy.run.assert_called_once()
 
     @pytest.mark.anyio
-    async def test_nsfw_allowed_in_allowlisted_chat(self, handler, port, mocker):
-        strategy = make_strategy(
-            mocker,
-            scope=CommandScope.NSFW,
-            messages=[BotMessage(jid='99', content=TextContent(text='ok'))],
-        )
+    async def test_nsfw_stays_off_where_config_has_not_enabled_it(self, handler, port, mocker):
+        strategy = make_strategy(mocker, scope=CommandScope.NSFW)
         patch_registry(mocker, strategy=strategy)
+        handler._config.is_enabled.return_value = False
 
-        await handler.handle(port, make_update('/hentai', chat_id=99))
+        await handler.handle(port, make_update('/hentai', chat_id=123))
 
-        strategy.run.assert_called_once()
+        strategy.run.assert_not_called()
+        assert port.send.call_args.args[0].text == COMMAND_OFF_IN_CHAT
 
 
 class TestErrorHandling:

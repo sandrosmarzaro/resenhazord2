@@ -23,12 +23,11 @@ def _patch_registry(mocker, commands):
     return registry
 
 
-def _make_bot(mocker, *, nsfw_chat_ids: frozenset[int] = frozenset()):
+def _make_bot(mocker):
     mocker.patch('bot.adapters.telegram.bot.Application.builder')
     bot = TelegramBot(
         token=FAKE_TOKEN,
         bot_username='resenhazord_bot',
-        nsfw_chat_ids=nsfw_chat_ids,
         agent=mocker.Mock(),
     )
     bot._app = mocker.MagicMock()
@@ -56,21 +55,18 @@ class TestNormalizeName:
 
 
 class TestIsMenuEligible:
-    def test_public_command_with_telegram_platform(self):
-        cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM])
-        assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC}) is True
+    @pytest.mark.parametrize('scope', [CommandScope.PUBLIC, CommandScope.ADMIN, CommandScope.NSFW])
+    def test_accepts_what_a_chat_can_run(self, scope):
+        cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=scope)
+        assert TelegramBot._is_menu_eligible(cmd) is True
 
     def test_rejects_non_telegram_platform(self):
         cmd = FakeCommand('ok', platforms=[Platform.DISCORD])
-        assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC}) is False
+        assert TelegramBot._is_menu_eligible(cmd) is False
 
-    def test_rejects_scope_outside_set(self):
-        cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=CommandScope.NSFW)
-        assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC}) is False
-
-    def test_accepts_nsfw_when_in_scope(self):
-        cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=CommandScope.NSFW)
-        assert TelegramBot._is_menu_eligible(cmd, {CommandScope.PUBLIC, CommandScope.NSFW}) is True
+    def test_rejects_dev_commands(self):
+        cmd = FakeCommand('ok', platforms=[Platform.TELEGRAM], scope=CommandScope.DEV)
+        assert TelegramBot._is_menu_eligible(cmd) is False
 
 
 class TestStartStop:
@@ -287,21 +283,23 @@ class TestPublishCommandMenu:
         return [
             FakeCommand('oi', platforms=[Platform.TELEGRAM]),
             FakeCommand('hentai', platforms=[Platform.TELEGRAM], scope=CommandScope.NSFW),
+            FakeCommand('config', platforms=[Platform.TELEGRAM], scope=CommandScope.ADMIN),
+            FakeCommand('dev', platforms=[Platform.TELEGRAM], scope=CommandScope.DEV),
             FakeCommand('off', platforms=[Platform.DISCORD]),
         ]
 
     @pytest.mark.anyio
-    async def test_publishes_only_public_by_default(self, bot, commands, mocker):
+    async def test_publishes_every_command_a_chat_can_run(self, bot, commands, mocker):
         _patch_registry(mocker, commands)
 
         await bot._publish_command_menu()
 
         bot._app.bot.set_my_commands.assert_called_once()
         published = bot._app.bot.set_my_commands.call_args.args[0]
-        assert [c.command for c in published] == ['oi']
+        assert [c.command for c in published] == ['oi', 'hentai', 'config']
 
     @pytest.mark.anyio
-    async def test_publishes_aliases_alongside_primary(self, bot, mocker):
+    async def test_publishes_one_entry_per_command_without_aliases(self, bot, mocker):
         commands = [
             FakeCommand(
                 'figurinha',
@@ -315,18 +313,7 @@ class TestPublishCommandMenu:
         await bot._publish_command_menu()
 
         published = bot._app.bot.set_my_commands.call_args.args[0]
-        assert [c.command for c in published] == ['figurinha', 'fig', 'sticker']
-        assert {c.description for c in published} == {'gera sticker'}
-
-    @pytest.mark.anyio
-    async def test_skips_alias_that_normalizes_to_existing_name(self, bot, mocker):
-        commands = [FakeCommand('oi', platforms=[Platform.TELEGRAM], aliases=['Oi', 'hi'])]
-        _patch_registry(mocker, commands)
-
-        await bot._publish_command_menu()
-
-        published = bot._app.bot.set_my_commands.call_args.args[0]
-        assert [c.command for c in published] == ['oi', 'hi']
+        assert [(c.command, c.description) for c in published] == [('figurinha', 'gera sticker')]
 
     @pytest.mark.anyio
     async def test_api_failure_is_logged_and_swallowed(self, bot, commands, mocker):
@@ -336,20 +323,6 @@ class TestPublishCommandMenu:
         await bot._publish_command_menu()
 
         bot._app.bot.set_my_commands.assert_called_once()
-
-    @pytest.mark.anyio
-    async def test_publishes_nsfw_per_chat(self, commands, mocker):
-        bot = _make_bot(mocker, nsfw_chat_ids=frozenset({42, 99}))
-        _patch_registry(mocker, commands)
-
-        await bot._publish_command_menu()
-
-        set_commands = cast('Any', bot._app.bot.set_my_commands)
-        assert set_commands.call_count == 3
-        nsfw_calls = [call for call in set_commands.call_args_list if 'scope' in call.kwargs]
-        assert len(nsfw_calls) == 2
-        published_names = {c.command for c in nsfw_calls[0].args[0]}
-        assert published_names == {'oi', 'hentai'}
 
 
 class TestErrorHandler:

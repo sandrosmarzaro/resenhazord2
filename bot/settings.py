@@ -45,7 +45,6 @@ class Settings(BaseSettings):
     discord_app_id: str = ''
     telegram_token: str = ''
     telegram_bot_username: str = ''
-    telegram_nsfw_chat_ids: str = ''
 
     # yt-dlp cookies file (Netscape format) for login-gated sources (Instagram, etc.).
     # Empty = no auth; path is in-container, mounted as a secret on the core node.
