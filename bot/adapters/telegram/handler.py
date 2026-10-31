@@ -22,17 +22,14 @@ class TelegramUpdateHandler:
     GROUP_CHAT_TYPES: ClassVar[frozenset[str]] = frozenset({ChatType.GROUP, ChatType.SUPERGROUP})
     UNKNOWN_COMMAND_MESSAGE: ClassVar[str] = 'Comando nao reconhecido.'
     GROUP_ONLY_MESSAGE: ClassVar[str] = 'Esse comando so funciona em grupos.'
-    NSFW_ONLY_MESSAGE: ClassVar[str] = 'Este comando so pode ser usado em canais NSFW.'
 
     def __init__(
         self,
         bot_username: str,
-        nsfw_chat_ids: frozenset[int],
         router: TelegramAgentRouter,
         config_service: ConfigService | None = None,
     ) -> None:
         self._bot_username = bot_username.lower()
-        self._nsfw_chat_ids = nsfw_chat_ids
         self._router = router
         self._config = config_service or ConfigService(CachedConfigStore.instance())
         self._name_map: dict[str, str] = {}
@@ -58,9 +55,8 @@ class TelegramUpdateHandler:
             await self._reply_text(port, chat.id, self.UNKNOWN_COMMAND_MESSAGE)
             return
 
-        block = self._strategy_block_message(strategy, chat)
-        if block is not None:
-            await self._reply_text(port, chat.id, block)
+        if strategy.config.group_only and chat.type not in self.GROUP_CHAT_TYPES:
+            await self._reply_text(port, chat.id, self.GROUP_ONLY_MESSAGE)
             return
 
         is_admin = await self._resolve_admin(port, strategy, chat, user)
@@ -94,13 +90,6 @@ class TelegramUpdateHandler:
             return
         data = self._build_command_data(message, chat, user, message.text or '')
         await self._router.route(port, message, chat, data)
-
-    def _strategy_block_message(self, strategy: Command, chat: Chat) -> str | None:
-        if strategy.config.group_only and chat.type not in self.GROUP_CHAT_TYPES:
-            return self.GROUP_ONLY_MESSAGE
-        if strategy.config.scope == CommandScope.NSFW and chat.id not in self._nsfw_chat_ids:
-            return self.NSFW_ONLY_MESSAGE
-        return None
 
     def _extract_command_name(self, message: Message) -> str | None:
         entity = self._find_command_entity(message.entities)

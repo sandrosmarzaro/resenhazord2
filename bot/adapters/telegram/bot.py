@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 
 import sentry_sdk
 import structlog
-from telegram import BotCommand, BotCommandScopeChat, Update
+from telegram import BotCommand, Update
 from telegram.error import InvalidToken, NetworkError, RetryAfter, TelegramError
 from telegram.ext import (
     Application,
@@ -40,8 +40,9 @@ class TelegramBot:
     NAME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9_]')
     NAME_MAX_LENGTH: ClassVar[int] = 32
     DESCRIPTION_MAX_LENGTH: ClassVar[int] = 256
-    PUBLIC_SCOPE: ClassVar[CommandScope] = CommandScope.PUBLIC
-    NSFW_SCOPE: ClassVar[CommandScope] = CommandScope.NSFW
+    MENU_SCOPES: ClassVar[frozenset[CommandScope]] = frozenset(
+        {CommandScope.PUBLIC, CommandScope.ADMIN, CommandScope.NSFW}
+    )
     START_COMMAND: ClassVar[str] = 'start'
     MENU_COMMAND: ClassVar[str] = 'menu'
     READ_TIMEOUT_SECONDS: ClassVar[float] = 60.0
@@ -52,7 +53,6 @@ class TelegramBot:
         self,
         token: str,
         bot_username: str,
-        nsfw_chat_ids: frozenset[int],
         agent: AgentOrchestratorPort,
     ) -> None:
         self._app = (
@@ -64,9 +64,8 @@ class TelegramBot:
             .build()
         )
         router = TelegramAgentRouter(TelegramResponseRenderer(), agent)
-        self._handler = TelegramUpdateHandler(bot_username, nsfw_chat_ids, router)
+        self._handler = TelegramUpdateHandler(bot_username, router)
         self._join_handler = TelegramJoinHandler()
-        self._nsfw_chat_ids = nsfw_chat_ids
         self._original_updater_level = _UPDATER_LOGGER.level
 
     async def start(self) -> None:
@@ -136,45 +135,25 @@ class TelegramBot:
         sentry_sdk.capture_exception(error)
 
     async def _publish_command_menu(self) -> None:
-        public = self._bot_commands_for_scopes({self.PUBLIC_SCOPE})
-        await self._safe_set_commands(public)
-        if not self._nsfw_chat_ids:
-            return
-        nsfw = self._bot_commands_for_scopes({self.PUBLIC_SCOPE, self.NSFW_SCOPE})
-        for chat_id in self._nsfw_chat_ids:
-            await self._safe_set_commands(nsfw, scope=BotCommandScopeChat(chat_id=chat_id))
-
-    async def _safe_set_commands(
-        self, commands: list[BotCommand], scope: BotCommandScopeChat | None = None
-    ) -> None:
+        # Aliases stay reachable by typing them; listing them would only repeat each command.
+        commands = [
+            BotCommand(
+                command=self._normalize_name(command.config.name),
+                description=command.menu_description[: self.DESCRIPTION_MAX_LENGTH],
+            )
+            for command in CommandRegistry.instance().get_all()
+            if self._is_menu_eligible(command)
+        ]
         try:
-            if scope is None:
-                await self._app.bot.set_my_commands(commands)
-            else:
-                await self._app.bot.set_my_commands(commands, scope=scope)
+            await self._app.bot.set_my_commands(commands)
         except TelegramError as error:
-            logger.warning('telegram_set_commands_failed', scope=repr(scope), error=str(error))
+            logger.warning('telegram_set_commands_failed', error=str(error))
 
-    def _bot_commands_for_scopes(self, scopes: set[CommandScope]) -> list[BotCommand]:
-        commands: list[BotCommand] = []
-        seen: set[str] = set()
-        for cmd in CommandRegistry.instance().get_all():
-            if not self._is_menu_eligible(cmd, scopes):
-                continue
-            description = cmd.menu_description[: self.DESCRIPTION_MAX_LENGTH]
-            for name in (cmd.config.name, *cmd.config.aliases):
-                telegram_name = self._normalize_name(name)
-                if not telegram_name or telegram_name in seen:
-                    continue
-                seen.add(telegram_name)
-                commands.append(BotCommand(command=telegram_name, description=description))
-        return commands
-
-    @staticmethod
-    def _is_menu_eligible(command: Command, scopes: set[CommandScope]) -> bool:
+    @classmethod
+    def _is_menu_eligible(cls, command: Command) -> bool:
         return (
             Platform.supports(command.config.platforms, Platform.TELEGRAM)
-            and command.config.scope in scopes
+            and command.config.scope in cls.MENU_SCOPES
         )
 
     @classmethod
