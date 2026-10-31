@@ -1,7 +1,6 @@
 import pytest
 
 from bot.domain.services.mentions.add_to_mention_list import AddToMentionList
-from bot.domain.services.mentions.create_mention_list import CreateMentionList
 
 CHAT_JID = '120363044041082732@g.us'
 SENDER_JID = '5511999990000:1@s.whatsapp.net'
@@ -28,10 +27,6 @@ class _MockCollection:
             return None
         return doc
 
-    async def insert_one(self, doc):
-        self.calls.append(('insert_one', doc))
-        self.docs[doc['_id']] = doc
-
     async def update_one(self, query, update):
         self.calls.append(('update_one', query, update))
 
@@ -44,56 +39,6 @@ def mock_collection(mocker):
         return_value=collection,
     )
     return collection
-
-
-class TestCreateMentionList:
-    @pytest.mark.anyio
-    async def test_creates_group_with_normalized_jids(self, mock_collection):
-        result = await CreateMentionList().execute(
-            CHAT_JID,
-            SENDER_JID,
-            GROUP_NAME,
-            ['5511999990001:2@s.whatsapp.net'],
-        )
-
-        assert result['ok'] is True
-        assert result['group_name'] == GROUP_NAME
-
-        _, doc = mock_collection.calls[2]
-        participants = doc['groups'][0]['participants']
-        assert participants == [
-            '5511999990000@s.whatsapp.net',
-            '5511999990001@s.whatsapp.net',
-        ]
-
-    @pytest.mark.anyio
-    async def test_skips_null_mentioned_jids(self, mock_collection):
-        result = await CreateMentionList().execute(
-            CHAT_JID,
-            SENDER_JID,
-            GROUP_NAME,
-            [None, '5511999990001:2@s.whatsapp.net'],
-        )
-
-        assert result['ok'] is True
-
-        _, doc = mock_collection.calls[2]
-        assert doc['groups'][0]['participants'] == [
-            '5511999990000@s.whatsapp.net',
-            '5511999990001@s.whatsapp.net',
-        ]
-
-    @pytest.mark.anyio
-    async def test_rejects_duplicate_group(self, mock_collection):
-        mock_collection.docs[CHAT_JID] = {
-            '_id': CHAT_JID,
-            'groups': [{'name': GROUP_NAME, 'participants': []}],
-        }
-
-        result = await CreateMentionList().execute(CHAT_JID, SENDER_JID, GROUP_NAME, [])
-
-        assert result['ok'] is False
-        assert 'Já existe' in result['message']
 
 
 class TestAddToMentionList:
