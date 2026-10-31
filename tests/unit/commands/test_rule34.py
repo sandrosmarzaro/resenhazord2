@@ -132,13 +132,10 @@ class TestRule34Source:
             _page(alt='loli tag_two tag_three'),
             _page(alt='tag_one tag_two', sidebar=('shota',)),
             _page(alt='Child tag_two tag_three'),
-            _page(alt='tag_one tag_two tagme'),
-            _page(alt='tag_one tag_two'),
-            _page(alt=''),
         ],
-        ids=['minor_alt', 'minor_sidebar', 'uppercase', 'tagme', 'too_few', 'no_tags'],
+        ids=['minor_alt', 'minor_sidebar', 'uppercase'],
     )
-    async def test_a_post_it_cannot_vouch_for_goes_to_the_fallback(
+    async def test_a_post_tagged_as_a_minor_goes_to_the_fallback(
         self, command, page_route, posts_route, page
     ):
         data = GroupCommandDataFactory.build(text=',rule 34')
@@ -148,7 +145,32 @@ class TestRule34Source:
             messages = await command.run(data)
 
         assert messages[0].content.url == POST_URL
-        assert logs[0]['reason'] == 'unverified'
+        assert logs[0]['reason'] == 'minor_tags'
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('alt', ['tagme', 'tag_one tag_two'], ids=['tagme', 'few_tags'])
+    async def test_a_barely_tagged_post_is_still_sent(self, command, page_route, posts_route, alt):
+        data = GroupCommandDataFactory.build(text=',rule 34')
+        page_route.mock(return_value=_page(alt=alt))
+
+        with capture_logs() as logs:
+            messages = await command.run(data)
+
+        assert messages[0].content.url == RULE34_IMAGE_URL
+        assert logs == []
+        assert not posts_route.called
+
+    @pytest.mark.anyio
+    async def test_a_post_without_tags_is_sent_and_logged(self, command, page_route, posts_route):
+        data = GroupCommandDataFactory.build(text=',rule 34')
+        page_route.mock(return_value=_page(alt=''))
+
+        with capture_logs() as logs:
+            messages = await command.run(data)
+
+        assert messages[0].content.url == RULE34_IMAGE_URL
+        assert [log['event'] for log in logs] == ['rule34_sent_without_tags']
+        assert not posts_route.called
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(

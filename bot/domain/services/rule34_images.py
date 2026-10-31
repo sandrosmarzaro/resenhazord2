@@ -19,8 +19,9 @@ logger = structlog.get_logger()
 class Rule34Images:
     """Finds one image: on rule34.xxx, which answers a CAPTCHA now and then, or on paheal.
 
-    Both are filtered by tags people write, which reduces the risk of a post depicting
-    minors and can't rule it out, so a barely tagged post isn't sent at all."""
+    Both refuse tags that point to minors. That is a denylist over tags people write, so it
+    reduces the risk and can't rule it out. Rule34.xxx sends what has no tags to check, and
+    paheal doesn't."""
 
     RANDOM_PAGE_URL = 'https://rule34.xxx/index.php?page=post&s=random'
     POSTS_URL = 'https://rule34.paheal.net/api/danbooru/find_posts'
@@ -74,9 +75,11 @@ class Rule34Images:
             return None
         sidebar = [link.text for link in page.select('#tag-sidebar li a[href*="tags="]')]
         tags = [*str(images[0].get('alt', '')).split(), *sidebar]
-        if not cls._can_vouch_for(tags):
-            logger.info('rule34_fallback', reason='unverified')
+        if cls._mentions_minors(tags):
+            logger.info('rule34_fallback', reason='minor_tags')
             return None
+        if not tags:
+            logger.info('rule34_sent_without_tags')
         return str(images[0]['src'])
 
     @classmethod
@@ -100,18 +103,16 @@ class Rule34Images:
     def _is_sendable(cls, post: Tag) -> bool:
         # Filtered here and not in the search: the API refuses a longer negative query,
         # and a shorter one takes seconds on deep pages.
+        tags = str(post['tags']).lower().split()
         file_name = str(post['file_name']).lower()
         return (
-            cls._can_vouch_for([*str(post['tags']).split(), file_name])
+            len(tags) >= cls.MIN_TAGS
+            and cls.PLACEHOLDER_TAG not in tags
+            and not cls._mentions_minors([*tags, file_name])
             and file_name.endswith(cls.IMAGE_EXTENSIONS)
             and cls.PAHEAL_CDN_URL.fullmatch(str(post['file_url'])) is not None
         )
 
-    @classmethod
-    def _can_vouch_for(cls, tags: list[str]) -> bool:
-        lowered = [tag.lower() for tag in tags]
-        return (
-            len(lowered) >= cls.MIN_TAGS
-            and cls.PLACEHOLDER_TAG not in lowered
-            and not any(term in tag for tag in lowered for term in MINOR_TAG_TERMS)
-        )
+    @staticmethod
+    def _mentions_minors(texts: list[str]) -> bool:
+        return any(term in text.lower() for text in texts for term in MINOR_TAG_TERMS)
