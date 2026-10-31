@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from structlog.testing import capture_logs
 
 from bot.data.espn_leagues import ScoreboardLeague
 from bot.data.football import LEAGUES
@@ -212,6 +213,35 @@ class TestFetchScoreboard:
         matches = await EspnService.fetch_scoreboard()
 
         assert (matches[0].home_score, matches[0].away_score) == (None, None)
+
+    @pytest.mark.anyio
+    async def test_a_body_without_json_is_fetched_again(self, scoreboard_route, mocker):
+        mocker.patch.object(EspnService, '_NON_JSON_RETRY_DELAY_SECONDS', 0)
+        scoreboard_route.mock(side_effect=[httpx.Response(200), _scoreboard(_event('in'))])
+
+        with capture_logs() as logs:
+            matches = await EspnService.fetch_scoreboard()
+
+        assert len(matches) == 1
+        assert logs == []
+
+    @pytest.mark.anyio
+    async def test_a_body_without_json_twice_skips_the_league_saying_what_came(
+        self, scoreboard_route, mocker
+    ):
+        mocker.patch.object(EspnService, '_NON_JSON_RETRY_DELAY_SECONDS', 0)
+        scoreboard_route.mock(
+            return_value=httpx.Response(
+                200, headers={'content-type': 'text/html'}, content=b'<html>'
+            )
+        )
+
+        with capture_logs() as logs:
+            matches = await EspnService.fetch_scoreboard()
+
+        assert matches == []
+        assert logs[0]['event'] == 'upstream_failed'
+        assert logs[0]['error'] == 'non-JSON scoreboard: status=200 type=text/html size=6'
 
     @pytest.mark.anyio
     async def test_failing_league_is_skipped(self, scoreboard_route):

@@ -9,6 +9,7 @@ import structlog
 
 from bot.data.espn_leagues import SCOREBOARD_LEAGUES, ScoreboardLeague
 from bot.data.football import BR_TIMEZONE, LeagueInfo
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.football import MatchStatus, TmLiveMatch, TmStandingRow
 from bot.infrastructure.http_client import HttpClient
 
@@ -32,6 +33,8 @@ class EspnService:
     _HALFTIME: ClassVar[str] = 'STATUS_HALFTIME'
     _HALFTIME_LABEL: ClassVar[str] = 'Intervalo'
     FIRST_STAGE: ClassVar[int] = 1
+    _NON_JSON_ATTEMPTS: ClassVar[int] = 2
+    _NON_JSON_RETRY_DELAY_SECONDS: ClassVar[float] = 1.0
 
     @classmethod
     async def fetch_scoreboard(cls) -> list[TmLiveMatch]:
@@ -51,9 +54,25 @@ class EspnService:
 
     @classmethod
     async def _fetch_league_scoreboard(cls, league: ScoreboardLeague) -> list[TmLiveMatch]:
-        response = await HttpClient.get(cls._SCOREBOARD_URL.format(slug=league.slug))
-        response.raise_for_status()
-        return [cls._parse_event(event, league) for event in response.json().get('events', [])]
+        payload = await cls._scoreboard_payload(cls._SCOREBOARD_URL.format(slug=league.slug))
+        return [cls._parse_event(event, league) for event in payload.get('events', [])]
+
+    @classmethod
+    async def _scoreboard_payload(cls, url: str) -> dict[str, Any]:
+        # ESPN sometimes answers a success without JSON, for one league at a time.
+        for _ in range(cls._NON_JSON_ATTEMPTS):
+            response = await HttpClient.get(url)
+            response.raise_for_status()
+            try:
+                return response.json()
+            except ValueError:
+                await asyncio.sleep(cls._NON_JSON_RETRY_DELAY_SECONDS)
+        content_type = response.headers.get('content-type')
+        msg = (
+            f'non-JSON scoreboard: status={response.status_code} '
+            f'type={content_type} size={len(response.content)}'
+        )
+        raise ExternalServiceError(msg)
 
     @classmethod
     def _parse_event(cls, event: dict[str, Any], league: ScoreboardLeague) -> TmLiveMatch:
