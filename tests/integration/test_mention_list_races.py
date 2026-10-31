@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-from testcontainers.mongodb import MongoDbContainer
 
 from bot.domain.models.removal_targets import RemovalTargets
 from bot.domain.services.mentions.add_to_mention_list import AddToMentionList
@@ -19,12 +18,6 @@ DATABASE = 'mention_list_races_test'
 COLLECTION = 'groups_mentions'
 # One round can pass by luck of scheduling; twenty can't.
 ROUNDS = 20
-
-
-@pytest.fixture(scope='module')
-def mongo_uri():
-    with MongoDbContainer('mongo:7') as container:
-        yield container.get_connection_url()
 
 
 @pytest.fixture
