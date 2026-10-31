@@ -25,7 +25,7 @@ class TestRegisterAll:
         names = [cmd.name for cmd in bot._tree.get_commands()]
         assert names == ['d20', 'jackpot']
 
-    def test_aliases_register_as_separate_commands(self, mocker, fake_command):
+    def test_aliases_get_no_command_of_their_own(self, mocker, fake_command):
         cmd = fake_command(
             CommandConfig(name='anime', aliases=['manga'], platforms=[Platform.DISCORD])
         )
@@ -35,8 +35,7 @@ class TestRegisterAll:
         bot.register_commands()
 
         names = [c.name for c in bot._tree.get_commands()]
-        assert 'anime' in names
-        assert 'manga' in names
+        assert names == ['anime']
 
     def test_options_with_values_become_choices(self, mocker, fake_command):
         cmd = fake_command(
@@ -89,8 +88,11 @@ class TestMakeCallback:
 
 class TestDuplicateCommand:
     def test_duplicate_name_skipped(self, mocker, fake_command):
-        cmd = fake_command(CommandConfig(name='d20', aliases=['d20'], platforms=[Platform.DISCORD]))
-        patch_slash_registry(mocker, [cmd])
+        commands = [
+            fake_command(CommandConfig(name='d20', platforms=[Platform.DISCORD])),
+            fake_command(CommandConfig(name='D20', platforms=[Platform.DISCORD])),
+        ]
+        patch_slash_registry(mocker, commands)
         bot = DiscordBot('123456789', mocker.Mock())
 
         bot.register_commands()

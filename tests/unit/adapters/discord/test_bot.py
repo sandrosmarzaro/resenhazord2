@@ -4,6 +4,7 @@ from typing import Any, cast
 import aiohttp
 import discord
 import pytest
+from structlog.testing import capture_logs
 
 from bot.adapters.discord.bot import DiscordBot
 from bot.infrastructure.platform_supervisor import PlatformAuthenticationError
@@ -42,7 +43,7 @@ class TestOnReady:
         on_ready = bot._make_on_ready()
         await on_ready()
 
-        sync_mock.assert_called_once_with(bot._client, bot._tree, bot._guild)
+        sync_mock.assert_called_once_with(bot._client, bot._tree)
 
 
 class TestOnMessage:
@@ -139,48 +140,76 @@ class TestMentionsBot:
 
 
 class TestSyncWithRetries:
+    FIRST_GUILD = discord.Object(id=1)
+    SECOND_GUILD = discord.Object(id=2)
+
+    @pytest.fixture
+    def client(self, mocker):
+        return mocker.MagicMock(guilds=[self.FIRST_GUILD, self.SECOND_GUILD])
+
     @pytest.mark.anyio
-    async def test_logs_synced_on_success(self, bot, mocker):
+    async def test_logs_synced_on_success(self, bot, client, mocker):
         cmd = mocker.MagicMock()
         cmd.name = 'd20'
         bot._tree.sync = mocker.AsyncMock(return_value=[cmd])
 
-        await bot._sync_with_retries(bot._client, bot._tree, bot._guild)
+        await bot._sync_with_retries(client, bot._tree)
 
         assert cast('Any', bot._tree.sync).call_args_list[0] == mocker.call()
 
     @pytest.mark.anyio
-    async def test_clears_the_stale_guild_copies(self, bot, mocker):
+    async def test_clears_the_stale_copies_in_every_guild(self, bot, client, mocker):
         bot._tree.sync = mocker.AsyncMock(return_value=[])
 
-        await bot._sync_with_retries(bot._client, bot._tree, bot._guild)
+        await bot._sync_with_retries(client, bot._tree)
 
-        cast('Any', bot._tree.sync).assert_called_with(guild=bot._guild)
+        assert cast('Any', bot._tree.sync).call_args_list == [
+            mocker.call(),
+            mocker.call(guild=self.FIRST_GUILD),
+            mocker.call(guild=self.SECOND_GUILD),
+        ]
 
     @pytest.mark.anyio
-    async def test_retries_on_connector_error_then_succeeds(self, bot, mocker):
+    async def test_a_guild_that_refuses_does_not_stop_the_others(self, bot, client, mocker):
+        forbidden = discord.Forbidden(mocker.MagicMock(status=403, reason='Forbidden'), 'no scope')
+        bot._tree.sync = mocker.AsyncMock(side_effect=[[], forbidden, []])
+
+        with capture_logs() as logs:
+            await bot._sync_with_retries(client, bot._tree)
+
+        assert cast('Any', bot._tree.sync).call_args_list[-1] == mocker.call(
+            guild=self.SECOND_GUILD
+        )
+        assert [log['event'] for log in logs] == [
+            'discord_guild_clear_refused',
+            'discord_connected',
+        ]
+
+    @pytest.mark.anyio
+    async def test_retries_on_connector_error_then_succeeds(self, bot, client, mocker):
         bot._tree.sync = mocker.AsyncMock(
             side_effect=[
                 aiohttp.ClientConnectorError(mocker.MagicMock(), OSError('boom')),
+                [],
                 [],
                 [],
             ]
         )
         sleep = mocker.patch('bot.adapters.discord.bot.asyncio.sleep', mocker.AsyncMock())
 
-        await bot._sync_with_retries(bot._client, bot._tree, bot._guild)
+        await bot._sync_with_retries(client, bot._tree)
 
-        assert cast('Any', bot._tree.sync).call_count == 3
+        assert cast('Any', bot._tree.sync).call_count == 4
         sleep.assert_called_once()
 
     @pytest.mark.anyio
-    async def test_gives_up_after_max_retries(self, bot, mocker):
+    async def test_gives_up_after_max_retries(self, bot, client, mocker):
         bot._tree.sync = mocker.AsyncMock(
             side_effect=aiohttp.ClientConnectorError(mocker.MagicMock(), OSError('boom'))
         )
         mocker.patch('bot.adapters.discord.bot.asyncio.sleep', mocker.AsyncMock())
 
-        await bot._sync_with_retries(bot._client, bot._tree, bot._guild)
+        await bot._sync_with_retries(client, bot._tree)
 
         assert cast('Any', bot._tree.sync).call_count == DiscordBot.MAX_SYNC_RETRIES
 
