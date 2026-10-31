@@ -37,3 +37,27 @@ NSFW_TAGS: list[str] = [
     'toys',
     'xmas',
 ]
+
+# Substrings, so they also catch variants such as 'oppai loli'. A false match only costs
+# another random pick.
+MINOR_TAG_TERMS: tuple[str, ...] = (
+    'loli',
+    'shota',
+    'toddler',
+    'child',
+    'underage',
+    'preteen',
+    'infant',
+    'baby',
+    'young',
+    'kid',
+    'teen',
+    'minor',
+    'little',
+    'cub',
+    'school',
+    'student',
+    'ロリ',
+    'ショタ',
+    '幼女',
+)

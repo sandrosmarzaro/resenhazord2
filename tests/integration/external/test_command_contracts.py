@@ -67,6 +67,7 @@ _CALLS = [
     _call(',hs', 'bnet_id'),
     _call(',hs booster', 'bnet_id'),
     _call(',hentai'),
+    _call(',hentai ehentai'),
     _call(',hentai hitomi'),
     _call(',hentai nhentai'),
     _call(',música'),

@@ -192,6 +192,6 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
     registry.register(
         HearthstoneCommand(bnet_id=settings.bnet_id, bnet_secret=settings.bnet_secret)
     )
-    registry.register(HentaiCommand(nhentai_mirror_url=settings.nhentai_mirror_url))
+    registry.register(HentaiCommand())
     registry.register(MusicCommand(jamendo_client_id=settings.jamendo_client_id))
     registry.register(BeerCommand(off_session=settings.off_session))
