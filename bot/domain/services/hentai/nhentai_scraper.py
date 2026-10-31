@@ -1,6 +1,5 @@
 import random
 from datetime import UTC, datetime
-from http import HTTPStatus
 from typing import ClassVar
 
 from bot.data.hentai_gallery import HentaiGallery
@@ -10,66 +9,69 @@ from bot.infrastructure.http_client import HttpClient
 
 class NhentaiScraper:
     MAX_PAGE = 100
-    SEARCH_URL = '/api/galleries/search'
-    EXT_MAP: ClassVar[dict[str, str]] = {'j': 'jpg', 'p': 'png', 'g': 'gif', 'w': 'webp'}
+    SITE_URL = 'https://nhentai.net'
+    SEARCH_URL = SITE_URL + '/api/v2/search'
+    GALLERY_URL = SITE_URL + '/api/v2/galleries/{id}'
+    COVER_DOMAIN = 'https://t.nhentai.net'
+    SEARCH_QUERY = '-lolicon -shotacon'
+    # The API docs ask for a User-Agent that identifies the app.
+    HEADERS: ClassVar[dict[str, str]] = {
+        'User-Agent': 'Resenhazord2 (https://github.com/sandrosmarzaro/resenhazord2)'
+    }
+    UNTRANSLATED_LANGUAGE_TAG = 'translated'
 
-    def __init__(self, mirror_url: str = 'https://nhentai.to') -> None:
-        self._mirror_url = mirror_url
-
-    async def fetch(self) -> HentaiGallery:
-        page = random.randint(1, self.MAX_PAGE)
-        results = await self._fetch_page(page)
+    @classmethod
+    async def fetch(cls) -> HentaiGallery:
+        page = random.randint(1, cls.MAX_PAGE)
+        results = await cls._search(page)
         if not results and page > 1:
-            results = await self._fetch_page(1)
+            results = await cls._search(1)
 
         if not results:
             msg = 'nhentai returned no galleries'
             raise ExternalServiceError(msg)
 
-        return self._parse(random.choice(results))
-
-    async def _fetch_page(self, page: int) -> list[dict]:
-        res = await HttpClient.get(
-            f'{self._mirror_url}{self.SEARCH_URL}',
-            params={'query': '', 'page': page},
+        response = await HttpClient.get(
+            cls.GALLERY_URL.format(id=random.choice(results)['id']), headers=cls.HEADERS
         )
-        if res.status_code == HTTPStatus.NOT_FOUND:
-            return []
-        res.raise_for_status()
-        return res.json().get('result', [])
+        response.raise_for_status()
+        return cls._parse(response.json())
 
-    def _parse(self, data: dict) -> HentaiGallery:
+    @classmethod
+    async def _search(cls, page: int) -> list[dict]:
+        response = await HttpClient.get(
+            cls.SEARCH_URL,
+            params={'query': cls.SEARCH_QUERY, 'page': page},
+            headers=cls.HEADERS,
+        )
+        response.raise_for_status()
+        return response.json().get('result', [])
+
+    @classmethod
+    def _parse(cls, data: dict) -> HentaiGallery:
         tags = data['tags']
-        artists = self._filter_tags(tags, 'artist')
-        groups = self._filter_tags(tags, 'group')
-        tag_names = self._filter_tags(tags, 'tag')
-        lang_tag = self._find_tag(tags, 'language')
-        type_tag = self._find_tag(tags, 'category')
-
-        cover_ext = self.EXT_MAP.get(data['images']['cover']['t'], 'jpg')
-        cover_url = f'https://t.nhentai.net/galleries/{data["media_id"]}/thumb.{cover_ext}'
-
-        upload_ts = data.get('upload_date', 0)
-        date_str = datetime.fromtimestamp(upload_ts, tz=UTC).strftime('%Y-%m') if upload_ts else ''
+        languages = [
+            name
+            for name in cls._filter_tags(tags, 'language')
+            if name != cls.UNTRANSLATED_LANGUAGE_TAG
+        ]
+        categories = cls._filter_tags(tags, 'category')
+        title = data['title']
 
         return HentaiGallery(
-            title=data['title'].get('english') or data['title'].get('pretty', ''),
-            japanese_title=data['title'].get('japanese'),
-            artists=artists,
-            groups=groups,
-            tags=tag_names,
-            gallery_type=type_tag['name'] if type_tag else 'manga',
-            language=lang_tag['name'] if lang_tag else 'unknown',
+            title=title.get('english') or title.get('pretty', ''),
+            japanese_title=title.get('japanese'),
+            artists=cls._filter_tags(tags, 'artist'),
+            groups=cls._filter_tags(tags, 'group'),
+            tags=cls._filter_tags(tags, 'tag'),
+            gallery_type=categories[0] if categories else 'manga',
+            language=languages[0] if languages else 'unknown',
             pages=data.get('num_pages', 0),
-            date=date_str,
-            cover_url=cover_url,
-            url=f'{self._mirror_url}/g/{data["id"]}/',
+            date=datetime.fromtimestamp(data['upload_date'], tz=UTC).strftime('%Y-%m'),
+            cover_url=f'{cls.COVER_DOMAIN}/{data["cover"]["path"]}',
+            url=f'{cls.SITE_URL}/g/{data["id"]}/',
         )
 
     @staticmethod
     def _filter_tags(tags: list[dict], tag_type: str) -> list[str]:
         return [t['name'] for t in tags if t['type'] == tag_type]
-
-    @staticmethod
-    def _find_tag(tags: list[dict], tag_type: str) -> dict | None:
-        return next((t for t in tags if t['type'] == tag_type), None)

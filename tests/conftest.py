@@ -209,18 +209,6 @@ def hitomi_cover_route(respx_mock):
 
 
 @pytest.fixture
-def nhentai_api_route(respx_mock):
-    return respx_mock.get(url__startswith='https://nhentai.to/api/galleries/search')
-
-
-@pytest.fixture
-def nhentai_cover_route(respx_mock):
-    return respx_mock.get(url__startswith='https://t.nhentai.net/galleries/').mock(
-        return_value=httpx.Response(200, content=b'fake-nhentai-cover')
-    )
-
-
-@pytest.fixture
 def ban_command_instance(mock_whatsapp):
     from bot.domain.commands.ban import BanCommand
 

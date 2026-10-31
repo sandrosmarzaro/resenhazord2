@@ -47,8 +47,6 @@ class Settings(BaseSettings):
     telegram_bot_username: str = ''
     telegram_nsfw_chat_ids: str = ''
 
-    nhentai_mirror_url: str = 'https://nhentai.to'
-
     # yt-dlp cookies file (Netscape format) for login-gated sources (Instagram, etc.).
     # Empty = no auth; path is in-container, mounted as a secret on the core node.
     ytdlp_cookies: str = ''

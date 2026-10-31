@@ -8,7 +8,7 @@ from bot.domain.commands.rule34 import Rule34Command
 def nsfw_commands():
     return [
         PornoCommand(),
-        HentaiCommand(nhentai_mirror_url='https://example.test'),
+        HentaiCommand(),
         Rule34Command(),
         FuckCommand(),
     ]
