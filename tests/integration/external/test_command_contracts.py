@@ -1,3 +1,4 @@
+import httpx
 import pytest
 from structlog.testing import capture_logs
 
@@ -9,8 +10,16 @@ from tests.factories.command_data import GroupCommandDataFactory
 pytestmark = pytest.mark.external
 
 
-def _call(text: str, needs: str = '') -> object:
-    return pytest.param(text, needs, id=text)
+# Not flaky: moneyconvert answers 403 to GitHub's runners every night and 200 to the core
+# node, so a retry can't help. Only an HTTP error is tolerated, so a changed response
+# still fails, and the test still passes wherever the upstream answers.
+_BLOCKS_THE_RUNNER = pytest.mark.xfail(
+    raises=httpx.HTTPStatusError, strict=False, reason='the upstream blocks GitHub runners'
+)
+
+
+def _call(text: str, needs: str = '', *marks: pytest.Mark) -> object:
+    return pytest.param(text, needs, id=text, marks=marks)
 
 
 # One real invocation per upstream a command reaches, with the setting its key lives
@@ -27,7 +36,7 @@ _CALLS = [
     _call(',carro wiki'),
     _call(',cr'),
     _call(',cr deck'),
-    _call(',moeda'),
+    _call(',moeda', '', _BLOCKS_THE_RUNNER),
     _call(',fato'),
     _call(',fato hoje'),
     _call(',fipe'),
