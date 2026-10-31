@@ -455,6 +455,116 @@ class TestRedelivery:
         assert handler.handle.await_count == 2
 
 
+class _HeldHandler:
+    """Keeps every command running until released, to deliver another one meanwhile."""
+
+    def __init__(self) -> None:
+        self.runs = 0
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def handle(self, data, *, on_match):
+        self.runs += 1
+        self.started.set()
+        await self.release.wait()
+        return []
+
+
+class TestConcurrentDelivery:
+    # Long enough for a skipped delivery to finish, short enough to fail fast when it doesn't.
+    SKIP_DEADLINE_SECONDS = 0.05
+    BOTH_RAN = 2
+
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def inbox(self):
+        return RedisCommandInbox(FakeRedis())
+
+    async def _deliver_while_running(
+        self, broker: MockBrokerPort, handler: _HeldHandler, first: bytes, second: bytes
+    ) -> None:
+        running = asyncio.create_task(broker.deliver('commands', first))
+        await handler.started.wait()
+        duplicate = asyncio.create_task(broker.deliver('commands', second))
+        await asyncio.wait({duplicate}, timeout=self.SKIP_DEADLINE_SECONDS)
+        handler.release.set()
+        await asyncio.gather(running, duplicate)
+
+    @pytest.mark.anyio
+    async def test_same_message_while_running_runs_and_replies_once(self, inbox):
+        broker = MockBrokerPort()
+        handler = _HeldHandler()
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping', message_id='MSG-1')
+
+        await self._deliver_while_running(broker, handler, body, body)
+
+        assert handler.runs == 1
+        assert _queues(broker) == ['replies']
+
+    @pytest.mark.anyio
+    async def test_commands_without_message_id_both_run(self, inbox):
+        broker = MockBrokerPort()
+        handler = _HeldHandler()
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping')
+
+        await self._deliver_while_running(broker, handler, body, body)
+
+        assert handler.runs == self.BOTH_RAN
+
+    @pytest.mark.anyio
+    async def test_same_id_in_another_chat_runs_while_the_first_runs(self, inbox):
+        broker = MockBrokerPort()
+        handler = _HeldHandler()
+        await CommandConsumer(broker, handler, inbox).start()
+        first = _envelope('ping', jid='a@g.us', message_id='MSG-1')
+        second = _envelope('ping', jid='b@g.us', message_id='MSG-1')
+
+        await self._deliver_while_running(broker, handler, first, second)
+
+        assert handler.runs == self.BOTH_RAN
+
+    @pytest.mark.anyio
+    async def test_redelivery_after_a_crash_runs_on_the_restarted_consumer(self, inbox):
+        crashed_broker = MockBrokerPort()
+        crashed_handler = _HeldHandler()
+        await CommandConsumer(crashed_broker, crashed_handler, inbox).start()
+        body = _envelope('ping', message_id='MSG-1')
+        running = asyncio.create_task(crashed_broker.deliver('commands', body))
+        await crashed_handler.started.wait()
+        running.cancel()
+        await asyncio.wait({running})
+        broker = MockBrokerPort()
+        handler = _HeldHandler()
+        handler.release.set()
+        await CommandConsumer(broker, handler, inbox).start()
+
+        await broker.deliver('commands', body)
+
+        assert handler.runs == 1
+        assert _queues(broker) == ['replies']
+
+    @pytest.mark.anyio
+    async def test_message_runs_again_once_a_failed_run_let_it_go(self, inbox):
+        broker = MockBrokerPort()
+        handler = _HeldHandler()
+        await CommandConsumer(broker, handler, inbox).start()
+        body = _envelope('ping', message_id='MSG-1')
+        running = asyncio.create_task(broker.deliver('commands', body))
+        await handler.started.wait()
+        running.cancel()
+        await asyncio.wait({running})
+        handler.release.set()
+
+        await broker.deliver('commands', body)
+
+        assert handler.runs == self.BOTH_RAN
+
+
 class _LaneHandler:
     """Records how many replies were already out when each command started running."""
 
