@@ -1,6 +1,5 @@
 import random
 
-import httpx
 import structlog
 
 from bot.data.car_brands import FIPE_BRANDS
@@ -8,7 +7,7 @@ from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.domain.services.car_model_name import CarModelName
+from bot.domain.services.car_image_finder import CarImageFinder
 from bot.infrastructure.http_client import HttpClient
 from bot.infrastructure.wikimedia_client import WikimediaClient
 
@@ -52,22 +51,9 @@ class CarCommand(Command):
             details = await self._fetch_details(base, model['codigo'], years)
             caption = self._build_caption(brand, model, details)
 
-            base_name = CarModelName.base(model['nome'])
-            wiki_name = CarModelName.wiki(model['nome'])
-            try:
-                thumb = await self._find_image(brand.name, wiki_name, base_name, parsed)
-            except httpx.HTTPError, KeyError, ValueError:
-                logger.warning(
-                    'upstream_failed', upstream='wikipedia', brand=brand.name, model=model['nome']
-                )
-                thumb = None
-
-            if not thumb:
-                try:
-                    thumb = await self._fetch_brand_logo(brand.name)
-                except httpx.HTTPError, KeyError, ValueError:
-                    thumb = None
-
+            thumb = await CarImageFinder.find(
+                brand.name, model['nome'], wiki_only='wiki' in parsed.flags
+            )
             if not thumb:
                 return [Reply.to(data).text(caption)]
 
@@ -108,20 +94,3 @@ class CarCommand(Command):
         if year > cls.MAX_VALID_YEAR:
             return '0 km'
         return str(year)
-
-    async def _find_image(
-        self, brand_name: str, wiki_name: str, base_name: str, parsed: ParsedCommand
-    ) -> str | None:
-        page = await WikimediaClient.search_wikipedia(f'{brand_name} {wiki_name} car')
-        is_brand_only = CarModelName.is_brand_only_page(page.title)
-        thumb = None if is_brand_only else page.thumbnail
-
-        if not thumb and 'wiki' not in parsed.flags:
-            commons = await WikimediaClient.search_commons_files(f'{brand_name} {base_name}')
-            thumb = commons.thumbnail
-
-        return thumb
-
-    async def _fetch_brand_logo(self, brand_name: str) -> str | None:
-        page = await WikimediaClient.search_wikipedia(f'{brand_name} automobile manufacturer')
-        return page.thumbnail
