@@ -21,6 +21,7 @@ coverage.xml
 .env
 *.log
 mutants/
+.claude/worktrees/
 
 # Secrets / SSH keys (never commit)
 *.key
