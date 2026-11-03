@@ -4,13 +4,14 @@ import discord
 import structlog
 
 from bot.adapters.discord.renderer import DiscordResponseRenderer
+from bot.application.command_gate import CommandGate
 from bot.application.command_registry import CommandRegistry
 from bot.application.config_service import ConfigService
 from bot.application.message_preprocess import preprocess_messages
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, OptionDef, Platform
-from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
+from bot.domain.services.dev_list import DevListService
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.ports.discord_port import DiscordPort
 
@@ -24,9 +25,11 @@ class DiscordInteractionHandler:
         self,
         renderer: DiscordResponseRenderer | None = None,
         config_service: ConfigService | None = None,
+        dev_list: DevListService | None = None,
     ) -> None:
         self._renderer = renderer or DiscordResponseRenderer()
         self._config = config_service or ConfigService(CachedConfigStore.instance())
+        self._gate = CommandGate(dev_list or DevListService(), self._config)
         self._name_map: dict[str, str] = {}
 
     def register_name(self, discord_name: str, registry_text: str) -> None:
@@ -54,8 +57,9 @@ class DiscordInteractionHandler:
             return
 
         data = self._build_command_data(interaction, text)
-        if not await self._config.is_enabled(data, strategy.config):
-            await port.send_followup(COMMAND_OFF_IN_CHAT)
+        rejection = await self._gate.rejection_text(strategy, data)
+        if rejection:
+            await port.send_followup(rejection)
             return
         await self._run_and_reply(port, strategy, data, command_name)
 
