@@ -3,13 +3,17 @@ import tempfile
 from pathlib import Path
 from typing import ClassVar
 
+from bot.data.sticker import COVER_STICKER_TYPES, VIDEO_ALPHA_MASKS
+
 
 class VideoStickerEncoder:
     MAX_VIDEO_DURATION: ClassVar[int] = 10
     VIDEO_FPS: ClassVar[int] = 15
 
     @classmethod
-    async def encode(cls, buffer: bytes, quality: int, working_size: int) -> bytes:
+    async def encode(
+        cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
+    ) -> bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
             input_path = Path(tmpdir) / 'input'
             output_path = Path(tmpdir) / 'output.webp'
@@ -22,15 +26,7 @@ class VideoStickerEncoder:
                 '-vcodec',
                 'libwebp',
                 '-vf',
-                (
-                    # Without an alpha channel the transparent pad comes out black.
-                    'format=rgba,'
-                    f'scale={working_size}:{working_size}:'
-                    'force_original_aspect_ratio=decrease:flags=bilinear,'
-                    f'fps={cls.VIDEO_FPS},'
-                    f'pad={working_size}:{working_size}:-1:-1:color=0x00000000,'
-                    'scale=512:512:flags=neighbor'
-                ),
+                cls._filter_graph(sticker_type, working_size),
                 '-quality',
                 str(quality),
                 '-loop',
@@ -53,3 +49,22 @@ class VideoStickerEncoder:
                 raise RuntimeError(msg)
 
             return output_path.read_bytes()
+
+    @classmethod
+    def _filter_graph(cls, sticker_type: str, working_size: int) -> str:
+        size = f'{working_size}:{working_size}'
+        fps = f'fps={cls.VIDEO_FPS}'
+        # Without an alpha channel the transparent pad and the masks come out black.
+        if sticker_type in COVER_STICKER_TYPES:
+            fit = (
+                f'scale={size}:force_original_aspect_ratio=increase:flags=bilinear,{fps},'
+                f'crop={size}'
+            )
+        else:
+            fit = (
+                f'scale={size}:force_original_aspect_ratio=decrease:flags=bilinear,{fps},'
+                f'pad={size}:-1:-1:color=0x00000000'
+            )
+        mask = VIDEO_ALPHA_MASKS.get(sticker_type)
+        shape = f",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{mask}'" if mask else ''
+        return f'format=rgba,{fit}{shape},scale=512:512:flags=neighbor'

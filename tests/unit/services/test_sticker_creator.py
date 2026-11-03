@@ -302,6 +302,29 @@ class TestVideoShapesOnFfmpeg:
         assert self._alpha(result, (256, 5)) == 0
         assert self._alpha(result, (256, 256)) == 255
 
+    @pytest.mark.anyio
+    async def test_crop_fills_the_whole_sticker(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'crop')
+
+        assert self._alpha(result, (0, 0)) == 255
+        assert self._alpha(result, (256, 5)) == 255
+
+    @pytest.mark.anyio
+    async def test_circle_clears_everything_outside_the_circle(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'circle')
+
+        assert self._alpha(result, (0, 0)) == 0
+        assert self._alpha(result, (20, 20)) == 0
+        assert self._alpha(result, (256, 5)) == 255
+
+    @pytest.mark.anyio
+    async def test_rounded_clears_only_the_corners(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'rounded')
+
+        assert self._alpha(result, (0, 0)) == 0
+        assert self._alpha(result, (20, 20)) == 255
+        assert self._alpha(result, (5, 256)) == 255
+
 
 class TestVideoFfmpegCommand:
     FULL_FILTER = (
@@ -334,11 +357,32 @@ class TestVideoFfmpegCommand:
         )
 
     @pytest.mark.anyio
-    async def test_circle_video_runs_the_same_command_as_full(self, ffmpeg_argv) -> None:
-        await StickerCreator.create(VIDEO_BUFFER, 'full')
-        await StickerCreator.create(VIDEO_BUFFER, 'circle')
+    @pytest.mark.parametrize(
+        ('sticker_type', 'shape'),
+        [
+            ('crop', ''),
+            (
+                'circle',
+                ",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='255*lte(hypot(X+0.5-W/2,Y+0.5-H/2),W/2)'",
+            ),
+            (
+                'rounded',
+                ",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+                "a='255*lte(hypot(max(0,max(W/8-X-0.5,X+0.5-W+W/8)),"
+                "max(0,max(H/8-Y-0.5,Y+0.5-H+H/8))),W/8)'",
+            ),
+        ],
+    )
+    async def test_shaped_video_is_cropped_and_masked(
+        self, ffmpeg_argv, sticker_type, shape
+    ) -> None:
+        await StickerCreator.create(VIDEO_BUFFER, sticker_type)
 
-        assert ffmpeg_argv[0][3:-1] == ffmpeg_argv[1][3:-1]
+        vf = ffmpeg_argv[0][ffmpeg_argv[0].index('-vf') + 1]
+        assert vf == (
+            'format=rgba,scale=512:512:force_original_aspect_ratio=increase:flags=bilinear,'
+            f'fps=15,crop=512:512{shape},scale=512:512:flags=neighbor'
+        )
 
 
 class TestIsVideo:

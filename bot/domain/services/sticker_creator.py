@@ -27,7 +27,7 @@ class StickerCreator:
         quality = cls._effective_quality(quality_reduction)
         working_size = cls._effective_working_size(quality_reduction)
         if MediaFormat.is_video(buffer):
-            return await VideoStickerEncoder.encode(buffer, quality, working_size)
+            return await VideoStickerEncoder.encode(buffer, sticker_type, quality, working_size)
         # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
         # keep running.
         encode = (
