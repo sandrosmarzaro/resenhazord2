@@ -1,9 +1,16 @@
 import asyncio
+import math
 import tempfile
 from pathlib import Path
 from typing import ClassVar
 
-from bot.data.sticker import COVER_STICKER_TYPES, VIDEO_ALPHA_MASKS
+from bot.data.sticker import (
+    COVER_STICKER_TYPES,
+    MAX_ANIMATED_STICKER_BYTES,
+    MAX_FRAME_STRIDE,
+    VIDEO_ALPHA_MASKS,
+)
+from bot.domain.exceptions import StickerTooLargeError
 
 
 class VideoStickerEncoder:
@@ -16,44 +23,59 @@ class VideoStickerEncoder:
     ) -> bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
             input_path = Path(tmpdir) / 'input'
-            output_path = Path(tmpdir) / 'output.webp'
             input_path.write_bytes(buffer)
-
-            proc = await asyncio.create_subprocess_exec(
-                'ffmpeg',
-                '-i',
-                str(input_path),
-                '-vcodec',
-                'libwebp',
-                '-vf',
-                cls._filter_graph(sticker_type, working_size),
-                '-quality',
-                str(quality),
-                '-loop',
-                '0',
-                '-t',
-                str(cls.MAX_VIDEO_DURATION),
-                '-preset',
-                'default',
-                '-an',
-                '-vsync',
-                '0',
-                str(output_path),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await proc.communicate()
-
-            if proc.returncode != 0:
-                msg = f'ffmpeg failed: {stderr.decode().strip()}'
-                raise RuntimeError(msg)
-
-            return output_path.read_bytes()
+            # Like the animated webp path: drop frames only as a last resort, when the
+            # sticker is over the limit at full frame rate.
+            stride = 1
+            while stride <= MAX_FRAME_STRIDE:
+                output_path = Path(tmpdir) / f'output-{stride}.webp'
+                graph = cls._filter_graph(sticker_type, working_size, stride)
+                await cls._run_ffmpeg(input_path, output_path, graph, quality)
+                output = output_path.read_bytes()
+                if len(output) <= MAX_ANIMATED_STICKER_BYTES:
+                    return output
+                # Real footage shrinks about in proportion to the frames kept, so skip
+                # the strides that can't fit instead of paying an ffmpeg run for each.
+                stride = max(stride + 1, math.ceil(len(output) / MAX_ANIMATED_STICKER_BYTES))
+        raise StickerTooLargeError
 
     @classmethod
-    def _filter_graph(cls, sticker_type: str, working_size: int) -> str:
+    async def _run_ffmpeg(
+        cls, input_path: Path, output_path: Path, filter_graph: str, quality: int
+    ) -> None:
+        proc = await asyncio.create_subprocess_exec(
+            'ffmpeg',
+            '-i',
+            str(input_path),
+            '-vcodec',
+            'libwebp',
+            '-vf',
+            filter_graph,
+            '-quality',
+            str(quality),
+            '-loop',
+            '0',
+            '-t',
+            str(cls.MAX_VIDEO_DURATION),
+            '-preset',
+            'default',
+            '-an',
+            '-vsync',
+            '0',
+            str(output_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            msg = f'ffmpeg failed: {stderr.decode().strip()}'
+            raise RuntimeError(msg)
+
+    @classmethod
+    def _filter_graph(cls, sticker_type: str, working_size: int, stride: int) -> str:
         size = f'{working_size}:{working_size}'
-        fps = f'fps={cls.VIDEO_FPS}'
+        fps = f'fps={cls.VIDEO_FPS}/{stride}'
         # Without an alpha channel the transparent pad and the masks come out black.
         if sticker_type in COVER_STICKER_TYPES:
             fit = (

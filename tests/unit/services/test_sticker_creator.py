@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, STICKER_SIZE
+from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, MAX_FRAME_STRIDE, STICKER_SIZE
 from bot.domain.exceptions import StickerTooLargeError
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
@@ -17,19 +17,27 @@ VIDEO_BUFFER = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
 
 
 @pytest.fixture
-def ffmpeg_argv(mocker) -> list[tuple[str, ...]]:
-    calls: list[tuple[str, ...]] = []
-    proc = mocker.AsyncMock()
-    proc.communicate.return_value = (b'', b'')
-    proc.returncode = 0
+def fake_ffmpeg(mocker):
+    def install(*outputs: bytes) -> list[tuple[str, ...]]:
+        calls: list[tuple[str, ...]] = []
+        proc = mocker.AsyncMock()
+        proc.communicate.return_value = (b'', b'')
+        proc.returncode = 0
 
-    def fake_exec(*args, **_kwargs):
-        calls.append(args)
-        Path(args[-1]).write_bytes(b'fake-webp')
-        return proc
+        def fake_exec(*args, **_kwargs):
+            calls.append(args)
+            Path(args[-1]).write_bytes(outputs[min(len(calls), len(outputs)) - 1])
+            return proc
 
-    mocker.patch('asyncio.create_subprocess_exec', side_effect=fake_exec)
-    return calls
+        mocker.patch('asyncio.create_subprocess_exec', side_effect=fake_exec)
+        return calls
+
+    return install
+
+
+@pytest.fixture
+def ffmpeg_argv(fake_ffmpeg) -> list[tuple[str, ...]]:
+    return fake_ffmpeg(b'fake-webp')
 
 
 def _create_noise_webp(n_frames: int) -> bytes:
@@ -330,7 +338,7 @@ class TestVideoShapesOnFfmpeg:
 class TestVideoFfmpegCommand:
     FULL_FILTER = (
         'format=rgba,scale=512:512:force_original_aspect_ratio=decrease:flags=bilinear,'
-        'fps=15,pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
+        'fps=15/1,pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
     )
 
     @pytest.mark.anyio
@@ -382,8 +390,43 @@ class TestVideoFfmpegCommand:
         vf = ffmpeg_argv[0][ffmpeg_argv[0].index('-vf') + 1]
         assert vf == (
             'format=rgba,scale=512:512:force_original_aspect_ratio=increase:flags=bilinear,'
-            f'fps=15,crop=512:512{shape},scale=512:512:flags=neighbor'
+            f'fps=15/1,crop=512:512{shape},scale=512:512:flags=neighbor'
         )
+
+    @pytest.mark.anyio
+    async def test_oversized_video_is_encoded_again_with_fewer_frames(self, fake_ffmpeg) -> None:
+        oversized = b'x' * (MAX_ANIMATED_STICKER_BYTES + 1)
+        calls = fake_ffmpeg(oversized, b'fits')
+
+        result = await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        assert result == b'fits'
+        assert [argv[argv.index('-vf') + 1].split(',')[2] for argv in calls] == [
+            'fps=15/1',
+            'fps=15/2',
+        ]
+
+    @pytest.mark.anyio
+    async def test_far_oversized_video_jumps_to_the_stride_that_should_fit(
+        self, fake_ffmpeg
+    ) -> None:
+        calls = fake_ffmpeg(b'x' * (MAX_ANIMATED_STICKER_BYTES * 3), b'fits')
+
+        await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        assert [argv[argv.index('-vf') + 1].split(',')[2] for argv in calls] == [
+            'fps=15/1',
+            'fps=15/3',
+        ]
+
+    @pytest.mark.anyio
+    async def test_video_over_the_limit_at_every_stride_is_refused(self, fake_ffmpeg) -> None:
+        calls = fake_ffmpeg(b'x' * (MAX_ANIMATED_STICKER_BYTES + 1))
+
+        with pytest.raises(StickerTooLargeError):
+            await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        assert len(calls) == MAX_FRAME_STRIDE
 
 
 class TestIsVideo:
