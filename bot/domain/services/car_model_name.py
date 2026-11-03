@@ -1,14 +1,9 @@
-import re
-
-from bot.data.car import SPEC_TOKEN, SPEC_WORD_BASE, SPEC_WORD_WIKI
+from bot.data.car import BRAND_PAGE_SUFFIXES, SPEC_TOKEN, SPEC_WORD_BASE, SPEC_WORD_WIKI
 from bot.data.car_brands import FIPE_BRANDS
 
 
 class CarModelName:
     _BRAND_NAMES_LOWER: frozenset[str] = frozenset(b.name.lower() for b in FIPE_BRANDS)
-    _BRAND_SUFFIX_PATTERN = re.compile(
-        r'^(.+?)\s+(?:motors?|automobiles?|automotive|group|corporation|trucks?)$'
-    )
 
     @staticmethod
     def base(model_name: str) -> str:
@@ -41,5 +36,5 @@ class CarModelName:
         title_lower = page_title.lower()
         if title_lower in cls._BRAND_NAMES_LOWER:
             return True
-        match = cls._BRAND_SUFFIX_PATTERN.match(title_lower)
-        return bool(match and match.group(1) in cls._BRAND_NAMES_LOWER)
+        head, _, suffix = title_lower.rpartition(' ')
+        return suffix in BRAND_PAGE_SUFFIXES and head.rstrip() in cls._BRAND_NAMES_LOWER
