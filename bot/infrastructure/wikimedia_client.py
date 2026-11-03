@@ -13,9 +13,7 @@ class WikiPage:
 class WikimediaClient:
     WIKIPEDIA_API = 'https://en.wikipedia.org/w/api.php'
     COMMONS_API = 'https://commons.wikimedia.org/w/api.php'
-    USER_AGENT = (
-        'ResenhazordBot/2.0 (https://github.com/smarzaro/resenhazord2; bot@resenhazord.com)'
-    )
+    USER_AGENT = 'ResenhazordBot/2.0 (https://github.com/sandrosmarzaro/resenhazord2)'
     SEARCH_TIMEOUT = 8.0
     DOWNLOAD_TIMEOUT = 12.0
     THUMBNAIL_SIZE = 640

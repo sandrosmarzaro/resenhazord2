@@ -569,7 +569,7 @@ AUDI = next(b for b in FIPE_BRANDS if b.name == 'Audi')
 FIPE_AUDI = 'https://parallelum.com.br/fipe/api/v1/carros/marcas/6'
 WIKI_API = 'https://en.wikipedia.org/w/api.php'
 COMMONS_API = 'https://commons.wikimedia.org/w/api.php'
-CURRENT_UA = 'ResenhazordBot/2.0 (https://github.com/smarzaro/resenhazord2; bot@resenhazord.com)'
+BOT_USER_AGENT = 'ResenhazordBot/2.0 (https://github.com/sandrosmarzaro/resenhazord2)'
 EMPTY_PAGES = {'query': {'pages': {'1': {}}}}
 
 
@@ -640,7 +640,7 @@ class TestUpstreamRequests:
 
         request = wiki_route.calls[0].request
         assert dict(request.url.params) == _search_params('Audi Golf car')
-        assert request.headers['User-Agent'] == CURRENT_UA
+        assert request.headers['User-Agent'] == BOT_USER_AGENT
 
     @pytest.mark.anyio
     async def test_commons_searches_files_by_brand_and_base_model(
@@ -657,7 +657,7 @@ class TestUpstreamRequests:
 
         request = commons_route.calls[0].request
         assert dict(request.url.params) == _search_params('Audi Golf', gsrnamespace='6')
-        assert request.headers['User-Agent'] == CURRENT_UA
+        assert request.headers['User-Agent'] == BOT_USER_AGENT
 
     @pytest.mark.anyio
     async def test_brand_logo_searches_the_manufacturer_article(
@@ -674,7 +674,7 @@ class TestUpstreamRequests:
 
         request = wiki_route.calls[1].request
         assert dict(request.url.params) == _search_params('Audi automobile manufacturer')
-        assert request.headers['User-Agent'] == CURRENT_UA
+        assert request.headers['User-Agent'] == BOT_USER_AGENT
 
     @pytest.mark.anyio
     async def test_image_download_sends_the_bot_user_agent(
@@ -689,7 +689,7 @@ class TestUpstreamRequests:
 
         await command.run(GroupCommandDataFactory.build(text=',carro'))
 
-        assert image_route.calls[0].request.headers['User-Agent'] == CURRENT_UA
+        assert image_route.calls[0].request.headers['User-Agent'] == BOT_USER_AGENT
 
 
 class TestCaption:
