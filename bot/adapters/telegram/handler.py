@@ -64,9 +64,9 @@ class TelegramUpdateHandler:
 
         is_admin = await self._resolve_admin(port, strategy, chat, user)
         data = self._build_command_data(message, chat, user, text, is_admin=is_admin)
-        rejection, _ = await self._gate.admit(strategy, data, 1)
+        rejection = await self._gate.rejection_text(strategy, data)
         if rejection:
-            await self._reply_text(port, chat.id, rejection[0].content.text)
+            await self._reply_text(port, chat.id, rejection)
             return
 
         await TelegramAgentRouter.safe_react(port, chat.id, message.message_id)

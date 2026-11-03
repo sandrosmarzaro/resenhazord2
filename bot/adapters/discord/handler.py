@@ -57,9 +57,9 @@ class DiscordInteractionHandler:
             return
 
         data = self._build_command_data(interaction, text)
-        rejection, _ = await self._gate.admit(strategy, data, 1)
+        rejection = await self._gate.rejection_text(strategy, data)
         if rejection:
-            await port.send_followup(rejection[0].content.text)
+            await port.send_followup(rejection)
             return
         await self._run_and_reply(port, strategy, data, command_name)
 

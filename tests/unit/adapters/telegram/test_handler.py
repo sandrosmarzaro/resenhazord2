@@ -232,3 +232,23 @@ class TestScopeGating:
 
         strategy.run.assert_not_called()
         assert port.send.call_args.args[0].text == self.DISABLED
+
+    @pytest.mark.anyio
+    async def test_refuses_a_user_whose_id_matches_a_whatsapp_dev(self, handler, port, mocker):
+        whatsapp_dev = f'{DEFAULT_USER_ID}@s.whatsapp.net'
+        collection = mocker.MagicMock()
+        collection.find_one = mocker.AsyncMock(
+            side_effect=lambda query: (
+                {'_id': whatsapp_dev} if whatsapp_dev in query['_id']['$in'] else None
+            )
+        )
+        mocker.patch(
+            'bot.infrastructure.mongodb.MongoDBConnection.collection', return_value=collection
+        )
+        strategy = make_strategy(mocker, scope=CommandScope.DEV)
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/dev list'))
+
+        strategy.run.assert_not_called()
+        assert port.send.call_args.args[0].text == self.DEV_ONLY

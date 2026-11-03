@@ -7,11 +7,15 @@ from bot.infrastructure.mongodb import MongoDBConnection
 class DevListService:
     COLLECTION = 'dev_list'
     JID_SUFFIXES = ('@lid', '@s.whatsapp.net')
+    NAMESPACED_PREFIXES = ('discord:', 'telegram:')
 
     async def is_dev(self, jid: str) -> bool:
         col = MongoDBConnection.collection(self.COLLECTION)
+        # A namespaced key (discord:<id>) only matches itself, never a WhatsApp suffix.
+        if jid.startswith(self.NAMESPACED_PREFIXES):
+            return await col.find_one({'_id': {'$in': [jid]}}) is not None
         number = strip_jid(jid)
-        candidates = [jid, *(f'{number}{s}' for s in self.JID_SUFFIXES)]
+        candidates = [f'{number}{s}' for s in self.JID_SUFFIXES]
         return await col.find_one({'_id': {'$in': candidates}}) is not None
 
     async def add(self, jid: str) -> bool:
