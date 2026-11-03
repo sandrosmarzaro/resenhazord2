@@ -8,6 +8,7 @@ import pytest
 from PIL import Image
 
 from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, STICKER_SIZE
+from bot.domain.exceptions import StickerTooLargeError
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
 from bot.domain.services.sticker_creator import StickerCreator
@@ -532,13 +533,11 @@ class TestStickerCreatorAnimatedWebp:
         assert len(heavy) <= MAX_ANIMATED_STICKER_BYTES
 
     @pytest.mark.anyio
-    async def test_output_over_the_limit_at_every_stride_is_returned(self) -> None:
+    async def test_output_over_the_limit_at_every_stride_is_refused(self) -> None:
         noisy = _create_noise_webp(n_frames=4)
 
-        result = await StickerCreator.create(noisy, 'full')
-
-        assert len(result) > MAX_ANIMATED_STICKER_BYTES
-        assert getattr(self._open_webp(result), 'n_frames', 0) == 2
+        with pytest.raises(StickerTooLargeError, match='500 KB'):
+            await StickerCreator.create(noisy, 'full')
 
     def test_parse_webp_durations_pads_a_truncated_anmf_chunk(self) -> None:
         truncated = (

@@ -3,6 +3,7 @@ import io
 from PIL import Image
 
 from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, MAX_FRAME_STRIDE
+from bot.domain.exceptions import StickerTooLargeError
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
 
@@ -22,13 +23,12 @@ class AnimatedWebpEncoder:
         # Reduction degrades quality + pixelation; only drop frames as a last
         # resort when pixelation breaks inter-frame compression and the file
         # exceeds the animated-sticker limit.
-        output = b''
         max_stride = min(MAX_FRAME_STRIDE, max(1, n_frames // 2))
         for stride in range(1, max_stride + 1):
             output = cls._encode(all_frames, per_frame_ms, stride, quality)
             if len(output) <= MAX_ANIMATED_STICKER_BYTES:
                 return output
-        return output
+        raise StickerTooLargeError
 
     @classmethod
     def _encode(
