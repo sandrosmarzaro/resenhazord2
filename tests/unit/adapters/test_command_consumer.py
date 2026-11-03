@@ -5,10 +5,12 @@ import json
 import pytest
 import sentry_sdk
 from fakeredis.aioredis import FakeRedis
+from structlog.testing import capture_logs
 
 from bot.adapters.broker.command_consumer import CommandConsumer
-from bot.domain.commands.base import CommandConfig
+from bot.domain.commands.base import CommandConfig, Platform
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError, ValidationError
+from bot.domain.models.command_data import CommandData
 from bot.domain.models.contents.image_content import ImageBufferContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
@@ -35,6 +37,14 @@ def _envelope(
 
 def _queues(broker: MockBrokerPort) -> list[str]:
     return [queue for queue, _ in broker.published]
+
+
+def _exhausted_logs(logs: list[dict]) -> list[dict]:
+    return [
+        {key: log[key] for key in ('log_level', 'attempts', 'error')}
+        for log in logs
+        if log['event'] == 'command_retries_exhausted'
+    ]
 
 
 class TestDispatch:
@@ -148,31 +158,31 @@ class TestRetry:
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
         handler.handle.side_effect = DownloadError('video gone')
-        logger = mocker.patch('bot.adapters.broker.command_consumer.logger')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        with capture_logs() as logs:
+            await broker.deliver('commands', _envelope('ping'))
 
-        logger.warning.assert_called_once_with(
-            'command_retries_exhausted', attempts=1, error='video gone'
-        )
-        logger.error.assert_not_called()
+        assert _exhausted_logs(logs) == [
+            {'log_level': 'warning', 'attempts': 1, 'error': 'video gone'}
+        ]
+        assert [log for log in logs if log['log_level'] == 'error'] == []
 
     @pytest.mark.anyio
     async def test_exhausted_external_error_dlq_logs_at_error(self, mocker):
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
         handler.handle.side_effect = ExternalServiceError('still down')
-        logger = mocker.patch('bot.adapters.broker.command_consumer.logger')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver(
-            'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
-        )
+        with capture_logs() as logs:
+            await broker.deliver(
+                'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+            )
 
-        logger.error.assert_called_once_with(
-            'command_retries_exhausted', attempts=CommandConsumer.MAX_ATTEMPTS, error='still down'
-        )
+        assert _exhausted_logs(logs) == [
+            {'log_level': 'error', 'attempts': CommandConsumer.MAX_ATTEMPTS, 'error': 'still down'}
+        ]
 
     @pytest.mark.anyio
     async def test_validation_error_replies_without_retry(self, mocker):
@@ -352,7 +362,7 @@ class TestMetrics:
     @pytest.mark.anyio
     async def test_scheduled_retry_tags_external_outcome_and_counts_retry(self, mocker):
         span = self._span(mocker)
-        retry = mocker.patch('bot.adapters.broker.command_consumer.record_retry')
+        retries = mocker.patch('bot.infrastructure.metrics._retries')
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
         handler.handle.side_effect = ExternalServiceError('api down')
@@ -361,12 +371,12 @@ class TestMetrics:
         await broker.deliver('commands', _envelope('ping'))
 
         span.set_attribute.assert_called_once_with('command.outcome', 'external_error')
-        retry.assert_called_once()
+        retries.add.assert_called_once_with(1)
 
     @pytest.mark.anyio
     async def test_exhausted_retries_count_dlq(self, mocker):
         self._span(mocker)
-        dlq = mocker.patch('bot.adapters.broker.command_consumer.record_dlq')
+        dlq = mocker.patch('bot.infrastructure.metrics._dlq')
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
         handler.handle.side_effect = ExternalServiceError('still down')
@@ -376,7 +386,7 @@ class TestMetrics:
             'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
         )
 
-        dlq.assert_called_once()
+        dlq.add.assert_called_once_with(1)
 
 
 class TestRedelivery:
@@ -620,3 +630,159 @@ class TestExclusiveLane:
         await self._deliver_together(broker, 'boom', 'second')
 
         assert handler.replies_out_at_start == {'boom': 0, 'second': 1}
+
+
+_TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
+_TRACEPARENT = f'00-{_TRACE_ID}-b7ad6b7169203331-01'
+_FULL_PAYLOAD = {
+    'text': ',sticker',
+    'jid': 'g@g.us',
+    'sender_jid': 'u@s.whatsapp.net',
+    'participant': 'p@s.whatsapp.net',
+    'is_group': True,
+    'expiration': 86400,
+    'mentioned_jids': ['m@s.whatsapp.net'],
+    'quoted_message_id': 'Q-1',
+    'quoted_text': 'quoted',
+    'media_type': 'image',
+    'media_source': 'quoted',
+    'media_is_animated': True,
+    'media_caption': 'caption',
+    'media_buffer_b64': base64.b64encode(b'media').decode(),
+    'message_id': 'MSG-1',
+    'push_name': 'Fulano',
+}
+
+
+def _full_envelope(**extra: object) -> dict:
+    return {'id': 'corr-1', 'traceparent': _TRACEPARENT, 'data': _FULL_PAYLOAD, **extra}
+
+
+class _RecordingInbox:
+    """Records which queues had a publish when each message was marked answered."""
+
+    def __init__(self, broker: MockBrokerPort) -> None:
+        self._broker = broker
+        self.marked: list[tuple[str, list[str]]] = []
+
+    async def is_done(self, key: str) -> bool:
+        return False
+
+    async def mark_done(self, key: str) -> None:
+        self.marked.append((key, _queues(self._broker)))
+
+
+class TestQueueContract:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_declares_the_publish_targets_and_consumes_commands(self, mocker):
+        broker = MockBrokerPort()
+
+        await CommandConsumer(broker, mocker.AsyncMock()).start()
+
+        assert broker.declared == ['replies', 'commands.dlq', 'commands.retry']
+        assert broker.retry_queues == [('commands.retry', 30_000, 'commands')]
+
+    @pytest.mark.anyio
+    async def test_maps_every_payload_field_into_command_data(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', json.dumps(_full_envelope()).encode())
+
+        assert handler.handle.await_args.args[0] == CommandData(
+            text=',sticker',
+            jid='g@g.us',
+            sender_jid='u@s.whatsapp.net',
+            participant='p@s.whatsapp.net',
+            is_group=True,
+            expiration=86400,
+            mentioned_jids=['m@s.whatsapp.net'],
+            quoted_message_id='Q-1',
+            quoted_text='quoted',
+            media_type='image',
+            media_source='quoted',
+            media_is_animated=True,
+            media_caption='caption',
+            media_buffer=b'media',
+            message_id='MSG-1',
+            push_name='Fulano',
+            platform=Platform.WHATSAPP,
+        )
+
+    @pytest.mark.anyio
+    async def test_reply_body_is_pinned(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = [
+            BotMessage(jid='g@g.us', content=TextContent('pong')),
+            BotMessage(jid='g@g.us', content=ImageBufferContent(b'\x01\x02\x03', caption='oi')),
+        ]
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', json.dumps(_full_envelope()).encode())
+
+        queue, body = broker.published[0]
+        reply = json.loads(body)
+        assert queue == 'replies'
+        assert reply.pop('traceparent').split('-')[1] == _TRACE_ID
+        assert reply == {
+            'id': 'corr-1',
+            'messages': [
+                {'jid': 'g@g.us', 'content': {'type': 'text', 'text': 'pong'}},
+                {
+                    'jid': 'g@g.us',
+                    'content': {
+                        'type': 'image_buffer',
+                        'view_once': True,
+                        'caption': 'oi',
+                        'buffer_b64': 'AQID',
+                    },
+                },
+            ],
+        }
+
+    @pytest.mark.anyio
+    async def test_retry_republishes_the_envelope_with_the_attempt_count(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('api down')
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', json.dumps(_full_envelope(attempts=1)).encode())
+
+        queue, body = broker.published[0]
+        assert queue == 'commands.retry'
+        assert json.loads(body) == _full_envelope(attempts=2)
+
+    @pytest.mark.anyio
+    async def test_dead_letter_is_the_envelope_as_received_then_the_error_reply(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('still down')
+        await CommandConsumer(broker, handler).start()
+        envelope = _full_envelope(attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+
+        await broker.deliver('commands', json.dumps(envelope).encode())
+
+        (dlq_queue, dlq_body), (reply_queue, reply_body) = broker.published
+        assert (dlq_queue, json.loads(dlq_body)) == ('commands.dlq', envelope)
+        assert reply_queue == 'replies'
+        assert json.loads(reply_body)['messages'][0]['content']['text'] == 'still down'
+
+    @pytest.mark.anyio
+    async def test_marks_the_chat_scoped_message_id_answered_after_the_reply(self, mocker):
+        broker = MockBrokerPort()
+        inbox = _RecordingInbox(broker)
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler, inbox).start()
+
+        await broker.deliver('commands', json.dumps(_full_envelope()).encode())
+
+        assert inbox.marked == [('g@g.us:MSG-1', ['replies'])]
