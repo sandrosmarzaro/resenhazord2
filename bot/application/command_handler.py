@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 import structlog
 
 from bot.application.command_registry import CommandRegistry
+from bot.application.command_text import CommandText
 from bot.application.config_service import ConfigService
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandScope
@@ -14,7 +15,6 @@ from bot.domain.constants import (
     BOT_MENTION_TAG,
     CLARIFY_PREFIX,
     COMMAND_OFF_IN_CHAT,
-    SUGGEST_PREFIX,
 )
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
@@ -33,14 +33,10 @@ class CommandHandler:
     _DISABLED_MSG: ClassVar[str] = 'Esse comando está desativado. 🚫'
     _OFF_HERE_MSG: ClassVar[str] = COMMAND_OFF_IN_CHAT
     _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
-    _BATCH_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'\s+(\d+)x\s*$')
-    _MAX_BATCH: ClassVar[int] = 5
     _SEND_ME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
         r'\b(mande|me\s+manda|me\s+envie|envie)\s+(um?|uma)\b',
         re.IGNORECASE,
     )
-    _CLARIFY_PREFIX: ClassVar[str] = CLARIFY_PREFIX
-    _SUGGEST_PREFIX: ClassVar[str] = SUGGEST_PREFIX
 
     def __init__(
         self,
@@ -79,10 +75,10 @@ class CommandHandler:
                 return None
             data = mapped
 
-        repeat, data = self._parse_batch(data)
+        repeat, data = CommandText.split_batch(data)
         logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
 
-        if builtin := self._parse_builtin_prefix(data):
+        if builtin := CommandText.builtin_reply(data):
             return builtin
 
         command = self._registry.get_strategy(data.text)
@@ -166,23 +162,3 @@ class CommandHandler:
         except ValueError:
             logger.warning('agent_invalid_response', text=data.text)
             return replace(data, text=f'{CLARIFY_PREFIX}Erro inesperado. {AGENT_MENU_HINT}')
-
-    @classmethod
-    def _parse_batch(cls, data: CommandData) -> tuple[int, CommandData]:
-        match = cls._BATCH_PATTERN.search(data.text)
-        if not match:
-            return 1, data
-        count = min(int(match.group(1)), cls._MAX_BATCH)
-        stripped_text = data.text[: match.start()]
-        return max(count, 1), replace(data, text=stripped_text)
-
-    @classmethod
-    def _parse_builtin_prefix(cls, data: CommandData) -> list[BotMessage] | None:
-        text = data.text or ''
-        if text.startswith(cls._CLARIFY_PREFIX):
-            message = text[len(cls._CLARIFY_PREFIX) :].strip() or AGENT_MENU_HINT
-            return [Reply.to(data).text(message)]
-        if text.startswith(cls._SUGGEST_PREFIX):
-            message = text[len(cls._SUGGEST_PREFIX) :].strip() or AGENT_MENU_HINT
-            return [Reply.to(data).text(message)]
-        return None
