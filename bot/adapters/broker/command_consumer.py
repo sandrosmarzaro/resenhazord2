@@ -11,13 +11,13 @@ from opentelemetry import trace
 
 from bot.adapters.broker.command_envelope import CommandEnvelope
 from bot.adapters.broker.delivery_guard import DeliveryGuard
+from bot.adapters.broker.retry_router import RetryRouter
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command
-from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError
+from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.infrastructure.metrics import record_dlq, record_retry
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
 from bot.ports.command_inbox_port import CommandInboxPort
@@ -31,8 +31,8 @@ class CommandConsumer:
     REPLIES_QUEUE = 'replies'
     RETRY_QUEUE = 'commands.retry'
     DLQ_QUEUE = 'commands.dlq'
-    MAX_ATTEMPTS: ClassVar[int] = 3
-    DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = 1
+    MAX_ATTEMPTS: ClassVar[int] = RetryRouter.MAX_ATTEMPTS
+    DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = RetryRouter.DOWNLOAD_MAX_ATTEMPTS
     RETRY_TTL_MS: ClassVar[int] = 30_000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
@@ -45,6 +45,7 @@ class CommandConsumer:
         self._broker = broker
         self._command_handler = command_handler
         self._delivery = DeliveryGuard(inbox)
+        self._retries = RetryRouter(broker, self.RETRY_QUEUE, self.DLQ_QUEUE)
         self._exclusive_lane = asyncio.Lock()
 
     async def start(self) -> None:
@@ -137,27 +138,8 @@ class CommandConsumer:
     async def _retry_or_fail(
         self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError
     ) -> None:
-        attempts = envelope.get('attempts', 0) + 1
-        if attempts < self._max_attempts(error):
-            envelope['attempts'] = attempts
-            await self._broker.publish(self.RETRY_QUEUE, json.dumps(envelope).encode())
-            logger.warning('command_retry_scheduled', attempts=attempts, error=str(error))
-            record_retry()
-            return
-        # A permanently-failed download (blocked/private/unsupported URL) is an
-        # expected user outcome already answered with a friendly reply, not an
-        # incident — log it below Sentry's error capture. A non-download error
-        # exhausting the full ladder is a real outage and stays at error level.
-        log = logger.warning if isinstance(error, DownloadError) else logger.error
-        log('command_retries_exhausted', attempts=attempts, error=str(error))
-        record_dlq()
-        await self._broker.publish(self.DLQ_QUEUE, json.dumps(envelope).encode())
-        await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
-
-    @classmethod
-    def _max_attempts(cls, error: ExternalServiceError) -> int:
-        # yt-dlp failures are usually permanent, so they skip the multi-minute ladder.
-        return cls.DOWNLOAD_MAX_ATTEMPTS if isinstance(error, DownloadError) else cls.MAX_ATTEMPTS
+        if await self._retries.route(envelope, error):
+            await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
 
     async def _publish_reply(self, envelope: dict[str, Any], messages: list[BotMessage]) -> None:
         reply = CommandEnvelope.reply(envelope['id'], messages)
