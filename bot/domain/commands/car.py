@@ -1,37 +1,24 @@
 import random
-import re
-from typing import Any
-from urllib.parse import quote
 
 import httpx
 import structlog
 
-from bot.data.car import SPEC_TOKEN, SPEC_WORD_BASE, SPEC_WORD_WIKI
 from bot.data.car_brands import FIPE_BRANDS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.infrastructure.http_client import HttpClient
+from bot.domain.services.car_image_finder import CarImageFinder
+from bot.infrastructure.fipe_client import FipeClient
+from bot.infrastructure.wikimedia_client import WikimediaClient
 
 logger = structlog.get_logger()
 
 
 class CarCommand(Command):
-    FIPE_BASE = 'https://parallelum.com.br/fipe/api/v1/carros/marcas'
-    WIKI_API = 'https://en.wikipedia.org/w/api.php'
-    COMMONS_API = 'https://commons.wikimedia.org/w/api.php'
-    WIKI_UA = 'ResenhazordBot/2.0 (https://github.com/smarzaro/resenhazord2; bot@resenhazord.com)'
-    FIPE_TIMEOUT = 8.0
-    WIKI_TIMEOUT = 8.0
-    IMG_TIMEOUT = 12.0
     MAX_YEAR_RETRIES = 3
     MAX_VALID_YEAR = 2030
-
-    _BRAND_NAMES_LOWER: frozenset[str] = frozenset(b.name.lower() for b in FIPE_BRANDS)
-    _BRAND_SUFFIX_PATTERN = re.compile(
-        r'^(.+?)\s+(?:motors?|automobiles?|automotive|group|corporation|trucks?)$'
-    )
+    NOT_FOUND_MESSAGE = 'Ops, não achei esse carro agora! 🚗'
 
     @property
     def config(self) -> CommandConfig:
@@ -50,60 +37,36 @@ class CarCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
             brand = random.choice(FIPE_BRANDS)
-            base = f'{self.FIPE_BASE}/{brand.fipe_code}'
+            model = random.choice(await FipeClient.models(brand.fipe_code))
+            years = await FipeClient.years(brand.fipe_code, model['codigo'])
 
-            models_res = await HttpClient.get(f'{base}/modelos', timeout=self.FIPE_TIMEOUT)
-            models_data = models_res.json()
-            model = random.choice(models_data['modelos'])
-
-            years_res = await HttpClient.get(
-                f'{base}/modelos/{model["codigo"]}/anos', timeout=self.FIPE_TIMEOUT
-            )
-            years = years_res.json()
-
-            details = await self._fetch_details(base, model['codigo'], years)
+            details = await self._fetch_details(brand.fipe_code, model['codigo'], years)
             caption = self._build_caption(brand, model, details)
 
-            base_name = self._base_model_name(model['nome'])
-            wiki_name = self._wiki_model_name(model['nome'])
-            try:
-                thumb = await self._find_image(brand.name, wiki_name, base_name, parsed)
-            except httpx.HTTPError, KeyError, ValueError:
-                logger.warning(
-                    'upstream_failed', upstream='wikipedia', brand=brand.name, model=model['nome']
-                )
-                thumb = None
-
-            if not thumb:
-                try:
-                    thumb = await self._fetch_brand_logo(brand.name)
-                except httpx.HTTPError, KeyError, ValueError:
-                    thumb = None
-
+            thumb = await CarImageFinder.find(
+                brand.name, model['nome'], wiki_only='wiki' in parsed.flags
+            )
             if not thumb:
                 return [Reply.to(data).text(caption)]
 
-            buffer = await HttpClient.get_buffer(
-                thumb,
-                timeout=self.IMG_TIMEOUT,
-                headers={'User-Agent': self.WIKI_UA},
-            )
+            buffer = await WikimediaClient.download(thumb)
             return [Reply.to(data).image_buffer(buffer, caption)]
+        except httpx.HTTPError as error:
+            logger.warning('upstream_failed', upstream='parallelum/wikipedia', error=str(error))
+            return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
         except Exception:
             logger.exception('upstream_failed', upstream='parallelum/wikipedia')
-            return [Reply.to(data).text('Ops, não achei esse carro agora! 🚗')]
+            return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
 
-    async def _fetch_details(self, base: str, model_code: int, years: list[dict]) -> dict | None:
+    async def _fetch_details(
+        self, brand_code: str, model_code: int, years: list[dict]
+    ) -> dict | None:
         shuffled = years.copy()
         random.shuffle(shuffled)
         for year in shuffled[: self.MAX_YEAR_RETRIES]:
-            res = await HttpClient.get(
-                f'{base}/modelos/{model_code}/anos/{year["codigo"]}',
-                timeout=self.FIPE_TIMEOUT,
-            )
-            data = res.json()
-            if 'error' not in data:
-                return data
+            details = await FipeClient.details(brand_code, model_code, year['codigo'])
+            if 'error' not in details:
+                return details
         return None
 
     def _build_caption(self, brand, model: dict, details: dict | None) -> str:
@@ -124,97 +87,3 @@ class CarCommand(Command):
         if year > cls.MAX_VALID_YEAR:
             return '0 km'
         return str(year)
-
-    async def _find_image(
-        self, brand_name: str, wiki_name: str, base_name: str, parsed: ParsedCommand
-    ) -> str | None:
-        search_term = quote(f'{brand_name} {wiki_name} car')
-        wiki_url = (
-            f'{self.WIKI_API}?action=query&generator=search'
-            f'&gsrsearch={search_term}&gsrlimit=1&prop=pageimages&pithumbsize=640&format=json'
-        )
-        wiki_res = await HttpClient.get(
-            wiki_url,
-            timeout=self.WIKI_TIMEOUT,
-            headers={'User-Agent': self.WIKI_UA},
-        )
-        wiki_data = wiki_res.json()
-        pages: dict[str, Any] = (wiki_data.get('query') or {}).get('pages') or {}
-        first_page: dict[str, Any] = next(iter(pages.values()), {})
-        page_title = first_page.get('title', '')
-        raw_thumb = (first_page.get('thumbnail') or {}).get('source')
-
-        is_brand_only = self._is_brand_only_page(brand_name, page_title)
-        thumb = None if is_brand_only else raw_thumb
-
-        if not thumb and 'wiki' not in parsed.flags:
-            thumb = await self._search_commons(brand_name, base_name)
-
-        return thumb
-
-    def _is_brand_only_page(self, brand_name: str, page_title: str) -> bool:
-        if not page_title:
-            return False
-        title_lower = page_title.lower()
-        if title_lower in self._BRAND_NAMES_LOWER:
-            return True
-        match = self._BRAND_SUFFIX_PATTERN.match(title_lower)
-        return bool(match and match.group(1) in self._BRAND_NAMES_LOWER)
-
-    async def _search_commons(self, brand_name: str, base_name: str) -> str | None:
-        commons_search = quote(f'{brand_name} {base_name}')
-        commons_url = (
-            f'{self.COMMONS_API}?action=query&generator=search'
-            f'&gsrsearch={commons_search}&gsrnamespace=6&gsrlimit=1'
-            f'&prop=pageimages&pithumbsize=640&format=json'
-        )
-        commons_res = await HttpClient.get(
-            commons_url,
-            timeout=self.WIKI_TIMEOUT,
-            headers={'User-Agent': self.WIKI_UA},
-        )
-        commons_data = commons_res.json()
-        commons_pages: dict[str, Any] = (commons_data.get('query') or {}).get('pages') or {}
-        first: dict[str, Any] = next(iter(commons_pages.values()), {})
-        return (first.get('thumbnail') or {}).get('source')
-
-    async def _fetch_brand_logo(self, brand_name: str) -> str | None:
-        search_term = quote(f'{brand_name} automobile manufacturer')
-        wiki_url = (
-            f'{self.WIKI_API}?action=query&generator=search'
-            f'&gsrsearch={search_term}&gsrlimit=1&prop=pageimages'
-            f'&pithumbsize=640&format=json'
-        )
-        res = await HttpClient.get(
-            wiki_url,
-            timeout=self.WIKI_TIMEOUT,
-            headers={'User-Agent': self.WIKI_UA},
-        )
-        data = res.json()
-        pages: dict[str, Any] = (data.get('query') or {}).get('pages') or {}
-        first: dict[str, Any] = next(iter(pages.values()), {})
-        return (first.get('thumbnail') or {}).get('source')
-
-    @staticmethod
-    def _base_model_name(nome: str) -> str:
-        words = nome.strip().split()
-        stop = next(
-            (i for i, w in enumerate(words) if SPEC_TOKEN.match(w) or w.lower() in SPEC_WORD_BASE),
-            -1,
-        )
-        return ' '.join(words[:stop] if stop > 0 else words)
-
-    @staticmethod
-    def _wiki_model_name(nome: str) -> str:
-        words = []
-        for token in nome.strip().split():
-            words.extend(token.split('/'))
-        stop = next(
-            (
-                i
-                for i, w in enumerate(words)
-                if SPEC_TOKEN.match(w) or w.rstrip('.,').lower() in SPEC_WORD_WIKI
-            ),
-            -1,
-        )
-        return ' '.join(words[:stop] if stop > 0 else words)

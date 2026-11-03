@@ -1,9 +1,11 @@
 import httpx
 import pytest
+from structlog.testing import capture_logs
 
 from bot.data.car_brands import FIPE_BRANDS
 from bot.domain.commands.car import CarCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
+from bot.domain.services.car_model_name import CarModelName
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 MOCK_MODELS = {
@@ -252,8 +254,8 @@ class TestBrandDetection:
             ('BMW', '', False),
         ],
     )
-    def test_is_brand_only_page(self, command, brand_name, page_title, expected):
-        assert command._is_brand_only_page(brand_name, page_title) is expected
+    def test_is_brand_only_page(self, brand_name, page_title, expected):
+        assert CarModelName.is_brand_only_page(page_title) is expected
 
     @pytest.mark.anyio
     async def test_cross_brand_page_rejected_uses_brand_logo(self, command, respx_mock, mocker):
@@ -549,7 +551,7 @@ class TestModelNameParsing:
         ],
     )
     def test_base_model_name(self, nome, expected):
-        assert CarCommand._base_model_name(nome) == expected
+        assert CarModelName.base(nome) == expected
 
     @pytest.mark.parametrize(
         ('nome', 'expected'),
@@ -561,4 +563,215 @@ class TestModelNameParsing:
         ],
     )
     def test_wiki_model_name(self, nome, expected):
-        assert CarCommand._wiki_model_name(nome) == expected
+        assert CarModelName.wiki(nome) == expected
+
+
+AUDI = next(b for b in FIPE_BRANDS if b.name == 'Audi')
+FIPE_AUDI = 'https://parallelum.com.br/fipe/api/v1/carros/marcas/6'
+WIKI_API = 'https://en.wikipedia.org/w/api.php'
+COMMONS_API = 'https://commons.wikimedia.org/w/api.php'
+BOT_USER_AGENT = 'ResenhazordBot/2.0 (https://github.com/sandrosmarzaro/resenhazord2)'
+EMPTY_PAGES = {'query': {'pages': {'1': {}}}}
+
+
+@pytest.fixture
+def audi_golf(mocker):
+    mocker.patch(
+        'bot.domain.commands.car.random.choice', side_effect=[AUDI, MOCK_MODELS['modelos'][0]]
+    )
+    mocker.patch('bot.domain.commands.car.random.shuffle')
+
+
+@pytest.fixture
+def fipe_audi(respx_mock):
+    return {
+        'models': respx_mock.get(f'{FIPE_AUDI}/modelos').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        ),
+        'years': respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos').mock(
+            return_value=httpx.Response(200, json=MOCK_YEARS)
+        ),
+        'details': respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos/2020-1').mock(
+            return_value=httpx.Response(200, json=MOCK_DETAILS)
+        ),
+    }
+
+
+def _search_params(search: str, **extra: str) -> dict[str, str]:
+    return {
+        'action': 'query',
+        'generator': 'search',
+        'gsrsearch': search,
+        **extra,
+        'gsrlimit': '1',
+        'prop': 'pageimages',
+        'pithumbsize': '640',
+        'format': 'json',
+    }
+
+
+class TestUpstreamRequests:
+    @pytest.mark.anyio
+    async def test_fipe_walks_models_years_and_the_first_year_details(
+        self, command, respx_mock, audi_golf, fipe_audi
+    ):
+        respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=MOCK_WIKI_RESPONSE)
+        )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
+        )
+
+        await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert [route.call_count for route in fipe_audi.values()] == [1, 1, 1]
+
+    @pytest.mark.anyio
+    async def test_wikipedia_searches_brand_model_car_with_the_bot_user_agent(
+        self, command, respx_mock, audi_golf, fipe_audi
+    ):
+        wiki_route = respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=MOCK_WIKI_RESPONSE)
+        )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
+        )
+
+        await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        request = wiki_route.calls[0].request
+        assert dict(request.url.params) == _search_params('Audi Golf car')
+        assert request.headers['User-Agent'] == BOT_USER_AGENT
+
+    @pytest.mark.anyio
+    async def test_commons_searches_files_by_brand_and_base_model(
+        self, command, respx_mock, audi_golf, fipe_audi
+    ):
+        respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=EMPTY_PAGES)
+        )
+        commons_route = respx_mock.get(url__startswith=COMMONS_API).mock(
+            return_value=httpx.Response(200, json=EMPTY_PAGES)
+        )
+
+        await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        request = commons_route.calls[0].request
+        assert dict(request.url.params) == _search_params('Audi Golf', gsrnamespace='6')
+        assert request.headers['User-Agent'] == BOT_USER_AGENT
+
+    @pytest.mark.anyio
+    async def test_brand_logo_searches_the_manufacturer_article(
+        self, command, respx_mock, audi_golf, fipe_audi
+    ):
+        wiki_route = respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=EMPTY_PAGES)
+        )
+        respx_mock.get(url__startswith=COMMONS_API).mock(
+            return_value=httpx.Response(200, json=EMPTY_PAGES)
+        )
+
+        await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        request = wiki_route.calls[1].request
+        assert dict(request.url.params) == _search_params('Audi automobile manufacturer')
+        assert request.headers['User-Agent'] == BOT_USER_AGENT
+
+    @pytest.mark.anyio
+    async def test_image_download_sends_the_bot_user_agent(
+        self, command, respx_mock, audi_golf, fipe_audi
+    ):
+        respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=MOCK_WIKI_RESPONSE)
+        )
+        image_route = respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
+        )
+
+        await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert image_route.calls[0].request.headers['User-Agent'] == BOT_USER_AGENT
+
+
+class TestCaption:
+    @pytest.mark.anyio
+    async def test_full_caption_from_fipe_details(self, command, respx_mock, audi_golf, fipe_audi):
+        respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=MOCK_WIKI_RESPONSE)
+        )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
+        )
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert messages[0].content.caption == (
+            f'{AUDI.emoji} *Volkswagen Golf 1.6*\n'
+            '📅 2020 | ⛽ Gasolina\n'
+            '💰 R$ 80.000,00\n'
+            f'{AUDI.origin}'
+        )
+
+    @pytest.mark.anyio
+    async def test_caption_without_details_names_brand_and_model(
+        self, command, respx_mock, audi_golf
+    ):
+        respx_mock.get(f'{FIPE_AUDI}/modelos').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        )
+        respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos').mock(
+            return_value=httpx.Response(200, json=[])
+        )
+        respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=EMPTY_PAGES)
+        )
+        respx_mock.get(url__startswith=COMMONS_API).mock(
+            return_value=httpx.Response(200, json=EMPTY_PAGES)
+        )
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert messages[0].content.text == f'{AUDI.emoji} *Audi Golf 1.6*\n{AUDI.origin}'
+
+
+class TestFipeUpstreamErrors:
+    @pytest.mark.anyio
+    async def test_throttled_fipe_logs_an_upstream_warning(self, command, respx_mock, audi_golf):
+        respx_mock.get(f'{FIPE_AUDI}/modelos').mock(
+            return_value=httpx.Response(429, text='<html>Too Many Requests</html>')
+        )
+
+        with capture_logs() as logs:
+            messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert messages[0].content.text == 'Ops, não achei esse carro agora! 🚗'
+        assert [(log['event'], log['log_level']) for log in logs] == [
+            ('upstream_failed', 'warning')
+        ]
+
+    @pytest.mark.anyio
+    async def test_a_year_without_a_price_moves_on_to_the_next(
+        self, command, respx_mock, audi_golf
+    ):
+        respx_mock.get(f'{FIPE_AUDI}/modelos').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        )
+        respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos').mock(
+            return_value=httpx.Response(200, json=MOCK_YEARS)
+        )
+        respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos/2020-1').mock(
+            return_value=httpx.Response(404, json={'error': 'veículo não encontrado'})
+        )
+        respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos/2019-1').mock(
+            return_value=httpx.Response(200, json=MOCK_DETAILS)
+        )
+        respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=MOCK_WIKI_RESPONSE)
+        )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
+        )
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert 'R$ 80.000,00' in messages[0].content.caption
