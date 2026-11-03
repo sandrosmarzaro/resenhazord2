@@ -1,10 +1,52 @@
 import io
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
+from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, MAX_FRAME_STRIDE, STICKER_SIZE
+from bot.domain.exceptions import StickerTooLargeError
+from bot.domain.services.sticker.frame_shaper import FrameShaper
+from bot.domain.services.sticker.media_format import MediaFormat
 from bot.domain.services.sticker_creator import StickerCreator
+
+VIDEO_BUFFER = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
+
+
+@pytest.fixture
+def fake_ffmpeg(mocker):
+    def install(*outputs: bytes) -> list[tuple[str, ...]]:
+        calls: list[tuple[str, ...]] = []
+        proc = mocker.AsyncMock()
+        proc.communicate.return_value = (b'', b'')
+        proc.returncode = 0
+
+        def fake_exec(*args, **_kwargs):
+            calls.append(args)
+            Path(args[-1]).write_bytes(outputs[min(len(calls), len(outputs)) - 1])
+            return proc
+
+        mocker.patch('asyncio.create_subprocess_exec', side_effect=fake_exec)
+        return calls
+
+    return install
+
+
+@pytest.fixture
+def ffmpeg_argv(fake_ffmpeg) -> list[tuple[str, ...]]:
+    return fake_ffmpeg(b'fake-webp')
+
+
+def _create_noise_webp(n_frames: int) -> bytes:
+    frames = [
+        Image.frombytes('RGBA', (512, 512), os.urandom(512 * 512 * 4)) for _ in range(n_frames)
+    ]
+    buf = io.BytesIO()
+    frames[0].save(buf, format='WEBP', save_all=True, append_images=frames[1:], duration=100)
+    return buf.getvalue()
 
 
 def _create_test_image(width: int = 100, height: int = 80, color: str = 'red') -> bytes:
@@ -100,15 +142,15 @@ class TestStickerCreatorImage:
         assert self._webp_to_image(default_result).size == self._webp_to_image(full_result).size
 
     def test_pixelate_produces_block_regions(self) -> None:
-        img = Image.new('RGBA', StickerCreator.STICKER_SIZE, 'red')
+        img = Image.new('RGBA', STICKER_SIZE, 'red')
         for x in range(img.width):
             for y in range(img.height):
                 img.putpixel((x, y), (x % 256, y % 256, 128, 255))
 
-        result = StickerCreator._pixelate(img, working_size=32)
+        result = FrameShaper._pixelate(img, working_size=32)
 
-        assert result.size == StickerCreator.STICKER_SIZE
-        block = StickerCreator.STICKER_SIZE[0] // 32
+        assert result.size == STICKER_SIZE
+        block = STICKER_SIZE[0] // 32
         assert result.getpixel((0, 0)) == result.getpixel((block - 1, block - 1))
 
     @pytest.mark.anyio
@@ -137,7 +179,7 @@ class TestStickerCreatorImage:
         assert StickerCreator._effective_quality(99) >= StickerCreator.MIN_WEBP_QUALITY
 
     def test_effective_working_size_no_reduction(self) -> None:
-        assert StickerCreator._effective_working_size(0) == StickerCreator.STICKER_SIZE[0]
+        assert StickerCreator._effective_working_size(0) == STICKER_SIZE[0]
 
     def test_effective_working_size_half_reduction(self) -> None:
         assert StickerCreator._effective_working_size(50) == 256
@@ -166,7 +208,7 @@ class TestStickerCreatorVideo:
             return mock_proc
 
         mock_exec = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
             side_effect=fake_exec,
         )
         video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
@@ -199,7 +241,7 @@ class TestStickerCreatorVideo:
             return mock_proc
 
         mock_run = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
             side_effect=fake_run,
         )
         video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
@@ -216,7 +258,7 @@ class TestStickerCreatorVideo:
         mock_proc.communicate.return_value = (b'', b'conversion failed')
         mock_proc.returncode = 1
         mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
             return_value=mock_proc,
         )
         video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
@@ -225,38 +267,200 @@ class TestStickerCreatorVideo:
             await StickerCreator.create(video_buffer, 'full')
 
 
+@pytest.fixture(scope='module')
+def landscape_video(tmp_path_factory) -> bytes:
+    path = tmp_path_factory.mktemp('video') / 'landscape.mp4'
+    subprocess.run(
+        [
+            'ffmpeg',
+            '-loglevel',
+            'error',
+            '-f',
+            'lavfi',
+            '-i',
+            'color=red:size=640x480:rate=15',
+            '-t',
+            '1',
+            '-pix_fmt',
+            'yuv420p',
+            str(path),
+        ],
+        check=True,
+    )
+    return path.read_bytes()
+
+
+# CI runners have no ffmpeg; the argv tests below cover the same branches there.
+@pytest.mark.skipif(shutil.which('ffmpeg') is None, reason='ffmpeg is not installed')
+class TestVideoShapesOnFfmpeg:
+    # A real subprocess needs the asyncio loop the bot runs on.
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @staticmethod
+    def _alpha(webp: bytes, xy: tuple[int, int]) -> int:
+        pixel = Image.open(io.BytesIO(webp)).convert('RGBA').getpixel(xy)
+        assert isinstance(pixel, tuple)
+        return pixel[3]
+
+    @pytest.mark.anyio
+    async def test_full_pads_a_landscape_video_with_transparency(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'full')
+
+        assert self._alpha(result, (256, 5)) == 0
+        assert self._alpha(result, (256, 256)) == 255
+
+    @pytest.mark.anyio
+    async def test_crop_fills_the_whole_sticker(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'crop')
+
+        assert self._alpha(result, (0, 0)) == 255
+        assert self._alpha(result, (256, 5)) == 255
+
+    @pytest.mark.anyio
+    async def test_circle_clears_everything_outside_the_circle(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'circle')
+
+        assert self._alpha(result, (0, 0)) == 0
+        assert self._alpha(result, (20, 20)) == 0
+        assert self._alpha(result, (256, 5)) == 255
+
+    @pytest.mark.anyio
+    async def test_rounded_clears_only_the_corners(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'rounded')
+
+        assert self._alpha(result, (0, 0)) == 0
+        assert self._alpha(result, (20, 20)) == 255
+        assert self._alpha(result, (5, 256)) == 255
+
+
+class TestVideoFfmpegCommand:
+    FULL_FILTER = (
+        'format=rgba,scale=512:512:force_original_aspect_ratio=decrease:flags=bilinear,'
+        'fps=15/1,pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
+    )
+
+    @pytest.mark.anyio
+    async def test_full_video_runs_the_expected_ffmpeg_command(self, ffmpeg_argv) -> None:
+        await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        argv = ffmpeg_argv[0]
+        assert argv[:2] == ('ffmpeg', '-i')
+        assert argv[3:-1] == (
+            '-vcodec',
+            'libwebp',
+            '-vf',
+            self.FULL_FILTER,
+            '-quality',
+            '50',
+            '-loop',
+            '0',
+            '-t',
+            '10',
+            '-preset',
+            'default',
+            '-an',
+            '-vsync',
+            '0',
+        )
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('sticker_type', 'shape'),
+        [
+            ('crop', ''),
+            (
+                'circle',
+                ",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='255*lte(hypot(X+0.5-W/2,Y+0.5-H/2),W/2)'",
+            ),
+            (
+                'rounded',
+                ",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+                "a='255*lte(hypot(max(0,max(W/8-X-0.5,X+0.5-W+W/8)),"
+                "max(0,max(H/8-Y-0.5,Y+0.5-H+H/8))),W/8)'",
+            ),
+        ],
+    )
+    async def test_shaped_video_is_cropped_and_masked(
+        self, ffmpeg_argv, sticker_type, shape
+    ) -> None:
+        await StickerCreator.create(VIDEO_BUFFER, sticker_type)
+
+        vf = ffmpeg_argv[0][ffmpeg_argv[0].index('-vf') + 1]
+        assert vf == (
+            'format=rgba,scale=512:512:force_original_aspect_ratio=increase:flags=bilinear,'
+            f'fps=15/1,crop=512:512{shape},scale=512:512:flags=neighbor'
+        )
+
+    @pytest.mark.anyio
+    async def test_oversized_video_is_encoded_again_with_fewer_frames(self, fake_ffmpeg) -> None:
+        oversized = b'x' * (MAX_ANIMATED_STICKER_BYTES + 1)
+        calls = fake_ffmpeg(oversized, b'fits')
+
+        result = await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        assert result == b'fits'
+        assert [argv[argv.index('-vf') + 1].split(',')[2] for argv in calls] == [
+            'fps=15/1',
+            'fps=15/2',
+        ]
+
+    @pytest.mark.anyio
+    async def test_far_oversized_video_jumps_to_the_stride_that_should_fit(
+        self, fake_ffmpeg
+    ) -> None:
+        calls = fake_ffmpeg(b'x' * (MAX_ANIMATED_STICKER_BYTES * 3), b'fits')
+
+        await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        assert [argv[argv.index('-vf') + 1].split(',')[2] for argv in calls] == [
+            'fps=15/1',
+            'fps=15/3',
+        ]
+
+    @pytest.mark.anyio
+    async def test_video_over_the_limit_at_every_stride_is_refused(self, fake_ffmpeg) -> None:
+        calls = fake_ffmpeg(b'x' * (MAX_ANIMATED_STICKER_BYTES + 1))
+
+        with pytest.raises(StickerTooLargeError):
+            await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        assert len(calls) == MAX_FRAME_STRIDE
+
+
 class TestIsVideo:
     def test_mp4_detected(self) -> None:
-        assert StickerCreator._is_video(b'\x00\x00\x00\x1cftypisom')
+        assert MediaFormat.is_video(b'\x00\x00\x00\x1cftypisom')
 
     def test_avi_detected(self) -> None:
-        assert StickerCreator._is_video(b'RIFF\x00\x00\x00\x00AVI ')
+        assert MediaFormat.is_video(b'RIFF\x00\x00\x00\x00AVI ')
 
     def test_mkv_detected(self) -> None:
-        assert StickerCreator._is_video(b'\x1a\x45\xdf\xa3' + b'\x00' * 8)
+        assert MediaFormat.is_video(b'\x1a\x45\xdf\xa3' + b'\x00' * 8)
 
     def test_png_not_video(self) -> None:
-        assert not StickerCreator._is_video(_create_test_image())
+        assert not MediaFormat.is_video(_create_test_image())
 
     def test_short_buffer_not_video(self) -> None:
-        assert not StickerCreator._is_video(b'\x00\x00')
+        assert not MediaFormat.is_video(b'\x00\x00')
 
 
 class TestIsAnimatedWebp:
     def test_animated_webp_detected(self) -> None:
-        assert StickerCreator._is_animated_webp(_create_animated_webp())
+        assert MediaFormat.is_animated_webp(_create_animated_webp())
 
     def test_static_webp_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(_create_static_webp())
+        assert not MediaFormat.is_animated_webp(_create_static_webp())
 
     def test_png_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(_create_test_image())
+        assert not MediaFormat.is_animated_webp(_create_test_image())
 
     def test_mp4_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(b'\x00\x00\x00\x1cftypisom' + b'\x00' * 20)
+        assert not MediaFormat.is_animated_webp(b'\x00\x00\x00\x1cftypisom' + b'\x00' * 20)
 
     def test_short_buffer_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(b'RIFF\x00\x00\x00\x00WEBP')
+        assert not MediaFormat.is_animated_webp(b'RIFF\x00\x00\x00\x00WEBP')
 
 
 class TestStickerCreatorAnimatedWebp:
@@ -286,7 +490,7 @@ class TestStickerCreatorAnimatedWebp:
     @pytest.mark.anyio
     async def test_animated_webp_skips_ffmpeg(self, mocker) -> None:
         mock_exec = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
         )
 
         await StickerCreator.create(_create_animated_webp(), 'full')
@@ -296,7 +500,7 @@ class TestStickerCreatorAnimatedWebp:
     @pytest.mark.anyio
     async def test_static_webp_routes_to_image_path(self, mocker) -> None:
         mock_exec = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
         )
 
         result = await StickerCreator.create(_create_static_webp(), 'full')
@@ -320,7 +524,7 @@ class TestStickerCreatorAnimatedWebp:
         result = await StickerCreator.create(animated, 'full', quality_reduction=90)
 
         img = self._open_webp(result)
-        assert img.size == StickerCreator.STICKER_SIZE
+        assert img.size == STICKER_SIZE
         assert getattr(img, 'is_animated', False)
 
     @pytest.mark.anyio
@@ -369,7 +573,23 @@ class TestStickerCreatorAnimatedWebp:
 
         heavy = await StickerCreator.create(buf.getvalue(), 'full', quality_reduction=99)
 
-        assert len(heavy) <= StickerCreator.MAX_ANIMATED_STICKER_BYTES
+        assert len(heavy) <= MAX_ANIMATED_STICKER_BYTES
+
+    @pytest.mark.anyio
+    async def test_output_over_the_limit_at_every_stride_is_refused(self) -> None:
+        noisy = _create_noise_webp(n_frames=4)
+
+        with pytest.raises(StickerTooLargeError, match='500 KB'):
+            await StickerCreator.create(noisy, 'full')
+
+    def test_parse_webp_durations_pads_a_truncated_anmf_chunk(self) -> None:
+        truncated = (
+            b'RIFF\x00\x00\x00\x00WEBP' + b'ANMF' + (100).to_bytes(4, 'little') + b'\x00' * 4
+        )
+
+        durations = MediaFormat.frame_durations(truncated, n_frames=2)
+
+        assert durations == [MediaFormat.DEFAULT_FRAME_DURATION_MS] * 2
 
     def test_parse_webp_durations_reads_anmf_chunks(self) -> None:
         frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue', 'green', 'yellow')]
@@ -383,7 +603,7 @@ class TestStickerCreatorAnimatedWebp:
             loop=0,
         )
 
-        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=4)
+        durations = MediaFormat.frame_durations(buf.getvalue(), n_frames=4)
 
         assert durations == [40, 60, 80, 120]
 
@@ -399,9 +619,9 @@ class TestStickerCreatorAnimatedWebp:
             loop=0,
         )
 
-        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=2)
+        durations = MediaFormat.frame_durations(buf.getvalue(), n_frames=2)
 
-        assert all(d == StickerCreator.DEFAULT_FRAME_DURATION_MS for d in durations)
+        assert all(d == MediaFormat.DEFAULT_FRAME_DURATION_MS for d in durations)
 
 
 class TestOffTheEventLoop:
