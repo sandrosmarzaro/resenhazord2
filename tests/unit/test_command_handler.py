@@ -1,5 +1,9 @@
-import pytest
+import json
 
+import pytest
+from structlog.testing import capture_logs
+
+from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, ParsedCommand
@@ -9,6 +13,7 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from tests.factories.command_data import GroupCommandDataFactory
+from tests.fixtures.mock_broker import MockBrokerPort
 
 
 class PublicCommand(Command):
@@ -415,6 +420,34 @@ class TestRunCommand:
 
         with pytest.raises(RuntimeError, match='boom'):
             await handler.handle(data)
+
+
+class TestUnexpectedFailure:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_is_logged_once_on_the_consumer_path(self, handler, registry):
+        registry.register(FailingCommand(RuntimeError('boom')))
+        broker = MockBrokerPort()
+        await CommandConsumer(broker, handler).start()
+        envelope = {
+            'id': 'corr-1',
+            'data': {
+                'text': ',falha',
+                'jid': 'g@g.us',
+                'sender_jid': 'u@s.whatsapp.net',
+                'is_group': True,
+            },
+        }
+
+        with capture_logs() as logs:
+            await broker.deliver('commands', json.dumps(envelope).encode())
+
+        assert [log['event'] for log in logs if log['log_level'] == 'error'] == [
+            'command_unexpected_error'
+        ]
 
 
 class TestProcessingOrder:

@@ -9,7 +9,6 @@ from bot.application.command_registry import CommandRegistry
 from bot.application.command_text import CommandText
 from bot.application.config_service import ConfigService
 from bot.domain.commands.base import Command
-from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
@@ -99,13 +98,9 @@ class CommandHandler:
         data: CommandData,
         repeat: int,
     ) -> list[BotMessage]:
-        try:
-            messages: list[BotMessage] = []
-            for _ in range(repeat):
-                messages.extend(await command.run(data))
-        except BotError:
-            raise
-        except Exception:
-            logger.exception('command_execution_failed')
-            raise
+        # An unexpected failure propagates unlogged: the consumer logs it once, with the
+        # correlation id, and answers the user.
+        messages: list[BotMessage] = []
+        for _ in range(repeat):
+            messages.extend(await command.run(data))
         return messages
