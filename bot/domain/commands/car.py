@@ -8,15 +8,13 @@ from bot.domain.commands.base import Category, Command, CommandConfig, Flag, Par
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.car_image_finder import CarImageFinder
-from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.fipe_client import FipeClient
 from bot.infrastructure.wikimedia_client import WikimediaClient
 
 logger = structlog.get_logger()
 
 
 class CarCommand(Command):
-    FIPE_BASE = 'https://parallelum.com.br/fipe/api/v1/carros/marcas'
-    FIPE_TIMEOUT = 8.0
     MAX_YEAR_RETRIES = 3
     MAX_VALID_YEAR = 2030
 
@@ -37,18 +35,10 @@ class CarCommand(Command):
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         try:
             brand = random.choice(FIPE_BRANDS)
-            base = f'{self.FIPE_BASE}/{brand.fipe_code}'
+            model = random.choice(await FipeClient.models(brand.fipe_code))
+            years = await FipeClient.years(brand.fipe_code, model['codigo'])
 
-            models_res = await HttpClient.get(f'{base}/modelos', timeout=self.FIPE_TIMEOUT)
-            models_data = models_res.json()
-            model = random.choice(models_data['modelos'])
-
-            years_res = await HttpClient.get(
-                f'{base}/modelos/{model["codigo"]}/anos', timeout=self.FIPE_TIMEOUT
-            )
-            years = years_res.json()
-
-            details = await self._fetch_details(base, model['codigo'], years)
+            details = await self._fetch_details(brand.fipe_code, model['codigo'], years)
             caption = self._build_caption(brand, model, details)
 
             thumb = await CarImageFinder.find(
@@ -63,17 +53,15 @@ class CarCommand(Command):
             logger.exception('upstream_failed', upstream='parallelum/wikipedia')
             return [Reply.to(data).text('Ops, não achei esse carro agora! 🚗')]
 
-    async def _fetch_details(self, base: str, model_code: int, years: list[dict]) -> dict | None:
+    async def _fetch_details(
+        self, brand_code: str, model_code: int, years: list[dict]
+    ) -> dict | None:
         shuffled = years.copy()
         random.shuffle(shuffled)
         for year in shuffled[: self.MAX_YEAR_RETRIES]:
-            res = await HttpClient.get(
-                f'{base}/modelos/{model_code}/anos/{year["codigo"]}',
-                timeout=self.FIPE_TIMEOUT,
-            )
-            data = res.json()
-            if 'error' not in data:
-                return data
+            details = await FipeClient.details(brand_code, model_code, year['codigo'])
+            if 'error' not in details:
+                return details
         return None
 
     def _build_caption(self, brand, model: dict, details: dict | None) -> str:
