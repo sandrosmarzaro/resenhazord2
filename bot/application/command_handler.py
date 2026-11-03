@@ -1,19 +1,15 @@
-import re
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
 from typing import TYPE_CHECKING, ClassVar
 
 import structlog
 
+from bot.application.agent_routing import AgentRouting
 from bot.application.command_registry import CommandRegistry
 from bot.application.command_text import CommandText
 from bot.application.config_service import ConfigService
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command, CommandScope
 from bot.domain.constants import (
-    AGENT_MENU_HINT,
-    BOT_MENTION_TAG,
-    CLARIFY_PREFIX,
     COMMAND_OFF_IN_CHAT,
 )
 from bot.domain.exceptions import BotError
@@ -33,10 +29,6 @@ class CommandHandler:
     _DISABLED_MSG: ClassVar[str] = 'Esse comando está desativado. 🚫'
     _OFF_HERE_MSG: ClassVar[str] = COMMAND_OFF_IN_CHAT
     _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
-    _SEND_ME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r'\b(mande|me\s+manda|me\s+envie|envie)\s+(um?|uma)\b',
-        re.IGNORECASE,
-    )
 
     def __init__(
         self,
@@ -46,18 +38,13 @@ class CommandHandler:
         config_service: ConfigService | None = None,
     ) -> None:
         self._registry = registry
-        self._agent = agent
         self._dev_list = dev_list or DevListService()
         self._config = config_service or ConfigService(CachedConfigStore.instance())
         settings = Settings()
-        self._bot_numeric: frozenset[str] = frozenset(
-            jid.split('@')[0]
-            for jid in (
-                settings.resenhazord2_jid,
-                settings.resenha_jid,
-                settings.resenhazord2_lid,
-            )
-            if jid
+        self._agent_routing = AgentRouting(
+            registry,
+            agent,
+            (settings.resenhazord2_jid, settings.resenha_jid, settings.resenhazord2_lid),
         )
 
     async def handle(
@@ -68,9 +55,9 @@ class CommandHandler:
     ) -> list[BotMessage] | None:
         logger.debug('handle_raw', text=repr(data.text))
 
-        if self._should_run_agent(data):
+        if self._agent_routing.should_route(data):
             logger.info('agent_routing', text=data.text)
-            mapped = await self._run_agent(data)
+            mapped = await self._agent_routing.map(data)
             if mapped is None:
                 return None
             data = mapped
@@ -137,28 +124,3 @@ class CommandHandler:
             logger.exception('command_execution_failed')
             raise
         return messages
-
-    def _should_run_agent(self, data: CommandData) -> bool:
-        if self._is_explicit_mention(data):
-            return True
-        if data.is_group:
-            return False
-        # Private chat: a recognized ",command" takes the fast direct path;
-        # natural language or an unmatched ",typo" goes to the agent to map or clarify.
-        return self._registry.get_strategy(data.text) is None
-
-    def _is_explicit_mention(self, data: CommandData) -> bool:
-        text_lower = (data.text or '').lower()
-        for mentioned in data.mentioned_jids or ():
-            if mentioned.split('@')[0] in self._bot_numeric:
-                return True
-        if BOT_MENTION_TAG in text_lower:
-            return True
-        return bool(self._SEND_ME_PATTERN.search(text_lower))
-
-    async def _run_agent(self, data: CommandData) -> CommandData | None:
-        try:
-            return await self._agent.run(data)
-        except ValueError:
-            logger.warning('agent_invalid_response', text=data.text)
-            return replace(data, text=f'{CLARIFY_PREFIX}Erro inesperado. {AGENT_MENU_HINT}')
