@@ -7,6 +7,7 @@ import anyio
 from PIL import Image
 
 from bot.data.sticker import STICKER_SIZE
+from bot.domain.services.sticker.animated_webp_encoder import AnimatedWebpEncoder
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
 
@@ -19,8 +20,6 @@ class StickerCreator:
     VIDEO_FPS = 15
     DEFAULT_PACK = 'Resenha'
     DEFAULT_AUTHOR = 'Resenhazord2'
-    MAX_FRAME_STRIDE = 4
-    MAX_ANIMATED_STICKER_BYTES = 500_000
 
     @classmethod
     async def create(
@@ -36,7 +35,7 @@ class StickerCreator:
         # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
         # keep running.
         encode = (
-            cls._create_from_animated_webp
+            AnimatedWebpEncoder.encode
             if MediaFormat.is_animated_webp(buffer)
             else cls._create_from_image
         )
@@ -60,52 +59,6 @@ class StickerCreator:
         img = FrameShaper.shape(img, sticker_type, working_size)
         output = io.BytesIO()
         img.save(output, format='WEBP', quality=quality)
-        return output.getvalue()
-
-    @classmethod
-    def _create_from_animated_webp(
-        cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
-    ) -> bytes:
-        src = Image.open(io.BytesIO(buffer))
-        n_frames = getattr(src, 'n_frames', 1)
-        per_frame_ms = MediaFormat.frame_durations(buffer, n_frames)
-
-        all_frames: list[Image.Image] = []
-        for i in range(n_frames):
-            src.seek(i)
-            all_frames.append(FrameShaper.shape(src.convert('RGBA'), sticker_type, working_size))
-
-        # Reduction degrades quality + pixelation; only drop frames as a last
-        # resort when pixelation breaks inter-frame compression and the file
-        # exceeds the animated-sticker limit.
-        output = b''
-        max_stride = min(cls.MAX_FRAME_STRIDE, max(1, n_frames // 2))
-        for stride in range(1, max_stride + 1):
-            output = cls._encode_animated_webp(all_frames, per_frame_ms, stride, quality)
-            if len(output) <= cls.MAX_ANIMATED_STICKER_BYTES:
-                return output
-        return output
-
-    @classmethod
-    def _encode_animated_webp(
-        cls,
-        all_frames: list[Image.Image],
-        per_frame_ms: list[int],
-        stride: int,
-        quality: int,
-    ) -> bytes:
-        frames = all_frames[::stride]
-        durations = [sum(per_frame_ms[i : i + stride]) for i in range(0, len(all_frames), stride)]
-        output = io.BytesIO()
-        frames[0].save(
-            output,
-            format='WEBP',
-            save_all=True,
-            append_images=frames[1:],
-            duration=durations,
-            loop=0,
-            quality=quality,
-        )
         return output.getvalue()
 
     @classmethod
