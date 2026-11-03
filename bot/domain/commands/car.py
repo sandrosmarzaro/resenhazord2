@@ -1,7 +1,5 @@
 import random
 import re
-from typing import Any
-from urllib.parse import quote
 
 import httpx
 import structlog
@@ -13,18 +11,14 @@ from bot.domain.commands.base import Category, Command, CommandConfig, Flag, Par
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.wikimedia_client import WikimediaClient
 
 logger = structlog.get_logger()
 
 
 class CarCommand(Command):
     FIPE_BASE = 'https://parallelum.com.br/fipe/api/v1/carros/marcas'
-    WIKI_API = 'https://en.wikipedia.org/w/api.php'
-    COMMONS_API = 'https://commons.wikimedia.org/w/api.php'
-    WIKI_UA = 'ResenhazordBot/2.0 (https://github.com/smarzaro/resenhazord2; bot@resenhazord.com)'
     FIPE_TIMEOUT = 8.0
-    WIKI_TIMEOUT = 8.0
-    IMG_TIMEOUT = 12.0
     MAX_YEAR_RETRIES = 3
     MAX_VALID_YEAR = 2030
 
@@ -83,11 +77,7 @@ class CarCommand(Command):
             if not thumb:
                 return [Reply.to(data).text(caption)]
 
-            buffer = await HttpClient.get_buffer(
-                thumb,
-                timeout=self.IMG_TIMEOUT,
-                headers={'User-Agent': self.WIKI_UA},
-            )
+            buffer = await WikimediaClient.download(thumb)
             return [Reply.to(data).image_buffer(buffer, caption)]
         except Exception:
             logger.exception('upstream_failed', upstream='parallelum/wikipedia')
@@ -128,27 +118,13 @@ class CarCommand(Command):
     async def _find_image(
         self, brand_name: str, wiki_name: str, base_name: str, parsed: ParsedCommand
     ) -> str | None:
-        search_term = quote(f'{brand_name} {wiki_name} car')
-        wiki_url = (
-            f'{self.WIKI_API}?action=query&generator=search'
-            f'&gsrsearch={search_term}&gsrlimit=1&prop=pageimages&pithumbsize=640&format=json'
-        )
-        wiki_res = await HttpClient.get(
-            wiki_url,
-            timeout=self.WIKI_TIMEOUT,
-            headers={'User-Agent': self.WIKI_UA},
-        )
-        wiki_data = wiki_res.json()
-        pages: dict[str, Any] = (wiki_data.get('query') or {}).get('pages') or {}
-        first_page: dict[str, Any] = next(iter(pages.values()), {})
-        page_title = first_page.get('title', '')
-        raw_thumb = (first_page.get('thumbnail') or {}).get('source')
-
-        is_brand_only = self._is_brand_only_page(brand_name, page_title)
-        thumb = None if is_brand_only else raw_thumb
+        page = await WikimediaClient.search_wikipedia(f'{brand_name} {wiki_name} car')
+        is_brand_only = self._is_brand_only_page(brand_name, page.title)
+        thumb = None if is_brand_only else page.thumbnail
 
         if not thumb and 'wiki' not in parsed.flags:
-            thumb = await self._search_commons(brand_name, base_name)
+            commons = await WikimediaClient.search_commons_files(f'{brand_name} {base_name}')
+            thumb = commons.thumbnail
 
         return thumb
 
@@ -161,39 +137,9 @@ class CarCommand(Command):
         match = self._BRAND_SUFFIX_PATTERN.match(title_lower)
         return bool(match and match.group(1) in self._BRAND_NAMES_LOWER)
 
-    async def _search_commons(self, brand_name: str, base_name: str) -> str | None:
-        commons_search = quote(f'{brand_name} {base_name}')
-        commons_url = (
-            f'{self.COMMONS_API}?action=query&generator=search'
-            f'&gsrsearch={commons_search}&gsrnamespace=6&gsrlimit=1'
-            f'&prop=pageimages&pithumbsize=640&format=json'
-        )
-        commons_res = await HttpClient.get(
-            commons_url,
-            timeout=self.WIKI_TIMEOUT,
-            headers={'User-Agent': self.WIKI_UA},
-        )
-        commons_data = commons_res.json()
-        commons_pages: dict[str, Any] = (commons_data.get('query') or {}).get('pages') or {}
-        first: dict[str, Any] = next(iter(commons_pages.values()), {})
-        return (first.get('thumbnail') or {}).get('source')
-
     async def _fetch_brand_logo(self, brand_name: str) -> str | None:
-        search_term = quote(f'{brand_name} automobile manufacturer')
-        wiki_url = (
-            f'{self.WIKI_API}?action=query&generator=search'
-            f'&gsrsearch={search_term}&gsrlimit=1&prop=pageimages'
-            f'&pithumbsize=640&format=json'
-        )
-        res = await HttpClient.get(
-            wiki_url,
-            timeout=self.WIKI_TIMEOUT,
-            headers={'User-Agent': self.WIKI_UA},
-        )
-        data = res.json()
-        pages: dict[str, Any] = (data.get('query') or {}).get('pages') or {}
-        first: dict[str, Any] = next(iter(pages.values()), {})
-        return (first.get('thumbnail') or {}).get('source')
+        page = await WikimediaClient.search_wikipedia(f'{brand_name} automobile manufacturer')
+        return page.thumbnail
 
     @staticmethod
     def _base_model_name(nome: str) -> str:
