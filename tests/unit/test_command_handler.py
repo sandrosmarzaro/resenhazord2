@@ -3,6 +3,8 @@ import pytest
 from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.domain.commands.base import Command, CommandConfig, CommandScope, ParsedCommand
+from bot.domain.constants import AGENT_MENU_HINT
+from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
@@ -203,103 +205,78 @@ class TestBatch:
 
 class TestAgentDetection:
     @pytest.mark.anyio
-    async def test_agent_trigger_in_dm(self, handler):
-        from bot.domain.models.command_data import CommandData
+    async def test_agent_trigger_in_dm(self, handler, agent):
+        agent.run.return_value = None
+        data = _dm('me mande um yugioh')
 
-        data = CommandData(
-            text='me mande um yugioh',
-            jid='test@s.whatsapp.net',
-            sender_jid='test@s.whatsapp.net',
-            is_group=False,
-        )
+        await handler.handle(data)
 
-        is_agent = handler._should_run_agent(data)
-
-        assert is_agent is True
+        agent.run.assert_awaited_once_with(data)
 
     @pytest.mark.anyio
-    async def test_agent_trigger_with_send_me_pattern(self, handler):
-        from bot.domain.models.command_data import CommandData
+    async def test_agent_trigger_with_send_me_pattern(self, handler, agent):
+        agent.run.return_value = None
+        data = _group('me mande um pacotinho de yugioh')
 
-        data = CommandData(
-            text='me mande um pacotinho de yugioh',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-            is_group=True,
-        )
+        await handler.handle(data)
 
-        is_agent = handler._should_run_agent(data)
-
-        assert is_agent is True
+        agent.run.assert_awaited_once_with(data)
 
     @pytest.mark.anyio
-    async def test_no_agent_for_plain_command_in_group(self, handler):
+    async def test_no_agent_for_plain_command_in_group(self, handler, agent):
         data = GroupCommandDataFactory.build(text=',pub')
 
-        is_agent = handler._should_run_agent(data)
+        await handler.handle(data)
 
-        assert is_agent is False
-
-    @pytest.mark.anyio
-    async def test_no_agent_for_direct_command_in_dm(self, handler):
-        from bot.domain.models.command_data import CommandData
-
-        data = CommandData(
-            text=',pub',
-            jid='test@s.whatsapp.net',
-            sender_jid='test@s.whatsapp.net',
-            is_group=False,
-        )
-
-        is_agent = handler._should_run_agent(data)
-
-        assert is_agent is False
+        agent.run.assert_not_awaited()
 
     @pytest.mark.anyio
-    async def test_agent_for_unmatched_command_in_dm(self, handler):
-        from bot.domain.models.command_data import CommandData
+    async def test_no_agent_for_direct_command_in_dm(self, handler, agent):
+        data = _dm(',pub')
 
-        data = CommandData(
-            text=',unknown',
-            jid='test@s.whatsapp.net',
-            sender_jid='test@s.whatsapp.net',
-            is_group=False,
-        )
+        await handler.handle(data)
 
-        is_agent = handler._should_run_agent(data)
-
-        assert is_agent is True
+        agent.run.assert_not_awaited()
 
     @pytest.mark.anyio
-    async def test_agent_for_natural_language_in_dm(self, handler):
-        from bot.domain.models.command_data import CommandData
+    async def test_agent_for_unmatched_command_in_dm(self, handler, agent):
+        agent.run.return_value = None
+        data = _dm(',unknown')
 
-        data = CommandData(
-            text='qual o placar do jogo?',
-            jid='test@s.whatsapp.net',
-            sender_jid='test@s.whatsapp.net',
-            is_group=False,
-        )
+        await handler.handle(data)
 
-        is_agent = handler._should_run_agent(data)
+        agent.run.assert_awaited_once_with(data)
 
-        assert is_agent is True
+    @pytest.mark.anyio
+    async def test_agent_for_natural_language_in_dm(self, handler, agent):
+        agent.run.return_value = None
+        data = _dm('qual o placar do jogo?')
 
-    def test_agent_trigger_by_bot_mention_tag(self, handler):
-        from bot.domain.models.command_data import CommandData
+        await handler.handle(data)
 
-        data = CommandData(
-            text='@resenhazord ver placar',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-            is_group=True,
-        )
+        agent.run.assert_awaited_once_with(data)
 
-        assert handler._should_run_agent(data) is True
+    @pytest.mark.anyio
+    async def test_no_agent_for_natural_language_in_group(self, handler, agent):
+        data = _group('qual o placar do jogo?')
 
-    def test_agent_trigger_by_mentioned_jid(self, handler, mocker):
-        from bot.domain.models.command_data import CommandData
+        await handler.handle(data)
 
+        agent.run.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_agent_trigger_by_bot_mention_tag(self, handler, agent):
+        agent.run.return_value = None
+        data = _group('@resenhazord ver placar')
+
+        await handler.handle(data)
+
+        agent.run.assert_awaited_once_with(data)
+
+    @pytest.mark.anyio
+    async def test_agent_trigger_by_mentioned_jid(
+        self, registry, agent, mock_dev_list, mock_config_service, mocker
+    ):
         mocker.patch(
             'bot.application.command_handler.Settings',
             return_value=mocker.MagicMock(
@@ -308,13 +285,13 @@ class TestAgentDetection:
                 resenhazord2_lid='',
             ),
         )
-        handler_with_jid = CommandHandler(
-            registry=handler._registry,
-            agent=handler._agent,
-            dev_list=handler._dev_list,
-            config_service=handler._config,
+        handler = CommandHandler(
+            registry=registry,
+            agent=agent,
+            dev_list=mock_dev_list,
+            config_service=mock_config_service,
         )
-
+        agent.run.return_value = None
         data = CommandData(
             text='hello',
             jid='test@g.us',
@@ -323,50 +300,27 @@ class TestAgentDetection:
             is_group=True,
         )
 
-        assert handler_with_jid._should_run_agent(data) is True
+        await handler.handle(data)
+
+        agent.run.assert_awaited_once_with(data)
 
 
 class TestHandleRouting:
     @pytest.mark.anyio
-    async def test_dm_natural_language_routed_through_agent_then_dispatched(self, handler, mocker):
-        data = CommandData(
-            text='manda um negócio público',
-            jid='user@s.whatsapp.net',
-            sender_jid='user@s.whatsapp.net',
-            is_group=False,
-        )
-        mocker.patch.object(
-            handler,
-            '_run_agent',
-            mocker.AsyncMock(
-                return_value=CommandData(
-                    text=',pub',
-                    jid=data.jid,
-                    sender_jid=data.sender_jid,
-                    is_group=False,
-                )
-            ),
-        )
+    async def test_dm_natural_language_routed_through_agent_then_dispatched(self, handler, agent):
+        data = _dm('manda um negócio público')
+        agent.run.return_value = _dm(',pub')
 
         result = await handler.handle(data)
 
-        handler._run_agent.assert_awaited_once_with(data)
-        assert result is not None
+        agent.run.assert_awaited_once_with(data)
         assert result[0].content.text == 'public ok'
 
     @pytest.mark.anyio
-    async def test_dm_direct_command_skips_agent(self, handler, mocker):
-        data = CommandData(
-            text=',pub',
-            jid='user@s.whatsapp.net',
-            sender_jid='user@s.whatsapp.net',
-            is_group=False,
-        )
-        run_agent = mocker.patch.object(handler, '_run_agent', mocker.AsyncMock())
+    async def test_dm_direct_command_skips_agent(self, handler, agent):
+        result = await handler.handle(_dm(',pub'))
 
-        result = await handler.handle(data)
-
-        run_agent.assert_not_awaited()
+        agent.run.assert_not_awaited()
         assert result[0].content.text == 'public ok'
 
 
@@ -406,68 +360,87 @@ def _dm(text: str) -> CommandData:
     )
 
 
+def _group(text: str) -> CommandData:
+    return CommandData(text=text, jid='test@g.us', sender_jid='test@s.whatsapp.net', is_group=True)
+
+
+class FailingCommand(Command):
+    def __init__(self, error: Exception) -> None:
+        super().__init__()
+        self._error = error
+
+    @property
+    def config(self) -> CommandConfig:
+        return CommandConfig(name='falha')
+
+    @property
+    def menu_description(self) -> str:
+        return ''
+
+    async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
+        raise self._error
+
+
 class TestRunAgent:
     @pytest.mark.anyio
-    async def test_run_agent_returns_translated_data(self, handler, agent):
-        from bot.domain.models.command_data import CommandData
+    async def test_runs_the_command_the_agent_mapped_to(self, handler, agent):
+        agent.run.return_value = _group(',pub')
 
-        translated = CommandData(
-            text=',placar now',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-            is_group=True,
-        )
-        agent.run.return_value = translated
+        result = await handler.handle(_group('@resenhazord manda o público'))
 
-        data = CommandData(
-            text='@resenhazord ver placar',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-            is_group=True,
-        )
-
-        result = await handler._run_agent(data)
-
-        assert result.text == ',placar now'
+        assert result[0].content.text == 'public ok'
 
     @pytest.mark.anyio
-    async def test_run_agent_value_error_returns_clarify_fallback(self, handler, agent):
-        from bot.domain.constants import CLARIFY_PREFIX
-        from bot.domain.models.command_data import CommandData
-
+    async def test_invalid_agent_response_replies_the_clarify_fallback(self, handler, agent):
         agent.run.side_effect = ValueError('invalid response')
 
-        data = CommandData(
-            text='@resenhazord ver placar',
-            jid='test@g.us',
-            sender_jid='test@s.whatsapp.net',
-            is_group=True,
-        )
+        result = await handler.handle(_group('@resenhazord ver placar'))
 
-        result = await handler._run_agent(data)
-
-        assert result.text.startswith(CLARIFY_PREFIX)
-        assert 'inesperado' in result.text.lower() or 'menu' in result.text.lower()
+        assert result[0].content.text == f'Erro inesperado. {AGENT_MENU_HINT}'
 
 
 class TestRunCommand:
     @pytest.mark.anyio
-    async def test_bot_error_reraises(self, handler, mocker):
-        from bot.domain.exceptions import BotError
-
-        cmd = mocker.MagicMock()
-        cmd.run = mocker.AsyncMock(side_effect=BotError('custom'))
+    async def test_bot_error_reraises(self, handler, registry):
+        registry.register(FailingCommand(BotError('custom')))
+        data = _group(',falha')
 
         with pytest.raises(BotError, match='custom'):
-            await CommandHandler._run_command(cmd, mocker.MagicMock(), 1)
+            await handler.handle(data)
 
     @pytest.mark.anyio
-    async def test_generic_exception_reraises(self, handler, mocker):
-        cmd = mocker.MagicMock()
-        cmd.run = mocker.AsyncMock(side_effect=RuntimeError('boom'))
+    async def test_generic_exception_reraises(self, handler, registry):
+        registry.register(FailingCommand(RuntimeError('boom')))
+        data = _group(',falha')
 
         with pytest.raises(RuntimeError, match='boom'):
-            await CommandHandler._run_command(cmd, mocker.MagicMock(), 1)
+            await handler.handle(data)
+
+
+class TestProcessingOrder:
+    @pytest.mark.anyio
+    async def test_agent_sees_the_text_before_the_batch_suffix_is_parsed(self, handler, agent):
+        agent.run.return_value = None
+        data = _dm('me mande um pub 2x')
+
+        await handler.handle(data)
+
+        agent.run.assert_awaited_once_with(data)
+
+    @pytest.mark.anyio
+    async def test_batch_suffix_of_the_mapped_command_applies(self, handler, agent, mock_dev_list):
+        mock_dev_list.is_dev.return_value = True
+        agent.run.return_value = _dm(',pub 3x')
+
+        result = await handler.handle(_dm('manda três públicos'))
+
+        assert len(result) == 3
+
+    @pytest.mark.anyio
+    async def test_batch_suffix_is_stripped_before_a_clarify_reply(self, handler):
+        result = await handler.handle(_group(',clarify:Quer quantos? 3x'))
+
+        assert result[0].content.text == 'Quer quantos?'
 
 
 class TestSuggestHandler:
