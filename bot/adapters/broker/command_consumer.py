@@ -10,6 +10,7 @@ import structlog.contextvars
 from opentelemetry import trace
 
 from bot.adapters.broker.command_envelope import CommandEnvelope
+from bot.adapters.broker.delivery_guard import DeliveryGuard
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command
@@ -43,9 +44,8 @@ class CommandConsumer:
     ) -> None:
         self._broker = broker
         self._command_handler = command_handler
-        self._inbox = inbox
+        self._delivery = DeliveryGuard(inbox)
         self._exclusive_lane = asyncio.Lock()
-        self._running: set[str] = set()
 
     async def start(self) -> None:
         # Declare the publish targets up front so the publishes from inside the consume
@@ -83,27 +83,16 @@ class CommandConsumer:
         # under its own isolation scope, so concurrent commands keep their own tags.
         sentry_sdk.set_tag('correlation_id', envelope['id'])
 
-        # The inbox only knows finished commands, so a duplicate arriving mid-run gets past
-        # it (and ,dl stays mid-run for its whole wait in the lane). This has to die with
-        # the process: a durable claim would outlive a crash and block the redelivery that
-        # ADR 0001 counts on. No await between the check and the add, so asyncio can't
-        # interleave them; it holds while a single process consumes.
-        key = self._inbox_key(envelope)
-        if key in self._running:
-            logger.info('command_duplicate_skipped')
-            return
-        if key:
-            self._running.add(key)
-        try:
+        with self._delivery.claim(envelope) as claimed:
+            if not claimed:
+                logger.info('command_duplicate_skipped')
+                return
             await self._answer(envelope, command_data, lane)
-        finally:
-            if key:
-                self._running.discard(key)
 
     async def _answer(
         self, envelope: dict[str, Any], command_data: CommandData, lane: AsyncExitStack
     ) -> None:
-        if await self._already_answered(envelope):
+        if await self._delivery.already_answered(envelope):
             logger.info('command_redelivery_skipped')
             return
 
@@ -177,24 +166,4 @@ class CommandConsumer:
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
         # Marked only once the final reply is out: a crash before this line lets the
         # redelivery run again, and a scheduled retry never reaches here.
-        await self._mark_answered(envelope)
-
-    async def _already_answered(self, envelope: dict[str, Any]) -> bool:
-        key = self._inbox_key(envelope)
-        # A dead letter already got its error reply; a replay asks to run it again.
-        if self._inbox is None or key is None or envelope.get('replayed'):
-            return False
-        return await self._inbox.is_done(key)
-
-    async def _mark_answered(self, envelope: dict[str, Any]) -> None:
-        key = self._inbox_key(envelope)
-        if self._inbox is None or key is None:
-            return
-        await self._inbox.mark_done(key)
-
-    @staticmethod
-    def _inbox_key(envelope: dict[str, Any]) -> str | None:
-        # WhatsApp message ids are only unique within a chat.
-        data = envelope['data']
-        message_id = data.get('message_id')
-        return f'{data["jid"]}:{message_id}' if message_id else None
+        await self._delivery.mark_answered(envelope)
