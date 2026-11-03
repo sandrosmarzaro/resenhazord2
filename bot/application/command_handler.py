@@ -1,17 +1,14 @@
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import structlog
 
 from bot.application.agent_routing import AgentRouting
+from bot.application.command_gate import CommandGate
 from bot.application.command_registry import CommandRegistry
 from bot.application.command_text import CommandText
 from bot.application.config_service import ConfigService
-from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandScope
-from bot.domain.constants import (
-    COMMAND_OFF_IN_CHAT,
-)
+from bot.domain.commands.base import Command
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -26,10 +23,6 @@ logger = structlog.get_logger()
 
 
 class CommandHandler:
-    _DISABLED_MSG: ClassVar[str] = 'Esse comando está desativado. 🚫'
-    _OFF_HERE_MSG: ClassVar[str] = COMMAND_OFF_IN_CHAT
-    _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
-
     def __init__(
         self,
         registry: CommandRegistry,
@@ -38,8 +31,10 @@ class CommandHandler:
         config_service: ConfigService | None = None,
     ) -> None:
         self._registry = registry
-        self._dev_list = dev_list or DevListService()
-        self._config = config_service or ConfigService(CachedConfigStore.instance())
+        self._gate = CommandGate(
+            dev_list or DevListService(),
+            config_service or ConfigService(CachedConfigStore.instance()),
+        )
         settings = Settings()
         self._agent_routing = AgentRouting(
             registry,
@@ -86,19 +81,9 @@ class CommandHandler:
         repeat: int,
         on_match: Callable[[Command], Awaitable[None]] | None,
     ) -> list[BotMessage] | None:
-        scope = command.config.scope
-        if scope == CommandScope.DISABLED:
-            return [Reply.to(data).text(self._DISABLED_MSG)]
-
-        is_dev = await self._dev_list.is_dev(data.sender_jid)
-        if scope == CommandScope.DEV and not is_dev:
-            return [Reply.to(data).text(self._DEV_ONLY_MSG)]
-
-        if not await self._config.is_enabled(data, command.config):
-            return [Reply.to(data).text(self._OFF_HERE_MSG)]
-
-        if repeat > 1 and not is_dev:
-            repeat = 1
+        rejection, repeat = await self._gate.admit(command, data, repeat)
+        if rejection:
+            return rejection
 
         # Only a command that will run reaches the hook, so a rejected ,dl never waits
         # for the consumer's exclusive lane.
