@@ -6,6 +6,8 @@ from pathlib import Path
 import anyio
 from PIL import Image, ImageDraw, ImageOps
 
+from bot.domain.services.sticker.media_format import MediaFormat
+
 
 class StickerCreator:
     STICKER_SIZE = (512, 512)
@@ -16,14 +18,8 @@ class StickerCreator:
     VIDEO_FPS = 15
     DEFAULT_PACK = 'Resenha'
     DEFAULT_AUTHOR = 'Resenhazord2'
-    MIN_VIDEO_SIGNATURE_LEN = 12
-    MIN_ANIMATED_WEBP_LEN = 21
-    WEBP_ANIMATION_FLAG = 0x02
-    DEFAULT_FRAME_DURATION_MS = 100
     MAX_FRAME_STRIDE = 4
     MAX_ANIMATED_STICKER_BYTES = 500_000
-    ANMF_DURATION_OFFSET = 12
-    ANMF_DURATION_SIZE = 3
 
     @classmethod
     async def create(
@@ -34,13 +30,13 @@ class StickerCreator:
     ) -> bytes:
         quality = cls._effective_quality(quality_reduction)
         working_size = cls._effective_working_size(quality_reduction)
-        if cls._is_video(buffer):
+        if MediaFormat.is_video(buffer):
             return await cls._create_from_video(buffer, quality, working_size)
         # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
         # keep running.
         encode = (
             cls._create_from_animated_webp
-            if cls._is_animated_webp(buffer)
+            if MediaFormat.is_animated_webp(buffer)
             else cls._create_from_image
         )
         return await anyio.to_thread.run_sync(encode, buffer, sticker_type, quality, working_size)
@@ -71,7 +67,7 @@ class StickerCreator:
     ) -> bytes:
         src = Image.open(io.BytesIO(buffer))
         n_frames = getattr(src, 'n_frames', 1)
-        per_frame_ms = cls._parse_webp_durations(buffer, n_frames)
+        per_frame_ms = MediaFormat.frame_durations(buffer, n_frames)
 
         all_frames: list[Image.Image] = []
         for i in range(n_frames):
@@ -110,28 +106,6 @@ class StickerCreator:
             quality=quality,
         )
         return output.getvalue()
-
-    @classmethod
-    def _parse_webp_durations(cls, buffer: bytes, n_frames: int) -> list[int]:
-        # PIL's WEBP reader does not surface per-frame durations reliably
-        # (returns None/0 for many inputs), so read them straight from ANMF
-        # chunks in the RIFF container.
-        durations: list[int] = []
-        header_size = 8
-        pos = 12
-        while pos + header_size <= len(buffer):
-            fourcc = buffer[pos : pos + 4]
-            chunk_size = int.from_bytes(buffer[pos + 4 : pos + header_size], 'little')
-            if fourcc == b'ANMF':
-                start = pos + header_size + cls.ANMF_DURATION_OFFSET
-                end = start + cls.ANMF_DURATION_SIZE
-                if end <= len(buffer):
-                    raw = int.from_bytes(buffer[start:end], 'little')
-                    durations.append(raw or cls.DEFAULT_FRAME_DURATION_MS)
-            pos += header_size + chunk_size + (chunk_size & 1)
-        while len(durations) < n_frames:
-            durations.append(cls.DEFAULT_FRAME_DURATION_MS)
-        return durations[:n_frames]
 
     @classmethod
     def _transform_frame(
@@ -228,26 +202,3 @@ class StickerCreator:
         canvas = Image.new('RGBA', cls.STICKER_SIZE, (0, 0, 0, 0))
         canvas.paste(img, mask=mask)
         return canvas
-
-    @classmethod
-    def _is_video(cls, buffer: bytes) -> bool:
-        if len(buffer) < cls.MIN_VIDEO_SIGNATURE_LEN:
-            return False
-        # MP4/MOV: ftyp box at offset 4
-        if buffer[4:8] == b'ftyp':
-            return True
-        # AVI
-        if buffer[:4] == b'RIFF' and buffer[8:12] == b'AVI ':
-            return True
-        # MKV/WebM
-        return buffer[:4] == b'\x1a\x45\xdf\xa3'
-
-    @classmethod
-    def _is_animated_webp(cls, buffer: bytes) -> bool:
-        if len(buffer) < cls.MIN_ANIMATED_WEBP_LEN:
-            return False
-        if buffer[:4] != b'RIFF' or buffer[8:12] != b'WEBP':
-            return False
-        if buffer[12:16] != b'VP8X':
-            return False
-        return bool(buffer[20] & cls.WEBP_ANIMATION_FLAG)

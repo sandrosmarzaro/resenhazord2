@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from bot.domain.services.sticker.media_format import MediaFormat
 from bot.domain.services.sticker_creator import StickerCreator
 
 VIDEO_BUFFER = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
@@ -293,36 +294,36 @@ class TestVideoFfmpegCommand:
 
 class TestIsVideo:
     def test_mp4_detected(self) -> None:
-        assert StickerCreator._is_video(b'\x00\x00\x00\x1cftypisom')
+        assert MediaFormat.is_video(b'\x00\x00\x00\x1cftypisom')
 
     def test_avi_detected(self) -> None:
-        assert StickerCreator._is_video(b'RIFF\x00\x00\x00\x00AVI ')
+        assert MediaFormat.is_video(b'RIFF\x00\x00\x00\x00AVI ')
 
     def test_mkv_detected(self) -> None:
-        assert StickerCreator._is_video(b'\x1a\x45\xdf\xa3' + b'\x00' * 8)
+        assert MediaFormat.is_video(b'\x1a\x45\xdf\xa3' + b'\x00' * 8)
 
     def test_png_not_video(self) -> None:
-        assert not StickerCreator._is_video(_create_test_image())
+        assert not MediaFormat.is_video(_create_test_image())
 
     def test_short_buffer_not_video(self) -> None:
-        assert not StickerCreator._is_video(b'\x00\x00')
+        assert not MediaFormat.is_video(b'\x00\x00')
 
 
 class TestIsAnimatedWebp:
     def test_animated_webp_detected(self) -> None:
-        assert StickerCreator._is_animated_webp(_create_animated_webp())
+        assert MediaFormat.is_animated_webp(_create_animated_webp())
 
     def test_static_webp_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(_create_static_webp())
+        assert not MediaFormat.is_animated_webp(_create_static_webp())
 
     def test_png_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(_create_test_image())
+        assert not MediaFormat.is_animated_webp(_create_test_image())
 
     def test_mp4_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(b'\x00\x00\x00\x1cftypisom' + b'\x00' * 20)
+        assert not MediaFormat.is_animated_webp(b'\x00\x00\x00\x1cftypisom' + b'\x00' * 20)
 
     def test_short_buffer_not_detected(self) -> None:
-        assert not StickerCreator._is_animated_webp(b'RIFF\x00\x00\x00\x00WEBP')
+        assert not MediaFormat.is_animated_webp(b'RIFF\x00\x00\x00\x00WEBP')
 
 
 class TestStickerCreatorAnimatedWebp:
@@ -451,9 +452,9 @@ class TestStickerCreatorAnimatedWebp:
             b'RIFF\x00\x00\x00\x00WEBP' + b'ANMF' + (100).to_bytes(4, 'little') + b'\x00' * 4
         )
 
-        durations = StickerCreator._parse_webp_durations(truncated, n_frames=2)
+        durations = MediaFormat.frame_durations(truncated, n_frames=2)
 
-        assert durations == [StickerCreator.DEFAULT_FRAME_DURATION_MS] * 2
+        assert durations == [MediaFormat.DEFAULT_FRAME_DURATION_MS] * 2
 
     def test_parse_webp_durations_reads_anmf_chunks(self) -> None:
         frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue', 'green', 'yellow')]
@@ -467,7 +468,7 @@ class TestStickerCreatorAnimatedWebp:
             loop=0,
         )
 
-        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=4)
+        durations = MediaFormat.frame_durations(buf.getvalue(), n_frames=4)
 
         assert durations == [40, 60, 80, 120]
 
@@ -483,9 +484,9 @@ class TestStickerCreatorAnimatedWebp:
             loop=0,
         )
 
-        durations = StickerCreator._parse_webp_durations(buf.getvalue(), n_frames=2)
+        durations = MediaFormat.frame_durations(buf.getvalue(), n_frames=2)
 
-        assert all(d == StickerCreator.DEFAULT_FRAME_DURATION_MS for d in durations)
+        assert all(d == MediaFormat.DEFAULT_FRAME_DURATION_MS for d in durations)
 
 
 class TestOffTheEventLoop:
