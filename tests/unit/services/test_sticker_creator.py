@@ -1,10 +1,38 @@
 import io
+import os
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
 from bot.domain.services.sticker_creator import StickerCreator
+
+VIDEO_BUFFER = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
+
+
+@pytest.fixture
+def ffmpeg_argv(mocker) -> list[tuple[str, ...]]:
+    calls: list[tuple[str, ...]] = []
+    proc = mocker.AsyncMock()
+    proc.communicate.return_value = (b'', b'')
+    proc.returncode = 0
+
+    def fake_exec(*args, **_kwargs):
+        calls.append(args)
+        Path(args[-1]).write_bytes(b'fake-webp')
+        return proc
+
+    mocker.patch('asyncio.create_subprocess_exec', side_effect=fake_exec)
+    return calls
+
+
+def _create_noise_webp(n_frames: int) -> bytes:
+    frames = [
+        Image.frombytes('RGBA', (512, 512), os.urandom(512 * 512 * 4)) for _ in range(n_frames)
+    ]
+    buf = io.BytesIO()
+    frames[0].save(buf, format='WEBP', save_all=True, append_images=frames[1:], duration=100)
+    return buf.getvalue()
 
 
 def _create_test_image(width: int = 100, height: int = 80, color: str = 'red') -> bytes:
@@ -166,7 +194,7 @@ class TestStickerCreatorVideo:
             return mock_proc
 
         mock_exec = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
             side_effect=fake_exec,
         )
         video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
@@ -199,7 +227,7 @@ class TestStickerCreatorVideo:
             return mock_proc
 
         mock_run = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
             side_effect=fake_run,
         )
         video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
@@ -216,13 +244,51 @@ class TestStickerCreatorVideo:
         mock_proc.communicate.return_value = (b'', b'conversion failed')
         mock_proc.returncode = 1
         mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
             return_value=mock_proc,
         )
         video_buffer = b'\x00\x00\x00\x1c' + b'ftyp' + b'isom' + b'\x00' * 100
 
         with pytest.raises(RuntimeError, match='ffmpeg failed'):
             await StickerCreator.create(video_buffer, 'full')
+
+
+class TestVideoFfmpegCommand:
+    FULL_FILTER = (
+        'scale=512:512:force_original_aspect_ratio=decrease:flags=bilinear,'
+        'fps=15,pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
+    )
+
+    @pytest.mark.anyio
+    async def test_full_video_runs_the_expected_ffmpeg_command(self, ffmpeg_argv) -> None:
+        await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        argv = ffmpeg_argv[0]
+        assert argv[:2] == ('ffmpeg', '-i')
+        assert argv[3:-1] == (
+            '-vcodec',
+            'libwebp',
+            '-vf',
+            self.FULL_FILTER,
+            '-quality',
+            '50',
+            '-loop',
+            '0',
+            '-t',
+            '10',
+            '-preset',
+            'default',
+            '-an',
+            '-vsync',
+            '0',
+        )
+
+    @pytest.mark.anyio
+    async def test_circle_video_runs_the_same_command_as_full(self, ffmpeg_argv) -> None:
+        await StickerCreator.create(VIDEO_BUFFER, 'full')
+        await StickerCreator.create(VIDEO_BUFFER, 'circle')
+
+        assert ffmpeg_argv[0][3:-1] == ffmpeg_argv[1][3:-1]
 
 
 class TestIsVideo:
@@ -286,7 +352,7 @@ class TestStickerCreatorAnimatedWebp:
     @pytest.mark.anyio
     async def test_animated_webp_skips_ffmpeg(self, mocker) -> None:
         mock_exec = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
         )
 
         await StickerCreator.create(_create_animated_webp(), 'full')
@@ -296,7 +362,7 @@ class TestStickerCreatorAnimatedWebp:
     @pytest.mark.anyio
     async def test_static_webp_routes_to_image_path(self, mocker) -> None:
         mock_exec = mocker.patch(
-            'bot.domain.services.sticker_creator.asyncio.create_subprocess_exec',
+            'asyncio.create_subprocess_exec',
         )
 
         result = await StickerCreator.create(_create_static_webp(), 'full')
@@ -370,6 +436,24 @@ class TestStickerCreatorAnimatedWebp:
         heavy = await StickerCreator.create(buf.getvalue(), 'full', quality_reduction=99)
 
         assert len(heavy) <= StickerCreator.MAX_ANIMATED_STICKER_BYTES
+
+    @pytest.mark.anyio
+    async def test_output_over_the_limit_at_every_stride_is_returned(self) -> None:
+        noisy = _create_noise_webp(n_frames=4)
+
+        result = await StickerCreator.create(noisy, 'full')
+
+        assert len(result) > StickerCreator.MAX_ANIMATED_STICKER_BYTES
+        assert getattr(self._open_webp(result), 'n_frames', 0) == 2
+
+    def test_parse_webp_durations_pads_a_truncated_anmf_chunk(self) -> None:
+        truncated = (
+            b'RIFF\x00\x00\x00\x00WEBP' + b'ANMF' + (100).to_bytes(4, 'little') + b'\x00' * 4
+        )
+
+        durations = StickerCreator._parse_webp_durations(truncated, n_frames=2)
+
+        assert durations == [StickerCreator.DEFAULT_FRAME_DURATION_MS] * 2
 
     def test_parse_webp_durations_reads_anmf_chunks(self) -> None:
         frames = [Image.new('RGBA', (64, 64), c) for c in ('red', 'blue', 'green', 'yellow')]
