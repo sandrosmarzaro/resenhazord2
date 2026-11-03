@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from structlog.testing import capture_logs
 
 from bot.data.car_brands import FIPE_BRANDS
 from bot.domain.commands.car import CarCommand
@@ -731,3 +732,46 @@ class TestCaption:
         messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
 
         assert messages[0].content.text == f'{AUDI.emoji} *Audi Golf 1.6*\n{AUDI.origin}'
+
+
+class TestFipeUpstreamErrors:
+    @pytest.mark.anyio
+    async def test_throttled_fipe_logs_an_upstream_warning(self, command, respx_mock, audi_golf):
+        respx_mock.get(f'{FIPE_AUDI}/modelos').mock(
+            return_value=httpx.Response(429, text='<html>Too Many Requests</html>')
+        )
+
+        with capture_logs() as logs:
+            messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert messages[0].content.text == 'Ops, não achei esse carro agora! 🚗'
+        assert [(log['event'], log['log_level']) for log in logs] == [
+            ('upstream_failed', 'warning')
+        ]
+
+    @pytest.mark.anyio
+    async def test_a_year_without_a_price_moves_on_to_the_next(
+        self, command, respx_mock, audi_golf
+    ):
+        respx_mock.get(f'{FIPE_AUDI}/modelos').mock(
+            return_value=httpx.Response(200, json=MOCK_MODELS)
+        )
+        respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos').mock(
+            return_value=httpx.Response(200, json=MOCK_YEARS)
+        )
+        respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos/2020-1').mock(
+            return_value=httpx.Response(404, json={'error': 'veículo não encontrado'})
+        )
+        respx_mock.get(f'{FIPE_AUDI}/modelos/1001/anos/2019-1').mock(
+            return_value=httpx.Response(200, json=MOCK_DETAILS)
+        )
+        respx_mock.get(url__startswith=WIKI_API).mock(
+            return_value=httpx.Response(200, json=MOCK_WIKI_RESPONSE)
+        )
+        respx_mock.get(url__startswith='https://upload.wikimedia.org/').mock(
+            return_value=httpx.Response(200, content=b'fake-image')
+        )
+
+        messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
+
+        assert 'R$ 80.000,00' in messages[0].content.caption

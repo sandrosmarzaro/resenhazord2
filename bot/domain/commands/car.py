@@ -1,5 +1,6 @@
 import random
 
+import httpx
 import structlog
 
 from bot.data.car_brands import FIPE_BRANDS
@@ -17,6 +18,7 @@ logger = structlog.get_logger()
 class CarCommand(Command):
     MAX_YEAR_RETRIES = 3
     MAX_VALID_YEAR = 2030
+    NOT_FOUND_MESSAGE = 'Ops, não achei esse carro agora! 🚗'
 
     @property
     def config(self) -> CommandConfig:
@@ -49,9 +51,12 @@ class CarCommand(Command):
 
             buffer = await WikimediaClient.download(thumb)
             return [Reply.to(data).image_buffer(buffer, caption)]
+        except httpx.HTTPError as error:
+            logger.warning('upstream_failed', upstream='parallelum/wikipedia', error=str(error))
+            return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
         except Exception:
             logger.exception('upstream_failed', upstream='parallelum/wikipedia')
-            return [Reply.to(data).text('Ops, não achei esse carro agora! 🚗')]
+            return [Reply.to(data).text(self.NOT_FOUND_MESSAGE)]
 
     async def _fetch_details(
         self, brand_code: str, model_code: int, years: list[dict]
