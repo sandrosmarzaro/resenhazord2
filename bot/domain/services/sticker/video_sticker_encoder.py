@@ -23,6 +23,8 @@ class VideoStickerEncoder:
                 'libwebp',
                 '-vf',
                 (
+                    # Without an alpha channel the transparent pad comes out black.
+                    'format=rgba,'
                     f'scale={working_size}:{working_size}:'
                     'force_original_aspect_ratio=decrease:flags=bilinear,'
                     f'fps={cls.VIDEO_FPS},'

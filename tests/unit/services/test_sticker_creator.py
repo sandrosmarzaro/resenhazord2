@@ -1,5 +1,7 @@
 import io
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -256,9 +258,54 @@ class TestStickerCreatorVideo:
             await StickerCreator.create(video_buffer, 'full')
 
 
+@pytest.fixture(scope='module')
+def landscape_video(tmp_path_factory) -> bytes:
+    path = tmp_path_factory.mktemp('video') / 'landscape.mp4'
+    subprocess.run(
+        [
+            'ffmpeg',
+            '-loglevel',
+            'error',
+            '-f',
+            'lavfi',
+            '-i',
+            'color=red:size=640x480:rate=15',
+            '-t',
+            '1',
+            '-pix_fmt',
+            'yuv420p',
+            str(path),
+        ],
+        check=True,
+    )
+    return path.read_bytes()
+
+
+# CI runners have no ffmpeg; the argv tests below cover the same branches there.
+@pytest.mark.skipif(shutil.which('ffmpeg') is None, reason='ffmpeg is not installed')
+class TestVideoShapesOnFfmpeg:
+    # A real subprocess needs the asyncio loop the bot runs on.
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @staticmethod
+    def _alpha(webp: bytes, xy: tuple[int, int]) -> int:
+        pixel = Image.open(io.BytesIO(webp)).convert('RGBA').getpixel(xy)
+        assert isinstance(pixel, tuple)
+        return pixel[3]
+
+    @pytest.mark.anyio
+    async def test_full_pads_a_landscape_video_with_transparency(self, landscape_video) -> None:
+        result = await StickerCreator.create(landscape_video, 'full')
+
+        assert self._alpha(result, (256, 5)) == 0
+        assert self._alpha(result, (256, 256)) == 255
+
+
 class TestVideoFfmpegCommand:
     FULL_FILTER = (
-        'scale=512:512:force_original_aspect_ratio=decrease:flags=bilinear,'
+        'format=rgba,scale=512:512:force_original_aspect_ratio=decrease:flags=bilinear,'
         'fps=15,pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
     )
 
