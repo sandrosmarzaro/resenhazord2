@@ -4,6 +4,7 @@ import pytest
 from bot.data.car_brands import FIPE_BRANDS
 from bot.domain.commands.car import CarCommand
 from bot.domain.models.message import ImageBufferContent, TextContent
+from bot.domain.services.car_model_name import CarModelName
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 MOCK_MODELS = {
@@ -252,8 +253,8 @@ class TestBrandDetection:
             ('BMW', '', False),
         ],
     )
-    def test_is_brand_only_page(self, command, brand_name, page_title, expected):
-        assert command._is_brand_only_page(brand_name, page_title) is expected
+    def test_is_brand_only_page(self, brand_name, page_title, expected):
+        assert CarModelName.is_brand_only_page(page_title) is expected
 
     @pytest.mark.anyio
     async def test_cross_brand_page_rejected_uses_brand_logo(self, command, respx_mock, mocker):
@@ -549,7 +550,7 @@ class TestModelNameParsing:
         ],
     )
     def test_base_model_name(self, nome, expected):
-        assert CarCommand._base_model_name(nome) == expected
+        assert CarModelName.base(nome) == expected
 
     @pytest.mark.parametrize(
         ('nome', 'expected'),
@@ -561,7 +562,7 @@ class TestModelNameParsing:
         ],
     )
     def test_wiki_model_name(self, nome, expected):
-        assert CarCommand._wiki_model_name(nome) == expected
+        assert CarModelName.wiki(nome) == expected
 
 
 AUDI = next(b for b in FIPE_BRANDS if b.name == 'Audi')

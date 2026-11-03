@@ -1,15 +1,14 @@
 import random
-import re
 
 import httpx
 import structlog
 
-from bot.data.car import SPEC_TOKEN, SPEC_WORD_BASE, SPEC_WORD_WIKI
 from bot.data.car_brands import FIPE_BRANDS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand, Platform
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.car_model_name import CarModelName
 from bot.infrastructure.http_client import HttpClient
 from bot.infrastructure.wikimedia_client import WikimediaClient
 
@@ -21,11 +20,6 @@ class CarCommand(Command):
     FIPE_TIMEOUT = 8.0
     MAX_YEAR_RETRIES = 3
     MAX_VALID_YEAR = 2030
-
-    _BRAND_NAMES_LOWER: frozenset[str] = frozenset(b.name.lower() for b in FIPE_BRANDS)
-    _BRAND_SUFFIX_PATTERN = re.compile(
-        r'^(.+?)\s+(?:motors?|automobiles?|automotive|group|corporation|trucks?)$'
-    )
 
     @property
     def config(self) -> CommandConfig:
@@ -58,8 +52,8 @@ class CarCommand(Command):
             details = await self._fetch_details(base, model['codigo'], years)
             caption = self._build_caption(brand, model, details)
 
-            base_name = self._base_model_name(model['nome'])
-            wiki_name = self._wiki_model_name(model['nome'])
+            base_name = CarModelName.base(model['nome'])
+            wiki_name = CarModelName.wiki(model['nome'])
             try:
                 thumb = await self._find_image(brand.name, wiki_name, base_name, parsed)
             except httpx.HTTPError, KeyError, ValueError:
@@ -119,7 +113,7 @@ class CarCommand(Command):
         self, brand_name: str, wiki_name: str, base_name: str, parsed: ParsedCommand
     ) -> str | None:
         page = await WikimediaClient.search_wikipedia(f'{brand_name} {wiki_name} car')
-        is_brand_only = self._is_brand_only_page(brand_name, page.title)
+        is_brand_only = CarModelName.is_brand_only_page(page.title)
         thumb = None if is_brand_only else page.thumbnail
 
         if not thumb and 'wiki' not in parsed.flags:
@@ -128,39 +122,6 @@ class CarCommand(Command):
 
         return thumb
 
-    def _is_brand_only_page(self, brand_name: str, page_title: str) -> bool:
-        if not page_title:
-            return False
-        title_lower = page_title.lower()
-        if title_lower in self._BRAND_NAMES_LOWER:
-            return True
-        match = self._BRAND_SUFFIX_PATTERN.match(title_lower)
-        return bool(match and match.group(1) in self._BRAND_NAMES_LOWER)
-
     async def _fetch_brand_logo(self, brand_name: str) -> str | None:
         page = await WikimediaClient.search_wikipedia(f'{brand_name} automobile manufacturer')
         return page.thumbnail
-
-    @staticmethod
-    def _base_model_name(nome: str) -> str:
-        words = nome.strip().split()
-        stop = next(
-            (i for i, w in enumerate(words) if SPEC_TOKEN.match(w) or w.lower() in SPEC_WORD_BASE),
-            -1,
-        )
-        return ' '.join(words[:stop] if stop > 0 else words)
-
-    @staticmethod
-    def _wiki_model_name(nome: str) -> str:
-        words = []
-        for token in nome.strip().split():
-            words.extend(token.split('/'))
-        stop = next(
-            (
-                i
-                for i, w in enumerate(words)
-                if SPEC_TOKEN.match(w) or w.rstrip('.,').lower() in SPEC_WORD_WIKI
-            ),
-            -1,
-        )
-        return ' '.join(words[:stop] if stop > 0 else words)
