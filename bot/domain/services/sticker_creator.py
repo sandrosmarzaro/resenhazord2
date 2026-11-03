@@ -1,7 +1,4 @@
-import asyncio
 import io
-import tempfile
-from pathlib import Path
 
 import anyio
 from PIL import Image
@@ -10,14 +7,13 @@ from bot.data.sticker import STICKER_SIZE
 from bot.domain.services.sticker.animated_webp_encoder import AnimatedWebpEncoder
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
+from bot.domain.services.sticker.video_sticker_encoder import VideoStickerEncoder
 
 
 class StickerCreator:
     WEBP_QUALITY = 50
     MIN_WEBP_QUALITY = 1
     MIN_WORKING_SIZE = 16
-    MAX_VIDEO_DURATION = 10
-    VIDEO_FPS = 15
     DEFAULT_PACK = 'Resenha'
     DEFAULT_AUTHOR = 'Resenhazord2'
 
@@ -31,7 +27,7 @@ class StickerCreator:
         quality = cls._effective_quality(quality_reduction)
         working_size = cls._effective_working_size(quality_reduction)
         if MediaFormat.is_video(buffer):
-            return await cls._create_from_video(buffer, quality, working_size)
+            return await VideoStickerEncoder.encode(buffer, quality, working_size)
         # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
         # keep running.
         encode = (
@@ -60,47 +56,3 @@ class StickerCreator:
         output = io.BytesIO()
         img.save(output, format='WEBP', quality=quality)
         return output.getvalue()
-
-    @classmethod
-    async def _create_from_video(cls, buffer: bytes, quality: int, working_size: int) -> bytes:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = Path(tmpdir) / 'input'
-            output_path = Path(tmpdir) / 'output.webp'
-            input_path.write_bytes(buffer)
-
-            proc = await asyncio.create_subprocess_exec(
-                'ffmpeg',
-                '-i',
-                str(input_path),
-                '-vcodec',
-                'libwebp',
-                '-vf',
-                (
-                    f'scale={working_size}:{working_size}:'
-                    'force_original_aspect_ratio=decrease:flags=bilinear,'
-                    f'fps={cls.VIDEO_FPS},'
-                    f'pad={working_size}:{working_size}:-1:-1:color=0x00000000,'
-                    'scale=512:512:flags=neighbor'
-                ),
-                '-quality',
-                str(quality),
-                '-loop',
-                '0',
-                '-t',
-                str(cls.MAX_VIDEO_DURATION),
-                '-preset',
-                'default',
-                '-an',
-                '-vsync',
-                '0',
-                str(output_path),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await proc.communicate()
-
-            if proc.returncode != 0:
-                msg = f'ffmpeg failed: {stderr.decode().strip()}'
-                raise RuntimeError(msg)
-
-            return output_path.read_bytes()
