@@ -13,6 +13,7 @@ from bot.domain.models.contents.audio_content import AudioBufferContent, AudioCo
 from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
+from bot.domain.services.dev_list import DevListService
 
 if TYPE_CHECKING:
     from bot.domain.models.command_data import CommandData
@@ -588,3 +589,60 @@ class TestAdminStamping:
         data = DiscordInteractionHandler._build_command_data(interaction, ',config')
 
         assert data.is_admin is None
+
+
+class TestScopeGating:
+    DEV_ONLY = 'Esse comando é apenas para desenvolvedores. 🛠️'
+    DISABLED = 'Esse comando está desativado. 🚫'
+
+    @pytest.mark.anyio
+    async def test_refuses_a_dev_command_to_a_non_dev(self, handler, port, mocker):
+        mocker.patch.object(DevListService, 'is_dev', mocker.AsyncMock(return_value=False))
+        strategy = make_strategy(mocker, [])
+        strategy.config.scope = CommandScope.DEV
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, make_interaction(mocker, command_name='dev'))
+
+        port.send_followup.assert_awaited_once_with(self.DEV_ONLY)
+        strategy.run.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_refuses_a_disabled_command(self, handler, port, mocker):
+        strategy = make_strategy(mocker, [])
+        strategy.config.scope = CommandScope.DISABLED
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, make_interaction(mocker))
+
+        port.send_followup.assert_awaited_once_with(self.DISABLED)
+        strategy.run.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_admits_a_dev_registered_from_discord(self, handler, port, mocker):
+        registered = 'discord:999888777'
+        collection = mocker.MagicMock()
+        collection.find_one = mocker.AsyncMock(
+            side_effect=lambda query: (
+                {'_id': registered} if registered in query['_id']['$in'] else None
+            )
+        )
+        mocker.patch(
+            'bot.infrastructure.mongodb.MongoDBConnection.collection', return_value=collection
+        )
+        strategy = make_strategy(mocker, [BotMessage(jid='111', content=TextContent(text='devs'))])
+        strategy.config.scope = CommandScope.DEV
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, make_interaction(mocker, command_name='dev'))
+
+        strategy.run.assert_awaited_once()

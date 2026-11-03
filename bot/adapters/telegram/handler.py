@@ -6,11 +6,12 @@ from telegram.constants import ChatType, MessageEntityType
 
 from bot.adapters.telegram.agent_router import TelegramAgentRouter
 from bot.adapters.telegram.typing_loop import TypingLoop
+from bot.application.command_gate import CommandGate
 from bot.application.command_registry import CommandRegistry
 from bot.application.config_service import ConfigService
 from bot.domain.commands.base import Command, CommandScope, Platform
-from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.models.command_data import CommandData
+from bot.domain.services.dev_list import DevListService
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound, TelegramPort
 
@@ -28,10 +29,12 @@ class TelegramUpdateHandler:
         bot_username: str,
         router: TelegramAgentRouter,
         config_service: ConfigService | None = None,
+        dev_list: DevListService | None = None,
     ) -> None:
         self._bot_username = bot_username.lower()
         self._router = router
         self._config = config_service or ConfigService(CachedConfigStore.instance())
+        self._gate = CommandGate(dev_list or DevListService(), self._config)
         self._name_map: dict[str, str] = {}
 
     def register_name(self, telegram_name: str, registry_text: str) -> None:
@@ -61,8 +64,9 @@ class TelegramUpdateHandler:
 
         is_admin = await self._resolve_admin(port, strategy, chat, user)
         data = self._build_command_data(message, chat, user, text, is_admin=is_admin)
-        if not await self._config.is_enabled(data, strategy.config):
-            await self._reply_text(port, chat.id, COMMAND_OFF_IN_CHAT)
+        rejection, _ = await self._gate.admit(strategy, data, 1)
+        if rejection:
+            await self._reply_text(port, chat.id, rejection[0].content.text)
             return
 
         await TelegramAgentRouter.safe_react(port, chat.id, message.message_id)

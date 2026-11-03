@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from bot.application.config_service import ConfigService
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandScope
+from bot.domain.commands.base import Command, CommandScope, Platform
 from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -25,7 +25,10 @@ class CommandGate:
         if scope == CommandScope.DISABLED:
             return [Reply.to(data).text(self._DISABLED_MSG)], repeat
 
-        is_dev = await self._dev_list.is_dev(data.sender_jid)
+        # Only a dev command or a batch needs the lookup, so most commands skip a Mongo
+        # round trip.
+        needs_dev = scope == CommandScope.DEV or repeat > 1
+        is_dev = needs_dev and await self._dev_list.is_dev(self._dev_key(data))
         if scope == CommandScope.DEV and not is_dev:
             return [Reply.to(data).text(self._DEV_ONLY_MSG)], repeat
 
@@ -35,3 +38,11 @@ class CommandGate:
         if repeat > 1 and not is_dev:
             repeat = 1
         return None, repeat
+
+    @staticmethod
+    def _dev_key(data: CommandData) -> str:
+        # ,dev add stores a Discord user as discord:<id>, and Discord's sender_jid is the
+        # bare id.
+        if data.platform == Platform.DISCORD:
+            return f'discord:{data.sender_jid}'
+        return data.sender_jid

@@ -11,7 +11,7 @@ class DevListService:
     async def is_dev(self, jid: str) -> bool:
         col = MongoDBConnection.collection(self.COLLECTION)
         number = strip_jid(jid)
-        candidates = [f'{number}{s}' for s in self.JID_SUFFIXES]
+        candidates = [jid, *(f'{number}{s}' for s in self.JID_SUFFIXES)]
         return await col.find_one({'_id': {'$in': candidates}}) is not None
 
     async def add(self, jid: str) -> bool:
