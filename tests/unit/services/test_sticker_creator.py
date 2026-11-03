@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from bot.data.sticker import STICKER_SIZE
+from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
 from bot.domain.services.sticker_creator import StickerCreator
 
@@ -129,15 +131,15 @@ class TestStickerCreatorImage:
         assert self._webp_to_image(default_result).size == self._webp_to_image(full_result).size
 
     def test_pixelate_produces_block_regions(self) -> None:
-        img = Image.new('RGBA', StickerCreator.STICKER_SIZE, 'red')
+        img = Image.new('RGBA', STICKER_SIZE, 'red')
         for x in range(img.width):
             for y in range(img.height):
                 img.putpixel((x, y), (x % 256, y % 256, 128, 255))
 
-        result = StickerCreator._pixelate(img, working_size=32)
+        result = FrameShaper._pixelate(img, working_size=32)
 
-        assert result.size == StickerCreator.STICKER_SIZE
-        block = StickerCreator.STICKER_SIZE[0] // 32
+        assert result.size == STICKER_SIZE
+        block = STICKER_SIZE[0] // 32
         assert result.getpixel((0, 0)) == result.getpixel((block - 1, block - 1))
 
     @pytest.mark.anyio
@@ -166,7 +168,7 @@ class TestStickerCreatorImage:
         assert StickerCreator._effective_quality(99) >= StickerCreator.MIN_WEBP_QUALITY
 
     def test_effective_working_size_no_reduction(self) -> None:
-        assert StickerCreator._effective_working_size(0) == StickerCreator.STICKER_SIZE[0]
+        assert StickerCreator._effective_working_size(0) == STICKER_SIZE[0]
 
     def test_effective_working_size_half_reduction(self) -> None:
         assert StickerCreator._effective_working_size(50) == 256
@@ -387,7 +389,7 @@ class TestStickerCreatorAnimatedWebp:
         result = await StickerCreator.create(animated, 'full', quality_reduction=90)
 
         img = self._open_webp(result)
-        assert img.size == StickerCreator.STICKER_SIZE
+        assert img.size == STICKER_SIZE
         assert getattr(img, 'is_animated', False)
 
     @pytest.mark.anyio

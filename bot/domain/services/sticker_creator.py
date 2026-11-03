@@ -4,13 +4,14 @@ import tempfile
 from pathlib import Path
 
 import anyio
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image
 
+from bot.data.sticker import STICKER_SIZE
+from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
 
 
 class StickerCreator:
-    STICKER_SIZE = (512, 512)
     WEBP_QUALITY = 50
     MIN_WEBP_QUALITY = 1
     MIN_WORKING_SIZE = 16
@@ -48,7 +49,7 @@ class StickerCreator:
 
     @classmethod
     def _effective_working_size(cls, quality_reduction: int) -> int:
-        reduced = round(cls.STICKER_SIZE[0] * (100 - quality_reduction) / 100)
+        reduced = round(STICKER_SIZE[0] * (100 - quality_reduction) / 100)
         return max(cls.MIN_WORKING_SIZE, reduced)
 
     @classmethod
@@ -56,7 +57,7 @@ class StickerCreator:
         cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
     ) -> bytes:
         img = Image.open(io.BytesIO(buffer)).convert('RGBA')
-        img = cls._transform_frame(img, sticker_type, working_size)
+        img = FrameShaper.shape(img, sticker_type, working_size)
         output = io.BytesIO()
         img.save(output, format='WEBP', quality=quality)
         return output.getvalue()
@@ -72,7 +73,7 @@ class StickerCreator:
         all_frames: list[Image.Image] = []
         for i in range(n_frames):
             src.seek(i)
-            all_frames.append(cls._transform_frame(src.convert('RGBA'), sticker_type, working_size))
+            all_frames.append(FrameShaper.shape(src.convert('RGBA'), sticker_type, working_size))
 
         # Reduction degrades quality + pixelation; only drop frames as a last
         # resort when pixelation breaks inter-frame compression and the file
@@ -106,28 +107,6 @@ class StickerCreator:
             quality=quality,
         )
         return output.getvalue()
-
-    @classmethod
-    def _transform_frame(
-        cls, img: Image.Image, sticker_type: str, working_size: int
-    ) -> Image.Image:
-        match sticker_type:
-            case 'crop':
-                img = ImageOps.fit(img, cls.STICKER_SIZE)
-            case 'circle':
-                img = cls._apply_circle_mask(img)
-            case 'rounded':
-                img = cls._apply_rounded_mask(img)
-            case _:  # full
-                img = cls._contain_on_transparent(img)
-        if working_size < cls.STICKER_SIZE[0]:
-            img = cls._pixelate(img, working_size)
-        return img
-
-    @classmethod
-    def _pixelate(cls, img: Image.Image, working_size: int) -> Image.Image:
-        small = img.resize((working_size, working_size), Image.Resampling.BILINEAR)
-        return small.resize(cls.STICKER_SIZE, Image.Resampling.NEAREST)
 
     @classmethod
     async def _create_from_video(cls, buffer: bytes, quality: int, working_size: int) -> bytes:
@@ -172,33 +151,3 @@ class StickerCreator:
                 raise RuntimeError(msg)
 
             return output_path.read_bytes()
-
-    @classmethod
-    def _contain_on_transparent(cls, img: Image.Image) -> Image.Image:
-        img = ImageOps.contain(img, cls.STICKER_SIZE)
-        canvas = Image.new('RGBA', cls.STICKER_SIZE, (0, 0, 0, 0))
-        x = (cls.STICKER_SIZE[0] - img.width) // 2
-        y = (cls.STICKER_SIZE[1] - img.height) // 2
-        canvas.paste(img, (x, y), img)
-        return canvas
-
-    @classmethod
-    def _apply_circle_mask(cls, img: Image.Image) -> Image.Image:
-        img = ImageOps.fit(img, cls.STICKER_SIZE)
-        mask = Image.new('L', cls.STICKER_SIZE, 0)
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse((0, 0, *cls.STICKER_SIZE), fill=255)
-        canvas = Image.new('RGBA', cls.STICKER_SIZE, (0, 0, 0, 0))
-        canvas.paste(img, mask=mask)
-        return canvas
-
-    @classmethod
-    def _apply_rounded_mask(cls, img: Image.Image) -> Image.Image:
-        img = ImageOps.fit(img, cls.STICKER_SIZE)
-        radius = cls.STICKER_SIZE[0] // 8
-        mask = Image.new('L', cls.STICKER_SIZE, 0)
-        draw = ImageDraw.Draw(mask)
-        draw.rounded_rectangle((0, 0, *cls.STICKER_SIZE), radius=radius, fill=255)
-        canvas = Image.new('RGBA', cls.STICKER_SIZE, (0, 0, 0, 0))
-        canvas.paste(img, mask=mask)
-        return canvas
