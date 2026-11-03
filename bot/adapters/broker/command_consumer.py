@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import json
 from contextlib import AsyncExitStack
 from functools import partial
@@ -10,10 +9,10 @@ import structlog
 import structlog.contextvars
 from opentelemetry import trace
 
-from bot.adapters.http.schemas import CommandPayload
+from bot.adapters.broker.command_envelope import CommandEnvelope
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, Platform
+from bot.domain.commands.base import Command
 from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
@@ -71,7 +70,7 @@ class CommandConsumer:
                 await self._process(json.loads(body), lane)
 
     async def _process(self, envelope: dict[str, Any], lane: AsyncExitStack) -> None:
-        command_data = self._to_command_data(envelope['data'])
+        command_data = CommandEnvelope.to_command_data(envelope['data'])
 
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
@@ -172,10 +171,7 @@ class CommandConsumer:
         return cls.DOWNLOAD_MAX_ATTEMPTS if isinstance(error, DownloadError) else cls.MAX_ATTEMPTS
 
     async def _publish_reply(self, envelope: dict[str, Any], messages: list[BotMessage]) -> None:
-        reply = {
-            'id': envelope['id'],
-            'messages': [self._serialize(message) for message in messages],
-        }
+        reply = CommandEnvelope.reply(envelope['id'], messages)
         # Carry the trace forward so the gateway's reply consumer can join it (Phase 4).
         inject_trace_context(reply)
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
@@ -202,38 +198,3 @@ class CommandConsumer:
         data = envelope['data']
         message_id = data.get('message_id')
         return f'{data["jid"]}:{message_id}' if message_id else None
-
-    @staticmethod
-    def _serialize(message: BotMessage) -> dict[str, Any]:
-        payload = message.to_dict()
-        if message.content.has_buffer:
-            # Small media rides base64-inline in the reply JSON (the WS path sent it as a
-            # separate binary frame); the gateway decodes it back in ReplyDeserializer.
-            # has_buffer guarantees .buffer exists but the union can't be narrowed on it.
-            buffer = message.content.buffer  # type: ignore[union-attr]
-            payload['content']['buffer_b64'] = base64.b64encode(buffer).decode()
-        return payload
-
-    @staticmethod
-    def _to_command_data(data: dict[str, Any]) -> CommandData:
-        parsed = CommandPayload.model_validate(data)
-        buffer = data.get('media_buffer_b64')
-        return CommandData(
-            text=parsed.text,
-            jid=parsed.jid,
-            sender_jid=parsed.sender_jid,
-            participant=parsed.participant,
-            is_group=parsed.is_group,
-            expiration=parsed.expiration,
-            mentioned_jids=parsed.mentioned_jids,
-            quoted_message_id=parsed.quoted_message_id,
-            quoted_text=parsed.quoted_text,
-            media_type=parsed.media_type,
-            media_source=parsed.media_source,
-            media_is_animated=parsed.media_is_animated,
-            media_caption=parsed.media_caption,
-            media_buffer=base64.b64decode(buffer) if buffer else None,
-            message_id=parsed.message_id,
-            push_name=parsed.push_name,
-            platform=Platform.WHATSAPP,
-        )
