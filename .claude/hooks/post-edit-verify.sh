@@ -48,9 +48,11 @@ if echo "$FILE_PATH" | grep -qE '\.py$'; then
   fi
 fi
 
+# Exit 2 shows Claude stderr only, so the reason goes there. Printed as JSON on
+# stdout it was dropped, and a failing edit surfaced as a blocking error with
+# no message.
 if [[ -n $ERRORS ]]; then
-  TRUNCATED=$(echo -e "$ERRORS" | head -50)
-  echo "{\"decision\": \"block\", \"reason\": \"Lint failed. Fix before continuing:\n${TRUNCATED}\"}"
+  echo -e "Lint failed. Fix before continuing:\n${ERRORS}" | head -50 >&2
   exit 2
 fi
 
