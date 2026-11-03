@@ -1,22 +1,14 @@
-import re
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import structlog
 
+from bot.application.agent_routing import AgentRouting
+from bot.application.command_gate import CommandGate
 from bot.application.command_registry import CommandRegistry
+from bot.application.command_text import CommandText
 from bot.application.config_service import ConfigService
-from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandScope
-from bot.domain.constants import (
-    AGENT_MENU_HINT,
-    BOT_MENTION_TAG,
-    CLARIFY_PREFIX,
-    COMMAND_OFF_IN_CHAT,
-    SUGGEST_PREFIX,
-)
-from bot.domain.exceptions import BotError
+from bot.domain.commands.base import Command
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
@@ -30,18 +22,6 @@ logger = structlog.get_logger()
 
 
 class CommandHandler:
-    _DISABLED_MSG: ClassVar[str] = 'Esse comando está desativado. 🚫'
-    _OFF_HERE_MSG: ClassVar[str] = COMMAND_OFF_IN_CHAT
-    _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
-    _BATCH_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'\s+(\d+)x\s*$')
-    _MAX_BATCH: ClassVar[int] = 5
-    _SEND_ME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r'\b(mande|me\s+manda|me\s+envie|envie)\s+(um?|uma)\b',
-        re.IGNORECASE,
-    )
-    _CLARIFY_PREFIX: ClassVar[str] = CLARIFY_PREFIX
-    _SUGGEST_PREFIX: ClassVar[str] = SUGGEST_PREFIX
-
     def __init__(
         self,
         registry: CommandRegistry,
@@ -50,18 +30,15 @@ class CommandHandler:
         config_service: ConfigService | None = None,
     ) -> None:
         self._registry = registry
-        self._agent = agent
-        self._dev_list = dev_list or DevListService()
-        self._config = config_service or ConfigService(CachedConfigStore.instance())
+        self._gate = CommandGate(
+            dev_list or DevListService(),
+            config_service or ConfigService(CachedConfigStore.instance()),
+        )
         settings = Settings()
-        self._bot_numeric: frozenset[str] = frozenset(
-            jid.split('@')[0]
-            for jid in (
-                settings.resenhazord2_jid,
-                settings.resenha_jid,
-                settings.resenhazord2_lid,
-            )
-            if jid
+        self._agent_routing = AgentRouting(
+            registry,
+            agent,
+            (settings.resenhazord2_jid, settings.resenha_jid, settings.resenhazord2_lid),
         )
 
     async def handle(
@@ -72,17 +49,17 @@ class CommandHandler:
     ) -> list[BotMessage] | None:
         logger.debug('handle_raw', text=repr(data.text))
 
-        if self._should_run_agent(data):
+        if self._agent_routing.should_route(data):
             logger.info('agent_routing', text=data.text)
-            mapped = await self._run_agent(data)
+            mapped = await self._agent_routing.map(data)
             if mapped is None:
                 return None
             data = mapped
 
-        repeat, data = self._parse_batch(data)
+        repeat, data = CommandText.split_batch(data)
         logger.debug('handle_parsed', repeat=repeat, text=repr(data.text))
 
-        if builtin := self._parse_builtin_prefix(data):
+        if builtin := CommandText.builtin_reply(data):
             return builtin
 
         command = self._registry.get_strategy(data.text)
@@ -103,19 +80,9 @@ class CommandHandler:
         repeat: int,
         on_match: Callable[[Command], Awaitable[None]] | None,
     ) -> list[BotMessage] | None:
-        scope = command.config.scope
-        if scope == CommandScope.DISABLED:
-            return [Reply.to(data).text(self._DISABLED_MSG)]
-
-        is_dev = await self._dev_list.is_dev(data.sender_jid)
-        if scope == CommandScope.DEV and not is_dev:
-            return [Reply.to(data).text(self._DEV_ONLY_MSG)]
-
-        if not await self._config.is_enabled(data, command.config):
-            return [Reply.to(data).text(self._OFF_HERE_MSG)]
-
-        if repeat > 1 and not is_dev:
-            repeat = 1
+        rejection, repeat = await self._gate.admit(command, data, repeat)
+        if rejection:
+            return rejection
 
         # Only a command that will run reaches the hook, so a rejected ,dl never waits
         # for the consumer's exclusive lane.
@@ -131,58 +98,9 @@ class CommandHandler:
         data: CommandData,
         repeat: int,
     ) -> list[BotMessage]:
-        try:
-            messages: list[BotMessage] = []
-            for _ in range(repeat):
-                messages.extend(await command.run(data))
-        except BotError:
-            raise
-        except Exception:
-            logger.exception('command_execution_failed')
-            raise
+        # An unexpected failure propagates unlogged: the consumer logs it once, with the
+        # correlation id, and answers the user.
+        messages: list[BotMessage] = []
+        for _ in range(repeat):
+            messages.extend(await command.run(data))
         return messages
-
-    def _should_run_agent(self, data: CommandData) -> bool:
-        if self._is_explicit_mention(data):
-            return True
-        if data.is_group:
-            return False
-        # Private chat: a recognized ",command" takes the fast direct path;
-        # natural language or an unmatched ",typo" goes to the agent to map or clarify.
-        return self._registry.get_strategy(data.text) is None
-
-    def _is_explicit_mention(self, data: CommandData) -> bool:
-        text_lower = (data.text or '').lower()
-        for mentioned in data.mentioned_jids or ():
-            if mentioned.split('@')[0] in self._bot_numeric:
-                return True
-        if BOT_MENTION_TAG in text_lower:
-            return True
-        return bool(self._SEND_ME_PATTERN.search(text_lower))
-
-    async def _run_agent(self, data: CommandData) -> CommandData | None:
-        try:
-            return await self._agent.run(data)
-        except ValueError:
-            logger.warning('agent_invalid_response', text=data.text)
-            return replace(data, text=f'{CLARIFY_PREFIX}Erro inesperado. {AGENT_MENU_HINT}')
-
-    @classmethod
-    def _parse_batch(cls, data: CommandData) -> tuple[int, CommandData]:
-        match = cls._BATCH_PATTERN.search(data.text)
-        if not match:
-            return 1, data
-        count = min(int(match.group(1)), cls._MAX_BATCH)
-        stripped_text = data.text[: match.start()]
-        return max(count, 1), replace(data, text=stripped_text)
-
-    @classmethod
-    def _parse_builtin_prefix(cls, data: CommandData) -> list[BotMessage] | None:
-        text = data.text or ''
-        if text.startswith(cls._CLARIFY_PREFIX):
-            message = text[len(cls._CLARIFY_PREFIX) :].strip() or AGENT_MENU_HINT
-            return [Reply.to(data).text(message)]
-        if text.startswith(cls._SUGGEST_PREFIX):
-            message = text[len(cls._SUGGEST_PREFIX) :].strip() or AGENT_MENU_HINT
-            return [Reply.to(data).text(message)]
-        return None
