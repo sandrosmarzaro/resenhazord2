@@ -3,10 +3,10 @@
 <p align="center">
   <a href="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml?query=branch%3Amain"><img src="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml/badge.svg?branch=main" alt="Pipeline"></a>
   <a href="https://codecov.io/gh/sandrosmarzaro/resenhazord2"><img src="https://codecov.io/gh/sandrosmarzaro/resenhazord2/branch/main/graph/badge.svg" alt="Coverage"></a>
-  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=alert_status" alt="Quality Gate"></a>
-  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=security_rating" alt="Security Rating"></a>
-  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=sqale_rating" alt="Maintainability Rating"></a>
-  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=reliability_rating" alt="Reliability Rating"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=alert_status&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Quality Gate"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=security_rating&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Security Rating"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=sqale_rating&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Maintainability Rating"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=reliability_rating&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Reliability Rating"></a>
 </p>
 
 <p align="center">
