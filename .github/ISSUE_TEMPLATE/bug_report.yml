@@ -1,0 +1,53 @@
+name: Bug report
+description: A command or platform behaves wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems go through private reporting, as described in SECURITY.md, never a public issue.
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: The exact text you sent, or the plain-language request the agent got wrong.
+      placeholder: ",porno pes show"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - WhatsApp
+        - Discord
+        - Telegram
+    validations:
+      required: true
+  - type: dropdown
+    id: chat
+    attributes:
+      label: Chat
+      options:
+        - Group
+        - Private
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The bot's reply, or no reply at all. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: when
+    attributes:
+      label: When
+      description: Date and time with time zone, so the logs can be found.
+      placeholder: "2026-11-04 17:40 BRT"
