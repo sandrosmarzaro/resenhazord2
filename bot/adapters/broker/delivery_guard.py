@@ -16,8 +16,9 @@ class DeliveryGuard:
         # it (and ,dl stays mid-run for its whole wait in the lane). This has to die with
         # the process: a durable claim would outlive a crash and block the redelivery that
         # ADR 0001 counts on. No await between the check and the add, so asyncio can't
-        # interleave them; it holds while a single process consumes.
-        key = self._key(envelope)
+        # interleave them; it holds while a single process consumes. A replay is the
+        # operator asking for one more run, so it neither checks nor takes the claim.
+        key = None if envelope.get('replayed') else self._key(envelope)
         if key in self._running:
             yield False
             return
