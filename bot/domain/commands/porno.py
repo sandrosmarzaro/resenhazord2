@@ -1,6 +1,7 @@
 import html
 import random
 import re
+from typing import ClassVar
 
 import structlog
 from bs4 import BeautifulSoup
@@ -27,6 +28,13 @@ logger = structlog.get_logger()
 
 class PornoCommand(Command):
     MAX_PAGE = 50
+    # Where a law requires age verification (Arizona, Wyoming), xvideos leaves the player
+    # calls out of the page but keeps the mp4 in its JSON-LD contentUrl.
+    VIDEO_URL_PATTERNS: ClassVar[tuple[str, ...]] = (
+        r"setVideoUrlLow\('([^']+)'\)",
+        r"setVideoUrlHigh\('([^']+)'\)",
+        r'"contentUrl"\s*:\s*"([^"]+)"',
+    )
 
     @property
     def config(self) -> CommandConfig:
@@ -55,6 +63,9 @@ class PornoCommand(Command):
         )
         response.raise_for_status()
         porn = response.json()
+        if 'image' not in porn:
+            msg = f'O nsfwhub não tem nada na categoria {tag}'
+            raise ExternalServiceError(msg)
         url: str = porn['image']['url']
 
         view_once = 'show' not in parsed.flags
@@ -117,15 +128,14 @@ class PornoCommand(Command):
         else:
             title = 'Vídeo'
 
-        low_match = re.search(r"setVideoUrlLow\('([^']+)'\)", page_html)
-        high_match = re.search(r"setVideoUrlHigh\('([^']+)'\)", page_html)
-        if low_match:
-            video_url = low_match.group(1)
-        elif high_match:
-            video_url = high_match.group(1)
-        else:
-            video_url = None
-
+        video_url = next(
+            (
+                match.group(1)
+                for pattern in cls.VIDEO_URL_PATTERNS
+                if (match := re.search(pattern, page_html))
+            ),
+            None,
+        )
         if not video_url:
             msg = 'Não foi possível extrair URL do vídeo'
             raise ExternalServiceError(msg)

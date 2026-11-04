@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.porno import PornoCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.message import RawContent, TextContent, VideoContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -91,6 +92,19 @@ class TestIaPorn:
         assert 'image' in content
         assert 'gifPlayback' not in content
 
+    @pytest.mark.anyio
+    async def test_raises_an_external_error_when_the_category_is_empty(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', porno ia')
+        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
+            return_value=httpx.Response(
+                200,
+                json={'status': 'ERROR', 'error': 'No Data Found for the Entered Category.'},
+            )
+        )
+
+        with pytest.raises(ExternalServiceError):
+            await command.run(data)
+
 
 class TestRealPorn:
     LISTING_HTML = """
@@ -107,6 +121,21 @@ class TestRealPorn:
 <body>
 <script>setVideoUrlLow('https://cdn.example.com/low.mp4')</script>
 <script>setVideoUrlHigh('https://cdn.example.com/high.mp4')</script>
+</body>
+</html>
+"""
+    AGE_GATED_HTML = """
+<html>
+<head><title>Test Video - XVIDEOS.COM</title></head>
+<body>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "VideoObject",
+"contentUrl": "https://cdn.example.com/sd.mp4?secure=abc==,123"
+}
+</script>
+<script>xv.age_go.init()</script>
 </body>
 </html>
 """
@@ -138,6 +167,20 @@ class TestRealPorn:
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'molhadinho' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_sends_the_content_url_when_the_page_is_age_gated(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', porno')
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=self.LISTING_HTML),
+                httpx.Response(200, text=self.AGE_GATED_HTML),
+            ]
+        )
+
+        messages = await command.run(data)
+
+        assert messages[0].content.url == 'https://cdn.example.com/sd.mp4?secure=abc==,123'
 
     @pytest.mark.anyio
     async def test_raises_when_no_video_links(self, command, respx_mock):
