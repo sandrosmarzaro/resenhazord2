@@ -4,9 +4,11 @@ import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
+from bot.domain.constants import ADMIN_ONLY_COMMAND
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.group_admin import GroupAdminService
 
 logger = structlog.get_logger()
 
@@ -41,6 +43,8 @@ class BanCommand(Command):
         bot_entry = next((p for p in participants if p['id'] == self._bot_jid), None)
         if not bot_entry or not bot_entry.get('admin'):
             return [Reply.to(data).text(self.BOT_NOT_ADMIN_MSG)]
+        if not GroupAdminService.is_sender_admin(data, participants):
+            return [Reply.to(data).text(ADMIN_ONLY_COMMAND)]
 
         if not data.mentioned_jids:
             return await self._ban_random(data, participants, owner)
