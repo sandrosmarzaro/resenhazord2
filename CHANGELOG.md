@@ -2,6 +2,31 @@
 
 <!-- version list -->
 
+## v2.15.0 (2026-11-04)
+
+### Feat
+
+- **commands**: restrict ,ban and ,add to group admins (#300)
+
+### Fix
+
+- **commands**: stop the random ,ban from spinning when nobody can be banned (#300)
+- **broker**: let a dlq replay run while its first run still holds the claim (#300)
+- **commands**: tell ,áudio users in portuguese when a word is too long (#300)
+- **adapters**: enforce dev and disabled scopes on discord and telegram (#299)
+- **handler**: log an unexpected command failure once
+- **tooling**: keep claude hooks out of worktrees and show lint failures (#298)
+- **translator**: fall back to the dictionary client when gtx is blocked (#293)
+
+### Refactor
+
+- **stickers**: split sticker_creator into layers and fix the video and size bugs (#297)
+- **commands**: split ,carro into client, rule and command layers (#296)
+- **broker**: split the command consumer into codec, delivery guard and retry router (#295)
+- **handler**: move scope, dev and config gating to CommandGate
+- **handler**: move agent routing to AgentRouting
+- **handler**: move batch and built-in prefix parsing to CommandText
+
 ## v2.14.0 (2026-10-31)
 
 ### Feat
