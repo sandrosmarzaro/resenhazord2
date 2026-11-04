@@ -95,8 +95,12 @@ class AudioCommand(Command):
 
             split_pos = self._last_space_or_punct(text, start, end)
             if split_pos == -1:
-                msg = f'Word too long to split: {text[start : start + self.MAX_CHUNK_LENGTH]}...'
-                raise ValidationError(msg)
+                detail = f'Word too long to split: {text[start : start + self.MAX_CHUNK_LENGTH]}...'
+                message = (
+                    'Essa palavra é grande demais pra eu falar! '
+                    f'O máximo é {self.MAX_CHUNK_LENGTH} letras 🗣️'
+                )
+                raise ValidationError(message, detail=detail)
 
             result.append(text[start : split_pos + 1])
             start = split_pos + 1

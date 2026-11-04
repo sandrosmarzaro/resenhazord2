@@ -167,7 +167,9 @@ class TestCommandOverTheQueue:
 
         reply = await bot.send(f',áudio {word}')
 
-        assert texts(reply) == [f'Word too long to split: {word[:200]}...']
+        assert texts(reply) == [
+            'Essa palavra é grande demais pra eu falar! O máximo é 200 letras 🗣️'
+        ]
 
     @pytest.mark.anyio
     async def test_a_failing_upstream_retries_then_dead_letters_with_an_error_reply(
