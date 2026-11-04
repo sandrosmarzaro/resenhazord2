@@ -1,3 +1,4 @@
+COMMAND_PREFIX = ','
 CLARIFY_PREFIX = ',clarify:'
 SUGGEST_PREFIX = ',suggest:'
 
