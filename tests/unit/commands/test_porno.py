@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from structlog.testing import capture_logs
 
 from bot.domain.commands.porno import PornoCommand
 from bot.domain.models.message import RawContent, TextContent, VideoContent
@@ -110,6 +111,15 @@ class TestRealPorn:
 </body>
 </html>
 """
+    AGE_GATED_HTML = """
+<html>
+<head><title>Test Video - XVIDEOS.COM</title></head>
+<body>
+<script src="https://verifycdn.agego.com/v2/verify.js"></script>
+<script>xv.age_go.init()</script>
+</body>
+</html>
+"""
 
     @pytest.mark.anyio
     async def test_returns_video_on_success(self, command, respx_mock):
@@ -138,6 +148,21 @@ class TestRealPorn:
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'molhadinho' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_logs_an_age_gated_page_apart_from_failures(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', porno')
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=self.LISTING_HTML),
+                httpx.Response(200, text=self.AGE_GATED_HTML),
+            ]
+        )
+
+        with capture_logs() as logs:
+            await command.run(data)
+
+        assert [log['event'] for log in logs] == ['upstream_age_gated']
 
     @pytest.mark.anyio
     async def test_raises_when_no_video_links(self, command, respx_mock):
