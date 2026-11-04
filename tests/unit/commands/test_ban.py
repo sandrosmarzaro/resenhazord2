@@ -1,4 +1,5 @@
 import pytest
+from structlog.testing import capture_logs
 
 from tests.conftest import make_group_participants
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
@@ -67,9 +68,26 @@ class TestBanRandom:
         assert len(messages) == 1
         assert 'Já era!' in messages[0].content.text
         assert '@5511999990001' in messages[0].content.text
+        assert messages[0].content.mentions == [target_jid]
         mock_whatsapp.group_participants_update.assert_called_once_with(
             self.CHAT_JID, [target_jid], 'remove'
         )
+
+    @pytest.mark.anyio
+    async def test_a_failed_removal_logs_the_chat_and_replies_nothing(self, command, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
+            self.BOT_JID, '5511999990001@s.whatsapp.net'
+        )
+        mock_whatsapp.group_participants_update.side_effect = RuntimeError('not allowed')
+        data = GroupCommandDataFactory.build(is_admin=True, text=',ban', jid=self.CHAT_JID)
+
+        with capture_logs() as logs:
+            messages = await command.run(data)
+
+        assert messages == []
+        assert [(log['event'], log['jid']) for log in logs if log['log_level'] == 'error'] == [
+            ('ban_random_error', self.CHAT_JID)
+        ]
 
     @pytest.mark.anyio
     async def test_skips_bot_and_owner(self, command, mock_whatsapp):

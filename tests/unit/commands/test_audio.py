@@ -199,6 +199,15 @@ class TestWordTooLong:
             == 'Essa palavra é grande demais pra eu falar! O máximo é 200 letras 🗣️'
         )
 
+    @pytest.mark.anyio
+    async def test_keeps_the_offending_text_as_the_detail(self, command):
+        data = GroupCommandDataFactory.build(text=f',áudio {"a" * 250}')
+
+        with pytest.raises(ValidationError) as error:
+            await command.run(data)
+
+        assert str(error.value) == f'Word too long to split: {"a" * 200}...'
+
 
 class TestBuildTtsUrl:
     def test_url_structure(self, command):
