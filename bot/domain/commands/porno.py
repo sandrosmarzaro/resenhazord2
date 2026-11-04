@@ -63,6 +63,9 @@ class PornoCommand(Command):
         )
         response.raise_for_status()
         porn = response.json()
+        if 'image' not in porn:
+            msg = f'O nsfwhub não tem nada na categoria {tag}'
+            raise ExternalServiceError(msg)
         url: str = porn['image']['url']
 
         view_once = 'show' not in parsed.flags

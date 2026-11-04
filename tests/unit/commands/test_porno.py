@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.porno import PornoCommand
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.message import RawContent, TextContent, VideoContent
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -90,6 +91,19 @@ class TestIaPorn:
         content = messages[0].content.content
         assert 'image' in content
         assert 'gifPlayback' not in content
+
+    @pytest.mark.anyio
+    async def test_raises_an_external_error_when_the_category_is_empty(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', porno ia')
+        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
+            return_value=httpx.Response(
+                200,
+                json={'status': 'ERROR', 'error': 'No Data Found for the Entered Category.'},
+            )
+        )
+
+        with pytest.raises(ExternalServiceError):
+            await command.run(data)
 
 
 class TestRealPorn:
