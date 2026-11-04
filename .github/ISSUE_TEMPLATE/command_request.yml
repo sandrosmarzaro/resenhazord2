@@ -1,0 +1,34 @@
+name: Command or feature request
+description: Suggest a new command or a change to one
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What the command does and why the group would use it.
+    validations:
+      required: true
+  - type: textarea
+    id: usage
+    attributes:
+      label: Usage
+      description: How someone would call it and what the bot would reply.
+      placeholder: |
+        ,clima vitória
+        → 🌤️ Vitória, 28 °C, sensação de 31 °C
+  - type: input
+    id: source
+    attributes:
+      label: Data source
+      description: An API or site the command could use, if you know one. Free sources without keys are preferred.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platforms
+      multiple: true
+      options:
+        - All
+        - WhatsApp
+        - Discord
+        - Telegram
