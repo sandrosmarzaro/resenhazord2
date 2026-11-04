@@ -250,3 +250,20 @@ class TestAdminOnly:
         await command.run(data)
 
         mock_whatsapp.group_participants_update.assert_called_once()
+
+
+class TestNobodyLeftToBan:
+    BOT_JID = '5500000000000@s.whatsapp.net'
+    OWNER_JID = '5511999990099@s.whatsapp.net'
+
+    @pytest.mark.anyio
+    async def test_says_so_when_only_the_bot_and_the_owner_are_left(self, command, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
+            self.BOT_JID, self.OWNER_JID, owner=self.OWNER_JID, owner_admin=True
+        )
+        data = GroupCommandDataFactory.build(text=',ban', is_admin=True)
+
+        messages = await command.run(data)
+
+        assert messages[0].content.text == 'Não sobrou ninguém pra eu banir! 🤷'
+        mock_whatsapp.group_participants_update.assert_not_called()
