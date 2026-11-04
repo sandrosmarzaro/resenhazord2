@@ -119,10 +119,6 @@ async def test_command_replies_from_its_upstream(registry, settings, text, needs
     with capture_logs() as logs:
         messages = await command.run(data)
 
-    # Runners in a US state with an age-verification law can't reach adult content; the
-    # core node in Brazil can, so this says nothing about prod.
-    if any(log['event'] == 'upstream_age_gated' for log in logs):
-        pytest.skip('the runner sits behind an age-verification law')
     failures = [
         log for log in logs if log['event'] == 'upstream_failed' or log['log_level'] == 'error'
     ]

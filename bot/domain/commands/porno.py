@@ -1,6 +1,7 @@
 import html
 import random
 import re
+from typing import ClassVar
 
 import structlog
 from bs4 import BeautifulSoup
@@ -17,7 +18,7 @@ from bot.domain.commands.base import (
     ParsedCommand,
     Platform,
 )
-from bot.domain.exceptions import AgeGatedError, ExternalServiceError
+from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -27,9 +28,13 @@ logger = structlog.get_logger()
 
 class PornoCommand(Command):
     MAX_PAGE = 50
-    # Where a law requires age verification (Arizona, Wyoming), xvideos loads the AgeGo
-    # verifier and leaves the player URLs out of the page.
-    AGE_GATE_MARKER = 'age_go.init'
+    # Where a law requires age verification (Arizona, Wyoming), xvideos leaves the player
+    # calls out of the page but keeps the mp4 in its JSON-LD contentUrl.
+    VIDEO_URL_PATTERNS: ClassVar[tuple[str, ...]] = (
+        r"setVideoUrlLow\('([^']+)'\)",
+        r"setVideoUrlHigh\('([^']+)'\)",
+        r'"contentUrl"\s*:\s*"([^"]+)"',
+    )
 
     @property
     def config(self) -> CommandConfig:
@@ -80,13 +85,13 @@ class PornoCommand(Command):
         try:
             result = await self._scrape_random_video()
             return [Reply.to(data).video(result['url'], result['title'])]
-        except AgeGatedError:
-            logger.warning('upstream_age_gated', upstream='xvideos')
         except Exception:
             logger.exception('upstream_failed', upstream='xvideos/nsfwhub')
-        return [
-            Reply.to(data).text('Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶')
-        ]
+            return [
+                Reply.to(data).text(
+                    'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'
+                )
+            ]
 
     @classmethod
     async def _scrape_random_video(cls) -> dict[str, str]:
@@ -113,9 +118,6 @@ class PornoCommand(Command):
         video_resp = await HttpClient.get(video_page_url, timeout=30.0, headers=BROWSER_HEADERS)
         video_resp.raise_for_status()
         page_html = video_resp.text
-        if cls.AGE_GATE_MARKER in page_html:
-            msg = 'xvideos pede verificação de idade nesta região'
-            raise AgeGatedError(msg)
 
         title_match = re.search(r'<title>([^<]+)</title>', page_html)
         if title_match:
@@ -123,15 +125,14 @@ class PornoCommand(Command):
         else:
             title = 'Vídeo'
 
-        low_match = re.search(r"setVideoUrlLow\('([^']+)'\)", page_html)
-        high_match = re.search(r"setVideoUrlHigh\('([^']+)'\)", page_html)
-        if low_match:
-            video_url = low_match.group(1)
-        elif high_match:
-            video_url = high_match.group(1)
-        else:
-            video_url = None
-
+        video_url = next(
+            (
+                match.group(1)
+                for pattern in cls.VIDEO_URL_PATTERNS
+                if (match := re.search(pattern, page_html))
+            ),
+            None,
+        )
         if not video_url:
             msg = 'Não foi possível extrair URL do vídeo'
             raise ExternalServiceError(msg)

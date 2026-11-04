@@ -26,10 +26,6 @@ class ExternalServiceError(CommandError):
     """External API failure."""
 
 
-class AgeGatedError(ExternalServiceError):
-    """The upstream withholds adult content until the viewer verifies their age."""
-
-
 class DownloadError(ExternalServiceError):
     """yt-dlp or download failure."""
 
