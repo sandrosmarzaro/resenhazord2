@@ -4,28 +4,52 @@
     uv run task prompt:promote -- --source <hash> # promote a specific commit
 
 Homologation gate: run this only on a commit the prompt-eval workflow has passed
-(see .github/workflows/prompt-eval.yml). It pulls the source commit and re-tags
-its content as `prod`; the bot's next pull (SDK cache TTL 300s) serves it with no
-re-deploy. Rollback is the same call pointed at an older green commit.
+(see .github/workflows/prompt-eval.yml). It moves the `prod` tag to the source
+commit; the bot's next pull (SDK cache TTL 300s) serves it with no re-deploy.
+Rollback is the same call pointed at an older green commit.
+
+The SDK's push_prompt only creates tags, and the hub answers 409 once `prod`
+exists, so this moves the tag through the REST API instead.
 """
 
 import argparse
 
-from langsmith import Client
+import httpx
 
 from bot.settings import Settings
 
+_API_URL = 'https://api.smith.langchain.com'
 _MISSING_KEY = 'LANGSMITH_API_KEY is not set; cannot promote the prompt'
 _PROD_TAG = 'prod'
+_TIMEOUT_SECONDS = 30.0
+_COMMITS_PAGE = 100
 
 
 def promote_prompt(settings: Settings, source: str) -> str:
-    client = Client(api_key=settings.langsmith_api_key)
-    identifier = f'{settings.langsmith_prompt_name}:{source}'
-    committed = client.pull_prompt(identifier)
-    return client.push_prompt(
-        settings.langsmith_prompt_name, object=committed, commit_tags=[_PROD_TAG]
-    )
+    name = settings.langsmith_prompt_name
+    headers = {'x-api-key': settings.langsmith_api_key}
+    with httpx.Client(base_url=_API_URL, headers=headers, timeout=_TIMEOUT_SECONDS) as client:
+        commit_id = _commit_id(client, name, source)
+        response = client.patch(f'/repos/-/{name}/tags/{_PROD_TAG}', json={'commit_id': commit_id})
+        response.raise_for_status()
+    return f'{_PROD_TAG} -> {source} ({commit_id})'
+
+
+def _commit_id(client: httpx.Client, name: str, source: str) -> str:
+    tags = client.get(f'/repos/-/{name}/tags').raise_for_status().json()
+    tagged = [tag['commit_id'] for tag in tags if tag['tag_name'] == source]
+    if tagged:
+        return tagged[0]
+    commits = client.get(f'/commits/-/{name}', params={'limit': _COMMITS_PAGE})
+    matches = [
+        commit['id']
+        for commit in commits.raise_for_status().json()['commits']
+        if commit['commit_hash'].startswith(source)
+    ]
+    if len(matches) != 1:
+        message = f'{source!r} names no single commit or tag of {name}'
+        raise SystemExit(message)
+    return matches[0]
 
 
 if __name__ == '__main__':
