@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from bot.domain.commands.audio import AudioCommand
+from bot.domain.exceptions import ValidationError
 from bot.domain.models.message import AudioContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
@@ -183,6 +184,29 @@ class TestSplitLongText:
         text = 'a' * 200
         result = command._split_long_text(text)
         assert result == [text]
+
+
+class TestWordTooLong:
+    @pytest.mark.anyio
+    async def test_tells_the_user_in_portuguese(self, command):
+        data = GroupCommandDataFactory.build(text=f',áudio {"a" * 250}')
+
+        with pytest.raises(ValidationError) as error:
+            await command.run(data)
+
+        assert (
+            error.value.user_message
+            == 'Essa palavra é grande demais pra eu falar! O máximo é 200 letras 🗣️'
+        )
+
+    @pytest.mark.anyio
+    async def test_keeps_the_offending_text_as_the_detail(self, command):
+        data = GroupCommandDataFactory.build(text=f',áudio {"a" * 250}')
+
+        with pytest.raises(ValidationError) as error:
+            await command.run(data)
+
+        assert str(error.value) == f'Word too long to split: {"a" * 200}...'
 
 
 class TestBuildTtsUrl:

@@ -12,10 +12,14 @@ class GroupAdminService:
         if data.platform != Platform.WHATSAPP or whatsapp is None:
             return False
         metadata = await whatsapp.group_metadata(data.jid)
-        sender = data.participant or data.sender_jid
-        return self._is_admin(metadata['participants'], sender)
+        return self.is_sender_admin(data, metadata['participants'])
 
     @staticmethod
-    def _is_admin(participants: list[dict], sender: str) -> bool:
+    def is_sender_admin(data: CommandData, participants: list[dict]) -> bool:
+        # For callers that already hold the group's participants, so the check costs no
+        # second metadata round trip.
+        if data.is_admin is not None:
+            return data.is_admin
+        sender = data.participant or data.sender_jid
         entry = next((member for member in participants if member['id'] == sender), None)
         return bool(entry and entry.get('admin'))

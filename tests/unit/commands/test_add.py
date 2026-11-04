@@ -42,7 +42,7 @@ class TestBotNotAdmin:
         mock_whatsapp.group_metadata.return_value = {
             'participants': [{'id': self.BOT_JID, 'admin': None}],
         }
-        data = GroupCommandDataFactory.build(text=',add', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(is_admin=True, text=',add', jid=self.CHAT_JID)
 
         messages = await command.run(data)
 
@@ -58,7 +58,9 @@ class TestInvalidDDD:
         mock_whatsapp.group_metadata.return_value = {
             'participants': [{'id': self.BOT_JID, 'admin': 'admin'}],
         }
-        data = GroupCommandDataFactory.build(text=',add 00999990000', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(
+            is_admin=True, text=',add 00999990000', jid=self.CHAT_JID
+        )
 
         messages = await command.run(data)
 
@@ -77,7 +79,9 @@ class TestPhoneTooLong:
         mock_whatsapp.on_whatsapp.return_value = [
             {'exists': True, 'jid': '5511999990000123@s.whatsapp.net'},
         ]
-        data = GroupCommandDataFactory.build(text=',add 11999990000123', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(
+            is_admin=True, text=',add 11999990000123', jid=self.CHAT_JID
+        )
 
         messages = await command.run(data)
 
@@ -96,7 +100,9 @@ class TestAddSpecificPhone:
         mock_whatsapp.on_whatsapp.return_value = [
             {'exists': True, 'jid': '5511999990000@s.whatsapp.net'},
         ]
-        data = GroupCommandDataFactory.build(text=',add 11999990000', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(
+            is_admin=True, text=',add 11999990000', jid=self.CHAT_JID
+        )
 
         messages = await command.run(data)
 
@@ -112,7 +118,9 @@ class TestAddSpecificPhone:
             'participants': [{'id': self.BOT_JID, 'admin': 'admin'}],
         }
         mock_whatsapp.on_whatsapp.return_value = [{'exists': False}]
-        data = GroupCommandDataFactory.build(text=',add 11999990000', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(
+            is_admin=True, text=',add 11999990000', jid=self.CHAT_JID
+        )
 
         await command.run(data)
 
@@ -129,7 +137,9 @@ class TestAddSpecificPhone:
             {'exists': True, 'jid': '5511999990000@s.whatsapp.net'},
         ]
         mock_whatsapp.group_participants_update.side_effect = Exception('API error')
-        data = GroupCommandDataFactory.build(text=',add 11999990000', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(
+            is_admin=True, text=',add 11999990000', jid=self.CHAT_JID
+        )
 
         messages = await command.run(data)
 
@@ -148,7 +158,7 @@ class TestAddRandomPhone:
         mock_whatsapp.on_whatsapp.return_value = [
             {'exists': True, 'jid': '5511999990000@s.whatsapp.net'},
         ]
-        data = GroupCommandDataFactory.build(text=',add', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(is_admin=True, text=',add', jid=self.CHAT_JID)
 
         messages = await command.run(data)
 
@@ -165,7 +175,7 @@ class TestAddRandomPhone:
             [{'exists': False}],
             [{'exists': True, 'jid': '5521999990000@s.whatsapp.net'}],
         ]
-        data = GroupCommandDataFactory.build(text=',add', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(is_admin=True, text=',add', jid=self.CHAT_JID)
 
         messages = await command.run(data)
 
@@ -182,8 +192,28 @@ class TestAddRandomPhone:
             {'exists': True, 'jid': '5511999990000@s.whatsapp.net'},
         ]
         mock_whatsapp.group_participants_update.side_effect = Exception('API error')
-        data = GroupCommandDataFactory.build(text=',add', jid=self.CHAT_JID)
+        data = GroupCommandDataFactory.build(is_admin=True, text=',add', jid=self.CHAT_JID)
 
         messages = await command.run(data)
 
         assert any('não consegui' in m.content.text for m in messages)
+
+
+class TestAdminOnly:
+    BOT_JID = '5500000000000@s.whatsapp.net'
+    MEMBER_JID = '5511999990001@s.whatsapp.net'
+
+    @pytest.mark.anyio
+    async def test_a_member_is_refused(self, command, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = {
+            'participants': [
+                {'id': self.BOT_JID, 'admin': 'admin'},
+                {'id': self.MEMBER_JID, 'admin': None},
+            ],
+        }
+        data = GroupCommandDataFactory.build(text=',add 11999990000', sender_jid=self.MEMBER_JID)
+
+        messages = await command.run(data)
+
+        assert messages[0].content.text == 'Só admin pode usar esse comando. 🙅'
+        mock_whatsapp.on_whatsapp.assert_not_called()

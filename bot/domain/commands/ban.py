@@ -4,15 +4,18 @@ import structlog
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
+from bot.domain.constants import ADMIN_ONLY_COMMAND
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.group_admin import GroupAdminService
 
 logger = structlog.get_logger()
 
 
 class BanCommand(Command):
     BOT_NOT_ADMIN_MSG = 'Vai se foder! Eu não sou admin! 🖕'
+    NOBODY_LEFT_MSG = 'Não sobrou ninguém pra eu banir! 🤷'
 
     def __init__(self, bot_jid: str = '', **kwargs) -> None:
         super().__init__(**kwargs)
@@ -41,6 +44,8 @@ class BanCommand(Command):
         bot_entry = next((p for p in participants if p['id'] == self._bot_jid), None)
         if not bot_entry or not bot_entry.get('admin'):
             return [Reply.to(data).text(self.BOT_NOT_ADMIN_MSG)]
+        if not GroupAdminService.is_sender_admin(data, participants):
+            return [Reply.to(data).text(ADMIN_ONLY_COMMAND)]
 
         if not data.mentioned_jids:
             return await self._ban_random(data, participants, owner)
@@ -52,20 +57,16 @@ class BanCommand(Command):
         participants: list[dict],
         owner: str | None,
     ) -> list[BotMessage]:
-        messages: list[BotMessage] = []
-        while True:
-            target = random.choice(participants)
-            if target['id'] == self._bot_jid or target['id'] == owner:
-                continue
-            try:
-                await self.whatsapp.group_participants_update(data.jid, [target['id']], 'remove')
-            except Exception:
-                logger.exception('ban_random_error', jid=data.jid)
-                break
-            phone = strip_jid(target['id'])
-            messages.append(Reply.to(data).text_with(f'Já era! @{phone} 👋😅', [target['id']]))
-            break
-        return messages
+        candidates = [p['id'] for p in participants if p['id'] not in (self._bot_jid, owner)]
+        if not candidates:
+            return [Reply.to(data).text(self.NOBODY_LEFT_MSG)]
+        target = random.choice(candidates)
+        try:
+            await self.whatsapp.group_participants_update(data.jid, [target], 'remove')
+        except Exception:
+            logger.exception('ban_random_error', jid=data.jid)
+            return []
+        return [Reply.to(data).text_with(f'Já era! @{strip_jid(target)} 👋😅', [target])]
 
     async def _ban_mentioned(
         self,
