@@ -21,7 +21,7 @@ class AddCommand(Command):
     INVALID_DDD_MSG = 'Burro burro! O DDD do estado 🏳️\u200d🌈 não existe!'
     PHONE_TOO_LONG_MSG = 'Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm'
 
-    def __init__(self, bot_jid: str = '', **kwargs) -> None:
+    def __init__(self, bot_jid: str, **kwargs) -> None:
         super().__init__(**kwargs)
         self._bot_jid = bot_jid
 

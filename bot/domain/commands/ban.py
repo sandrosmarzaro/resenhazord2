@@ -17,7 +17,7 @@ class BanCommand(Command):
     BOT_NOT_ADMIN_MSG = 'Vai se foder! Eu não sou admin! 🖕'
     NOBODY_LEFT_MSG = 'Não sobrou ninguém pra eu banir! 🤷'
 
-    def __init__(self, bot_jid: str = '', **kwargs) -> None:
+    def __init__(self, bot_jid: str, **kwargs) -> None:
         super().__init__(**kwargs)
         self._bot_jid = bot_jid
 
