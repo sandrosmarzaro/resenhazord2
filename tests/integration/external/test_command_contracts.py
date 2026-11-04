@@ -60,7 +60,7 @@ _CALLS = [
     _call(',pokémontcg booster'),
     _call(',placar'),
     _call(',porno'),
-    _call(',porno ia'),
+    _call(',porno pes'),
     _call(',puppy'),
     _call(',rule 34'),
     _call(',torá'),
