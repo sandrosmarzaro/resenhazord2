@@ -7,6 +7,7 @@ from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.exceptions import BotError
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
+from bot.domain.services.dev_list import DevListService
 from bot.ports.telegram_port import TelegramKind
 from tests.unit.adapters.telegram.conftest import (
     DEFAULT_CHAT_ID,
@@ -205,3 +206,49 @@ class TestPerGroupConfig:
 
         port.is_chat_admin.assert_not_called()
         assert strategy.run.call_args.args[0].is_admin is None
+
+
+class TestScopeGating:
+    DEV_ONLY = 'Esse comando é apenas para desenvolvedores. 🛠️'
+    DISABLED = 'Esse comando está desativado. 🚫'
+
+    @pytest.mark.anyio
+    async def test_refuses_a_dev_command_to_a_non_dev(self, handler, port, mocker):
+        mocker.patch.object(DevListService, 'is_dev', mocker.AsyncMock(return_value=False))
+        strategy = make_strategy(mocker, scope=CommandScope.DEV)
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/dev add 5511999999999'))
+
+        strategy.run.assert_not_called()
+        assert port.send.call_args.args[0].text == self.DEV_ONLY
+
+    @pytest.mark.anyio
+    async def test_refuses_a_disabled_command(self, handler, port, mocker):
+        strategy = make_strategy(mocker, scope=CommandScope.DISABLED)
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/d20'))
+
+        strategy.run.assert_not_called()
+        assert port.send.call_args.args[0].text == self.DISABLED
+
+    @pytest.mark.anyio
+    async def test_refuses_a_user_whose_id_matches_a_whatsapp_dev(self, handler, port, mocker):
+        whatsapp_dev = f'{DEFAULT_USER_ID}@s.whatsapp.net'
+        collection = mocker.MagicMock()
+        collection.find_one = mocker.AsyncMock(
+            side_effect=lambda query: (
+                {'_id': whatsapp_dev} if whatsapp_dev in query['_id']['$in'] else None
+            )
+        )
+        mocker.patch(
+            'bot.infrastructure.mongodb.MongoDBConnection.collection', return_value=collection
+        )
+        strategy = make_strategy(mocker, scope=CommandScope.DEV)
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/dev list'))
+
+        strategy.run.assert_not_called()
+        assert port.send.call_args.args[0].text == self.DEV_ONLY

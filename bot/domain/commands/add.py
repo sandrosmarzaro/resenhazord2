@@ -5,8 +5,10 @@ import structlog
 from bot.data.ddd_list import DDD_LIST, EIGHT_DIGIT_PREFIXES
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import ArgType, Category, Command, CommandConfig, ParsedCommand
+from bot.domain.constants import ADMIN_ONLY_COMMAND
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.group_admin import GroupAdminService
 
 logger = structlog.get_logger()
 
@@ -19,7 +21,7 @@ class AddCommand(Command):
     INVALID_DDD_MSG = 'Burro burro! O DDD do estado 🏳️\u200d🌈 não existe!'
     PHONE_TOO_LONG_MSG = 'Aiiiiii, o tamanho do telefone é desse ✋   🤚 tamanho, só aguento 11cm'
 
-    def __init__(self, bot_jid: str = '', **kwargs) -> None:
+    def __init__(self, bot_jid: str, **kwargs) -> None:
         super().__init__(**kwargs)
         self._bot_jid = bot_jid
 
@@ -45,6 +47,8 @@ class AddCommand(Command):
         bot_entry = next((p for p in participants if p['id'] == self._bot_jid), None)
         if not bot_entry or not bot_entry.get('admin'):
             return [Reply.to(data).text(self.BOT_NOT_ADMIN_MSG)]
+        if not GroupAdminService.is_sender_admin(data, participants):
+            return [Reply.to(data).text(ADMIN_ONLY_COMMAND)]
 
         phone = parsed.rest.strip()
         if not phone:

@@ -53,10 +53,6 @@ class AudioCommand(Command):
         urls = [
             self._build_tts_url(chunk, language, i, len(chunks)) for i, chunk in enumerate(chunks)
         ]
-
-        if len(text) <= self.MAX_CHUNK_LENGTH:
-            return [Reply.to(data).audio(urls[0], mimetype='audio/mpeg')]
-
         return [Reply.to(data).audio(url, mimetype='audio/mpeg') for url in urls]
 
     def _build_tts_url(self, text: str, lang: str, idx: int, total: int) -> str:
@@ -79,24 +75,28 @@ class AudioCommand(Command):
         result: list[str] = []
         start = 0
 
-        while start < len(text):
+        # Past the first check more than MAX_CHUNK_LENGTH letters remain, so end + 1 is
+        # always inside the text and the loop only leaves through that check.
+        while True:
             if len(text) - start <= self.MAX_CHUNK_LENGTH:
                 result.append(text[start:])
                 break
 
             end = start + self.MAX_CHUNK_LENGTH - 1
 
-            if self._is_space_or_punct(text, end) or (
-                end + 1 < len(text) and self._is_space_or_punct(text, end + 1)
-            ):
+            if self._is_space_or_punct(text, end) or self._is_space_or_punct(text, end + 1):
                 result.append(text[start : end + 1])
                 start = end + 1
                 continue
 
             split_pos = self._last_space_or_punct(text, start, end)
             if split_pos == -1:
-                msg = f'Word too long to split: {text[start : start + self.MAX_CHUNK_LENGTH]}...'
-                raise ValidationError(msg)
+                detail = f'Word too long to split: {text[start : start + self.MAX_CHUNK_LENGTH]}...'
+                message = (
+                    'Essa palavra é grande demais pra eu falar! '
+                    f'O máximo é {self.MAX_CHUNK_LENGTH} letras 🗣️'
+                )
+                raise ValidationError(message, detail=detail)
 
             result.append(text[start : split_pos + 1])
             start = split_pos + 1

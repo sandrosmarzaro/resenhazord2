@@ -28,3 +28,13 @@ class ExternalServiceError(CommandError):
 
 class DownloadError(ExternalServiceError):
     """yt-dlp or download failure."""
+
+
+class StickerTooLargeError(CommandError):
+    """Sticker still over WhatsApp's animated-sticker limit after dropping frames."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            'Esse sticker passou do limite de 500 KB do WhatsApp. Tente uma mídia mais curta '
+            'ou com menos qualidade, tipo ,stic quality 50! 😵'
+        )

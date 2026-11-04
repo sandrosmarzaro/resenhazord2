@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import json
 from contextlib import AsyncExitStack
 from functools import partial
@@ -10,14 +9,15 @@ import structlog
 import structlog.contextvars
 from opentelemetry import trace
 
-from bot.adapters.http.schemas import CommandPayload
+from bot.adapters.broker.command_envelope import CommandEnvelope
+from bot.adapters.broker.delivery_guard import DeliveryGuard
+from bot.adapters.broker.retry_router import RetryRouter
 from bot.application.command_handler import CommandHandler
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, Platform
-from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError
+from bot.domain.commands.base import Command
+from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.infrastructure.metrics import record_dlq, record_retry
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
 from bot.ports.command_inbox_port import CommandInboxPort
@@ -31,8 +31,8 @@ class CommandConsumer:
     REPLIES_QUEUE = 'replies'
     RETRY_QUEUE = 'commands.retry'
     DLQ_QUEUE = 'commands.dlq'
-    MAX_ATTEMPTS: ClassVar[int] = 3
-    DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = 1
+    MAX_ATTEMPTS: ClassVar[int] = RetryRouter.MAX_ATTEMPTS
+    DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = RetryRouter.DOWNLOAD_MAX_ATTEMPTS
     RETRY_TTL_MS: ClassVar[int] = 30_000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
@@ -44,9 +44,9 @@ class CommandConsumer:
     ) -> None:
         self._broker = broker
         self._command_handler = command_handler
-        self._inbox = inbox
+        self._delivery = DeliveryGuard(inbox)
+        self._retries = RetryRouter(broker, self.RETRY_QUEUE, self.DLQ_QUEUE)
         self._exclusive_lane = asyncio.Lock()
-        self._running: set[str] = set()
 
     async def start(self) -> None:
         # Declare the publish targets up front so the publishes from inside the consume
@@ -71,7 +71,7 @@ class CommandConsumer:
                 await self._process(json.loads(body), lane)
 
     async def _process(self, envelope: dict[str, Any], lane: AsyncExitStack) -> None:
-        command_data = self._to_command_data(envelope['data'])
+        command_data = CommandEnvelope.to_command_data(envelope['data'])
 
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
@@ -84,27 +84,16 @@ class CommandConsumer:
         # under its own isolation scope, so concurrent commands keep their own tags.
         sentry_sdk.set_tag('correlation_id', envelope['id'])
 
-        # The inbox only knows finished commands, so a duplicate arriving mid-run gets past
-        # it (and ,dl stays mid-run for its whole wait in the lane). This has to die with
-        # the process: a durable claim would outlive a crash and block the redelivery that
-        # ADR 0001 counts on. No await between the check and the add, so asyncio can't
-        # interleave them; it holds while a single process consumes.
-        key = self._inbox_key(envelope)
-        if key in self._running:
-            logger.info('command_duplicate_skipped')
-            return
-        if key:
-            self._running.add(key)
-        try:
+        with self._delivery.claim(envelope) as claimed:
+            if not claimed:
+                logger.info('command_duplicate_skipped')
+                return
             await self._answer(envelope, command_data, lane)
-        finally:
-            if key:
-                self._running.discard(key)
 
     async def _answer(
         self, envelope: dict[str, Any], command_data: CommandData, lane: AsyncExitStack
     ) -> None:
-        if await self._already_answered(envelope):
+        if await self._delivery.already_answered(envelope):
             logger.info('command_redelivery_skipped')
             return
 
@@ -149,91 +138,14 @@ class CommandConsumer:
     async def _retry_or_fail(
         self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError
     ) -> None:
-        attempts = envelope.get('attempts', 0) + 1
-        if attempts < self._max_attempts(error):
-            envelope['attempts'] = attempts
-            await self._broker.publish(self.RETRY_QUEUE, json.dumps(envelope).encode())
-            logger.warning('command_retry_scheduled', attempts=attempts, error=str(error))
-            record_retry()
-            return
-        # A permanently-failed download (blocked/private/unsupported URL) is an
-        # expected user outcome already answered with a friendly reply, not an
-        # incident — log it below Sentry's error capture. A non-download error
-        # exhausting the full ladder is a real outage and stays at error level.
-        log = logger.warning if isinstance(error, DownloadError) else logger.error
-        log('command_retries_exhausted', attempts=attempts, error=str(error))
-        record_dlq()
-        await self._broker.publish(self.DLQ_QUEUE, json.dumps(envelope).encode())
-        await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
-
-    @classmethod
-    def _max_attempts(cls, error: ExternalServiceError) -> int:
-        # yt-dlp failures are usually permanent, so they skip the multi-minute ladder.
-        return cls.DOWNLOAD_MAX_ATTEMPTS if isinstance(error, DownloadError) else cls.MAX_ATTEMPTS
+        if await self._retries.route(envelope, error):
+            await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
 
     async def _publish_reply(self, envelope: dict[str, Any], messages: list[BotMessage]) -> None:
-        reply = {
-            'id': envelope['id'],
-            'messages': [self._serialize(message) for message in messages],
-        }
+        reply = CommandEnvelope.reply(envelope['id'], messages)
         # Carry the trace forward so the gateway's reply consumer can join it (Phase 4).
         inject_trace_context(reply)
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
         # Marked only once the final reply is out: a crash before this line lets the
         # redelivery run again, and a scheduled retry never reaches here.
-        await self._mark_answered(envelope)
-
-    async def _already_answered(self, envelope: dict[str, Any]) -> bool:
-        key = self._inbox_key(envelope)
-        # A dead letter already got its error reply; a replay asks to run it again.
-        if self._inbox is None or key is None or envelope.get('replayed'):
-            return False
-        return await self._inbox.is_done(key)
-
-    async def _mark_answered(self, envelope: dict[str, Any]) -> None:
-        key = self._inbox_key(envelope)
-        if self._inbox is None or key is None:
-            return
-        await self._inbox.mark_done(key)
-
-    @staticmethod
-    def _inbox_key(envelope: dict[str, Any]) -> str | None:
-        # WhatsApp message ids are only unique within a chat.
-        data = envelope['data']
-        message_id = data.get('message_id')
-        return f'{data["jid"]}:{message_id}' if message_id else None
-
-    @staticmethod
-    def _serialize(message: BotMessage) -> dict[str, Any]:
-        payload = message.to_dict()
-        if message.content.has_buffer:
-            # Small media rides base64-inline in the reply JSON (the WS path sent it as a
-            # separate binary frame); the gateway decodes it back in ReplyDeserializer.
-            # has_buffer guarantees .buffer exists but the union can't be narrowed on it.
-            buffer = message.content.buffer  # type: ignore[union-attr]
-            payload['content']['buffer_b64'] = base64.b64encode(buffer).decode()
-        return payload
-
-    @staticmethod
-    def _to_command_data(data: dict[str, Any]) -> CommandData:
-        parsed = CommandPayload.model_validate(data)
-        buffer = data.get('media_buffer_b64')
-        return CommandData(
-            text=parsed.text,
-            jid=parsed.jid,
-            sender_jid=parsed.sender_jid,
-            participant=parsed.participant,
-            is_group=parsed.is_group,
-            expiration=parsed.expiration,
-            mentioned_jids=parsed.mentioned_jids,
-            quoted_message_id=parsed.quoted_message_id,
-            quoted_text=parsed.quoted_text,
-            media_type=parsed.media_type,
-            media_source=parsed.media_source,
-            media_is_animated=parsed.media_is_animated,
-            media_caption=parsed.media_caption,
-            media_buffer=base64.b64decode(buffer) if buffer else None,
-            message_id=parsed.message_id,
-            push_name=parsed.push_name,
-            platform=Platform.WHATSAPP,
-        )
+        await self._delivery.mark_answered(envelope)

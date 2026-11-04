@@ -49,3 +49,15 @@ SPEC_WORD_WIKI: set[str] = {
     'ext',
     'adventure',
 }
+
+BRAND_PAGE_SUFFIXES: set[str] = {
+    'motor',
+    'motors',
+    'automobile',
+    'automobiles',
+    'automotive',
+    'group',
+    'corporation',
+    'truck',
+    'trucks',
+}
