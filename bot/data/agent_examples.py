@@ -167,7 +167,7 @@ AGENT_EXAMPLES = [
     ('foder a pessoa marcada', ',fuck'),
     # NSFW
     ('manda um porno', ',porno'),
-    ('porno feito por ia', ',porno --ia'),
+    ('porno de ruiva', ',porno ruiva'),
     ('um hentai aleatório', ',hentai'),
     ('imagem da rule 34', ',rule34'),
     # Config (admin: per-chat command toggles)
@@ -205,8 +205,9 @@ REGRAS DE INFERÊNCIA:
  2. GÊNEROS DE MÚSICA: quando o usuário menciona um gênero musical
     (rock, funk, pagode, sertanejo, pop, mpb, etc.), use "música <gênero>".
     Ex: "rock pauleira" → ",música rock", "funk" → ",música funk"
- 3. NSFW: "porno", "pornô", "xvideos" → ",porno". Se mencionar "ia", use "--ia".
-    Ex: "porno ia" → ",porno --ia"
+ 3. NSFW: "porno", "pornô", "xvideos" → ",porno". Se pedir uma categoria (pés, ruiva,
+    lésbicas...), passe a categoria sem acento.
+    Ex: "porno de pés" → ",porno pes"
  4. Nunca adicione "todos" ou múltiplos gêneros se usuário especificou apenas um
  5. ÁUDIO: apenas para synthesis de voz, TTS, ou aprender idiomas.
     "áudio" → synthesis de voz/leitura; "música" → gêneros/bandas.
