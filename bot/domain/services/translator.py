@@ -9,10 +9,11 @@ logger = structlog.get_logger()
 
 
 class Translator:
-    TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
-    # Google blocks each client id per IP on its own: when gtx gets the "unusual traffic"
-    # 429, the Chrome dictionary extension's client still answers from the same IP.
+    # Google blocks each client id per IP on its own. The gtx client gets the "unusual
+    # traffic" 429 for hours on datacenter IPs, while the Chrome dictionary extension's
+    # client still answers from the same IP, so it goes first.
     DICTIONARY_URL = 'https://translate.googleapis.com/translate_a/t'
+    TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
     _ERRORS: ClassVar[tuple[type[Exception], ...]] = (
         httpx.HTTPError,
         KeyError,
@@ -28,16 +29,16 @@ class Translator:
     async def translate(cls, text: str, *, source: str = 'en', target: str = 'pt') -> str:
         params = {'sl': source, 'tl': target, 'q': text}
         try:
-            return await cls._translate_web(params)
-        except cls._ERRORS:
-            logger.warning(
-                'upstream_failed', upstream='google-translate', source=source, target=target
-            )
-        try:
             return await cls._translate_dictionary(params)
         except cls._ERRORS:
             logger.warning(
                 'upstream_failed', upstream='google-dictionary', source=source, target=target
+            )
+        try:
+            return await cls._translate_web(params)
+        except cls._ERRORS:
+            logger.warning(
+                'upstream_failed', upstream='google-translate', source=source, target=target
             )
             return text
 

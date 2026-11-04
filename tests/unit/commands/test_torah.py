@@ -5,7 +5,7 @@ from bot.domain.commands.torah import TorahCommand
 from bot.domain.models.message import TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
-TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
+TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/t'
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def _sefaria_response(**overrides):
 
 def _mock_translate(respx_mock, translated='No início Deus criou os céus e a terra.'):
     respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-        return_value=httpx.Response(200, json=[[[translated, 'original']]])
+        return_value=httpx.Response(200, json=[translated])
     )
 
 
