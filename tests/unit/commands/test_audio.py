@@ -42,7 +42,7 @@ class TestRun:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'idioma' in messages[0].content.text
+        assert messages[0].content.text == 'Opa, esse idioma eu ainda não conheço! 🌍'
 
     @pytest.mark.anyio
     async def test_no_text_returns_error(self, command):
@@ -51,7 +51,7 @@ class TestRun:
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
-        assert 'Cadê o texto' in messages[0].content.text
+        assert messages[0].content.text == 'Cadê o texto pra eu falar? 🤔'
 
     @pytest.mark.anyio
     async def test_short_text_returns_single_audio(self, command):
@@ -225,3 +225,66 @@ class TestBuildTtsUrl:
         assert params['total'] == ['1']
         assert params['idx'] == ['0']
         assert params['textlen'] == ['5']
+
+
+def spoken_chunks(messages) -> list[str]:
+    return [parse_qs(urlparse(message.content.url).query)['q'][0] for message in messages]
+
+
+class TestSpokenChunks:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('text', 'expected'),
+        [
+            ('a' * 199 + ' ' + 'b' * 50, ['a' * 199 + ' ', 'b' * 50]),
+            ('a' * 200 + ' ' + 'b' * 50, ['a' * 200, ' ' + 'b' * 50]),
+            ('a' * 200 + '.', ['a' * 200, '.']),
+            ('a' * 150 + ' ' + 'b' * 100, ['a' * 150 + ' ', 'b' * 100]),
+        ],
+        ids=[
+            'space-at-the-limit',
+            'space-after-the-limit',
+            'punctuation-after-the-limit',
+            'last-space',
+        ],
+    )
+    async def test_cuts_long_text_at_the_right_place(self, command, text, expected):
+        messages = await command.run(GroupCommandDataFactory.build(text=f',áudio {text}'))
+
+        assert spoken_chunks(messages) == expected
+
+    @pytest.mark.anyio
+    async def test_numbers_each_chunk_out_of_the_total(self, command):
+        text = ' '.join(['palavra'] * 60)
+
+        messages = await command.run(GroupCommandDataFactory.build(text=f',áudio {text}'))
+
+        params = [parse_qs(urlparse(message.content.url).query) for message in messages]
+        assert [(p['idx'][0], p['total'][0]) for p in params] == [
+            ('0', '3'),
+            ('1', '3'),
+            ('2', '3'),
+        ]
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('text', ['oi', ' '.join(['palavra'] * 60)], ids=['one', 'many'])
+    async def test_every_chunk_is_sent_as_mpeg(self, command, text):
+        messages = await command.run(GroupCommandDataFactory.build(text=f',áudio {text}'))
+
+        assert {message.content.mimetype for message in messages} == {'audio/mpeg'}
+
+    @pytest.mark.anyio
+    async def test_requests_the_speech_with_every_tts_parameter(self, command):
+        messages = await command.run(GroupCommandDataFactory.build(text=',áudio oi'))
+
+        assert parse_qs(urlparse(messages[0].content.url).query) == {
+            'ie': ['UTF-8'],
+            'q': ['oi'],
+            'tl': ['pt-br'],
+            'total': ['1'],
+            'idx': ['0'],
+            'textlen': ['2'],
+            'client': ['tw-ob'],
+            'prev': ['input'],
+            'ttsspeed': ['1'],
+        }

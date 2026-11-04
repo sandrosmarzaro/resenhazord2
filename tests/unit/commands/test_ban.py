@@ -1,6 +1,7 @@
 import pytest
 from structlog.testing import capture_logs
 
+from bot.domain.commands.ban import BanCommand
 from tests.conftest import make_group_participants
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
@@ -285,3 +286,73 @@ class TestNobodyLeftToBan:
 
         assert messages[0].content.text == 'Não sobrou ninguém pra eu banir! 🤷'
         mock_whatsapp.group_participants_update.assert_not_called()
+
+
+class TestMentionedBans:
+    BOT_JID = '5500000000000@s.whatsapp.net'
+    CHAT_JID = '120363044041082732@g.us'
+    OWNER_JID = '5511999990099@s.whatsapp.net'
+    FIRST_JID = '5511999990001@s.whatsapp.net'
+    SECOND_JID = '5511999990002@s.whatsapp.net'
+
+    def admin_bans(self, *mentioned: str):
+        return GroupCommandDataFactory.build(
+            is_admin=True, text=',ban', jid=self.CHAT_JID, mentioned_jids=list(mentioned)
+        )
+
+    @pytest.mark.anyio
+    async def test_reads_the_metadata_of_the_chat(self, command, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = make_group_participants(self.BOT_JID)
+
+        await command.run(self.admin_bans(self.FIRST_JID))
+
+        mock_whatsapp.group_metadata.assert_awaited_once_with(self.CHAT_JID)
+
+    @pytest.mark.anyio
+    async def test_a_bot_missing_from_the_group_is_not_admin(self, command, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = make_group_participants(self.FIRST_JID)
+
+        messages = await command.run(self.admin_bans(self.FIRST_JID))
+
+        assert messages[0].content.text == BanCommand.BOT_NOT_ADMIN_MSG
+
+    @pytest.mark.anyio
+    async def test_removes_each_mentioned_member_from_the_chat(
+        self, command, mock_whatsapp, mocker
+    ):
+        mock_whatsapp.group_metadata.return_value = make_group_participants(self.BOT_JID)
+
+        await command.run(self.admin_bans(self.FIRST_JID, self.SECOND_JID))
+
+        assert mock_whatsapp.group_participants_update.await_args_list == [
+            mocker.call(self.CHAT_JID, [self.FIRST_JID], 'remove'),
+            mocker.call(self.CHAT_JID, [self.SECOND_JID], 'remove'),
+        ]
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('spared', [BOT_JID, OWNER_JID])
+    async def test_sparing_the_bot_or_the_admin_owner_still_bans_the_rest(
+        self, command, mock_whatsapp, spared
+    ):
+        mock_whatsapp.group_metadata.return_value = make_group_participants(
+            self.BOT_JID, self.OWNER_JID, owner=self.OWNER_JID, owner_admin=True
+        )
+
+        await command.run(self.admin_bans(spared, self.FIRST_JID))
+
+        mock_whatsapp.group_participants_update.assert_awaited_once_with(
+            self.CHAT_JID, [self.FIRST_JID], 'remove'
+        )
+
+    @pytest.mark.anyio
+    async def test_a_failed_removal_logs_it_and_moves_on(self, command, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = make_group_participants(self.BOT_JID)
+        mock_whatsapp.group_participants_update.side_effect = [RuntimeError('not allowed'), []]
+
+        with capture_logs() as logs:
+            messages = await command.run(self.admin_bans(self.FIRST_JID, self.SECOND_JID))
+
+        assert [m.content.mentions for m in messages] == [[self.SECOND_JID]]
+        assert [
+            (log['event'], log['jid'], log['target']) for log in logs if log['log_level'] == 'error'
+        ] == [('ban_mentioned_error', self.CHAT_JID, self.FIRST_JID)]
