@@ -29,10 +29,20 @@ class TestMatches:
 
 
 class TestRun:
-    URL = 'https://nsfwhub.onrender.com/nsfw?type=fuck'
+    AUTH_URL = 'https://api.redgifs.com/v2/auth/temporary'
+    SEARCH_URL = 'https://api.redgifs.com/v2/gifs/search'
+    VIDEO_URL = 'https://media.redgifs.com/Clip-mobile.mp4'
+
+    @pytest.fixture
+    def search_route(self, respx_mock):
+        respx_mock.get(self.AUTH_URL).mock(return_value=httpx.Response(200, json={'token': 't'}))
+        item = {'type': 1, 'tags': ['Sex'], 'niches': [], 'urls': {'sd': self.VIDEO_URL}}
+        return respx_mock.get(url__startswith=self.SEARCH_URL).mock(
+            return_value=httpx.Response(200, json={'gifs': [item]})
+        )
 
     @pytest.mark.anyio
-    async def test_returns_raw_video_with_mentions(self, command, respx_mock):
+    async def test_returns_raw_video_with_mentions(self, command, search_route):
         sender = '5511999990001@s.whatsapp.net'
         mentioned = '5511888880001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
@@ -42,24 +52,19 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/video.mp4'}}
-            )
-        )
         messages = await command.run(data)
 
         assert len(messages) == 1
         assert isinstance(messages[0].content, RawContent)
         content = messages[0].content.content
         assert content['viewOnce'] is True
-        assert content['video']['url'] == 'https://example.com/video.mp4'
+        assert content['video']['url'] == self.VIDEO_URL
         assert sender in content['mentions']
         assert mentioned in content['mentions']
         assert 'fudendo' in content['caption']
 
     @pytest.mark.anyio
-    async def test_strips_lid_suffix_from_phones(self, command, respx_mock):
+    async def test_strips_lid_suffix_from_phones(self, command, search_route):
         sender = '5511999990001@lid'
         mentioned = '5511888880001@lid'
         data = GroupCommandDataFactory.build(
@@ -69,11 +74,6 @@ class TestRun:
             mentioned_jids=[mentioned],
         )
 
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/video.mp4'}}
-            )
-        )
         messages = await command.run(data)
 
         content = messages[0].content.content
@@ -91,7 +91,7 @@ class TestRun:
         assert 'grupo' in messages[0].content.text.lower()
 
     @pytest.mark.anyio
-    async def test_uses_sender_jid_when_no_participant(self, command, respx_mock):
+    async def test_uses_sender_jid_when_no_participant(self, command, search_route):
         sender = '5511999990001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
             text=', fuck @123',
@@ -100,18 +100,13 @@ class TestRun:
             mentioned_jids=['123@s.whatsapp.net'],
         )
 
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/video.mp4'}}
-            )
-        )
         messages = await command.run(data)
 
         content = messages[0].content.content
         assert sender in content['mentions']
 
     @pytest.mark.anyio
-    async def test_empty_mentioned_when_no_jids(self, command, respx_mock):
+    async def test_empty_mentioned_when_no_jids(self, command, search_route):
         sender = '5511999990001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
             text=', fuck @123',
@@ -120,11 +115,6 @@ class TestRun:
             mentioned_jids=[],
         )
 
-        respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/video.mp4'}}
-            )
-        )
         messages = await command.run(data)
 
         content = messages[0].content.content
@@ -132,7 +122,7 @@ class TestRun:
         assert '' in content['mentions']
 
     @pytest.mark.anyio
-    async def test_api_called_with_timeout(self, command, respx_mock):
+    async def test_searches_sex_videos(self, command, search_route):
         sender = '5511999990001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
             text=', fuck @123',
@@ -140,13 +130,8 @@ class TestRun:
             participant=sender,
             mentioned_jids=['123@s.whatsapp.net'],
         )
-        route = respx_mock.get(self.URL).mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/video.mp4'}}
-            )
-        )
 
         await command.run(data)
 
-        timeout = route.calls.last.request.extensions.get('timeout', {})
-        assert timeout.get('read') == pytest.approx(30.0)
+        params = search_route.calls.last.request.url.params
+        assert (params['tags'], params['type']) == ('Sex', 'g')

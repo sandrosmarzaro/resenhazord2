@@ -1,5 +1,3 @@
-import structlog
-
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     ArgType,
@@ -12,12 +10,16 @@ from bot.domain.commands.base import (
 from bot.domain.jid import strip_jid
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
-from bot.infrastructure.http_client import HttpClient
-
-logger = structlog.get_logger()
+from bot.domain.services.redgifs import RedGifs
 
 
 class FuckCommand(Command):
+    TAG = 'Sex'
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._redgifs = RedGifs()
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -41,19 +43,13 @@ class FuckCommand(Command):
         mentioned = data.mentioned_jids[0] if data.mentioned_jids else ''
         mentioned_phone = strip_jid(mentioned)
 
-        response = await HttpClient.get(
-            'https://nsfwhub.onrender.com/nsfw?type=fuck',
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        porn = response.json()
-        video_url = porn['image']['url']
+        media = await self._redgifs.random_media(self.TAG, video_only=True)
 
         return [
             Reply.to(data).raw(
                 {
                     'viewOnce': True,
-                    'video': {'url': video_url},
+                    'video': {'url': media.url},
                     'mentions': [sender, mentioned],
                     'caption': f'@{sender_phone} está fudendo @{mentioned_phone} 😩',
                 }
