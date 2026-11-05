@@ -43,6 +43,18 @@ _agent_budget_rejections = _meter.create_counter(
 )
 
 
+# Every caught upstream failure already logs `upstream_failed` with a named
+# upstream (31 call sites); the logging pipeline counts them here, so integration
+# health is a metric without touching each site.
+_upstream_failures = _meter.create_counter(
+    'upstream.failures', unit='1', description='Third-party API failures the bot caught'
+)
+
+
+def record_upstream_failure(upstream: str) -> None:
+    _upstream_failures.add(1, {'upstream': upstream})
+
+
 def record_retry() -> None:
     _retries.add(1)
 

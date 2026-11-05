@@ -9,6 +9,9 @@ import os
 from typing import Any
 
 import structlog
+from structlog.types import EventDict, WrappedLogger
+
+from bot.infrastructure.metrics import record_upstream_failure
 
 
 class HealthCheckFilter(logging.Filter):
@@ -17,6 +20,13 @@ class HealthCheckFilter(logging.Filter):
 
 
 _timestamper = structlog.processors.TimeStamper(fmt='iso')
+
+
+def _count_upstream_failure(_logger: WrappedLogger, _method: str, event: EventDict) -> EventDict:
+    if event.get('event') == 'upstream_failed':
+        record_upstream_failure(str(event.get('upstream')))
+    return event
+
 
 _shared_processors: list = [
     structlog.contextvars.merge_contextvars,
@@ -84,6 +94,7 @@ def configure_logging() -> None:
     structlog.configure(
         processors=[
             *_shared_processors,
+            _count_upstream_failure,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
