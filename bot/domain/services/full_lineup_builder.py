@@ -16,6 +16,7 @@ from bot.domain.services.lineup_assigner import LineupAssigner
 from bot.domain.services.lineup_builder import LineupBuilder
 from bot.domain.services.market_dataset import MarketDataset, format_euros
 from bot.domain.services.player_assets import PlayerAssets
+from bot.infrastructure.work import Work
 
 
 class FullLineupBuilder:
@@ -54,9 +55,7 @@ class FullLineupBuilder:
             [player.card_url if player else '' for player in ordered]
         )
         # The field font has no emoji glyphs.
-        field_image = await asyncio.to_thread(
-            build_card_field, cards, formation, f'OVR médio {average}'
-        )
+        field_image = await Work.cpu(build_card_field, cards, formation, f'OVR médio {average}')
         return field_image, f'⚽ *Escalação FIFA* — {formation.name}\n⭐ Overall médio: {average}'
 
     @staticmethod
@@ -70,9 +69,7 @@ class FullLineupBuilder:
         names = [player.name if player else '' for player in ordered]
         flags = [(player.nationality_flag_emoji or None) if player else None for player in ordered]
         overlays = list(zip(flags, badges, strict=False))
-        return await asyncio.to_thread(
-            build_football_field, photos, names, formation, overlays, label
-        )
+        return await Work.cpu(build_football_field, photos, names, formation, overlays, label)
 
     @classmethod
     async def _lineup(
