@@ -76,6 +76,17 @@ def record_lane_wait(milliseconds: float) -> None:
     _lane_wait.record(milliseconds)
 
 
+# Commands the gate turned away, by reason, so a flow table can show how many
+# matched commands never ran and why, and a compliance view the NSFW ones.
+_rejections = _meter.create_counter(
+    'command.rejections', unit='1', description='Matched commands the gate refused to run'
+)
+
+
+def record_rejection(reason: str, command: str, scope: str) -> None:
+    _rejections.add(1, {'reason': reason, 'command.name': command, 'command.scope': scope})
+
+
 def record_retry() -> None:
     _retries.add(1)
 
