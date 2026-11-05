@@ -24,6 +24,7 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | Command rate/errors | `traces_span_metrics_calls_total` | `command_outcome` (success/bot_error/external_error/unexpected_error), `span_name` (`command.handle`), `service_name` |
 | Command latency | `traces_span_metrics_duration_milliseconds_bucket` / `_sum` / `_count` | same |
 | Command run (every platform) | `traces_span_metrics_calls_total` / `_duration_milliseconds_bucket` with `span_name="command.run"` | `command_name`, `platform` (whatsapp/discord/telegram), `chat_type` (group/private), `command_outcome`, `status_code` (`STATUS_CODE_ERROR` for external and unexpected failures) |
+| Span self time | `span_self_time_milliseconds_bucket` / `_sum` / `_count` | `span_name`, `work_kind` (io/cpu/fire_and_forget) |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
 | Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/direct/confirm/confirmed/denied/clarify/suggest/menu_hint/unresolvable/unavailable/over_budget), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
@@ -74,6 +75,30 @@ percentiles over the dashboard range. Swap the quantile for p50/75/90/95/99.
 histogram_quantile(0.95,
   sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name="command.run"}[$__range])))
 sum by (platform, chat_type) (increase(traces_span_metrics_calls_total{span_name="command.run"}[1h]))
+```
+
+### Self time vs total
+A span's total (spanmetrics) includes every call it awaited, so adding a parent's latency to
+its child's counts the same wait twice. `SelfTimeProcessor`
+([`bot/infrastructure/self_time.py`](../bot/infrastructure/self_time.py)) records
+`span.self_time`: the duration minus the **union** of the awaited children's intervals.
+Concurrent children (task groups, `gather`) overlap, so two 500ms fetches in parallel take
+500ms off the parent, not 1s. The span with the large self time is where the wait is.
+
+`work.kind` splits it by the kind of work:
+
+- `io` is the default, any awaited span. A parent's own `io` self time is the uninstrumented
+  part: Mongo and Redis calls (no client spans yet) plus whatever it runs on the event loop.
+- `cpu` comes from `Work.cpu`, which runs a blocking function on a worker thread
+  ([`bot/infrastructure/work.py`](../bot/infrastructure/work.py)).
+- `fire_and_forget` comes from `Work.detached`, for unawaited work such as the birthday
+  scheduler. It starts its own trace, linked to whatever spawned it, so it never lands on a
+  request's latency or self time.
+
+```promql
+sum by (span_name) (increase(traces_span_metrics_duration_milliseconds_sum[$__range]))   # total
+sum by (span_name) (increase(span_self_time_milliseconds_sum[$__range]))                  # self
+sum by (work_kind) (increase(span_self_time_milliseconds_sum[1h]))
 ```
 
 ### Retries & dead-letters
