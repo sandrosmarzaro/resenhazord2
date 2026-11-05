@@ -29,6 +29,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span
 
+from bot.infrastructure.runtime_metrics import register_process_gauges
 from bot.infrastructure.self_time import SelfTimeProcessor
 from bot.settings import Settings
 
@@ -105,6 +106,7 @@ def _init_metrics(endpoint: str, headers: dict[str, str], resource: Resource) ->
     reader = PeriodicExportingMetricReader(exporter)
     provider = MeterProvider(resource=resource, metric_readers=[reader])
     metrics.set_meter_provider(provider)
+    register_process_gauges(provider.get_meter(__name__))
     return provider
 
 
