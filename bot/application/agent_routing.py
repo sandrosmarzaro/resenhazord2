@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING, ClassVar
 import structlog
 
 from bot.application.command_registry import CommandRegistry
-from bot.domain.constants import AGENT_MENU_HINT, BOT_MENTION_TAG, CLARIFY_PREFIX
+from bot.domain.constants import (
+    AGENT_MENU_HINT,
+    BOT_MENTION_TAG,
+    CLARIFY_PREFIX,
+    COMMAND_PREFIX,
+)
 from bot.domain.models.command_data import CommandData
 
 if TYPE_CHECKING:
@@ -31,10 +36,10 @@ class AgentRouting:
     def should_route(self, data: CommandData) -> bool:
         if self._is_explicit_mention(data):
             return True
-        if data.is_group:
+        # A recognized ",command" takes the fast direct path. An unmatched ",typo" goes to
+        # the agent to map or clarify; in a group, plain chatter never wakes it.
+        if data.is_group and not (data.text or '').lstrip().startswith(COMMAND_PREFIX):
             return False
-        # Private chat: a recognized ",command" takes the fast direct path;
-        # natural language or an unmatched ",typo" goes to the agent to map or clarify.
         return self._registry.get_strategy(data.text) is None
 
     async def map(self, data: CommandData) -> CommandData | None:

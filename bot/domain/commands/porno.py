@@ -1,14 +1,17 @@
 import html
 import random
 import re
+import unicodedata
+from typing import ClassVar
 
 import structlog
 from bs4 import BeautifulSoup
 
 from bot.data.browser_headers import BROWSER_HEADERS
-from bot.data.nsfw_tags import NSFW_TAGS
+from bot.data.porn_categories import PORN_CATEGORIES
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
+    ArgType,
     Category,
     Command,
     CommandConfig,
@@ -20,6 +23,7 @@ from bot.domain.commands.base import (
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.redgifs import RedGifs
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -27,12 +31,25 @@ logger = structlog.get_logger()
 
 class PornoCommand(Command):
     MAX_PAGE = 50
+    # Where a law requires age verification (Arizona, Wyoming), xvideos leaves the player
+    # calls out of the page but keeps the mp4 in its JSON-LD contentUrl.
+    VIDEO_URL_PATTERNS: ClassVar[tuple[str, ...]] = (
+        r"setVideoUrlLow\('([^']+)'\)",
+        r"setVideoUrlHigh\('([^']+)'\)",
+        r'"contentUrl"\s*:\s*"([^"]+)"',
+    )
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._redgifs = RedGifs()
 
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='porno',
-            flags=['ia', Flag.SHOW, Flag.DM],
+            args=ArgType.OPTIONAL,
+            args_label='categoria',
+            flags=[Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
             scope=CommandScope.NSFW,
             platforms=[Platform.ALL],
@@ -40,45 +57,34 @@ class PornoCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Recebe um conteúdo adulto aleatório, real ou por IA (18+).'
+        return 'Recebe um vídeo adulto aleatório, ou um da categoria escolhida (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        if 'ia' in parsed.flags:
-            return await self._ia_porn(data, parsed)
+        if parsed.rest:
+            return await self._category_porn(data, parsed.rest)
         return await self._real_porn(data)
 
-    async def _ia_porn(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        tag = random.choice(NSFW_TAGS)
-        response = await HttpClient.get(
-            f'https://nsfwhub.onrender.com/nsfw?type={tag}',
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        porn = response.json()
-        url: str = porn['image']['url']
+    async def _category_porn(self, data: CommandData, category: str) -> list[BotMessage]:
+        tag = PORN_CATEGORIES.get(self._fold(category))
+        if not tag:
+            categories = ', '.join(PORN_CATEGORIES)
+            return [Reply.to(data).text(f'Categoria inválida! 🫣\n\nCategorias: {categories}')]
+        media = await self._redgifs.random_media(tag)
+        if media.is_video:
+            return [Reply.to(data).video(media.url, 'Aqui está seu vídeo 🤤')]
+        return [Reply.to(data).image(media.url, 'Aqui está sua imagem 🤤')]
 
-        view_once = 'show' not in parsed.flags
-        caption_map = {'.mp4': 'vídeo', '.gif': 'GIF'}
-        ext = url[url.rfind('.') :] if '.' in url.rsplit('/', 1)[-1] else ''
-        media_label = caption_map.get(ext, 'imagem')
-        content: dict = {'viewOnce': view_once, 'caption': f'Aqui está seu {media_label} 🤤'}
-
-        if ext == '.mp4':
-            content['video'] = {'url': url}
-        elif ext == '.gif':
-            content['image'] = {'url': url}
-            content['gifPlayback'] = True
-        else:
-            content['image'] = {'url': url}
-
-        return [Reply.to(data).raw(content)]
+    @staticmethod
+    def _fold(text: str) -> str:
+        decomposed = unicodedata.normalize('NFD', text.strip().lower())
+        return ''.join(char for char in decomposed if unicodedata.category(char) != 'Mn')
 
     async def _real_porn(self, data: CommandData) -> list[BotMessage]:
         try:
             result = await self._scrape_random_video()
             return [Reply.to(data).video(result['url'], result['title'])]
         except Exception:
-            logger.exception('upstream_failed', upstream='xvideos/nsfwhub')
+            logger.exception('upstream_failed', upstream='xvideos')
             return [
                 Reply.to(data).text(
                     'Não consegui baixar seu vídeo, vai ter que ficar molhadinho 🥶'
@@ -117,15 +123,14 @@ class PornoCommand(Command):
         else:
             title = 'Vídeo'
 
-        low_match = re.search(r"setVideoUrlLow\('([^']+)'\)", page_html)
-        high_match = re.search(r"setVideoUrlHigh\('([^']+)'\)", page_html)
-        if low_match:
-            video_url = low_match.group(1)
-        elif high_match:
-            video_url = high_match.group(1)
-        else:
-            video_url = None
-
+        video_url = next(
+            (
+                match.group(1)
+                for pattern in cls.VIDEO_URL_PATTERNS
+                if (match := re.search(pattern, page_html))
+            ),
+            None,
+        )
         if not video_url:
             msg = 'Não foi possível extrair URL do vídeo'
             raise ExternalServiceError(msg)

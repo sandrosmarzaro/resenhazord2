@@ -122,7 +122,8 @@ class TestScopeEnforcement:
         assert result[0].content.text == 'dev ok'
 
     @pytest.mark.anyio
-    async def test_no_match_returns_none(self, handler):
+    async def test_no_match_returns_none(self, handler, agent):
+        agent.run.return_value = None
         data = GroupCommandDataFactory.build(text=', unknown')
 
         result = await handler.handle(data)
@@ -262,6 +263,15 @@ class TestAgentDetection:
         agent.run.assert_awaited_once_with(data)
 
     @pytest.mark.anyio
+    async def test_agent_for_unmatched_command_in_group(self, handler, agent):
+        agent.run.return_value = None
+        data = _group(',ratos')
+
+        await handler.handle(data)
+
+        agent.run.assert_awaited_once_with(data)
+
+    @pytest.mark.anyio
     async def test_no_agent_for_natural_language_in_group(self, handler, agent):
         data = _group('qual o placar do jogo?')
 
@@ -363,6 +373,10 @@ def _dm(text: str) -> CommandData:
     return CommandData(
         text=text, jid='user@s.whatsapp.net', sender_jid='user@s.whatsapp.net', is_group=False
     )
+
+
+def _echo(data: CommandData) -> CommandData:
+    return data
 
 
 def _group(text: str) -> CommandData:
@@ -470,13 +484,18 @@ class TestProcessingOrder:
         assert len(result) == 3
 
     @pytest.mark.anyio
-    async def test_batch_suffix_is_stripped_before_a_clarify_reply(self, handler):
+    async def test_batch_suffix_is_stripped_before_a_clarify_reply(self, handler, agent):
+        agent.run.side_effect = _echo
         result = await handler.handle(_group(',clarify:Quer quantos? 3x'))
 
         assert result[0].content.text == 'Quer quantos?'
 
 
 class TestSuggestHandler:
+    @pytest.fixture(autouse=True)
+    def agent_replies_the_text(self, agent):
+        agent.run.side_effect = _echo
+
     @pytest.mark.anyio
     async def test_suggest_returns_conversational_message(self, handler):
         from bot.domain.models.command_data import CommandData

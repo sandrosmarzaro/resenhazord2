@@ -129,9 +129,9 @@ def image_route(respx_mock):
 
 @pytest.fixture
 def translate_route(respx_mock):
-    return respx_mock.get(
-        url__startswith='https://translate.googleapis.com/translate_a/single'
-    ).mock(return_value=httpx.Response(200, json=[[['Translated text.', 'original']]]))
+    return respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/t').mock(
+        return_value=httpx.Response(200, json=['Translated text.'])
+    )
 
 
 @pytest.fixture

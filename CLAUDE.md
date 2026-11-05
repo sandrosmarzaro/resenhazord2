@@ -109,7 +109,8 @@ Commit mechanics (atomicity, staging, message format):
 
 Gateway uses `@sentry/bun` + structured logs. Python uses `sentry-sdk` +
 `structlog`. Full guide (init, capture patterns, breadcrumbs, scoped context,
-CLI querying, test mocks): [docs/logging.md](docs/logging.md).
+CLI querying, test mocks): [docs/logging.md](docs/logging.md). Queryable events, their
+stable fields and LogQL: [docs/log-events.md](docs/log-events.md).
 
 ## Testing framework summary
 

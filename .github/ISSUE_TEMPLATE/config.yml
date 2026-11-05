@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea to discuss
+    url: https://github.com/sandrosmarzaro/resenhazord2/discussions
+    about: Ask questions and talk through ideas that aren't a concrete task yet.
+  - name: Security vulnerability
+    url: https://github.com/sandrosmarzaro/resenhazord2/security/advisories/new
+    about: Report it privately, as described in SECURITY.md.

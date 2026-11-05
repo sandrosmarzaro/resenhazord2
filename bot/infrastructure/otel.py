@@ -29,6 +29,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span
 
+from bot.infrastructure.runtime_metrics import register_process_gauges
+from bot.infrastructure.self_time import SelfTimeProcessor
 from bot.settings import Settings
 
 if TYPE_CHECKING:
@@ -55,8 +57,8 @@ def init_otel(settings: Settings, app: 'FastAPI') -> None:
         }
     )
 
-    _init_traces(endpoint, headers, resource)
-    _init_metrics(endpoint, headers, resource)
+    meter_provider = _init_metrics(endpoint, headers, resource)
+    _init_traces(endpoint, headers, resource, meter_provider)
     _init_logs(endpoint, headers, resource)
     _instrument(app)
     logger.info('otel_initialized', endpoint=endpoint, service=settings.otel_service_name)
@@ -68,12 +70,16 @@ def _instrument(app: 'FastAPI') -> None:
     # globally, covering the outbound API calls and the broker publish/consume path.
     FastAPIInstrumentor.instrument_app(app)
     HTTPXClientInstrumentor().instrument(  # type: ignore[union-attr]
-        request_hook=_redact_url, async_request_hook=_redact_url_async
+        request_hook=_annotate_request, async_request_hook=_annotate_request_async
     )
     AioPikaInstrumentor().instrument()  # type: ignore[union-attr]
 
 
-def _redact_url(span: Span, request: RequestInfo) -> None:
+def _annotate_request(span: Span, request: RequestInfo) -> None:
+    # The host is the upstream's name for spanmetrics: http.url is the full URL, one
+    # series per query string, and the old semconv this instrumentation emits has no
+    # server.address of its own.
+    span.set_attribute('server.address', request.url.host)
     # The Telegram Bot API carries the bot token in the URL path, which the httpx
     # instrumentation records verbatim as http.url — readable by anyone on Grafana.
     redacted, count = _TELEGRAM_BOT_TOKEN.subn('/bot<redacted>', str(request.url))
@@ -81,21 +87,27 @@ def _redact_url(span: Span, request: RequestInfo) -> None:
         span.set_attribute('http.url', redacted)
 
 
-async def _redact_url_async(span: Span, request: RequestInfo) -> None:
-    _redact_url(span, request)
+async def _annotate_request_async(span: Span, request: RequestInfo) -> None:
+    _annotate_request(span, request)
 
 
-def _init_traces(endpoint: str, headers: dict[str, str], resource: Resource) -> None:
+def _init_traces(
+    endpoint: str, headers: dict[str, str], resource: Resource, meter_provider: MeterProvider
+) -> None:
     provider = TracerProvider(resource=resource)
     exporter = OTLPSpanExporter(endpoint=f'{endpoint}/v1/traces', headers=headers)
+    provider.add_span_processor(SelfTimeProcessor(meter_provider.get_meter(__name__)))
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
 
 
-def _init_metrics(endpoint: str, headers: dict[str, str], resource: Resource) -> None:
+def _init_metrics(endpoint: str, headers: dict[str, str], resource: Resource) -> MeterProvider:
     exporter = OTLPMetricExporter(endpoint=f'{endpoint}/v1/metrics', headers=headers)
     reader = PeriodicExportingMetricReader(exporter)
-    metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+    provider = MeterProvider(resource=resource, metric_readers=[reader])
+    metrics.set_meter_provider(provider)
+    register_process_gauges(provider.get_meter(__name__))
+    return provider
 
 
 def _init_logs(endpoint: str, headers: dict[str, str], resource: Resource) -> None:

@@ -1,12 +1,23 @@
 import httpx
 import pytest
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from bot.infrastructure.otel import _parse_headers, init_otel
 from bot.settings import Settings
+
+
+def _metric_names(reader: InMemoryMetricReader) -> set[str]:
+    data = reader.get_metrics_data()
+    return {
+        metric.name
+        for resource in data.resource_metrics
+        for scope in resource.scope_metrics
+        for metric in scope.metrics
+    }
 
 
 @pytest.fixture
@@ -21,6 +32,9 @@ def otel_globals(mocker):
             'HTTPXClientInstrumentor',
             'AioPikaInstrumentor',
             'LoggingHandler',
+            'OTLPSpanExporter',
+            'OTLPMetricExporter',
+            'OTLPLogExporter',
             'logging.getLogger',
         )
     }
@@ -80,6 +94,24 @@ class TestInitOtel:
         otel_globals['set_logger_provider'].assert_called_once()
         otel_globals['FastAPIInstrumentor'].instrument_app.assert_called_once_with(app)
 
+    def test_spans_record_their_self_time(self, mocker, otel_globals, otel_settings):
+        reader = InMemoryMetricReader()
+        mocker.patch('bot.infrastructure.otel.PeriodicExportingMetricReader', return_value=reader)
+
+        init_otel(otel_settings, mocker.Mock())
+        provider = otel_globals['trace.set_tracer_provider'].call_args.args[0]
+        provider.get_tracer('test').start_span('command.run').end()
+
+        assert 'span.self_time' in _metric_names(reader)
+
+    def test_reports_the_process_gauges(self, mocker, otel_globals, otel_settings):
+        reader = InMemoryMetricReader()
+        mocker.patch('bot.infrastructure.otel.PeriodicExportingMetricReader', return_value=reader)
+
+        init_otel(otel_settings, mocker.Mock())
+
+        assert {'process.memory.rss', 'process.cpu.time'} <= _metric_names(reader)
+
     def test_bridges_stdlib_logging_into_otel(self, mocker, otel_globals, otel_settings):
         root = mocker.patch('bot.infrastructure.otel.logging.getLogger').return_value
 
@@ -119,3 +151,22 @@ class TestHttpxSpans:
 
         [span] = exporter.get_finished_spans()
         assert span.attributes['http.url'] == expected
+
+    @pytest.mark.anyio
+    async def test_span_names_the_upstream_host(self, mocker, otel_globals, otel_settings):
+        init_otel(otel_settings, mocker.Mock())
+        instrument = otel_globals['HTTPXClientInstrumentor'].return_value.instrument
+        async_hook = instrument.call_args.kwargs.get('async_request_hook')
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        transport = httpx.MockTransport(lambda _: httpx.Response(200))
+
+        async with httpx.AsyncClient(transport=transport) as client:
+            HTTPXClientInstrumentor.instrument_client(
+                client, tracer_provider=provider, request_hook=async_hook
+            )
+            await client.get('https://api.redgifs.com/v2/gifs/search?tags=Feet')
+
+        [span] = exporter.get_finished_spans()
+        assert span.attributes['server.address'] == 'api.redgifs.com'

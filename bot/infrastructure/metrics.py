@@ -43,6 +43,60 @@ _agent_budget_rejections = _meter.create_counter(
 )
 
 
+# Every caught upstream failure already logs `upstream_failed` with a named
+# upstream (31 call sites); the logging pipeline counts them here, so integration
+# health is a metric without touching each site.
+_upstream_failures = _meter.create_counter(
+    'upstream.failures', unit='1', description='Third-party API failures the bot caught'
+)
+
+
+def record_upstream_failure(upstream: str) -> None:
+    _upstream_failures.add(1, {'upstream': upstream})
+
+
+# Saturation of the broker consumer: deliveries held at once (prefetch caps it at
+# 4) and how long an exclusive command (,dl) queued for its lane.
+_in_flight = _meter.create_up_down_counter(
+    'command.in_flight', unit='1', description='Command deliveries being processed'
+)
+_lane_wait = _meter.create_histogram(
+    'command.lane_wait',
+    unit='ms',
+    description='Time an exclusive command waited for its lane',
+    explicit_bucket_boundaries_advisory=(10, 100, 1000, 5000, 10000, 30000, 60000, 120000),
+)
+
+
+def track_in_flight(delta: int) -> None:
+    _in_flight.add(delta)
+
+
+def record_lane_wait(milliseconds: float) -> None:
+    _lane_wait.record(milliseconds)
+
+
+# Commands the gate turned away, by reason, so a flow table can show how many
+# matched commands never ran and why, and a compliance view the NSFW ones.
+_rejections = _meter.create_counter(
+    'command.rejections', unit='1', description='Matched commands the gate refused to run'
+)
+
+
+def record_rejection(reason: str, command: str, scope: str) -> None:
+    _rejections.add(1, {'reason': reason, 'command.name': command, 'command.scope': scope})
+
+
+# Items an NSFW source returned that the minors denylist dropped, by source.
+_minors_dropped = _meter.create_counter(
+    'compliance.minors_dropped', unit='1', description='NSFW items dropped by the minors filter'
+)
+
+
+def record_minors_drop(source: str) -> None:
+    _minors_dropped.add(1, {'source': source})
+
+
 def record_retry() -> None:
     _retries.add(1)
 

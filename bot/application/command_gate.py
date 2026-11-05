@@ -7,12 +7,15 @@ from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
+from bot.infrastructure.metrics import record_rejection
 
 
 class CommandGate:
-    _DISABLED_MSG: ClassVar[str] = 'Esse comando está desativado. 🚫'
-    _OFF_HERE_MSG: ClassVar[str] = COMMAND_OFF_IN_CHAT
-    _DEV_ONLY_MSG: ClassVar[str] = 'Esse comando é apenas para desenvolvedores. 🛠️'
+    _MESSAGES: ClassVar[dict[str, str]] = {
+        'disabled': 'Esse comando está desativado. 🚫',
+        'dev_only': 'Esse comando é apenas para desenvolvedores. 🛠️',
+        'off_here': COMMAND_OFF_IN_CHAT,
+    }
     _NAMESPACED_PLATFORMS: ClassVar[frozenset[Platform]] = frozenset(
         {Platform.DISCORD, Platform.TELEGRAM}
     )
@@ -36,13 +39,20 @@ class CommandGate:
         return await self._rejection(command, data, is_dev=is_dev)
 
     async def _rejection(self, command: Command, data: CommandData, *, is_dev: bool) -> str | None:
+        reason = await self._reason(command, data, is_dev=is_dev)
+        if reason is None:
+            return None
+        record_rejection(reason, command.config.name, command.config.scope)
+        return self._MESSAGES[reason]
+
+    async def _reason(self, command: Command, data: CommandData, *, is_dev: bool) -> str | None:
         scope = command.config.scope
         if scope == CommandScope.DISABLED:
-            return self._DISABLED_MSG
+            return 'disabled'
         if scope == CommandScope.DEV and not is_dev:
-            return self._DEV_ONLY_MSG
+            return 'dev_only'
         if not await self._config.is_enabled(data, command.config):
-            return self._OFF_HERE_MSG
+            return 'off_here'
         return None
 
     async def _is_dev(self, command: Command, data: CommandData, repeat: int) -> bool:

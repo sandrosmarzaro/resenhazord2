@@ -5,6 +5,10 @@ import json
 import pytest
 import sentry_sdk
 from fakeredis.aioredis import FakeRedis
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import StatusCode
 from structlog.testing import capture_logs
 
 from bot.adapters.broker.command_consumer import CommandConsumer
@@ -313,6 +317,64 @@ class TestTracePropagation:
         assert 'messages' in inject.call_args.args[0]
 
 
+class TestSpanStatus:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def spans(self, mocker):
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        mocker.patch('bot.adapters.broker.command_consumer._tracer', provider.get_tracer('test'))
+        return exporter
+
+    @staticmethod
+    async def _run(mocker, outcome) -> None:
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = outcome
+        await CommandConsumer(broker, handler).start()
+        await broker.deliver('commands', _envelope('ping'))
+
+    @pytest.mark.anyio
+    async def test_unexpected_error_marks_span_as_error(self, mocker, spans):
+        await self._run(mocker, NotImplementedError('download_media unsupported'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.status_code is StatusCode.ERROR
+
+    @pytest.mark.anyio
+    async def test_error_status_names_the_type_without_the_message(self, mocker, spans):
+        await self._run(mocker, RuntimeError('GET https://api.telegram.org/bot123:secret/x'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.description == 'RuntimeError'
+        assert not span.events
+
+    @pytest.mark.anyio
+    async def test_external_error_status_names_the_type_without_the_message(self, mocker, spans):
+        await self._run(mocker, ExternalServiceError('https://x.test/?api_key=secret'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.description == 'ExternalServiceError'
+
+    @pytest.mark.anyio
+    async def test_external_error_marks_span_as_error(self, mocker, spans):
+        await self._run(mocker, ExternalServiceError('api down'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.status_code is StatusCode.ERROR
+
+    @pytest.mark.anyio
+    async def test_bot_error_leaves_span_status_unset(self, mocker, spans):
+        await self._run(mocker, BotError('nope'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.status_code is StatusCode.UNSET
+
+
 class TestMetrics:
     @pytest.fixture
     def anyio_backend(self):
@@ -372,6 +434,19 @@ class TestMetrics:
 
         span.set_attribute.assert_called_once_with('command.outcome', 'external_error')
         retries.add.assert_called_once_with(1)
+
+    @pytest.mark.anyio
+    async def test_counts_the_delivery_in_flight_until_it_is_answered(self, mocker):
+        self._span(mocker)
+        in_flight = mocker.patch('bot.infrastructure.metrics._in_flight')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        assert [call.args for call in in_flight.add.call_args_list] == [(1,), (-1,)]
 
     @pytest.mark.anyio
     async def test_exhausted_retries_count_dlq(self, mocker):
@@ -620,6 +695,30 @@ class TestExclusiveLane:
         await self._deliver_together(broker, 'first', 'second')
 
         assert handler.replies_out_at_start == {'first': 0, 'second': 0}
+
+    @pytest.mark.anyio
+    async def test_times_the_wait_for_the_lane_of_each_exclusive_command(self, mocker):
+        lane_wait = mocker.patch('bot.infrastructure.metrics._lane_wait')
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=True)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        waits = [call.args[0] for call in lane_wait.record.call_args_list]
+        assert len(waits) == 2
+        assert all(wait >= 0 for wait in waits)
+
+    @pytest.mark.anyio
+    async def test_other_commands_never_wait_for_the_lane(self, mocker):
+        lane_wait = mocker.patch('bot.infrastructure.metrics._lane_wait')
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=False)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        lane_wait.record.assert_not_called()
 
     @pytest.mark.anyio
     async def test_a_failed_exclusive_command_frees_the_lane(self, mocker):

@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from bot.domain.commands.porno import PornoCommand
-from bot.domain.models.message import RawContent, TextContent, VideoContent
+from bot.domain.models.message import ImageContent, TextContent, VideoContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 
@@ -18,78 +18,89 @@ class TestMatches:
             (', porno', True),
             (',porno', True),
             (', PORNO', True),
-            (', porno ia', True),
+            (', porno pes', True),
+            (', porno pés show dm', True),
             (', porno show', True),
             (', porno dm', True),
-            (', porno ia show dm', True),
             ('  , porno  ', True),
             ('porno', False),
             ('hello', False),
-            (', porno extra', False),
         ],
     )
     def test_matches(self, command, text, expected):
         assert command.matches(text) is expected
 
 
-class TestIaPorn:
-    @pytest.mark.anyio
-    async def test_returns_video_for_mp4(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', porno ia')
-        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/clip.mp4'}}
+class TestCategory:
+    AUTH_URL = 'https://api.redgifs.com/v2/auth/temporary'
+    SEARCH_URL = 'https://api.redgifs.com/v2/gifs/search'
+
+    @pytest.fixture
+    def redgifs(self, respx_mock):
+        respx_mock.get(self.AUTH_URL).mock(return_value=httpx.Response(200, json={'token': 't'}))
+
+        def search_returns(kind: int):
+            item = {
+                'type': kind,
+                'tags': ['Feet'],
+                'niches': [],
+                'urls': {'sd': 'https://media.redgifs.com/Clip-mobile.mp4'},
+            }
+            return respx_mock.get(url__startswith=self.SEARCH_URL).mock(
+                return_value=httpx.Response(200, json={'gifs': [item]})
             )
-        )
-        messages = await command.run(data)
 
-        assert len(messages) == 1
-        assert isinstance(messages[0].content, RawContent)
-        content = messages[0].content.content
-        assert 'video' in content
-        assert content['video']['url'] == 'https://example.com/clip.mp4'
-        assert content['viewOnce'] is True
-
-    @pytest.mark.anyio
-    async def test_returns_gif_for_gif(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', porno ia')
-        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/anim.gif'}}
-            )
-        )
-        messages = await command.run(data)
-
-        content = messages[0].content.content
-        assert 'image' in content
-        assert content['gifPlayback'] is True
+        return search_returns
 
     @pytest.mark.anyio
-    async def test_show_flag_disables_view_once(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', porno ia show')
-        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/clip.mp4'}}
-            )
-        )
-        messages = await command.run(data)
+    async def test_sends_a_video_of_the_category(self, command, redgifs):
+        redgifs(1)
 
-        content = messages[0].content.content
-        assert content['viewOnce'] is False
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno pes'))
+
+        assert isinstance(messages[0].content, VideoContent)
+        assert messages[0].content.url == 'https://media.redgifs.com/Clip-mobile.mp4'
 
     @pytest.mark.anyio
-    async def test_returns_image_for_other(self, command, respx_mock):
-        data = GroupCommandDataFactory.build(text=', porno ia')
-        respx_mock.get(url__startswith='https://nsfwhub.onrender.com/').mock(
-            return_value=httpx.Response(
-                200, json={'image': {'url': 'https://example.com/photo.jpg'}}
-            )
-        )
-        messages = await command.run(data)
+    async def test_sends_an_image_when_the_item_is_one(self, command, redgifs):
+        redgifs(2)
 
-        content = messages[0].content.content
-        assert 'image' in content
-        assert 'gifPlayback' not in content
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno pes'))
+
+        assert isinstance(messages[0].content, ImageContent)
+
+    @pytest.mark.anyio
+    async def test_searches_the_tag_behind_the_category(self, command, redgifs):
+        search = redgifs(1)
+
+        await command.run(GroupCommandDataFactory.build(text=', porno ruiva'))
+
+        assert search.calls[0].request.url.params['tags'] == 'Redhead'
+
+    @pytest.mark.anyio
+    async def test_ignores_accents_and_case(self, command, redgifs):
+        search = redgifs(1)
+
+        await command.run(GroupCommandDataFactory.build(text=', porno Pés'))
+
+        assert search.calls[0].request.url.params['tags'] == 'Feet'
+
+    @pytest.mark.anyio
+    async def test_show_flag_disables_view_once(self, command, redgifs):
+        redgifs(1)
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno pes show'))
+
+        assert messages[0].content.view_once is False
+
+    @pytest.mark.anyio
+    async def test_lists_the_categories_for_an_unknown_one(self, command):
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno xyz'))
+
+        text = messages[0].content.text
+        assert 'Categoria inválida' in text
+        assert 'pes' in text
+        assert 'ruiva' in text
 
 
 class TestRealPorn:
@@ -107,6 +118,21 @@ class TestRealPorn:
 <body>
 <script>setVideoUrlLow('https://cdn.example.com/low.mp4')</script>
 <script>setVideoUrlHigh('https://cdn.example.com/high.mp4')</script>
+</body>
+</html>
+"""
+    AGE_GATED_HTML = """
+<html>
+<head><title>Test Video - XVIDEOS.COM</title></head>
+<body>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "VideoObject",
+"contentUrl": "https://cdn.example.com/sd.mp4?secure=abc==,123"
+}
+</script>
+<script>xv.age_go.init()</script>
 </body>
 </html>
 """
@@ -138,6 +164,20 @@ class TestRealPorn:
         assert len(messages) == 1
         assert isinstance(messages[0].content, TextContent)
         assert 'molhadinho' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_sends_the_content_url_when_the_page_is_age_gated(self, command, respx_mock):
+        data = GroupCommandDataFactory.build(text=', porno')
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=self.LISTING_HTML),
+                httpx.Response(200, text=self.AGE_GATED_HTML),
+            ]
+        )
+
+        messages = await command.run(data)
+
+        assert messages[0].content.url == 'https://cdn.example.com/sd.mp4?secure=abc==,123'
 
     @pytest.mark.anyio
     async def test_raises_when_no_video_links(self, command, respx_mock):

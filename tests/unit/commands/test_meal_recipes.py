@@ -6,7 +6,7 @@ from bot.domain.models.message import ImageContent, TextContent
 from tests.factories.command_data import GroupCommandDataFactory
 
 MEAL_API_URL = 'https://www.themealdb.com/api/json/v1/1/random.php'
-TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
+TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/t'
 
 
 @pytest.fixture
@@ -52,7 +52,7 @@ TRANSLATED_CAPTION = (
 
 def _mock_translate(respx_mock, translated=TRANSLATED_CAPTION):
     respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-        return_value=httpx.Response(200, json=[[[translated, '']]])
+        return_value=httpx.Response(200, json=[translated])
     )
 
 
@@ -94,7 +94,7 @@ class TestRun:
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
         translate_route = respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-            return_value=httpx.Response(200, json=[[[TRANSLATED_CAPTION, '']]])
+            return_value=httpx.Response(200, json=[TRANSLATED_CAPTION])
         )
         await command.run(data)
 
@@ -127,7 +127,7 @@ class TestRun:
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
         translate_route = respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-            return_value=httpx.Response(200, json=[[[TRANSLATED_CAPTION, '']]])
+            return_value=httpx.Response(200, json=[TRANSLATED_CAPTION])
         )
         await command.run(data)
 
@@ -158,7 +158,7 @@ class TestRun:
             return_value=httpx.Response(200, json={'meals': [_mock_meal()]})
         )
         translate_route = respx_mock.get(url__startswith=TRANSLATE_URL).mock(
-            return_value=httpx.Response(200, json=[[[TRANSLATED_CAPTION, '']]])
+            return_value=httpx.Response(200, json=[TRANSLATED_CAPTION])
         )
         await command.run(data)
 

@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import ClassVar
 
-import anyio
 import sentry_sdk
 import structlog
 
@@ -30,6 +29,7 @@ from bot.data.market_dataset import (
 from bot.data.nationality_flags import nationality_flag
 from bot.domain.models.football import PlayerProfile, TmPlayer, TmSquadStats
 from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.work import Work
 
 logger = structlog.get_logger()
 
@@ -74,7 +74,7 @@ class MarketDataset:
     async def _load(cls) -> _Snapshot:
         players = await cls._download('players')
         clubs = await cls._download('clubs')
-        snapshot = await anyio.to_thread.run_sync(cls._parse, players, clubs)
+        snapshot = await Work.cpu(cls._parse, players, clubs)
         if snapshot.season < _current_season():
             # Upstream paused in July 2026 (transfermarkt-datasets discussion #383).
             logger.warning('market_dataset_stale', season=snapshot.season)

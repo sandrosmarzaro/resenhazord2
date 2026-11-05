@@ -9,8 +9,8 @@ import structlog
 from bs4 import BeautifulSoup, Tag
 
 from bot.data.browser_headers import BROWSER_HEADERS
-from bot.data.nsfw_tags import MINOR_TAG_TERMS
 from bot.domain.exceptions import ExternalServiceError
+from bot.domain.services.minors_filter import MinorsFilter
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -115,4 +115,4 @@ class Rule34Images:
 
     @staticmethod
     def _mentions_minors(texts: list[str]) -> bool:
-        return any(term in text.lower() for text in texts for term in MINOR_TAG_TERMS)
+        return MinorsFilter.flags('rule34', texts)

@@ -78,45 +78,6 @@
     ]
   },
   {
-    "uid": "rz2-command-error-surge",
-    "title": "Command error surge",
-    "ruleGroup": "resenhazord2",
-    "folderUID": "resenhazord2",
-    "condition": "C",
-    "for": "10m",
-    "noDataState": "OK",
-    "execErrState": "KeepLast",
-    "annotations": {
-      "summary": "More than 30% of commands failing",
-      "description": "A broad upstream/logic failure, not one bad URL."
-    },
-    "notification_settings": { "receiver": "resenhazord2-email" },
-    "data": [
-      {
-        "refId": "A",
-        "datasourceUid": "grafanacloud-prom",
-        "relativeTimeRange": { "from": 600, "to": 0 },
-        "model": {
-          "refId": "A",
-          "instant": true,
-          "range": false,
-          "expr": "sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\", command_outcome!=\"success\"}[5m])) / sum(rate(traces_span_metrics_calls_total{span_name=\"command.handle\"}[5m]))"
-        }
-      },
-      {
-        "refId": "C",
-        "datasourceUid": "__expr__",
-        "relativeTimeRange": { "from": 0, "to": 0 },
-        "model": {
-          "refId": "C",
-          "type": "threshold",
-          "expression": "A",
-          "conditions": [{ "evaluator": { "type": "gt", "params": [0.3] } }]
-        }
-      }
-    ]
-  },
-  {
     "uid": "rz2-dead-letters-rising",
     "title": "Dead-letters rising",
     "ruleGroup": "resenhazord2",
@@ -165,8 +126,8 @@
     "noDataState": "OK",
     "execErrState": "KeepLast",
     "annotations": {
-      "summary": "More than 100 commands waiting in the queue",
-      "description": "The bot is falling behind or stalled consuming."
+      "summary": "More than 80 commands waiting in the queue",
+      "description": "The bot is falling behind or stalled consuming. At 100 the queue drops its oldest commands."
     },
     "notification_settings": { "receiver": "resenhazord2-email" },
     "data": [
@@ -189,7 +150,7 @@
           "refId": "C",
           "type": "threshold",
           "expression": "A",
-          "conditions": [{ "evaluator": { "type": "gt", "params": [100] } }]
+          "conditions": [{ "evaluator": { "type": "gt", "params": [80] } }]
         }
       }
     ]
@@ -269,6 +230,298 @@
           "expression": "A",
           "conditions": [{ "evaluator": { "type": "lt", "params": [1] } }]
         }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-slo-availability-fast-burn",
+    "title": "SLO availability fast burn",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "2m",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "Commands are failing 14.4x faster than the 95% SLO allows",
+      "description": "Over 72% of command runs failed (external or unexpected errors) in both the last hour and the last 5 minutes. At this rate the 30-day error budget is gone in about two days. Needs 3+ runs in the hour."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 3600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[1h])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h]))"
+        }
+      },
+      {
+        "refId": "B",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 300, "to": 0 },
+        "model": {
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[5m])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[5m]))"
+        }
+      },
+      {
+        "refId": "V",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 3600, "to": 0 },
+        "model": {
+          "refId": "V",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A > 0.72 && $B > 0.72 && $V >= 3" }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-slo-availability-slow-burn",
+    "title": "SLO availability slow burn",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "15m",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "Commands are failing 6x faster than the 95% SLO allows",
+      "description": "Over 30% of command runs failed in both the last 6 hours and the last 30 minutes. At this rate the 30-day error budget lasts about five days. Needs 5+ runs in the 6 hours."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 21600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[6h])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[6h]))"
+        }
+      },
+      {
+        "refId": "B",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 1800, "to": 0 },
+        "model": {
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[30m])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[30m]))"
+        }
+      },
+      {
+        "refId": "V",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 21600, "to": 0 },
+        "model": {
+          "refId": "V",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[6h]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A > 0.3 && $B > 0.3 && $V >= 5" }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-slo-latency-fast-burn",
+    "title": "SLO latency fast burn",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "2m",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "Most commands are taking over 10s",
+      "description": "Over 60% of command runs other than ,dl took more than 10s in both the last hour and the last 5 minutes (SLO: 90% under 10s). Needs 3+ runs in the hour."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 3600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[1h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[1h]))"
+        }
+      },
+      {
+        "refId": "B",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 300, "to": 0 },
+        "model": {
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[5m])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[5m]))"
+        }
+      },
+      {
+        "refId": "V",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 3600, "to": 0 },
+        "model": {
+          "refId": "V",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[1h]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A > 0.6 && $B > 0.6 && $V >= 3" }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-slo-latency-slow-burn",
+    "title": "SLO latency slow burn",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "15m",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "Commands are slow 3x faster than the latency SLO allows",
+      "description": "Over 30% of command runs other than ,dl took more than 10s in both the last 6 hours and the last 30 minutes (SLO: 90% under 10s). Needs 5+ runs in the 6 hours."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 21600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[6h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[6h]))"
+        }
+      },
+      {
+        "refId": "B",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 1800, "to": 0 },
+        "model": {
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[30m])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30m]))"
+        }
+      },
+      {
+        "refId": "V",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 21600, "to": 0 },
+        "model": {
+          "refId": "V",
+          "instant": true,
+          "range": false,
+          "expr": "sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[6h]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A > 0.3 && $B > 0.3 && $V >= 5" }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-upstream-failing",
+    "title": "Upstream failing",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "0s",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "An upstream failed 5+ times in an hour",
+      "description": "One third-party API keeps failing (upstream.failures, labelled by upstream). A fallback may be hiding it from users, so check the nightly contracts too."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 3600, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (upstream) (increase(upstream_failures_total[1h]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A >= 5" }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-event-loop-lag",
+    "title": "Event loop lagging",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "10m",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "The core's event loop is waking 500ms+ late",
+      "description": "p99 event loop lag over 500ms for 10 minutes: CPU work is running on the loop and holding every command back."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 300, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(event_loop_lag_milliseconds_bucket[5m])))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A > 500" }
       }
     ]
   }

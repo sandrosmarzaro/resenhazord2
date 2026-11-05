@@ -19,15 +19,45 @@ otelcol.receiver.otlp "in" {
 	}
 }
 
-// RED (rate/errors/duration) derived from spans, split by command.outcome.
+// RED (rate/errors/duration) derived from spans. command.run carries the command,
+// platform and chat type; command.handle only the outcome; httpx client spans the
+// upstream host and status. The buckets reach two minutes because ,dl and the media
+// commands routinely pass the default 15s cap, which left every p90+ in +Inf. The
+// cardinality limit guards the free tier's 10k active series against a runaway
+// attribute.
 otelcol.connector.spanmetrics "red" {
 	dimension {
 		name = "command.outcome"
 	}
 
-	histogram {
-		explicit { }
+	dimension {
+		name = "command.name"
 	}
+
+	dimension {
+		name = "platform"
+	}
+
+	dimension {
+		name = "chat_type"
+	}
+
+	// Outbound httpx spans: the upstream host and the status it answered.
+	dimension {
+		name = "server.address"
+	}
+
+	dimension {
+		name = "http.status_code"
+	}
+
+	histogram {
+		explicit {
+			buckets = ["100ms", "250ms", "500ms", "1s", "2s", "5s", "10s", "20s", "30s", "60s", "120s"]
+		}
+	}
+
+	aggregation_cardinality_limit = 2000
 
 	output {
 		metrics = [otelcol.exporter.otlphttp.grafana.input]

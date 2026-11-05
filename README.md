@@ -3,7 +3,26 @@
 <p align="center">
   <a href="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml?query=branch%3Amain"><img src="https://github.com/sandrosmarzaro/resenhazord2/actions/workflows/pipeline.yml/badge.svg?branch=main" alt="Pipeline"></a>
   <a href="https://codecov.io/gh/sandrosmarzaro/resenhazord2"><img src="https://codecov.io/gh/sandrosmarzaro/resenhazord2/branch/main/graph/badge.svg" alt="Coverage"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=alert_status&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Quality Gate"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=security_rating&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Security Rating"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=sqale_rating&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Maintainability Rating"></a>
+  <a href="https://sonarcloud.io/summary/new_code?id=resenhazord2"><img src="https://sonarcloud.io/api/project_badges/measure?project=resenhazord2&metric=reliability_rating&token=fa18bbc55c1c86e0611890ddbe5c44b095d30f82" alt="Reliability Rating"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/sandrosmarzaro/resenhazord2/releases/latest"><img src="https://img.shields.io/github/v/release/sandrosmarzaro/resenhazord2?logo=github" alt="Release"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsandrosmarzaro%2Fresenhazord2%2Fdevelop%2Fpyproject.toml&logo=python&logoColor=white" alt="Python"></a>
+  <a href="gateway/"><img src="https://img.shields.io/badge/Bun-gateway-000000?logo=bun&logoColor=white" alt="Bun"></a>
+  <a href="https://github.com/astral-sh/uv"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fastral-sh%2Fuv%2Fmain%2Fassets%2Fbadge%2Fv0.json" alt="uv"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fastral-sh%2Fruff%2Fmain%2Fassets%2Fbadge%2Fv2.json" alt="Ruff"></a>
+  <a href="https://www.conventionalcommits.org/"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white" alt="Conventional Commits"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/WhatsApp-25D366?logo=whatsapp&logoColor=white" alt="WhatsApp">
+  <img src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white" alt="Discord">
+  <img src="https://img.shields.io/badge/Telegram-26A5E4?logo=telegram&logoColor=white" alt="Telegram">
 </p>
 
 Resenhazord 2 is the chatbot of A Resenha, a group of friends who wanted memes, media downloads,
@@ -55,8 +74,10 @@ in detail.
   running and developing the bot.
 - [Run](https://github.com/sandrosmarzaro/resenhazord2/wiki/Run) configures `.env`, pairs WhatsApp
   and starts the stack.
-- [Contribute](https://github.com/sandrosmarzaro/resenhazord2/wiki/Contribute) explains branches,
-  commits, tests and pull requests.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) explains branches, commits, tests, pull requests and the rules
+for AI-assisted contributions. Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md), and
+vulnerabilities are reported privately as described in [SECURITY.md](SECURITY.md).
 
 ## 📚 Documentation
 
@@ -69,7 +90,7 @@ in detail.
 | Dashboards and alerts | [docs/observability-dashboards.md](docs/observability-dashboards.md) |
 | Bot reply formatting | [docs/response-conventions.md](docs/response-conventions.md) |
 | External API integration | [docs/api-integration.md](docs/api-integration.md) |
-| Security notes | [docs/security.md](docs/security.md) |
+| Command parser regex safety | [docs/security.md](docs/security.md) |
 | Architecture decision records | [docs/adr/](docs/adr/) |
 
 ## 📜 History

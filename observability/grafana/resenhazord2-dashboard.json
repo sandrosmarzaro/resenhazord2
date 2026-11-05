@@ -642,6 +642,911 @@
           "legendFormat": "{{agent_budget_scope}} (enforced={{agent_budget_enforced}})"
         }
       ]
+    },
+    {
+      "id": 25,
+      "type": "row",
+      "title": "Commands by name, platform and chat (command.run)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 73 },
+      "panels": []
+    },
+    {
+      "id": 26,
+      "type": "table",
+      "title": "Latency percentiles by command (time range)",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 74 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Percentiles over the whole dashboard range: at a few dozen commands a day a 5m rate is mostly empty. The top bucket is 120s, so a p99 of 120000 means at least that.",
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 0 },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "runs" }, "properties": [{ "id": "unit", "value": "short" }] },
+          {
+            "matcher": { "id": "byName", "options": "error ratio" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 1 }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "runs", "desc": true }] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.75, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.9, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.99, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "F",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "G",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range])) * 0) / sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "Value #A": "p50",
+              "Value #B": "p75",
+              "Value #C": "p90",
+              "Value #D": "p95",
+              "Value #E": "p99",
+              "Value #F": "runs",
+              "Value #G": "error ratio",
+              "command_name": "command"
+            },
+            "indexByName": {
+              "command_name": 0,
+              "Value #F": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6,
+              "Value #G": 7
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Command runs by platform and chat type",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 84 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (platform, chat_type) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h]))",
+          "legendFormat": "{{platform}} {{chat_type}}"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "Command p95 by platform (1h windows)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 84 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, platform) (rate(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[1h])))",
+          "legendFormat": "{{platform}}"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "row",
+      "title": "Self time vs total (where the wait is)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 92 },
+      "panels": []
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "Total vs self time by span (time range)",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 93 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Total is the span's whole duration. Self is that minus the union of its awaited children, so a parent waiting on a slow call shows a big total and a small self, and the slow call shows the self. Sum of self times never counts a wait twice.",
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 0 },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "self share" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "self", "desc": true }] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (span_name) (increase(traces_span_metrics_duration_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (span_name) (increase(span_self_time_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (span_name) (increase(span_self_time_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range])) / sum by (span_name) (increase(traces_span_metrics_duration_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": { "span_name": "span", "Value #A": "total", "Value #B": "self", "Value #C": "self share" },
+            "indexByName": { "span_name": 0, "Value #A": 1, "Value #B": 2, "Value #C": 3 }
+          }
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Self time by work kind (io / cpu / fire_and_forget)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 103 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (work_kind) (increase(span_self_time_milliseconds_sum{span_name!~\"GET /health.*\"}[1h]))",
+          "legendFormat": "{{work_kind}}"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Self-time p95 by span (1h windows)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 103 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(span_self_time_milliseconds_bucket{span_name!~\"GET /health.*\"}[1h])))",
+          "legendFormat": "{{span_name}}"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "row",
+      "title": "Integrations (upstream health)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 111 },
+      "panels": []
+    },
+    {
+      "id": 34,
+      "type": "table",
+      "title": "Upstream hosts (time range)",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 112 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Every outbound httpx call by host. Errors are client spans with an error status (4xx, 5xx, transport failures). Telegram's long-poll getUpdates dominates the call count.",
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 0 },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "calls" }, "properties": [{ "id": "unit", "value": "short" }] },
+          {
+            "matcher": { "id": "byName", "options": "error ratio" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 1 }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "error ratio", "desc": true }] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range])) * 0) / sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le, server_address) (increase(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, server_address) (increase(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "server_address": "host",
+              "Value #A": "calls",
+              "Value #B": "error ratio",
+              "Value #C": "p50",
+              "Value #D": "p95"
+            },
+            "indexByName": { "server_address": 0, "Value #A": 1, "Value #B": 2, "Value #C": 3, "Value #D": 4 }
+          }
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "Caught upstream failures by upstream",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 122 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "upstream.failures: one per upstream_failed log, the failures a command caught and answered around (fallbacks included).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (upstream) (increase(upstream_failures_total[1h]))",
+          "legendFormat": "{{upstream}}"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "type": "timeseries",
+      "title": "Upstream 4xx/5xx by host and status",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 122 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (server_address, http_status_code) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\", http_status_code=~\"4..|5..\"}[1h]))",
+          "legendFormat": "{{server_address}} {{http_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "type": "row",
+      "title": "Saturation (bot process and consumer)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 130 },
+      "panels": []
+    },
+    {
+      "id": 38,
+      "type": "timeseries",
+      "title": "Event loop lag (p50 / p99)",
+      "description": "How late the loop woke a 1s sleeper. CPU work left on the event loop shows here, and it delays every other command and heartbeat by the same amount.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 131 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(event_loop_lag_milliseconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(event_loop_lag_milliseconds_bucket[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "type": "timeseries",
+      "title": "Deliveries in flight (prefetch 4)",
+      "description": "Commands being processed at once. Pinned at 4 means the consumer is saturated and the queue grows.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 131 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(command_in_flight)",
+          "legendFormat": "in flight"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": ",dl lane wait (p50 / p95, 1h)",
+      "description": "Time an exclusive command waited for the lane another one held.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 139 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(command_lane_wait_milliseconds_bucket[1h])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(command_lane_wait_milliseconds_bucket[1h])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Bot process memory and CPU",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 139 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "CPU cores" },
+            "properties": [
+              { "id": "unit", "value": "short" },
+              { "id": "custom.axisPlacement", "value": "right" }
+            ]
+          }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "process_memory_rss_bytes",
+          "legendFormat": "RSS"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(process_cpu_time_seconds_total[5m])",
+          "legendFormat": "CPU cores"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "Dead-letter queue depth",
+      "description": "Commands parked after the retry ladder, kept 7 days. Replay with uv run task dlq:replay.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 147 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(rabbitmq_queue_messages_ready{queue=\"commands.dlq\"})",
+          "legendFormat": "commands.dlq"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "type": "row",
+      "title": "SLOs (30 days, command.run on every platform)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 152 },
+      "panels": []
+    },
+    {
+      "id": 44,
+      "type": "stat",
+      "title": "Availability (SLO 95%)",
+      "description": "Share of command runs without an external or unexpected failure. bot_error (the user's mistake) counts as good.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - (sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[30d])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[30d]))"
+        }
+      ]
+    },
+    {
+      "id": 45,
+      "type": "stat",
+      "title": "Availability budget left",
+      "description": "Share of the 5% error budget still unspent this 30 days.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - ((sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[30d])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[30d]))) / 0.05"
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "type": "stat",
+      "title": "Under 10s (SLO 90%, no ,dl)",
+      "description": "Share of command runs other than ,dl that finished in under 10s.",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.9 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - (1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[30d])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30d])))"
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "type": "stat",
+      "title": "Latency budget left",
+      "description": "Share of the 10% latency budget still unspent this 30 days.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - (1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[30d])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30d]))) / 0.1"
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "type": "timeseries",
+      "title": "Availability burn rate (1h / 6h)",
+      "description": "1 burns the budget exactly in 30 days. The fast alert fires above 14.4 on 1h, the slow one above 6 on 6h.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 157 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 1 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "((sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[1h])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h]))) / 0.05",
+          "legendFormat": "1h"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "((sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[6h])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[6h]))) / 0.05",
+          "legendFormat": "6h"
+        }
+      ]
+    },
+    {
+      "id": 49,
+      "type": "timeseries",
+      "title": "Latency burn rate (1h / 6h)",
+      "description": "The fast alert fires above 6 on 1h, the slow one above 3 on 6h.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 157 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 1 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[1h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[1h]))) / 0.1",
+          "legendFormat": "1h"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[6h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[6h]))) / 0.1",
+          "legendFormat": "6h"
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "type": "row",
+      "title": "Product, compliance and flow state",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 165 },
+      "panels": []
+    },
+    {
+      "id": 51,
+      "type": "bargauge",
+      "title": "Command flow (time range)",
+      "description": "Where commands end up. Delivered only counts WhatsApp (the broker path); ran counts every platform. User error is a bot_error: a bad argument or a group-only command in a DM.",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 166 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.handle\"}[$__range]))",
+          "legendFormat": "1 delivered (WhatsApp)",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(command_rejections_total[$__range])) or vector(0)",
+          "legendFormat": "2 refused by the gate",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range]))",
+          "legendFormat": "3 ran (every platform)",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", command_outcome=\"success\"}[$__range])) or vector(0)",
+          "legendFormat": "4 succeeded",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "E",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", command_outcome=\"bot_error\"}[$__range])) or vector(0)",
+          "legendFormat": "5 user error",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "F",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "6 failed",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "G",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(command_retries_total[$__range])) or vector(0)",
+          "legendFormat": "7 retried",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "H",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(command_dlq_total[$__range])) or vector(0)",
+          "legendFormat": "8 dead-lettered",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "type": "bargauge",
+      "title": "Agent state outcomes (time range)",
+      "description": "Where the natural-language agent's state machine ended each mapping.",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 166 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (agent_outcome) (increase(agent_mappings_total[$__range]))",
+          "legendFormat": "{{agent_outcome}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "type": "bargauge",
+      "title": "Gate refusals by reason (time range)",
+      "description": "Disabled, dev only, switched off in the chat, or an NSFW command outside a Discord NSFW channel.",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 176 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (reason, command_scope) (increase(command_rejections_total[$__range]))",
+          "legendFormat": "{{reason}} ({{command_scope}})",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "type": "bargauge",
+      "title": "Minors filter drops by source (time range)",
+      "description": "Items an NSFW feed returned that the denylist refused to send. Best effort: a rising count means a feed is pushing more of it, not that the filter is complete.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 176 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (source) (increase(compliance_minors_dropped_total[$__range]))",
+          "legendFormat": "{{source}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 55,
+      "type": "bargauge",
+      "title": "Top commands (time range)",
+      "description": "The ten most run commands across every platform.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 176 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "topk(10, sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range])))",
+          "legendFormat": "{{command_name}}",
+          "instant": true,
+          "range": false
+        }
+      ]
     }
   ]
 }

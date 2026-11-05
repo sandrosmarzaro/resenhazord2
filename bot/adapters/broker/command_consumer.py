@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from contextlib import AsyncExitStack
 from functools import partial
 from typing import Any, ClassVar
@@ -8,6 +9,7 @@ import sentry_sdk
 import structlog
 import structlog.contextvars
 from opentelemetry import trace
+from opentelemetry.trace import StatusCode
 
 from bot.adapters.broker.command_envelope import CommandEnvelope
 from bot.adapters.broker.delivery_guard import DeliveryGuard
@@ -18,6 +20,7 @@ from bot.domain.commands.base import Command
 from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.infrastructure.metrics import record_lane_wait, track_in_flight
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
 from bot.ports.command_inbox_port import CommandInboxPort
@@ -34,6 +37,7 @@ class CommandConsumer:
     MAX_ATTEMPTS: ClassVar[int] = RetryRouter.MAX_ATTEMPTS
     DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = RetryRouter.DOWNLOAD_MAX_ATTEMPTS
     RETRY_TTL_MS: ClassVar[int] = 30_000
+    MS_PER_SECOND: ClassVar[int] = 1000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
     def __init__(
@@ -64,11 +68,15 @@ class CommandConsumer:
         # A fresh Sentry isolation scope per message: set_tag mutates the scope object,
         # which the consume tasks share by reference, so the last command's tags used to
         # stamp later, unrelated events (e.g. the deploy shutdown error).
-        with sentry_sdk.isolation_scope():
-            # The lane, once entered, is held until the reply is published: serializing
-            # a media reply is the memory peak, not running the command.
-            async with AsyncExitStack() as lane:
-                await self._process(json.loads(body), lane)
+        track_in_flight(1)
+        try:
+            with sentry_sdk.isolation_scope():
+                # The lane, once entered, is held until the reply is published:
+                # serializing a media reply is the memory peak, not running the command.
+                async with AsyncExitStack() as lane:
+                    await self._process(json.loads(body), lane)
+        finally:
+            track_in_flight(-1)
 
     async def _process(self, envelope: dict[str, Any], lane: AsyncExitStack) -> None:
         command_data = CommandEnvelope.to_command_data(envelope['data'])
@@ -112,6 +120,7 @@ class CommandConsumer:
                 )
             except ExternalServiceError as error:
                 outcome = 'external_error'
+                span.set_status(StatusCode.ERROR, type(error).__name__)
                 await self._retry_or_fail(envelope, command_data, error)
             except BotError as error:
                 outcome = 'bot_error'
@@ -120,8 +129,11 @@ class CommandConsumer:
                 )
             # Anything else escaped the consume callback: aio_pika rejected the message
             # without requeue, the user got no reply, and the span still said success.
-            except Exception:
+            except Exception as error:
                 outcome = 'unexpected_error'
+                # Only the type: an httpx message carries the URL, query secrets and all
+                # (the Telegram token leak, PR #204). Sentry gets the full exception.
+                span.set_status(StatusCode.ERROR, type(error).__name__)
                 logger.exception('command_unexpected_error')
                 await self._publish_reply(
                     envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
@@ -132,8 +144,11 @@ class CommandConsumer:
                 span.set_attribute('command.outcome', outcome)
 
     async def _enter_lane(self, lane: AsyncExitStack, command: Command) -> None:
-        if command.config.exclusive:
-            await lane.enter_async_context(self._exclusive_lane)
+        if not command.config.exclusive:
+            return
+        queued_at = time.monotonic()
+        await lane.enter_async_context(self._exclusive_lane)
+        record_lane_wait((time.monotonic() - queued_at) * self.MS_PER_SECOND)
 
     async def _retry_or_fail(
         self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError

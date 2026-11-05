@@ -13,6 +13,7 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.card_grid_builder import build_card_grid
 from bot.infrastructure.http_client import HttpClient
+from bot.infrastructure.work import Work
 
 logger = structlog.get_logger()
 
@@ -52,7 +53,7 @@ class CardBoosterCommand(Command):
                     tg.start_soon(_download, i, item.image_url)
 
             image_buffers: list[bytes] = [r for r in results if r is not None]
-            grid_buffer = await anyio.to_thread.run_sync(
+            grid_buffer = await Work.cpu(
                 partial(
                     build_card_grid,
                     image_buffers,

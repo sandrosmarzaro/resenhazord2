@@ -14,9 +14,7 @@ MOCK_RESPONSE = {
     },
 }
 
-MOCK_TRANSLATION = [
-    [['Hoje é um ótimo dia para novos começos.', 'Today is a great day for new beginnings.']],
-]
+MOCK_TRANSLATION = ['Hoje é um ótimo dia para novos começos.']
 
 
 @pytest.fixture
@@ -28,7 +26,7 @@ def _mock_horoscope_apis(respx_mock, horoscope_json=None):
     respx_mock.get('https://freehoroscopeapi.com/api/v1/get-horoscope/daily').mock(
         return_value=httpx.Response(200, json=horoscope_json or MOCK_RESPONSE)
     )
-    respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/single').mock(
+    respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/t').mock(
         return_value=httpx.Response(200, json=MOCK_TRANSLATION)
     )
 
@@ -142,7 +140,7 @@ class TestExecute:
                 200, json={'data': {**MOCK_RESPONSE['data'], 'sign': 'Scorpio'}}
             )
         )
-        respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/single').mock(
+        respx_mock.get(url__startswith='https://translate.googleapis.com/translate_a/t').mock(
             return_value=httpx.Response(200, json=MOCK_TRANSLATION)
         )
 
