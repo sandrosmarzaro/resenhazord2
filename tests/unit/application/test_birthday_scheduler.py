@@ -3,11 +3,15 @@ from datetime import date, datetime
 
 import pytest
 from fakeredis.aioredis import FakeRedis
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from redis.asyncio import Redis
 
 from bot.application.birthday_scheduler import BirthdayScheduler
 from bot.data.birthday_messages import DEFAULT_BIRTHDAY_MESSAGE
 from bot.domain.services.birthday_calendar import BirthdayCalendar
+from bot.infrastructure.work import Work
 
 CHAT_JID = '120363044041082732@g.us'
 ALICE = '5511999990001@s.whatsapp.net'
@@ -120,3 +124,19 @@ class TestRun:
             await scheduler.run()
 
         sleep.assert_awaited_once_with(SECONDS_IN_AN_HOUR)
+
+    @pytest.mark.anyio
+    async def test_each_celebration_is_its_own_fire_and_forget_trace(
+        self, scheduler, sleep, mocker
+    ):
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        mocker.patch.object(Work, '_TRACER', provider.get_tracer('test'))
+
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler.run()
+
+        [span] = exporter.get_finished_spans()
+        assert span.name == 'birthday.celebrate'
+        assert span.attributes['work.kind'] == 'fire_and_forget'
