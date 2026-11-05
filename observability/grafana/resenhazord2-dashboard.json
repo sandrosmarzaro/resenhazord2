@@ -1147,6 +1147,202 @@
           "legendFormat": "commands.dlq"
         }
       ]
+    },
+    {
+      "id": 43,
+      "type": "row",
+      "title": "SLOs (30 days, command.run on every platform)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 152 },
+      "panels": []
+    },
+    {
+      "id": 44,
+      "type": "stat",
+      "title": "Availability (SLO 95%)",
+      "description": "Share of command runs without an external or unexpected failure. bot_error (the user's mistake) counts as good.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - (sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[30d])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[30d]))"
+        }
+      ]
+    },
+    {
+      "id": 45,
+      "type": "stat",
+      "title": "Availability budget left",
+      "description": "Share of the 5% error budget still unspent this 30 days.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - ((sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[30d])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[30d]))) / 0.05"
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "type": "stat",
+      "title": "Under 10s (SLO 90%, no ,dl)",
+      "description": "Share of command runs other than ,dl that finished in under 10s.",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.9 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - (1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[30d])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30d])))"
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "type": "stat",
+      "title": "Latency budget left",
+      "description": "Share of the 10% latency budget still unspent this 30 days.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 153 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "1 - (1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[30d])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30d]))) / 0.1"
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "type": "timeseries",
+      "title": "Availability burn rate (1h / 6h)",
+      "description": "1 burns the budget exactly in 30 days. The fast alert fires above 14.4 on 1h, the slow one above 6 on 6h.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 157 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 1 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "((sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[1h])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h]))) / 0.05",
+          "legendFormat": "1h"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "((sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[6h])) or vector(0)) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[6h]))) / 0.05",
+          "legendFormat": "6h"
+        }
+      ]
+    },
+    {
+      "id": 49,
+      "type": "timeseries",
+      "title": "Latency burn rate (1h / 6h)",
+      "description": "The fast alert fires above 6 on 1h, the slow one above 3 on 6h.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 157 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 1 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[1h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[1h]))) / 0.1",
+          "legendFormat": "1h"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[6h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[6h]))) / 0.1",
+          "legendFormat": "6h"
+        }
+      ]
     }
   ]
 }
