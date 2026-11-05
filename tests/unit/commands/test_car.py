@@ -745,9 +745,9 @@ class TestFipeUpstreamErrors:
             messages = await command.run(GroupCommandDataFactory.build(text=',carro'))
 
         assert messages[0].content.text == 'Ops, não achei esse carro agora! 🚗'
-        assert [(log['event'], log['log_level']) for log in logs] == [
-            ('upstream_failed', 'warning')
-        ]
+        assert [
+            (log['event'], log['log_level']) for log in logs if log['event'] != 'command_completed'
+        ] == [('upstream_failed', 'warning')]
 
     @pytest.mark.anyio
     async def test_a_year_without_a_price_moves_on_to_the_next(

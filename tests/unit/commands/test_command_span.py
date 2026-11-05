@@ -5,6 +5,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import StatusCode
+from structlog.testing import capture_logs
 
 from bot.domain.commands.base import Command, CommandConfig, ParsedCommand, Platform
 from bot.domain.exceptions import BotError, ExternalServiceError
@@ -130,3 +131,31 @@ class TestOutcome:
 
         with pytest.raises(ExternalServiceError):
             await command.run(data)
+
+
+class TestCompletedEvent:
+    @pytest.mark.anyio
+    async def test_logs_one_completed_event_with_the_stable_fields(self, spans):
+        data = GroupCommandDataFactory(text=',eco', platform=Platform.TELEGRAM)
+
+        with capture_logs() as logs:
+            await _run(data=data)
+
+        [event] = [log for log in logs if log['event'] == 'command_completed']
+        assert event['command'] == 'eco'
+        assert event['platform'] == 'telegram'
+        assert event['chat_type'] == 'group'
+        assert event['chat'] == data.jid
+        assert event['outcome'] == 'success'
+        assert event['duration_ms'] >= 0
+        assert event['log_level'] == 'info'
+
+    @pytest.mark.anyio
+    async def test_a_failure_logs_its_outcome_and_error_type(self, spans):
+        with capture_logs() as logs:
+            await _run(ExternalServiceError('https://x.test/?api_key=secret'))
+
+        [event] = [log for log in logs if log['event'] == 'command_completed']
+        assert event['outcome'] == 'external_error'
+        assert event['error_type'] == 'ExternalServiceError'
+        assert 'secret' not in str(event)
