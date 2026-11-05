@@ -5,6 +5,10 @@ import json
 import pytest
 import sentry_sdk
 from fakeredis.aioredis import FakeRedis
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import StatusCode
 from structlog.testing import capture_logs
 
 from bot.adapters.broker.command_consumer import CommandConsumer
@@ -311,6 +315,56 @@ class TestTracePropagation:
 
         inject.assert_called_once()
         assert 'messages' in inject.call_args.args[0]
+
+
+class TestSpanStatus:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def spans(self, mocker):
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        mocker.patch('bot.adapters.broker.command_consumer._tracer', provider.get_tracer('test'))
+        return exporter
+
+    @staticmethod
+    async def _run(mocker, outcome) -> None:
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = outcome
+        await CommandConsumer(broker, handler).start()
+        await broker.deliver('commands', _envelope('ping'))
+
+    @pytest.mark.anyio
+    async def test_unexpected_error_marks_span_as_error(self, mocker, spans):
+        await self._run(mocker, NotImplementedError('download_media unsupported'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.status_code is StatusCode.ERROR
+
+    @pytest.mark.anyio
+    async def test_unexpected_error_records_the_exception_on_span(self, mocker, spans):
+        await self._run(mocker, NotImplementedError('download_media unsupported'))
+
+        event = spans.get_finished_spans()[0].events[0]
+        assert event.attributes['exception.type'] == 'NotImplementedError'
+
+    @pytest.mark.anyio
+    async def test_external_error_marks_span_as_error(self, mocker, spans):
+        await self._run(mocker, ExternalServiceError('api down'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.status_code is StatusCode.ERROR
+
+    @pytest.mark.anyio
+    async def test_bot_error_leaves_span_status_unset(self, mocker, spans):
+        await self._run(mocker, BotError('nope'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.status_code is StatusCode.UNSET
 
 
 class TestMetrics:

@@ -8,6 +8,7 @@ import sentry_sdk
 import structlog
 import structlog.contextvars
 from opentelemetry import trace
+from opentelemetry.trace import StatusCode
 
 from bot.adapters.broker.command_envelope import CommandEnvelope
 from bot.adapters.broker.delivery_guard import DeliveryGuard
@@ -112,6 +113,7 @@ class CommandConsumer:
                 )
             except ExternalServiceError as error:
                 outcome = 'external_error'
+                span.set_status(StatusCode.ERROR, str(error))
                 await self._retry_or_fail(envelope, command_data, error)
             except BotError as error:
                 outcome = 'bot_error'
@@ -120,8 +122,10 @@ class CommandConsumer:
                 )
             # Anything else escaped the consume callback: aio_pika rejected the message
             # without requeue, the user got no reply, and the span still said success.
-            except Exception:
+            except Exception as error:
                 outcome = 'unexpected_error'
+                span.record_exception(error)
+                span.set_status(StatusCode.ERROR, str(error))
                 logger.exception('command_unexpected_error')
                 await self._publish_reply(
                     envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
