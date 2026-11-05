@@ -27,8 +27,9 @@ class Work:
 
     @classmethod
     async def cpu[T](cls, func: Callable[..., T], *args: object) -> T:
+        # A partial names its function, a callable object its class.
         target = getattr(func, 'func', func)
-        name = f'cpu {target.__qualname__}'
+        name = f'cpu {getattr(target, "__qualname__", type(target).__qualname__)}'
         # No automatic exception record: the message can carry a URL with secrets in
         # it, and the command span already classifies the failure.
         with cls._TRACER.start_as_current_span(

@@ -45,6 +45,16 @@ class TestCpu:
         assert spans.get_finished_spans()[0].name == 'cpu _encode'
 
     @pytest.mark.anyio
+    async def test_names_a_callable_object_after_its_type(self, spans):
+        class Renderer:
+            def __call__(self) -> str:
+                return 'png'
+
+        await Work.cpu(Renderer())
+
+        assert spans.get_finished_spans()[0].name.endswith('Renderer')
+
+    @pytest.mark.anyio
     async def test_failure_propagates_without_recording_the_message(self, spans):
         def _fail() -> None:
             message = '/bot123:secret'
