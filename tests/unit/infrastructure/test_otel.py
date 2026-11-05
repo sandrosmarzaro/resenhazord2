@@ -132,3 +132,22 @@ class TestHttpxSpans:
 
         [span] = exporter.get_finished_spans()
         assert span.attributes['http.url'] == expected
+
+    @pytest.mark.anyio
+    async def test_span_names_the_upstream_host(self, mocker, otel_globals, otel_settings):
+        init_otel(otel_settings, mocker.Mock())
+        instrument = otel_globals['HTTPXClientInstrumentor'].return_value.instrument
+        async_hook = instrument.call_args.kwargs.get('async_request_hook')
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        transport = httpx.MockTransport(lambda _: httpx.Response(200))
+
+        async with httpx.AsyncClient(transport=transport) as client:
+            HTTPXClientInstrumentor.instrument_client(
+                client, tracer_provider=provider, request_hook=async_hook
+            )
+            await client.get('https://api.redgifs.com/v2/gifs/search?tags=Feet')
+
+        [span] = exporter.get_finished_spans()
+        assert span.attributes['server.address'] == 'api.redgifs.com'

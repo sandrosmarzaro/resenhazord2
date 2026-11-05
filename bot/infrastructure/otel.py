@@ -69,12 +69,16 @@ def _instrument(app: 'FastAPI') -> None:
     # globally, covering the outbound API calls and the broker publish/consume path.
     FastAPIInstrumentor.instrument_app(app)
     HTTPXClientInstrumentor().instrument(  # type: ignore[union-attr]
-        request_hook=_redact_url, async_request_hook=_redact_url_async
+        request_hook=_annotate_request, async_request_hook=_annotate_request_async
     )
     AioPikaInstrumentor().instrument()  # type: ignore[union-attr]
 
 
-def _redact_url(span: Span, request: RequestInfo) -> None:
+def _annotate_request(span: Span, request: RequestInfo) -> None:
+    # The host is the upstream's name for spanmetrics: http.url is the full URL, one
+    # series per query string, and the old semconv this instrumentation emits has no
+    # server.address of its own.
+    span.set_attribute('server.address', request.url.host)
     # The Telegram Bot API carries the bot token in the URL path, which the httpx
     # instrumentation records verbatim as http.url — readable by anyone on Grafana.
     redacted, count = _TELEGRAM_BOT_TOKEN.subn('/bot<redacted>', str(request.url))
@@ -82,8 +86,8 @@ def _redact_url(span: Span, request: RequestInfo) -> None:
         span.set_attribute('http.url', redacted)
 
 
-async def _redact_url_async(span: Span, request: RequestInfo) -> None:
-    _redact_url(span, request)
+async def _annotate_request_async(span: Span, request: RequestInfo) -> None:
+    _annotate_request(span, request)
 
 
 def _init_traces(
