@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from bot.data.nsfw_tags import MINOR_TAG_TERMS
+from bot.domain.services.minors_filter import MinorsFilter
 
 
 @dataclass(frozen=True)
@@ -26,4 +26,4 @@ class HentaiGallery:
         if not self.tags:
             return True
         texts = [*self.tags, *self.hidden_tags, self.title, self.japanese_title or '']
-        return any(term in text.lower() for text in texts for term in MINOR_TAG_TERMS)
+        return MinorsFilter.flags('hentai', texts)
