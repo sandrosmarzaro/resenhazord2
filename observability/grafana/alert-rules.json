@@ -165,8 +165,8 @@
     "noDataState": "OK",
     "execErrState": "KeepLast",
     "annotations": {
-      "summary": "More than 100 commands waiting in the queue",
-      "description": "The bot is falling behind or stalled consuming."
+      "summary": "More than 80 commands waiting in the queue",
+      "description": "The bot is falling behind or stalled consuming. At 100 the queue drops its oldest commands."
     },
     "notification_settings": { "receiver": "resenhazord2-email" },
     "data": [
@@ -189,7 +189,7 @@
           "refId": "C",
           "type": "threshold",
           "expression": "A",
-          "conditions": [{ "evaluator": { "type": "gt", "params": [100] } }]
+          "conditions": [{ "evaluator": { "type": "gt", "params": [80] } }]
         }
       }
     ]
