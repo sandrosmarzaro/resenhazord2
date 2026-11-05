@@ -4,9 +4,9 @@ from typing import Any
 
 import httpx
 
-from bot.data.nsfw_tags import MINOR_TAG_TERMS
 from bot.data.redgifs_media import RedGifsMedia
 from bot.domain.exceptions import ExternalServiceError
+from bot.domain.services.minors_filter import MinorsFilter
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -71,5 +71,4 @@ class RedGifs:
 
     @staticmethod
     def _points_to_minors(item: dict[str, Any]) -> bool:
-        labels = [*item.get('tags', []), *item.get('niches', [])]
-        return any(term in label.lower() for label in labels for term in MINOR_TAG_TERMS)
+        return MinorsFilter.flags('redgifs', [*item.get('tags', []), *item.get('niches', [])])
