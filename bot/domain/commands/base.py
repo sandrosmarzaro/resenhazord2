@@ -1,9 +1,14 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import ClassVar
+
+from opentelemetry import trace
+from opentelemetry.trace import Span, StatusCode, Tracer
 
 from bot.adapters.whatsapp.port import WhatsAppPort
 from bot.domain.builders.reply import Reply
+from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.contents.audio_content import AudioContent
 from bot.domain.models.contents.image_content import ImageBufferContent, ImageContent
@@ -89,6 +94,10 @@ class ParsedCommand:
 
 
 class Command(ABC):
+    # The one span every platform's run goes through: spanmetrics turns its
+    # dimensions into per-command, per-platform latency and error rate.
+    _TRACER: ClassVar[Tracer] = trace.get_tracer(__name__)
+
     def __init__(self, whatsapp: WhatsAppPort | None = None) -> None:
         self._whatsapp = whatsapp
         self._parser: CommandParser | None = None
@@ -114,6 +123,39 @@ class Command(ABC):
         return self.parser.parse(text)
 
     async def run(self, data: CommandData) -> list[BotMessage]:
+        attributes = {
+            'command.name': self.config.name,
+            'platform': data.platform or Platform.WHATSAPP,
+            'chat_type': 'group' if data.is_group else 'private',
+        }
+        # Exceptions are classified by hand: the automatic record would put the
+        # message, URL and query secrets included, on a span Tempo keeps unscrubbed.
+        with self._TRACER.start_as_current_span(
+            'command.run',
+            attributes=attributes,
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as span:
+            try:
+                messages = await self._run(data)
+            except ExternalServiceError as error:
+                self._fail(span, 'external_error', error)
+                raise
+            except BotError:
+                span.set_attribute('command.outcome', 'bot_error')
+                raise
+            except Exception as error:
+                self._fail(span, 'unexpected_error', error)
+                raise
+            span.set_attribute('command.outcome', 'success')
+            return messages
+
+    @staticmethod
+    def _fail(span: Span, outcome: str, error: Exception) -> None:
+        span.set_attribute('command.outcome', outcome)
+        span.set_status(StatusCode.ERROR, type(error).__name__)
+
+    async def _run(self, data: CommandData) -> list[BotMessage]:
         if self.config.group_only and not data.is_group:
             return [Reply.to(data).text('Ah, esse comando só funciona em grupo! 😊')]
         parsed = self.parser.parse(data.text)
