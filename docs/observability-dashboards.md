@@ -23,6 +23,7 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 |---|---|---|
 | Command rate/errors | `traces_span_metrics_calls_total` | `command_outcome` (success/bot_error/external_error/unexpected_error), `span_name` (`command.handle`), `service_name` |
 | Command latency | `traces_span_metrics_duration_milliseconds_bucket` / `_sum` / `_count` | same |
+| Command run (every platform) | `traces_span_metrics_calls_total` / `_duration_milliseconds_bucket` with `span_name="command.run"` | `command_name`, `platform` (whatsapp/discord/telegram), `chat_type` (group/private), `command_outcome`, `status_code` (`STATUS_CODE_ERROR` for external and unexpected failures) |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
 | Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/direct/confirm/confirmed/denied/clarify/suggest/menu_hint/unresolvable/unavailable/over_budget), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
@@ -35,8 +36,11 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | Host CPU | `node_cpu_seconds_total` | `mode`, `instance` (core/edge) |
 | Host load | `node_load1` | `instance` (core/edge) |
 
-`traces_span_metrics_*` come from Alloy's spanmetrics connector on the core (derived from
-the `command.handle` span); `command_*` and `agent_mappings_total` are the manual OTel
+`traces_span_metrics_*` come from Alloy's spanmetrics connector on the core. `command.handle`
+is the broker delivery, so it exists only for WhatsApp and also times the queue hops and the
+reply publish. `command.run` wraps `Command.run`, the one call Discord, Telegram and WhatsApp
+share, so per-command and per-platform numbers come from it. The histogram buckets run from
+100ms to 120s, since `,dl` and the media commands pass the old 15s cap; `command_*` and `agent_mappings_total` are the manual OTel
 counters (the agent also stamps `agent.outcome`/`agent.provider`/`agent.prompt.version` on
 the enclosing `command.handle` span for trace-level correlation); all of these carry
 `service_name="bot"`. `node_*` carry `job="integrations/unix"` and `instance="core"`
@@ -61,6 +65,15 @@ sum(rate(traces_span_metrics_calls_total{span_name="command.handle"}[5m]))
 ```promql
 histogram_quantile(0.95,
   sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{span_name="command.handle"}[5m])))
+```
+
+### Latency percentiles by command (ms)
+At a few dozen commands a day a 5m rate is mostly empty, so the table panel takes the
+percentiles over the dashboard range. Swap the quantile for p50/75/90/95/99.
+```promql
+histogram_quantile(0.95,
+  sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name="command.run"}[$__range])))
+sum by (platform, chat_type) (increase(traces_span_metrics_calls_total{span_name="command.run"}[1h]))
 ```
 
 ### Retries & dead-letters
