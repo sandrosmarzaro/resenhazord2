@@ -87,6 +87,16 @@ def record_rejection(reason: str, command: str, scope: str) -> None:
     _rejections.add(1, {'reason': reason, 'command.name': command, 'command.scope': scope})
 
 
+# Items an NSFW source returned that the minors denylist dropped, by source.
+_minors_dropped = _meter.create_counter(
+    'compliance.minors_dropped', unit='1', description='NSFW items dropped by the minors filter'
+)
+
+
+def record_minors_drop(source: str) -> None:
+    _minors_dropped.add(1, {'source': source})
+
+
 def record_retry() -> None:
     _retries.add(1)
 
