@@ -4,6 +4,9 @@ Python uses `structlog` + `sentry-sdk` (FastApiIntegration). Gateway uses `@sent
 
 ## Python
 
+The events worth querying, their stable fields and LogQL for Loki live in
+[log-events.md](log-events.md). Start there when investigating through the Grafana MCP.
+
 `bot/infrastructure/logging.py` configures structlog. `bot/infrastructure/sentry.py` init with DSN (no DSN = no-op, safe for dev).
 
 ```python
