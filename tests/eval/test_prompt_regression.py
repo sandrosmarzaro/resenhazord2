@@ -32,7 +32,7 @@ async def test_prompt_maps_held_out_requests_above_threshold():
     misses = [
         f'{text!r} -> {answer!r} (wanted {expected!r})'
         for text, expected, answer in answers
-        if not answer.startswith(expected)
+        if not _runs_as(answer, expected)
     ]
     _assert_above_threshold(answers, misses)
 
@@ -47,7 +47,7 @@ async def test_prompt_stops_repeating_denied_mappings():
     repeats = [
         f'{text!r} -> {answer!r} (denied before)'
         for text, denied, answer in answers
-        if answer.startswith(denied)
+        if _runs_as(answer, denied)
     ]
     _assert_above_threshold(answers, repeats)
 
@@ -94,6 +94,22 @@ def _with_pullable_prompt(settings: Settings) -> Settings:
             continue
         return settings.model_copy(update={'langsmith_prompt_tag': tag})
     pytest.fail(f'cannot pull the prompt {settings.langsmith_prompt_name}\n' + '\n'.join(errors))
+
+
+def _runs_as(answer: str, expected: str) -> bool:
+    # Judge what the bot would run, not the string: ', fato' parses as ',fato' and
+    # ',placar now' runs the command ',score' aliases. The answer may add flags or
+    # options, but needs every one the expected mapping has and its free text.
+    registry = CommandRegistry.instance()
+    command = registry.get_strategy(expected)
+    if command is None or registry.get_strategy(answer) is not command:
+        return False
+    wanted, got = command.parse(expected), command.parse(answer)
+    return (
+        wanted.flags <= got.flags
+        and wanted.options.items() <= got.options.items()
+        and got.rest.lower().startswith(wanted.rest.lower())
+    )
 
 
 def _assert_above_threshold(answers: list[tuple[str, str, str]], failures: list[str]) -> None:
