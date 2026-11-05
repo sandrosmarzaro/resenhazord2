@@ -1,6 +1,7 @@
 import httpx
 import pytest
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -79,6 +80,18 @@ class TestInitOtel:
         otel_globals['metrics.set_meter_provider'].assert_called_once()
         otel_globals['set_logger_provider'].assert_called_once()
         otel_globals['FastAPIInstrumentor'].instrument_app.assert_called_once_with(app)
+
+    def test_spans_record_their_self_time(self, mocker, otel_globals, otel_settings):
+        reader = InMemoryMetricReader()
+        mocker.patch('bot.infrastructure.otel.PeriodicExportingMetricReader', return_value=reader)
+        mocker.patch('bot.infrastructure.otel.OTLPSpanExporter')
+
+        init_otel(otel_settings, mocker.Mock())
+        provider = otel_globals['trace.set_tracer_provider'].call_args.args[0]
+        provider.get_tracer('test').start_span('command.run').end()
+
+        metrics = reader.get_metrics_data().resource_metrics[0].scope_metrics[0].metrics
+        assert [metric.name for metric in metrics] == ['span.self_time']
 
     def test_bridges_stdlib_logging_into_otel(self, mocker, otel_globals, otel_settings):
         root = mocker.patch('bot.infrastructure.otel.logging.getLogger').return_value

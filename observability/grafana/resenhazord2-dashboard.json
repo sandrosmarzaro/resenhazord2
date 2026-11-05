@@ -793,6 +793,106 @@
           "legendFormat": "{{platform}}"
         }
       ]
+    },
+    {
+      "id": 29,
+      "type": "row",
+      "title": "Self time vs total (where the wait is)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 92 },
+      "panels": []
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "Total vs self time by span (time range)",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 93 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Total is the span's whole duration. Self is that minus the union of its awaited children, so a parent waiting on a slow call shows a big total and a small self, and the slow call shows the self. Sum of self times never counts a wait twice.",
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 0 },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "self share" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "self", "desc": true }] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (span_name) (increase(traces_span_metrics_duration_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (span_name) (increase(span_self_time_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (span_name) (increase(span_self_time_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range])) / sum by (span_name) (increase(traces_span_metrics_duration_milliseconds_sum{span_name!~\"GET /health.*\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": { "span_name": "span", "Value #A": "total", "Value #B": "self", "Value #C": "self share" },
+            "indexByName": { "span_name": 0, "Value #A": 1, "Value #B": 2, "Value #C": 3 }
+          }
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Self time by work kind (io / cpu / fire_and_forget)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 103 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (work_kind) (increase(span_self_time_milliseconds_sum{span_name!~\"GET /health.*\"}[1h]))",
+          "legendFormat": "{{work_kind}}"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Self-time p95 by span (1h windows)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 103 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(span_self_time_milliseconds_bucket{span_name!~\"GET /health.*\"}[1h])))",
+          "legendFormat": "{{span_name}}"
+        }
+      ]
     }
   ]
 }

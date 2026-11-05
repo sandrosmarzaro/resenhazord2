@@ -1,6 +1,5 @@
 import io
 
-import anyio
 from PIL import Image
 
 from bot.data.sticker import STICKER_SIZE
@@ -8,6 +7,7 @@ from bot.domain.services.sticker.animated_webp_encoder import AnimatedWebpEncode
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
 from bot.domain.services.sticker.video_sticker_encoder import VideoStickerEncoder
+from bot.infrastructure.work import Work
 
 
 class StickerCreator:
@@ -35,7 +35,7 @@ class StickerCreator:
             if MediaFormat.is_animated_webp(buffer)
             else cls._create_from_image
         )
-        return await anyio.to_thread.run_sync(encode, buffer, sticker_type, quality, working_size)
+        return await Work.cpu(encode, buffer, sticker_type, quality, working_size)
 
     @classmethod
     def _effective_quality(cls, quality_reduction: int) -> int:

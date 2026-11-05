@@ -11,6 +11,7 @@ from bot.adapters.whatsapp.port import WhatsAppPort
 from bot.data.birthday_messages import BIRTHDAY_GREETING, DEFAULT_BIRTHDAY_MESSAGE
 from bot.domain.jid import strip_jid
 from bot.domain.services.birthday_calendar import BirthdayCalendar
+from bot.infrastructure.work import Work
 
 logger = structlog.get_logger()
 
@@ -39,7 +40,8 @@ class BirthdayScheduler:
         # once-a-day claim keeps a later restart from greeting twice.
         while True:
             try:
-                await self.celebrate(self._clock().date())
+                with Work.detached('birthday.celebrate'):
+                    await self.celebrate(self._clock().date())
             except Exception:
                 logger.exception('birthday_celebration_error')
             await asyncio.sleep(self._seconds_until_midnight())
