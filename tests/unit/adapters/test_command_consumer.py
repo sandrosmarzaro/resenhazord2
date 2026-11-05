@@ -436,6 +436,19 @@ class TestMetrics:
         retries.add.assert_called_once_with(1)
 
     @pytest.mark.anyio
+    async def test_counts_the_delivery_in_flight_until_it_is_answered(self, mocker):
+        self._span(mocker)
+        in_flight = mocker.patch('bot.infrastructure.metrics._in_flight')
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = []
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        assert [call.args for call in in_flight.add.call_args_list] == [(1,), (-1,)]
+
+    @pytest.mark.anyio
     async def test_exhausted_retries_count_dlq(self, mocker):
         self._span(mocker)
         dlq = mocker.patch('bot.infrastructure.metrics._dlq')
@@ -682,6 +695,30 @@ class TestExclusiveLane:
         await self._deliver_together(broker, 'first', 'second')
 
         assert handler.replies_out_at_start == {'first': 0, 'second': 0}
+
+    @pytest.mark.anyio
+    async def test_times_the_wait_for_the_lane_of_each_exclusive_command(self, mocker):
+        lane_wait = mocker.patch('bot.infrastructure.metrics._lane_wait')
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=True)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        waits = [call.args[0] for call in lane_wait.record.call_args_list]
+        assert len(waits) == 2
+        assert all(wait >= 0 for wait in waits)
+
+    @pytest.mark.anyio
+    async def test_other_commands_never_wait_for_the_lane(self, mocker):
+        lane_wait = mocker.patch('bot.infrastructure.metrics._lane_wait')
+        broker = MockBrokerPort()
+        handler = _LaneHandler(broker, mocker, exclusive=False)
+        await CommandConsumer(broker, handler).start()
+
+        await self._deliver_together(broker, 'first', 'second')
+
+        lane_wait.record.assert_not_called()
 
     @pytest.mark.anyio
     async def test_a_failed_exclusive_command_frees_the_lane(self, mocker):

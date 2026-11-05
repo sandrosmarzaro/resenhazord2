@@ -253,6 +253,25 @@ class TestLifespan:
         assert received == [app.register_all_commands.return_value]
 
     @pytest.mark.anyio
+    async def test_watches_the_event_loop_lag_until_shutdown(self, mocker):
+        started = asyncio.Event()
+        stopped = asyncio.Event()
+
+        async def run():
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                stopped.set()
+
+        mocker.patch.object(app, 'LoopLagMonitor').return_value.run = run
+
+        async with app.lifespan(FastAPI()):
+            await started.wait()
+
+        assert stopped.is_set()
+
+    @pytest.mark.anyio
     async def test_skips_whatsapp_when_rabbitmq_url_is_unset(self, mocker):
         connect = mocker.patch.object(app, '_connect_whatsapp')
 

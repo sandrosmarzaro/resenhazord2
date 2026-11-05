@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from contextlib import AsyncExitStack
 from functools import partial
 from typing import Any, ClassVar
@@ -19,6 +20,7 @@ from bot.domain.commands.base import Command
 from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.infrastructure.metrics import record_lane_wait, track_in_flight
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
 from bot.ports.command_inbox_port import CommandInboxPort
@@ -35,6 +37,7 @@ class CommandConsumer:
     MAX_ATTEMPTS: ClassVar[int] = RetryRouter.MAX_ATTEMPTS
     DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = RetryRouter.DOWNLOAD_MAX_ATTEMPTS
     RETRY_TTL_MS: ClassVar[int] = 30_000
+    MS_PER_SECOND: ClassVar[int] = 1000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
     def __init__(
@@ -65,11 +68,15 @@ class CommandConsumer:
         # A fresh Sentry isolation scope per message: set_tag mutates the scope object,
         # which the consume tasks share by reference, so the last command's tags used to
         # stamp later, unrelated events (e.g. the deploy shutdown error).
-        with sentry_sdk.isolation_scope():
-            # The lane, once entered, is held until the reply is published: serializing
-            # a media reply is the memory peak, not running the command.
-            async with AsyncExitStack() as lane:
-                await self._process(json.loads(body), lane)
+        track_in_flight(1)
+        try:
+            with sentry_sdk.isolation_scope():
+                # The lane, once entered, is held until the reply is published:
+                # serializing a media reply is the memory peak, not running the command.
+                async with AsyncExitStack() as lane:
+                    await self._process(json.loads(body), lane)
+        finally:
+            track_in_flight(-1)
 
     async def _process(self, envelope: dict[str, Any], lane: AsyncExitStack) -> None:
         command_data = CommandEnvelope.to_command_data(envelope['data'])
@@ -137,8 +144,11 @@ class CommandConsumer:
                 span.set_attribute('command.outcome', outcome)
 
     async def _enter_lane(self, lane: AsyncExitStack, command: Command) -> None:
-        if command.config.exclusive:
-            await lane.enter_async_context(self._exclusive_lane)
+        if not command.config.exclusive:
+            return
+        queued_at = time.monotonic()
+        await lane.enter_async_context(self._exclusive_lane)
+        record_lane_wait((time.monotonic() - queued_at) * self.MS_PER_SECOND)
 
     async def _retry_or_fail(
         self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError

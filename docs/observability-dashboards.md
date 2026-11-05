@@ -27,6 +27,10 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | Span self time | `span_self_time_milliseconds_bucket` / `_sum` / `_count` | `span_name`, `work_kind` (io/cpu/fire_and_forget) |
 | Upstream calls | `traces_span_metrics_calls_total` / `_duration_milliseconds_bucket` with `span_kind="SPAN_KIND_CLIENT"` | `server_address` (the host, set by the httpx request hook), `http_status_code`, `status_code` |
 | Caught upstream failures | `upstream_failures_total` | `upstream` (the name each `upstream_failed` log passes, e.g. `espn`, `google-translate`) |
+| Deliveries in flight | `command_in_flight` | none; prefetch caps it at 4 |
+| `,dl` lane wait | `command_lane_wait_milliseconds_bucket` | none |
+| Event loop lag | `event_loop_lag_milliseconds_bucket` | none; one sample a second |
+| Bot process | `process_memory_rss_bytes`, `process_cpu_time_seconds_total` | `service_name` |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
 | Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/direct/confirm/confirmed/denied/clarify/suggest/menu_hint/unresolvable/unavailable/over_budget), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
@@ -113,6 +117,19 @@ the call sites stay as they are.
 ```promql
 sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_CLIENT", status_code="STATUS_CODE_ERROR"}[$__range]))
 sum by (upstream) (increase(upstream_failures_total[1h]))
+```
+
+### Saturation
+The node exporter sees the VM, these see the bot
+([`bot/infrastructure/runtime_metrics.py`](../bot/infrastructure/runtime_metrics.py)).
+Loop lag is the one that explains a slow command with no slow span: CPU left on the event
+loop delays everything else by the same amount. In flight pinned at 4 means the consumer is
+saturated and the `commands` queue grows toward its 100 cap.
+```promql
+histogram_quantile(0.99, sum by (le) (rate(event_loop_lag_milliseconds_bucket[5m])))
+sum(command_in_flight)
+histogram_quantile(0.95, sum by (le) (rate(command_lane_wait_milliseconds_bucket[1h])))
+process_memory_rss_bytes
 ```
 
 ### Retries & dead-letters

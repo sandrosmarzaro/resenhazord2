@@ -10,6 +10,16 @@ from bot.infrastructure.otel import _parse_headers, init_otel
 from bot.settings import Settings
 
 
+def _metric_names(reader: InMemoryMetricReader) -> set[str]:
+    data = reader.get_metrics_data()
+    return {
+        metric.name
+        for resource in data.resource_metrics
+        for scope in resource.scope_metrics
+        for metric in scope.metrics
+    }
+
+
 @pytest.fixture
 def otel_globals(mocker):
     return {
@@ -22,6 +32,9 @@ def otel_globals(mocker):
             'HTTPXClientInstrumentor',
             'AioPikaInstrumentor',
             'LoggingHandler',
+            'OTLPSpanExporter',
+            'OTLPMetricExporter',
+            'OTLPLogExporter',
             'logging.getLogger',
         )
     }
@@ -84,14 +97,20 @@ class TestInitOtel:
     def test_spans_record_their_self_time(self, mocker, otel_globals, otel_settings):
         reader = InMemoryMetricReader()
         mocker.patch('bot.infrastructure.otel.PeriodicExportingMetricReader', return_value=reader)
-        mocker.patch('bot.infrastructure.otel.OTLPSpanExporter')
 
         init_otel(otel_settings, mocker.Mock())
         provider = otel_globals['trace.set_tracer_provider'].call_args.args[0]
         provider.get_tracer('test').start_span('command.run').end()
 
-        metrics = reader.get_metrics_data().resource_metrics[0].scope_metrics[0].metrics
-        assert [metric.name for metric in metrics] == ['span.self_time']
+        assert 'span.self_time' in _metric_names(reader)
+
+    def test_reports_the_process_gauges(self, mocker, otel_globals, otel_settings):
+        reader = InMemoryMetricReader()
+        mocker.patch('bot.infrastructure.otel.PeriodicExportingMetricReader', return_value=reader)
+
+        init_otel(otel_settings, mocker.Mock())
+
+        assert {'process.memory.rss', 'process.cpu.time'} <= _metric_names(reader)
 
     def test_bridges_stdlib_logging_into_otel(self, mocker, otel_globals, otel_settings):
         root = mocker.patch('bot.infrastructure.otel.logging.getLogger').return_value

@@ -7,6 +7,7 @@ from functools import partial
 
 import structlog
 from fastapi import FastAPI
+from opentelemetry import metrics
 from redis.asyncio import Redis
 
 from bot.adapters.broker.command_consumer import CommandConsumer
@@ -30,6 +31,7 @@ from bot.infrastructure.command_inbox import RedisCommandInbox
 from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.infrastructure.platform_supervisor import PlatformSupervisor, Shutdown
+from bot.infrastructure.runtime_metrics import LoopLagMonitor
 from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.settings import Settings
 
@@ -105,8 +107,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         platforms.start(Platform.DISCORD, partial(_connect_discord, agent))
     if settings.telegram_token:
         platforms.start(Platform.TELEGRAM, partial(_connect_telegram, agent))
+    loop_lag = asyncio.create_task(LoopLagMonitor(metrics.get_meter(__name__)).run())
     logger.info('app_started')
     yield
+    loop_lag.cancel()
+    await asyncio.gather(loop_lag, return_exceptions=True)
     await platforms.stop()
     await MongoDBConnection.close()
     await Database.close()
