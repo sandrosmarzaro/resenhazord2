@@ -29,6 +29,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span
 
+from bot.infrastructure.self_time import SelfTimeProcessor
 from bot.settings import Settings
 
 if TYPE_CHECKING:
@@ -55,8 +56,8 @@ def init_otel(settings: Settings, app: 'FastAPI') -> None:
         }
     )
 
-    _init_traces(endpoint, headers, resource)
-    _init_metrics(endpoint, headers, resource)
+    meter_provider = _init_metrics(endpoint, headers, resource)
+    _init_traces(endpoint, headers, resource, meter_provider)
     _init_logs(endpoint, headers, resource)
     _instrument(app)
     logger.info('otel_initialized', endpoint=endpoint, service=settings.otel_service_name)
@@ -85,17 +86,22 @@ async def _redact_url_async(span: Span, request: RequestInfo) -> None:
     _redact_url(span, request)
 
 
-def _init_traces(endpoint: str, headers: dict[str, str], resource: Resource) -> None:
+def _init_traces(
+    endpoint: str, headers: dict[str, str], resource: Resource, meter_provider: MeterProvider
+) -> None:
     provider = TracerProvider(resource=resource)
     exporter = OTLPSpanExporter(endpoint=f'{endpoint}/v1/traces', headers=headers)
+    provider.add_span_processor(SelfTimeProcessor(meter_provider.get_meter(__name__)))
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
 
 
-def _init_metrics(endpoint: str, headers: dict[str, str], resource: Resource) -> None:
+def _init_metrics(endpoint: str, headers: dict[str, str], resource: Resource) -> MeterProvider:
     exporter = OTLPMetricExporter(endpoint=f'{endpoint}/v1/metrics', headers=headers)
     reader = PeriodicExportingMetricReader(exporter)
-    metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+    provider = MeterProvider(resource=resource, metric_readers=[reader])
+    metrics.set_meter_provider(provider)
+    return provider
 
 
 def _init_logs(endpoint: str, headers: dict[str, str], resource: Resource) -> None:
