@@ -15,6 +15,11 @@ POST_URL = 'https://r34i.paheal-cdn.net/aa/bb/kept'
 SKIPPED_URL = 'https://r34i.paheal-cdn.net/aa/bb/skipped'
 
 
+def _own(logs: list[dict]) -> list[dict]:
+    # Command.run closes every run with command_completed; these tests check the rest.
+    return [log for log in logs if log['event'] != 'command_completed']
+
+
 @pytest.fixture
 def command():
     return Rule34Command()
@@ -111,7 +116,7 @@ class TestRule34Source:
             messages = await command.run(data)
 
         assert messages[0].content.url == POST_URL
-        assert [log['event'] for log in logs] == ['rule34_fallback']
+        assert [log['event'] for log in _own(logs)] == ['rule34_fallback']
         assert logs[0]['reason'] == 'captcha'
 
     @pytest.mark.anyio
@@ -123,7 +128,9 @@ class TestRule34Source:
             messages = await command.run(data)
 
         assert messages[0].content.url == POST_URL
-        assert [(log['event'], log['upstream']) for log in logs] == [('upstream_failed', 'rule34')]
+        assert [(log['event'], log['upstream']) for log in _own(logs)] == [
+            ('upstream_failed', 'rule34')
+        ]
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
@@ -157,7 +164,7 @@ class TestRule34Source:
             messages = await command.run(data)
 
         assert messages[0].content.url == RULE34_IMAGE_URL
-        assert logs == []
+        assert _own(logs) == []
         assert not posts_route.called
 
     @pytest.mark.anyio
@@ -169,7 +176,7 @@ class TestRule34Source:
             messages = await command.run(data)
 
         assert messages[0].content.url == RULE34_IMAGE_URL
-        assert [log['event'] for log in logs] == ['rule34_sent_without_tags']
+        assert [log['event'] for log in _own(logs)] == ['rule34_sent_without_tags']
         assert not posts_route.called
 
     @pytest.mark.anyio
