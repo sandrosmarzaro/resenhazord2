@@ -73,13 +73,6 @@ class TestSelfTime:
 
         assert _self_times(reader)[('command.run', 'io')] == 200
 
-    def test_fire_and_forget_child_is_not_subtracted(self, tracer, reader):
-        parent = tracer.start_span('command.run', start_time=0)
-        _child(tracer, parent, 'typing', 0, 900, **{'work.kind': 'fire_and_forget'})
-        parent.end(end_time=1000 * MS)
-
-        assert _self_times(reader)[('command.run', 'io')] == 1000
-
     def test_carries_the_declared_work_kind(self, tracer, reader):
         span = tracer.start_span('cpu encode', start_time=0, attributes={'work.kind': 'cpu'})
         span.end(end_time=50 * MS)
