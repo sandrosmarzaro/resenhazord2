@@ -29,3 +29,21 @@ class TestHttpxRequestLines:
         enabled = logging.getLogger('httpx').isEnabledFor(logging.WARNING)
 
         assert enabled is True
+
+
+class TestUpstreamFailures:
+    def test_an_upstream_failed_log_counts_a_failure_of_that_upstream(self, mocker):
+        failures = mocker.patch('bot.infrastructure.metrics._upstream_failures')
+        configure_logging()
+
+        structlog.get_logger().warning('upstream_failed', upstream='espn')
+
+        failures.add.assert_called_once_with(1, {'upstream': 'espn'})
+
+    def test_other_events_count_nothing(self, mocker):
+        failures = mocker.patch('bot.infrastructure.metrics._upstream_failures')
+        configure_logging()
+
+        structlog.get_logger().warning('command_unexpected_error', upstream='espn')
+
+        failures.add.assert_not_called()

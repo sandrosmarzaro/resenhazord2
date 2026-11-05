@@ -25,6 +25,8 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | Command latency | `traces_span_metrics_duration_milliseconds_bucket` / `_sum` / `_count` | same |
 | Command run (every platform) | `traces_span_metrics_calls_total` / `_duration_milliseconds_bucket` with `span_name="command.run"` | `command_name`, `platform` (whatsapp/discord/telegram), `chat_type` (group/private), `command_outcome`, `status_code` (`STATUS_CODE_ERROR` for external and unexpected failures) |
 | Span self time | `span_self_time_milliseconds_bucket` / `_sum` / `_count` | `span_name`, `work_kind` (io/cpu/fire_and_forget) |
+| Upstream calls | `traces_span_metrics_calls_total` / `_duration_milliseconds_bucket` with `span_kind="SPAN_KIND_CLIENT"` | `server_address` (the host, set by the httpx request hook), `http_status_code`, `status_code` |
+| Caught upstream failures | `upstream_failures_total` | `upstream` (the name each `upstream_failed` log passes, e.g. `espn`, `google-translate`) |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
 | Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/direct/confirm/confirmed/denied/clarify/suggest/menu_hint/unresolvable/unavailable/over_budget), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
@@ -99,6 +101,18 @@ Concurrent children (task groups, `gather`) overlap, so two 500ms fetches in par
 sum by (span_name) (increase(traces_span_metrics_duration_milliseconds_sum[$__range]))   # total
 sum by (span_name) (increase(span_self_time_milliseconds_sum[$__range]))                  # self
 sum by (work_kind) (increase(span_self_time_milliseconds_sum[1h]))
+```
+
+### Integrations
+Two views of each third party. The httpx spans give the transport side per host: calls,
+error ratio and latency. `upstream_failures_total` counts the failures a command caught
+and logged as `upstream_failed`, including the ones a fallback answered, so a dead primary
+behind a working fallback still shows up. A structlog processor in
+[`bot/infrastructure/logging.py`](../bot/infrastructure/logging.py) does the counting, so
+the call sites stay as they are.
+```promql
+sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_CLIENT", status_code="STATUS_CODE_ERROR"}[$__range]))
+sum by (upstream) (increase(upstream_failures_total[1h]))
 ```
 
 ### Retries & dead-letters

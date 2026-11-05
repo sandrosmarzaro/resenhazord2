@@ -893,6 +893,134 @@
           "legendFormat": "{{span_name}}"
         }
       ]
+    },
+    {
+      "id": 33,
+      "type": "row",
+      "title": "Integrations (upstream health)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 111 },
+      "panels": []
+    },
+    {
+      "id": 34,
+      "type": "table",
+      "title": "Upstream hosts (time range)",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 112 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Every outbound httpx call by host. Errors are client spans with an error status (4xx, 5xx, transport failures). Telegram's long-poll getUpdates dominates the call count.",
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 0 },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "calls" }, "properties": [{ "id": "unit", "value": "short" }] },
+          {
+            "matcher": { "id": "byName", "options": "error ratio" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 1 }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "error ratio", "desc": true }] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range])) * 0) / sum by (server_address) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le, server_address) (increase(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, server_address) (increase(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "server_address": "host",
+              "Value #A": "calls",
+              "Value #B": "error ratio",
+              "Value #C": "p50",
+              "Value #D": "p95"
+            },
+            "indexByName": { "server_address": 0, "Value #A": 1, "Value #B": 2, "Value #C": 3, "Value #D": 4 }
+          }
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "Caught upstream failures by upstream",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 122 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "upstream.failures: one per upstream_failed log, the failures a command caught and answered around (fallbacks included).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (upstream) (increase(upstream_failures_total[1h]))",
+          "legendFormat": "{{upstream}}"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "type": "timeseries",
+      "title": "Upstream 4xx/5xx by host and status",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 122 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (server_address, http_status_code) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\", server_address!=\"\", http_status_code=~\"4..|5..\"}[1h]))",
+          "legendFormat": "{{server_address}} {{http_status_code}}"
+        }
+      ]
     }
   ]
 }
