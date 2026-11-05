@@ -31,6 +31,8 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | `,dl` lane wait | `command_lane_wait_milliseconds_bucket` | none |
 | Event loop lag | `event_loop_lag_milliseconds_bucket` | none; one sample a second |
 | Bot process | `process_memory_rss_bytes`, `process_cpu_time_seconds_total` | `service_name` |
+| Gate refusals | `command_rejections_total` | `reason` (disabled/dev_only/off_here/nsfw_channel), `command_name`, `command_scope` |
+| Minors filter drops | `compliance_minors_dropped_total` | `source` (redgifs/rule34/hentai) |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |
 | Agent NL→command | `agent_mappings_total` | `agent_outcome` (command/direct/confirm/confirmed/denied/clarify/suggest/menu_hint/unresolvable/unavailable/over_budget), `agent_provider` (github/mistral/groq; empty when unavailable), `agent_prompt_version` (LangSmith commit hash; empty for the in-code prompt) |
@@ -130,6 +132,22 @@ histogram_quantile(0.99, sum by (le) (rate(event_loop_lag_milliseconds_bucket[5m
 sum(command_in_flight)
 histogram_quantile(0.95, sum by (le) (rate(command_lane_wait_milliseconds_bucket[1h])))
 process_memory_rss_bytes
+```
+
+### Flow state, compliance and product
+The command flow panel follows a command through its states over the dashboard range:
+delivered (WhatsApp broker), refused by the gate, ran, then succeeded, user error or
+failed, and finally retried or dead-lettered. The agent panel does the same for the
+natural-language state machine, by `agent_outcome`.
+
+For compliance, `command_rejections_total{command_scope="nsfw"}` counts the NSFW commands
+refused in a chat that switched them off or in a Discord channel not marked NSFW, and
+`compliance_minors_dropped_total` counts what each NSFW feed returned that the minors
+denylist (`MinorsFilter`) refused to send.
+```promql
+sum by (reason, command_scope) (increase(command_rejections_total[$__range]))
+sum by (source) (increase(compliance_minors_dropped_total[$__range]))
+topk(10, sum by (command_name) (increase(traces_span_metrics_calls_total{span_name="command.run"}[$__range])))
 ```
 
 ### Retries & dead-letters

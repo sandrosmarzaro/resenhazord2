@@ -1343,6 +1343,210 @@
           "legendFormat": "6h"
         }
       ]
+    },
+    {
+      "id": 50,
+      "type": "row",
+      "title": "Product, compliance and flow state",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 165 },
+      "panels": []
+    },
+    {
+      "id": 51,
+      "type": "bargauge",
+      "title": "Command flow (time range)",
+      "description": "Where commands end up. Delivered only counts WhatsApp (the broker path); ran counts every platform. User error is a bot_error: a bad argument or a group-only command in a DM.",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 166 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.handle\"}[$__range]))",
+          "legendFormat": "1 delivered (WhatsApp)",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(command_rejections_total[$__range])) or vector(0)",
+          "legendFormat": "2 refused by the gate",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range]))",
+          "legendFormat": "3 ran (every platform)",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", command_outcome=\"success\"}[$__range])) or vector(0)",
+          "legendFormat": "4 succeeded",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "E",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", command_outcome=\"bot_error\"}[$__range])) or vector(0)",
+          "legendFormat": "5 user error",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "F",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "6 failed",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "G",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(command_retries_total[$__range])) or vector(0)",
+          "legendFormat": "7 retried",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "H",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(command_dlq_total[$__range])) or vector(0)",
+          "legendFormat": "8 dead-lettered",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "type": "bargauge",
+      "title": "Agent state outcomes (time range)",
+      "description": "Where the natural-language agent's state machine ended each mapping.",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 166 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (agent_outcome) (increase(agent_mappings_total[$__range]))",
+          "legendFormat": "{{agent_outcome}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "type": "bargauge",
+      "title": "Gate refusals by reason (time range)",
+      "description": "Disabled, dev only, switched off in the chat, or an NSFW command outside a Discord NSFW channel.",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 176 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (reason, command_scope) (increase(command_rejections_total[$__range]))",
+          "legendFormat": "{{reason}} ({{command_scope}})",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "type": "bargauge",
+      "title": "Minors filter drops by source (time range)",
+      "description": "Items an NSFW feed returned that the denylist refused to send. Best effort: a rising count means a feed is pushing more of it, not that the filter is complete.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 176 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (source) (increase(compliance_minors_dropped_total[$__range]))",
+          "legendFormat": "{{source}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 55,
+      "type": "bargauge",
+      "title": "Top commands (time range)",
+      "description": "The ten most run commands across every platform.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 176 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "min": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "topk(10, sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range])))",
+          "legendFormat": "{{command_name}}",
+          "instant": true,
+          "range": false
+        }
+      ]
     }
   ]
 }
