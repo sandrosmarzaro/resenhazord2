@@ -113,7 +113,7 @@ class CommandConsumer:
                 )
             except ExternalServiceError as error:
                 outcome = 'external_error'
-                span.set_status(StatusCode.ERROR, str(error))
+                span.set_status(StatusCode.ERROR, type(error).__name__)
                 await self._retry_or_fail(envelope, command_data, error)
             except BotError as error:
                 outcome = 'bot_error'
@@ -124,8 +124,9 @@ class CommandConsumer:
             # without requeue, the user got no reply, and the span still said success.
             except Exception as error:
                 outcome = 'unexpected_error'
-                span.record_exception(error)
-                span.set_status(StatusCode.ERROR, str(error))
+                # Only the type: an httpx message carries the URL, query secrets and all
+                # (the Telegram token leak, PR #204). Sentry gets the full exception.
+                span.set_status(StatusCode.ERROR, type(error).__name__)
                 logger.exception('command_unexpected_error')
                 await self._publish_reply(
                     envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]

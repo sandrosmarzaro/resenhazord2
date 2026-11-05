@@ -346,11 +346,19 @@ class TestSpanStatus:
         assert span.status.status_code is StatusCode.ERROR
 
     @pytest.mark.anyio
-    async def test_unexpected_error_records_the_exception_on_span(self, mocker, spans):
-        await self._run(mocker, NotImplementedError('download_media unsupported'))
+    async def test_error_status_names_the_type_without_the_message(self, mocker, spans):
+        await self._run(mocker, RuntimeError('GET https://api.telegram.org/bot123:secret/x'))
 
-        event = spans.get_finished_spans()[0].events[0]
-        assert event.attributes['exception.type'] == 'NotImplementedError'
+        span = spans.get_finished_spans()[0]
+        assert span.status.description == 'RuntimeError'
+        assert not span.events
+
+    @pytest.mark.anyio
+    async def test_external_error_status_names_the_type_without_the_message(self, mocker, spans):
+        await self._run(mocker, ExternalServiceError('https://x.test/?api_key=secret'))
+
+        span = spans.get_finished_spans()[0]
+        assert span.status.description == 'ExternalServiceError'
 
     @pytest.mark.anyio
     async def test_external_error_marks_span_as_error(self, mocker, spans):
