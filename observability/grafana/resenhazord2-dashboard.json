@@ -642,6 +642,157 @@
           "legendFormat": "{{agent_budget_scope}} (enforced={{agent_budget_enforced}})"
         }
       ]
+    },
+    {
+      "id": 25,
+      "type": "row",
+      "title": "Commands by name, platform and chat (command.run)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 73 },
+      "panels": []
+    },
+    {
+      "id": 26,
+      "type": "table",
+      "title": "Latency percentiles by command (time range)",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 74 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Percentiles over the whole dashboard range: at a few dozen commands a day a 5m rate is mostly empty. The top bucket is 120s, so a p99 of 120000 means at least that.",
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 0 },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "runs" }, "properties": [{ "id": "unit", "value": "short" }] },
+          {
+            "matcher": { "id": "byName", "options": "error ratio" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 1 }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "runs", "desc": true }] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.75, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.9, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.99, sum by (le, command_name) (increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "F",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "G",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "(sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range])) * 0) / sum by (command_name) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[$__range]))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "Value #A": "p50",
+              "Value #B": "p75",
+              "Value #C": "p90",
+              "Value #D": "p95",
+              "Value #E": "p99",
+              "Value #F": "runs",
+              "Value #G": "error ratio",
+              "command_name": "command"
+            },
+            "indexByName": {
+              "command_name": 0,
+              "Value #F": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6,
+              "Value #G": 7
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Command runs by platform and chat type",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 84 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (platform, chat_type) (increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h]))",
+          "legendFormat": "{{platform}} {{chat_type}}"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "Command p95 by platform (1h windows)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 84 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum by (le, platform) (rate(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\"}[1h])))",
+          "legendFormat": "{{platform}}"
+        }
+      ]
     }
   ]
 }
