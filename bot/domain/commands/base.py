@@ -97,6 +97,7 @@ class Command(ABC):
     # The one span every platform's run goes through: spanmetrics turns its
     # dimensions into per-command, per-platform latency and error rate.
     _TRACER: ClassVar[Tracer] = trace.get_tracer(__name__)
+    _OUTCOME: ClassVar[str] = 'command.outcome'
 
     def __init__(self, whatsapp: WhatsAppPort | None = None) -> None:
         self._whatsapp = whatsapp
@@ -142,17 +143,17 @@ class Command(ABC):
                 self._fail(span, 'external_error', error)
                 raise
             except BotError:
-                span.set_attribute('command.outcome', 'bot_error')
+                span.set_attribute(self._OUTCOME, 'bot_error')
                 raise
             except Exception as error:
                 self._fail(span, 'unexpected_error', error)
                 raise
-            span.set_attribute('command.outcome', 'success')
+            span.set_attribute(self._OUTCOME, 'success')
             return messages
 
     @staticmethod
     def _fail(span: Span, outcome: str, error: Exception) -> None:
-        span.set_attribute('command.outcome', outcome)
+        span.set_attribute(Command._OUTCOME, outcome)
         span.set_status(StatusCode.ERROR, type(error).__name__)
 
     async def _run(self, data: CommandData) -> list[BotMessage]:
