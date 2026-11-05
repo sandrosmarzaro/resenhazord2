@@ -391,6 +391,26 @@ class TestNsfwAndGroupOnly:
         assert 'NSFW' in port.send_followup.call_args[0][0]
 
     @pytest.mark.anyio
+    async def test_nsfw_in_sfw_channel_counts_a_rejection(self, handler, port, mocker):
+        rejections = mocker.patch('bot.infrastructure.metrics._rejections')
+        interaction = make_interaction(mocker)
+        interaction.channel = mocker.MagicMock()
+        interaction.channel.nsfw = False
+        strategy = self._make_nsfw_strategy(mocker)
+        strategy.config.name = 'porno'
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, interaction)
+
+        rejections.add.assert_called_once_with(
+            1,
+            {'reason': 'nsfw_channel', 'command.name': 'porno', 'command.scope': CommandScope.NSFW},
+        )
+
+    @pytest.mark.anyio
     async def test_nsfw_in_nsfw_channel_allowed(self, handler, port, mocker):
         interaction = make_interaction(mocker)
         interaction.channel = mocker.MagicMock()

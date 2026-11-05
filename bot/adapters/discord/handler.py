@@ -13,6 +13,7 @@ from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.services.dev_list import DevListService
 from bot.infrastructure.cached_config_store import CachedConfigStore
+from bot.infrastructure.metrics import record_rejection
 from bot.ports.discord_port import DiscordPort
 
 logger = structlog.get_logger()
@@ -69,6 +70,7 @@ class DiscordInteractionHandler:
             return False
         channel = interaction.channel
         if channel is not None and not getattr(channel, 'nsfw', True):
+            record_rejection('nsfw_channel', strategy.config.name, strategy.config.scope)
             await port.send_followup('Este comando so pode ser usado em canais NSFW.')
             return True
         return False
