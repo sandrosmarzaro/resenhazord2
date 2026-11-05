@@ -2,6 +2,60 @@
 
 <!-- version list -->
 
+## v2.16.0 (2026-11-05)
+
+### Feat
+
+- **observability**: canonical command_completed event and a log catalog (#316)
+- **observability**: chart the command flow, compliance and top commands
+- **compliance**: count nsfw commands refused outside nsfw channels
+- **compliance**: count what the minors filter drops, by source
+- **observability**: count the commands the gate refuses and why
+- **observability**: chart the slos, their budgets and burn rates
+- **observability**: alert on slo burn rate instead of a raw error ratio
+- **observability**: chart loop lag, in-flight, lane wait and the dlq
+- **observability**: watch the event loop lag while the app runs
+- **observability**: report the bot process memory, cpu and loop lag
+- **observability**: measure deliveries in flight and the lane wait
+- **observability**: chart upstream health by host and by named upstream
+- **observability**: split span metrics by upstream host and status
+- **observability**: name the upstream host on outbound http spans
+- **observability**: count upstream failures from their log events
+- **observability**: trace each birthday celebration as detached work
+- **observability**: run the image and dataset work through Work.cpu
+- **observability**: chart self time against total per span
+- **observability**: mark cpu and fire-and-forget work on spans
+- **observability**: register the self-time processor on the tracer
+- **observability**: record each span's self time
+- **observability**: chart percentiles per command and runs per platform
+- **observability**: split span metrics by command, platform and chat type
+- **commands**: trace every command run with its name, platform and chat type
+- **agent**: map a porno category instead of the ia flag
+- **fuck**: send a RedGifs video instead of nsfwhub's
+- **porno**: pick a RedGifs category instead of the ia flag
+- **services**: draw trending RedGifs media for a tag
+- **agent**: route unmatched group commands to the agent
+
+### Fix
+
+- **broker**: keep exception messages out of the command span
+- **observability**: alert on the backlog before the queue drops commands
+- **broker**: mark command.handle as error when the command fails
+- **observability**: name cpu spans for callable objects too
+- **prompt**: move the prod tag instead of creating it
+- **porno**: drop the nsfwhub tags that have no content
+- **porno**: raise an external error when nsfwhub has no image
+- **porno**: fall back to the JSON-LD contentUrl on age-gated pages
+- **porno**: tell an age-gated page apart from a broken scrape
+- **translator**: try the dictionary client before gtx
+
+### Refactor
+
+- **nsfw**: run every source through the one minors filter
+- **http**: drop the X-Request-Id header nobody set
+- **commands**: name the outcome attribute once
+- **observability**: leave fire-and-forget to its own trace
+
 ## v2.15.0 (2026-11-04)
 
 ### Feat
