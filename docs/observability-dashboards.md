@@ -222,11 +222,40 @@ own Prometheus, and `Error` turned each blip into an email.
 |---|---|---|---|
 | Node memory low | `100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10` | 5m | The documented OOM/host-freeze risk on the 1 GB nodes; fires per `instance` (core/edge) |
 | Swap thrashing | `100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes) > 80` | 10m | Sustained swap pressure precedes the freeze |
-| Command error surge | `sum(rate(traces_span_metrics_calls_total{span_name="command.handle", command_outcome!="success"}[5m])) / sum(rate(traces_span_metrics_calls_total{span_name="command.handle"}[5m])) > 0.3` | 10m | A broad upstream/logic failure, not one bad URL |
 | Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after the retry ladder |
 | Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 80` | 5m | The bot is falling behind / stalled consuming. The `commands` policy caps the queue at 100 and drops the oldest, so the alert has to fire before that |
 | Agent provider down | `sum(rate(agent_mappings_total{agent_outcome="unavailable"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001) > 0.5` | 10m | Most NL mappings hit no working LLM provider (e.g. GitHub Models retirement) — direct commands still work, but the agent is effectively down |
 | Scrape target down | `up < 1`, no data alerts | 5m | Fires per `instance` (core/edge/edge-rabbitmq) when a scrape fails, and with no labels when the core Alloy stops sending anything |
+| SLO availability fast burn | 1h and 5m error ratio of `command.run` > 0.72, 3+ runs in the hour | 2m | 14.4× the 95% SLO's burn: the 30-day budget gone in about two days |
+| SLO availability slow burn | 6h and 30m error ratio > 0.3, 5+ runs in the 6h | 15m | 6× burn: the budget gone in about five days |
+| SLO latency fast burn | 1h and 5m share of non-`,dl` runs over 10s > 0.6, 3+ runs | 2m | 6× the 90%-under-10s SLO's burn |
+| SLO latency slow burn | 6h and 30m share over 10s > 0.3, 5+ runs | 15m | 3× burn |
+| Upstream failing | `sum by (upstream) (increase(upstream_failures_total[1h])) >= 5` | 0m | One third party keeps failing, even when a fallback hides it from users; fires per `upstream` |
+| Event loop lagging | p99 `event_loop_lag_milliseconds` > 500 | 10m | CPU on the loop is holding every command back |
+
+### SLOs and burn rate
+
+Two SLOs over 30 days, both on `command.run`, so every platform counts:
+
+- **Availability, 95%.** A bad run is one whose span has `STATUS_CODE_ERROR`: an external
+  or unexpected failure. A `bot_error` (bad argument, group-only command in a DM) is the
+  user's mistake and doesn't count.
+- **Latency, 90% under 10s**, `,dl` excluded since it downloads whole videos.
+
+Each SLO pages through a pair of multiwindow burn-rate rules, the shape of the
+[SRE workbook](https://sre.google/workbook/alerting-on-slos/): the long window says the
+budget is burning, the short one says it still is, so a rule clears soon after the
+failures stop. The fast pair uses 1h + 5m and the slow pair 6h + 30m. Burn factors are
+capped by the budget: a 10% budget can't burn faster than 10×, so latency uses 6× and 3×
+where availability uses 14.4× and 6×.
+
+At about 15 commands a day a single failure in a quiet hour is a 100% error ratio, so
+each rule also needs a minimum number of runs in its long window. That replaced the old
+"Command error surge" rule (error ratio over 30% in 5m), which fired on one isolated
+failure and counted `bot_error` as a failure. Backtested on 14 days of `command.handle`
+(212 runs, 2 real failures): the burn rules stay quiet and the old rule fired once.
+
+When applying the file, also `DELETE` `rz2-command-error-surge` from Grafana.
 
 ## Edge host metrics
 
