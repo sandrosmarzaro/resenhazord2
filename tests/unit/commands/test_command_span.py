@@ -125,7 +125,8 @@ class TestOutcome:
 
     @pytest.mark.anyio
     async def test_failure_still_reaches_the_caller(self, spans):
+        command = _Echo(ExternalServiceError('api fora'))
+        data = GroupCommandDataFactory(text=',eco', platform=Platform.WHATSAPP)
+
         with pytest.raises(ExternalServiceError):
-            await _Echo(ExternalServiceError('api fora')).run(
-                GroupCommandDataFactory(text=',eco', platform=Platform.WHATSAPP)
-            )
+            await command.run(data)
