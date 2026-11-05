@@ -1,10 +1,12 @@
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import ClassVar
 
+import structlog
 from opentelemetry import trace
-from opentelemetry.trace import Span, StatusCode, Tracer
+from opentelemetry.trace import StatusCode, Tracer
 
 from bot.adapters.whatsapp.port import WhatsAppPort
 from bot.domain.builders.reply import Reply
@@ -15,6 +17,8 @@ from bot.domain.models.contents.image_content import ImageBufferContent, ImageCo
 from bot.domain.models.contents.video_content import VideoBufferContent, VideoContent
 from bot.domain.models.message import BotMessage
 from bot.domain.parsers.command_parser import CommandParser
+
+logger = structlog.get_logger()
 
 
 class ArgType(StrEnum):
@@ -98,6 +102,7 @@ class Command(ABC):
     # dimensions into per-command, per-platform latency and error rate.
     _TRACER: ClassVar[Tracer] = trace.get_tracer(__name__)
     _OUTCOME: ClassVar[str] = 'command.outcome'
+    _MS_PER_SECOND: ClassVar[int] = 1000
 
     def __init__(self, whatsapp: WhatsAppPort | None = None) -> None:
         self._whatsapp = whatsapp
@@ -129,6 +134,8 @@ class Command(ABC):
             'platform': data.platform or Platform.WHATSAPP,
             'chat_type': 'group' if data.is_group else 'private',
         }
+        started = time.monotonic()
+        outcome, error_type = 'success', None
         # Exceptions are classified by hand: the automatic record would put the
         # message, URL and query secrets included, on a span Tempo keeps unscrubbed.
         with self._TRACER.start_as_current_span(
@@ -138,23 +145,32 @@ class Command(ABC):
             set_status_on_exception=False,
         ) as span:
             try:
-                messages = await self._run(data)
+                return await self._run(data)
             except ExternalServiceError as error:
-                self._fail(span, 'external_error', error)
+                outcome, error_type = 'external_error', type(error).__name__
                 raise
             except BotError:
-                span.set_attribute(self._OUTCOME, 'bot_error')
+                outcome = 'bot_error'
                 raise
             except Exception as error:
-                self._fail(span, 'unexpected_error', error)
+                outcome, error_type = 'unexpected_error', type(error).__name__
                 raise
-            span.set_attribute(self._OUTCOME, 'success')
-            return messages
-
-    @staticmethod
-    def _fail(span: Span, outcome: str, error: Exception) -> None:
-        span.set_attribute(Command._OUTCOME, outcome)
-        span.set_status(StatusCode.ERROR, type(error).__name__)
+            finally:
+                span.set_attribute(self._OUTCOME, outcome)
+                if error_type:
+                    span.set_status(StatusCode.ERROR, error_type)
+                # The one event per command, same fields on every platform, for an
+                # agent or a dashboard to query without knowing the call sites.
+                logger.info(
+                    'command_completed',
+                    command=self.config.name,
+                    platform=attributes['platform'],
+                    chat_type=attributes['chat_type'],
+                    chat=data.jid,
+                    outcome=outcome,
+                    error_type=error_type,
+                    duration_ms=round((time.monotonic() - started) * self._MS_PER_SECOND),
+                )
 
     async def _run(self, data: CommandData) -> list[BotMessage]:
         if self.config.group_only and not data.is_group:
