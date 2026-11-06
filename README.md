@@ -20,9 +20,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/WhatsApp-25D366?logo=whatsapp&logoColor=white" alt="WhatsApp">
-  <img src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white" alt="Discord">
-  <img src="https://img.shields.io/badge/Telegram-26A5E4?logo=telegram&logoColor=white" alt="Telegram">
+  <a href="https://wa.me/5528999034725"><img src="https://img.shields.io/badge/WhatsApp-25D366?logo=whatsapp&logoColor=white" alt="Chat on WhatsApp"></a>
+  <a href="https://discord.com/oauth2/authorize?client_id=1226632697363959951&scope=bot%20applications.commands"><img src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white" alt="Add to Discord"></a>
+  <a href="https://t.me/resenhazord_bot"><img src="https://img.shields.io/badge/Telegram-26A5E4?logo=telegram&logoColor=white" alt="Chat on Telegram"></a>
 </p>
 
 Resenhazord 2 is the chatbot of A Resenha, a group of friends who wanted memes, media downloads,
