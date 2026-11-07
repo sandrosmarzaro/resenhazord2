@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "resenhazord2-core"
 version = "2.16.0"
 description = "Python core for Resenhazord2 WhatsApp bot"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "fastapi[standard]>=0.115.0",
     "httpx>=0.28.0",
@@ -100,6 +100,7 @@ mutate = "mutmut run"
 
 
 [tool.zuban]
+python_version = "3.15"
 exclude = ["tests/"]
 
 [tool.commitizen]
