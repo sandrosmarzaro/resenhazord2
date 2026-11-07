@@ -30,17 +30,19 @@ class DiscordResponseRenderer:
     MAX_EMBED_DESC_LENGTH: ClassVar[int] = 4096
     HTTP_OK: ClassVar[int] = 200
     UNSUPPORTED_MESSAGE: ClassVar[str] = 'Este tipo de conteudo nao e suportado no Discord.'
-    RENDER_MAP: ClassVar[dict[type, str]] = {
-        TextContent: '_render_text',
-        ImageContent: '_render_image',
-        ImageBufferContent: '_render_image_buffer',
-        VideoContent: '_render_video',
-        VideoBufferContent: '_render_video_buffer',
-        AudioContent: '_render_audio',
-        AudioBufferContent: '_render_audio_buffer',
-        StickerContent: '_render_unsupported',
-        RawContent: '_render_raw',
-    }
+    RENDER_MAP: ClassVar[frozendict[type, str]] = frozendict(
+        {
+            TextContent: '_render_text',
+            ImageContent: '_render_image',
+            ImageBufferContent: '_render_image_buffer',
+            VideoContent: '_render_video',
+            VideoBufferContent: '_render_video_buffer',
+            AudioContent: '_render_audio',
+            AudioBufferContent: '_render_audio_buffer',
+            StickerContent: '_render_unsupported',
+            RawContent: '_render_raw',
+        }
+    )
 
     def render(self, message: BotMessage) -> DiscordReply:
         content = message.content

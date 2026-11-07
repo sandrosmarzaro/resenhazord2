@@ -11,15 +11,17 @@ class TelegramBotAdapter:
     _ADMIN_STATUSES: ClassVar[frozenset[str]] = frozenset(
         {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
     )
-    _MEDIA_KWARG: ClassVar[dict[TelegramKind, str]] = {
-        TelegramKind.PHOTO: 'photo',
-        TelegramKind.VIDEO: 'video',
-        TelegramKind.AUDIO: 'audio',
-        TelegramKind.VOICE: 'voice',
-        TelegramKind.DOCUMENT: 'document',
-        TelegramKind.STICKER: 'sticker',
-        TelegramKind.ANIMATION: 'animation',
-    }
+    _MEDIA_KWARG: ClassVar[frozendict[TelegramKind, str]] = frozendict(
+        {
+            TelegramKind.PHOTO: 'photo',
+            TelegramKind.VIDEO: 'video',
+            TelegramKind.AUDIO: 'audio',
+            TelegramKind.VOICE: 'voice',
+            TelegramKind.DOCUMENT: 'document',
+            TelegramKind.STICKER: 'sticker',
+            TelegramKind.ANIMATION: 'animation',
+        }
+    )
 
     def __init__(self, bot: Bot) -> None:
         self._bot = bot

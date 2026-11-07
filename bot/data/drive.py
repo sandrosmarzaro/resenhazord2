@@ -1,5 +1,7 @@
-EXTENSIONS: dict[str, str] = {
-    'image': 'jpg',
-    'video': 'mp4',
-    'audio': 'ogg',
-}
+EXTENSIONS: frozendict[str, str] = frozendict(
+    {
+        'image': 'jpg',
+        'video': 'mp4',
+        'audio': 'ogg',
+    }
+)

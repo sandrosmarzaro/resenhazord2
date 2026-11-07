@@ -22,7 +22,7 @@ from bot.infrastructure.metrics import record_agent_mapping
 logger = structlog.get_logger()
 
 
-class AgentTurnState(TypedDict, total=False):
+class AgentTurnState(TypedDict, total=False, closed=True):
     # Primitives only: the Redis checkpointer will refuse to deserialize custom types.
     conversation: dict[str, Any]
     intent: str
@@ -52,17 +52,19 @@ class AgentGraphNodes:
 
     # A reply that keeps waiting stores its text as the pending question, plus the
     # decision's command when there is one (that makes it a yes/no confirmation).
-    _REPLIES: ClassVar[dict[str, _ReplySpec]] = {
-        'confirm': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=True),
-        'ask': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=True),
-        'menu_hint': _ReplySpec(
-            CLARIFY_PREFIX,
-            keeps_waiting=False,
-            fixed=AgentDecision(AgentOutcome.MENU_HINT, text=LLMCommandMapper.UNRESOLVABLE_MSG),
-        ),
-        'suggest': _ReplySpec(SUGGEST_PREFIX, keeps_waiting=False),
-        'fallback': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=False),
-    }
+    _REPLIES: ClassVar[frozendict[str, _ReplySpec]] = frozendict(
+        {
+            'confirm': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=True),
+            'ask': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=True),
+            'menu_hint': _ReplySpec(
+                CLARIFY_PREFIX,
+                keeps_waiting=False,
+                fixed=AgentDecision(AgentOutcome.MENU_HINT, text=LLMCommandMapper.UNRESOLVABLE_MSG),
+            ),
+            'suggest': _ReplySpec(SUGGEST_PREFIX, keeps_waiting=False),
+            'fallback': _ReplySpec(CLARIFY_PREFIX, keeps_waiting=False),
+        }
+    )
     _DENIAL: ClassVar[_ReplySpec] = _ReplySpec(
         CLARIFY_PREFIX,
         keeps_waiting=True,

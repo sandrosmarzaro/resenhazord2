@@ -1,13 +1,17 @@
-RARITY_EMOJIS: dict[str, str] = {
-    'Common': '⚪',
-    'Rare': '🔵',
-    'Epic': '🟣',
-    'Legendary': '🟡',
-    'Champion': '💎',
-}
+RARITY_EMOJIS: frozendict[str, str] = frozendict(
+    {
+        'Common': '⚪',
+        'Rare': '🔵',
+        'Epic': '🟣',
+        'Legendary': '🟡',
+        'Champion': '💎',
+    }
+)
 
-TYPE_EMOJIS: dict[str, str] = {
-    'Troop': '🗡️',
-    'Spell': '🔮',
-    'Building': '🏗️',
-}
+TYPE_EMOJIS: frozendict[str, str] = frozendict(
+    {
+        'Troop': '🗡️',
+        'Spell': '🔮',
+        'Building': '🏗️',
+    }
+)

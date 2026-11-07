@@ -11,11 +11,13 @@ from bot.infrastructure.metrics import record_rejection
 
 
 class CommandGate:
-    _MESSAGES: ClassVar[dict[str, str]] = {
-        'disabled': 'Esse comando está desativado. 🚫',
-        'dev_only': 'Esse comando é apenas para desenvolvedores. 🛠️',
-        'off_here': COMMAND_OFF_IN_CHAT,
-    }
+    _MESSAGES: ClassVar[frozendict[str, str]] = frozendict(
+        {
+            'disabled': 'Esse comando está desativado. 🚫',
+            'dev_only': 'Esse comando é apenas para desenvolvedores. 🛠️',
+            'off_here': COMMAND_OFF_IN_CHAT,
+        }
+    )
     _NAMESPACED_PLATFORMS: ClassVar[frozenset[Platform]] = frozenset(
         {Platform.DISCORD, Platform.TELEGRAM}
     )

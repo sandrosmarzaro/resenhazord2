@@ -25,20 +25,22 @@ class MyAnimeListCommand(Command):
     SCORE_SCALE: ClassVar[int] = 10
     _FALLBACK_UNKNOWN: ClassVar[str] = 'Desconhecido'
 
-    _MEDIA_PROFILES: ClassVar[dict[str, dict]] = {
-        'anime': {
-            'creator_key': 'studios',
-            'size_key': 'episodes',
-            'creator_emoji': '🎙️',
-            'size_emoji': '🎥',
-        },
-        'manga': {
-            'creator_key': 'staff',
-            'size_key': 'chapters',
-            'creator_emoji': '🖋',
-            'size_emoji': '📚',
-        },
-    }
+    _MEDIA_PROFILES: ClassVar[frozendict[str, dict]] = frozendict(
+        {
+            'anime': {
+                'creator_key': 'studios',
+                'size_key': 'episodes',
+                'creator_emoji': '🎙️',
+                'size_emoji': '🎥',
+            },
+            'manga': {
+                'creator_key': 'staff',
+                'size_key': 'chapters',
+                'creator_emoji': '🖋',
+                'size_emoji': '📚',
+            },
+        }
+    )
 
     @property
     def config(self) -> CommandConfig:

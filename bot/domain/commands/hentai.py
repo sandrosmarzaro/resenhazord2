@@ -30,11 +30,13 @@ class HentaiCommand(Command):
     MAX_TAGS_SHOWN = 10
     COVER_RETRIES = 3
     # In the order the default tries them.
-    SOURCES: ClassVar[dict[str, Callable[[], Awaitable[HentaiGallery]]]] = {
-        'ehentai': EHentaiScraper.fetch,
-        'hitomi': HitomiScraper.fetch,
-        'nhentai': NhentaiScraper.fetch,
-    }
+    SOURCES: ClassVar[frozendict[str, Callable[[], Awaitable[HentaiGallery]]]] = frozendict(
+        {
+            'ehentai': EHentaiScraper.fetch,
+            'hitomi': HitomiScraper.fetch,
+            'nhentai': NhentaiScraper.fetch,
+        }
+    )
 
     @property
     def config(self) -> CommandConfig:

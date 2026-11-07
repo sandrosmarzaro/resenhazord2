@@ -165,7 +165,7 @@ def _current_season() -> int:
 
 def _rows(gzipped_csv: bytes) -> Iterator[dict[str, str]]:
     # Streamed: decoding the whole players dump at once peaks around 100 MB.
-    with gzip.open(io.BytesIO(gzipped_csv), 'rt', encoding='utf-8') as text:
+    with gzip.open(io.BytesIO(gzipped_csv), 'rt') as text:
         yield from csv.DictReader(text)
 
 

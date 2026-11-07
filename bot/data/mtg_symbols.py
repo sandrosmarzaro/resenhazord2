@@ -1,19 +1,19 @@
 import re
 
-MTG_MANA_SYMBOLS: dict[str, str] = {
-    '{W}': '🤍',
-    '{U}': '💙',
-    '{B}': '🖤',
-    '{R}': '❤️',
-    '{G}': '💚',
-    '{C}': '◇',
-    '{X}': 'X',
-    '{T}': '⊘',
-}
-
-# Add numeric mana costs {0} through {20}
-for _i in range(21):
-    MTG_MANA_SYMBOLS[f'{{{_i}}}'] = str(_i)
+MTG_MANA_SYMBOLS: frozendict[str, str] = frozendict(
+    {
+        '{W}': '🤍',
+        '{U}': '💙',
+        '{B}': '🖤',
+        '{R}': '❤️',
+        '{G}': '💚',
+        '{C}': '◇',
+        '{X}': 'X',
+        '{T}': '⊘',
+    }
+    # Numeric mana costs {0} through {20}
+    | {f'{{{cost}}}': str(cost) for cost in range(21)}
+)
 
 _MANA_RE = re.compile(r'\{[^}]+\}')
 

@@ -24,10 +24,12 @@ from bot.domain.models.message import BotMessage
 
 
 class MenuCommand(Command):
-    SECTION_MENUS: ClassVar[dict[str, str]] = {
-        'grupo': MENU_GRUPO,
-        'bíblia': MENU_BIBLIA,
-    }
+    SECTION_MENUS: ClassVar[frozendict[str, str]] = frozendict(
+        {
+            'grupo': MENU_GRUPO,
+            'bíblia': MENU_BIBLIA,
+        }
+    )
 
     @property
     def config(self) -> CommandConfig:
