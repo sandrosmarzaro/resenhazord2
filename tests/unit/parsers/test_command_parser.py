@@ -126,6 +126,12 @@ class TestCommandWithOptions:
         result = self.parser.parse(',stic crop')
         assert result.options.get('type') == 'crop'
 
+    def test_parse_option_named_before_its_value(self):
+        result = self.parser.parse(',stic type crop')
+
+        assert result.options == {'type': 'crop'}
+        assert result.rest == ''
+
     def test_parse_no_option(self):
         result = self.parser.parse(',stic')
         assert len(result.options) == 0
