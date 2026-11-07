@@ -7,7 +7,9 @@ from bot.ports.config_store_port import ConfigStorePort
 
 
 class CachedConfigStore:
-    _TTL_SECONDS = 60.0
+    # Every write goes through this store and invalidates its entry, so the TTL only
+    # bounds staleness from edits made straight in the database.
+    _TTL_SECONDS = 3600.0
     _instance: ClassVar['CachedConfigStore | None'] = None
 
     def __init__(self, store: ConfigStorePort) -> None:
