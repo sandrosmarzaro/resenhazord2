@@ -64,8 +64,10 @@ class OpggClient:
                         'data.summary.{id,is_rip,is_rotation,roles}',
                         'data.core_items.{ids,ids_names,pick_rate,play,win}',
                         'data.starter_items.{ids,ids_names,pick_rate,play,win}',
-                        'data.runes.{id,pick_rate,play,primary_page_name,primary_rune_names,'
-                        'secondary_page_name,secondary_rune_names,stat_mod_ids,stat_mod_names,win}',
+                        (
+                            'data.runes.{id,pick_rate,play,primary_page_name,primary_rune_names,'
+                            'secondary_page_name,secondary_rune_names,stat_mod_ids,stat_mod_names,win}'
+                        ),
                         'data.summoner_spells.{ids,ids_names,pick_rate,play,win}',
                         'data.boots.{ids,ids_names,pick_rate,play,win}',
                     ],

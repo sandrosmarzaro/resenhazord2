@@ -376,9 +376,11 @@ class TestVideoFfmpegCommand:
             ),
             (
                 'rounded',
-                ",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
-                "a='255*lte(hypot(max(0,max(W/8-X-0.5,X+0.5-W+W/8)),"
-                "max(0,max(H/8-Y-0.5,Y+0.5-H+H/8))),W/8)'",
+                (
+                    ",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+                    "a='255*lte(hypot(max(0,max(W/8-X-0.5,X+0.5-W+W/8)),"
+                    "max(0,max(H/8-Y-0.5,Y+0.5-H+H/8))),W/8)'"
+                ),
             ),
         ],
     )

@@ -25,6 +25,7 @@ def _make_match(  # noqa: PLR0913
     away_team: str,
     home_score: int | None,
     away_score: int | None,
+    *,
     competition_name: str = 'Brasileirão',
     competition_code: str = 'bra.1',
     country: str = 'Brasil',
