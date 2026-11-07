@@ -368,7 +368,7 @@ class TestErrorHandler:
 
         await bot._handle_error(object(), context)
 
-        mock_logger.exception.assert_called_once_with(
+        mock_logger.error.assert_called_once_with(
             'telegram_unexpected_error',
             error='oops',
         )

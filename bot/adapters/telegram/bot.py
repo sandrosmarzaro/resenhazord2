@@ -131,7 +131,7 @@ class TelegramBot:
         if isinstance(error, NetworkError | RetryAfter):
             logger.warning('telegram_transient_error', error=str(error))
             return
-        logger.exception('telegram_unexpected_error', error=str(error))
+        logger.error('telegram_unexpected_error', error=str(error))
         sentry_sdk.capture_exception(error)
 
     async def _publish_command_menu(self) -> None:

@@ -10,7 +10,7 @@ re-resolving, sidestepping the LangChain version cascade. See docs/security.md.
 """
 
 import concurrent.futures
-import datetime
+import datetime as dt
 import json
 import sys
 import tomllib
@@ -54,8 +54,8 @@ def _age_in_days(package: tuple[str, str]) -> tuple[str, str, int] | None:
     if not files:
         return None
     uploaded = min(file['upload_time_iso_8601'] for file in files)
-    uploaded_date = datetime.datetime.fromisoformat(uploaded).date()
-    today = datetime.datetime.now(tz=datetime.UTC).date()
+    uploaded_date = dt.datetime.fromisoformat(uploaded).date()
+    today = dt.datetime.now(tz=dt.UTC).date()
     return name, version, (today - uploaded_date).days
 
 
