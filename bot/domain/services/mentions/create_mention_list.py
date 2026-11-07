@@ -1,5 +1,5 @@
 import structlog
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import DuplicateKeyError
 
 from bot.domain.jid import normalize_jid, normalize_jids
@@ -35,7 +35,7 @@ class CreateMentionList:
         return {'ok': True, 'group_name': group_name}
 
     @staticmethod
-    async def _push_unless_taken(col: AsyncIOMotorCollection, chat_jid: str, group: dict) -> bool:
+    async def _push_unless_taken(col: AsyncCollection, chat_jid: str, group: dict) -> bool:
         # A single-document update is atomic, and the name check lives in its filter: a
         # unique index couldn't help, since it doesn't apply within one document's array.
         query = {'_id': chat_jid, 'groups.name': {'$ne': group['name']}}

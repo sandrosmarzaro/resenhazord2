@@ -1,5 +1,5 @@
 import structlog
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 
 from bot.domain.jid import normalize_jid
 from bot.domain.models.removal_targets import RemovalTargets
@@ -57,7 +57,7 @@ class ExitMentionList:
 
     @staticmethod
     async def _pull(
-        col: AsyncIOMotorCollection, chat_jid: str, group_name: str, to_remove: list[str]
+        col: AsyncCollection, chat_jid: str, group_name: str, to_remove: list[str]
     ) -> bool:
         if not to_remove:
             return False

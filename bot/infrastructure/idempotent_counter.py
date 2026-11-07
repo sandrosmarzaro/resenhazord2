@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from pymongo.errors import DuplicateKeyError
 
 from bot.infrastructure.mongodb import MongoDBConnection
@@ -36,4 +38,5 @@ class IdempotentCounter:
             return_document=True,
             upsert=True,
         )
-        return document[self._field]
+        # An upsert that returns the updated document never returns None.
+        return cast('dict[str, Any]', document)[self._field]
