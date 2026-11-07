@@ -24,11 +24,13 @@ class EspnService:
     _SCOREBOARD_URL: ClassVar[str] = (
         'https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard'
     )
-    _STATES: ClassVar[dict[str, MatchStatus]] = {
-        'pre': MatchStatus.NOT_STARTED,
-        'in': MatchStatus.LIVE,
-        'post': MatchStatus.FINISHED,
-    }
+    _STATES: ClassVar[frozendict[str, MatchStatus]] = frozendict(
+        {
+            'pre': MatchStatus.NOT_STARTED,
+            'in': MatchStatus.LIVE,
+            'post': MatchStatus.FINISHED,
+        }
+    )
     _POSTPONED: ClassVar[str] = 'STATUS_POSTPONED'
     _HALFTIME: ClassVar[str] = 'STATUS_HALFTIME'
     _HALFTIME_LABEL: ClassVar[str] = 'Intervalo'

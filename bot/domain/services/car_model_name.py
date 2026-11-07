@@ -9,7 +9,11 @@ class CarModelName:
     def base(model_name: str) -> str:
         words = model_name.strip().split()
         stop = next(
-            (i for i, w in enumerate(words) if SPEC_TOKEN.match(w) or w.lower() in SPEC_WORD_BASE),
+            (
+                i
+                for i, w in enumerate(words)
+                if SPEC_TOKEN.prefixmatch(w) or w.lower() in SPEC_WORD_BASE
+            ),
             -1,
         )
         return ' '.join(words[:stop] if stop > 0 else words)
@@ -23,7 +27,7 @@ class CarModelName:
             (
                 i
                 for i, w in enumerate(words)
-                if SPEC_TOKEN.match(w) or w.rstrip('.,').lower() in SPEC_WORD_WIKI
+                if SPEC_TOKEN.prefixmatch(w) or w.rstrip('.,').lower() in SPEC_WORD_WIKI
             ),
             -1,
         )

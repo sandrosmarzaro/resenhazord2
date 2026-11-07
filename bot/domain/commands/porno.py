@@ -5,7 +5,7 @@ import unicodedata
 from typing import ClassVar
 
 import structlog
-from bs4 import BeautifulSoup
+lazy from bs4 import BeautifulSoup  # type: ignore[syntax]
 
 from bot.data.browser_headers import BROWSER_HEADERS
 from bot.data.porn_categories import PORN_CATEGORIES

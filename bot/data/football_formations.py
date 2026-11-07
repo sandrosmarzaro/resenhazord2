@@ -276,18 +276,20 @@ FORMATIONS: list[Formation] = [
 _DM_Y_THRESHOLD = 0.50
 _AM_Y_THRESHOLD = 0.36
 
-ROLE_GROUPS: dict[str, str] = {
-    'GK': 'GK',
-    'CB': 'DEF',
-    'LB': 'DEF',
-    'RB': 'DEF',
-    'DM': 'MID',
-    'CM': 'MID',
-    'AM': 'MID',
-    'LW': 'ATT',
-    'ST': 'ATT',
-    'RW': 'ATT',
-}
+ROLE_GROUPS: frozendict[str, str] = frozendict(
+    {
+        'GK': 'GK',
+        'CB': 'DEF',
+        'LB': 'DEF',
+        'RB': 'DEF',
+        'DM': 'MID',
+        'CM': 'MID',
+        'AM': 'MID',
+        'LW': 'ATT',
+        'ST': 'ATT',
+        'RW': 'ATT',
+    }
+)
 
 
 _MIN_DEF_FOR_FULLBACK = 3
@@ -328,7 +330,7 @@ def _label_mid(slots: list[Slot], indexes: list[int], result: list[str]) -> None
             result[i] = 'CM'
 
 
-_LABELERS = {'DEF': _label_def, 'MID': _label_mid, 'ATT': _label_att}
+_LABELERS = frozendict({'DEF': _label_def, 'MID': _label_mid, 'ATT': _label_att})
 
 
 def specific_roles(formation: Formation) -> list[str]:
@@ -349,15 +351,17 @@ def specific_roles(formation: Formation) -> list[str]:
     return result
 
 
-SCARCITY_ORDER: dict[str, int] = {
-    'LB': 0,
-    'RB': 0,
-    'LW': 0,
-    'RW': 0,
-    'AM': 1,
-    'DM': 1,
-    'GK': 2,
-}
+SCARCITY_ORDER: frozendict[str, int] = frozendict(
+    {
+        'LB': 0,
+        'RB': 0,
+        'LW': 0,
+        'RW': 0,
+        'AM': 1,
+        'DM': 1,
+        'GK': 2,
+    }
+)
 
 
 def random_formation() -> Formation:

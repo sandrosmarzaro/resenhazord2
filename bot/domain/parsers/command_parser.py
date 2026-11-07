@@ -44,7 +44,7 @@ class CommandParser:
     def _consume_command_name(self, text: str) -> tuple[str, str]:
         for name in CommandParserRegex.sorted_names(self._config):
             pattern = CommandParserRegex.name_pattern(name)
-            match = re.match(pattern, text, re.IGNORECASE)
+            match = re.prefixmatch(pattern, text, re.IGNORECASE)
             if not match:
                 continue
             return name, text[match.end() :].strip()
@@ -99,7 +99,7 @@ class CommandParser:
     def _try_match_option_as_value(self, token: str) -> str | None:
         for opt in self._config.options:
             for value in opt.values:
-                if re.match(f'^{CommandParserRegex.escape(value)}$', token, re.IGNORECASE):
+                if re.fullmatch(CommandParserRegex.escape(value), token, re.IGNORECASE):
                     return value
         return None
 
@@ -115,9 +115,9 @@ class CommandParser:
     @staticmethod
     def _match_option_value(opt: 'OptionDef', token: str) -> str | None:
         for value in opt.values:
-            if re.match(f'^{CommandParserRegex.escape(value)}$', token, re.IGNORECASE):
+            if re.fullmatch(CommandParserRegex.escape(value), token, re.IGNORECASE):
                 return value
-        if opt.pattern and re.match(f'^{opt.pattern}$', token, re.IGNORECASE):
+        if opt.pattern and re.fullmatch(opt.pattern, token, re.IGNORECASE):
             return token
         return None
 
@@ -125,6 +125,6 @@ class CommandParser:
         for flag in self._config.flags:
             if flag in matched:
                 continue
-            if re.match(f'^{CommandParserRegex.escape(flag)}$', token, re.IGNORECASE):
+            if re.fullmatch(CommandParserRegex.escape(flag), token, re.IGNORECASE):
                 return flag
         return None

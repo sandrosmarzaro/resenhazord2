@@ -15,9 +15,9 @@ class NhentaiScraper:
     COVER_DOMAIN = 'https://t.nhentai.net'
     SEARCH_QUERY = '-lolicon -shotacon -toddlercon'
     # The API docs ask for a User-Agent that identifies the app.
-    HEADERS: ClassVar[dict[str, str]] = {
-        'User-Agent': 'Resenhazord2 (https://github.com/sandrosmarzaro/resenhazord2)'
-    }
+    HEADERS: ClassVar[frozendict[str, str]] = frozendict(
+        {'User-Agent': 'Resenhazord2 (https://github.com/sandrosmarzaro/resenhazord2)'}
+    )
     UNTRANSLATED_LANGUAGE_TAG = 'translated'
 
     @classmethod

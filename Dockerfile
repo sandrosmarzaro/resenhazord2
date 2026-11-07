@@ -28,6 +28,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
+# UV_COMPILE_BYTECODE only covers site-packages. The app runs as nonroot and cannot
+# write __pycache__ into /app, so without this every boot recompiles the whole bot.
+RUN python -m compileall -q bot migrations
 
 FROM python:3.15-alpine AS production
 

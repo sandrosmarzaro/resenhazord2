@@ -153,7 +153,7 @@ class OpggClient:
         field_mapping: dict[str, list[str]] = {}
         for line in lines:
             if line.startswith('class '):
-                match = re.match(r'class (\w+): (.+)', line)
+                match = re.prefixmatch(r'class (\w+): (.+)', line)
                 if match:
                     class_name = match.group(1)
                     fields = [f.strip() for f in match.group(2).split(',')]
@@ -216,7 +216,7 @@ class OpggClient:
         if arg.startswith('[') and arg.endswith(']'):
             return self._parse_list(arg)
         if '(' in arg and arg.endswith(')'):
-            nested_match = re.match(r'(\w+)\((.*)\)$', arg)
+            nested_match = re.fullmatch(r'(\w+)\((.*)\)', arg)
             if nested_match:
                 nested_class = nested_match.group(1).lower()
                 nested_data = nested_match.group(2)

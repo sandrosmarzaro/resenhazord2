@@ -7,41 +7,45 @@ DRAWS = [
     {'id': 'COR', 'label': 'Coruja 21h'},
 ]
 
-ARG_TO_DRAW_ID = {
-    'ppt': 'PPT',
-    'ptm': 'PTM',
-    'pt': 'PT',
-    'ptv': 'PTV',
-    'ptn': 'PTN',
-    'cor': 'COR',
-}
+ARG_TO_DRAW_ID = frozendict(
+    {
+        'ppt': 'PPT',
+        'ptm': 'PTM',
+        'pt': 'PT',
+        'ptv': 'PTV',
+        'ptn': 'PTN',
+        'cor': 'COR',
+    }
+)
 
-ANIMAL_EMOJIS = {
-    'Avestruz': '🦜',
-    'Águia': '🦅',
-    'Burro': '🐴',
-    'Borboleta': '🦋',
-    'Cachorro': '🐶',
-    'Cabra': '🐐',
-    'Carneiro': '🐑',
-    'Camelo': '🐪',
-    'Cobra': '🐍',
-    'Coelho': '🐇',
-    'Cavalo': '🐎',
-    'Elefante': '🐘',
-    'Galo': '🐓',
-    'Gato': '🐱',
-    'Jacaré': '🐊',
-    'Leão': '🦁',
-    'Macaco': '🐒',
-    'Porco': '🐷',
-    'Pavão': '🦚',
-    'Peru': '🦃',
-    'Touro': '🐂',
-    'Tigre': '🐯',
-    'Urso': '🐻',
-    'Veado': '🦌',
-    'Vaca': '🐄',
-}
+ANIMAL_EMOJIS = frozendict(
+    {
+        'Avestruz': '🦜',
+        'Águia': '🦅',
+        'Burro': '🐴',
+        'Borboleta': '🦋',
+        'Cachorro': '🐶',
+        'Cabra': '🐐',
+        'Carneiro': '🐑',
+        'Camelo': '🐪',
+        'Cobra': '🐍',
+        'Coelho': '🐇',
+        'Cavalo': '🐎',
+        'Elefante': '🐘',
+        'Galo': '🐓',
+        'Gato': '🐱',
+        'Jacaré': '🐊',
+        'Leão': '🦁',
+        'Macaco': '🐒',
+        'Porco': '🐷',
+        'Pavão': '🦚',
+        'Peru': '🦃',
+        'Touro': '🐂',
+        'Tigre': '🐯',
+        'Urso': '🐻',
+        'Veado': '🦌',
+        'Vaca': '🐄',
+    }
+)
 
 PRIZE_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']

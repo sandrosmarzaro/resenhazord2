@@ -8,14 +8,16 @@ from bot.domain.commands.base import ArgType, Command, CommandScope
 
 class _ToolBuilder:
     NON_ASCII_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9_-]')
-    SCOPE_PRIORITY: ClassVar[dict[CommandScope, int]] = {
-        CommandScope.PUBLIC: 0,
-        CommandScope.INTERNAL: 1,
-        CommandScope.DEV: 2,
-        CommandScope.ADMIN: 3,
-        CommandScope.NSFW: 4,
-        CommandScope.DISABLED: 5,
-    }
+    SCOPE_PRIORITY: ClassVar[frozendict[CommandScope, int]] = frozendict(
+        {
+            CommandScope.PUBLIC: 0,
+            CommandScope.INTERNAL: 1,
+            CommandScope.DEV: 2,
+            CommandScope.ADMIN: 3,
+            CommandScope.NSFW: 4,
+            CommandScope.DISABLED: 5,
+        }
+    )
 
     @classmethod
     def to_ascii_name(cls, name: str) -> str:

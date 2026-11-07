@@ -11,14 +11,6 @@ repos:
       - id: ruff-format
         files: ^(bot|tests)/
 
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.3
-    hooks:
-      - id: bandit
-        args: ["-c", "bandit.toml", "-r"]
-        files: ^bot/
-        additional_dependencies: ["bandit[toml]"]
-
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.22.1
     hooks:
@@ -37,6 +29,13 @@ repos:
 
   - repo: local
     hooks:
+      # Runs in the project venv: the remote hook's own interpreter lags behind and
+      # silently skips files using newer syntax (lazy imports) as unparseable.
+      - id: bandit
+        name: bandit
+        entry: uv run bandit -c bandit.toml -r
+        language: system
+        files: ^bot/
       - id: zuban
         name: python type check (zuban)
         entry: uv run zuban check
