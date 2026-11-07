@@ -2,6 +2,16 @@
 
 <!-- version list -->
 
+## v2.16.2 (2026-11-07)
+
+### Refactor
+
+- adopt python 3.15 typing and stdlib features (#324)
+
+### Perf
+
+- cut the core node's boot time (#325)
+
 ## v2.16.1 (2026-11-07)
 
 ### Fix
