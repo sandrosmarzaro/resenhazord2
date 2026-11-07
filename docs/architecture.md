@@ -266,13 +266,13 @@ class CommandConfig:
     aliases: list[str] = []
     flags: list[str] = []
     options: list[OptionDef] = []
-    args: ArgType = ArgType.NONE            # NONE | REQUIRED | OPTIONAL
-    args_pattern: str | None = None         # validation regex for free-text args
+    args: ArgType = ArgType.NONE  # NONE | REQUIRED | OPTIONAL
+    args_pattern: str | None = None  # validation regex for free-text args
     args_label: str | None = None
     scope: CommandScope = CommandScope.PUBLIC
     group_only: bool = False
     category: Category | None = None
-    platforms: list[Platform] = [Platform.WHATSAPP]   # WHATSAPP, DISCORD, TELEGRAM
+    platforms: list[Platform] = [Platform.WHATSAPP]  # WHATSAPP, DISCORD, TELEGRAM
 ```
 
 | Concept | Shape | Example |
