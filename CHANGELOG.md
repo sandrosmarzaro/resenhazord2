@@ -2,6 +2,13 @@
 
 <!-- version list -->
 
+## v2.16.1 (2026-11-07)
+
+### Fix
+
+- **docker**: keep local secrets and caches out of the image context (#322)
+- **eval**: judge the command the bot would run, not the string (#318)
+
 ## v2.16.0 (2026-11-05)
 
 ### Feat
