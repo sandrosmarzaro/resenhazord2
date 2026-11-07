@@ -12,3 +12,8 @@ __pycache__
 .pytest_cache
 .ruff_cache
 tests
+.env
+.mypy_cache
+mutants
+*.log
+coverage.xml
