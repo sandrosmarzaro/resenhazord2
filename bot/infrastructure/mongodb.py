@@ -1,12 +1,14 @@
-"""Async MongoDB connection singleton using Motor."""
+"""Async MongoDB connection singleton on PyMongo's native asyncio client."""
 
 from typing import Any
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 
 
 class MongoDBConnection:
-    _client: AsyncIOMotorClient[Any] | None = None
+    _client: AsyncMongoClient[Any] | None = None
     _uri: str = ''
     _db_name: str = 'resenhazord2'
 
@@ -16,23 +18,23 @@ class MongoDBConnection:
         cls._db_name = db_name
 
     @classmethod
-    def client(cls) -> AsyncIOMotorClient[Any]:
+    def client(cls) -> AsyncMongoClient[Any]:
         if cls._client is None:
-            cls._client = AsyncIOMotorClient(cls._uri)
+            cls._client = AsyncMongoClient(cls._uri)
         return cls._client
 
     @classmethod
-    def database(cls) -> AsyncIOMotorDatabase[Any]:
+    def database(cls) -> AsyncDatabase[Any]:
         return cls.client()[cls._db_name]
 
     @classmethod
-    def collection(cls, name: str) -> AsyncIOMotorCollection[Any]:
+    def collection(cls, name: str) -> AsyncCollection[Any]:
         return cls.database()[name]
 
     @classmethod
     async def close(cls) -> None:
         if cls._client:
-            cls._client.close()
+            await cls._client.close()
             cls._client = None
 
     @classmethod
