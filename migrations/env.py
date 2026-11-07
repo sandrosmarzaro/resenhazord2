@@ -15,12 +15,14 @@ from bot.settings import Settings
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# The app migrates on boot through its own connection (SchemaMigrator); only the CLI
+# sets up logging and its own engine, so the app's logging config stays untouched.
+app_connection = config.attributes.get("connection")
 
-config.set_main_option("sqlalchemy.url", Settings().database_url)
+if app_connection is None:
+    if config.config_file_name is not None:
+        fileConfig(config.config_file_name)
+    config.set_main_option("sqlalchemy.url", Settings().database_url)
 
 target_metadata = Base.metadata
 
@@ -82,7 +84,10 @@ async def run_async_migrations() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
 
-    asyncio.run(run_async_migrations())
+    if app_connection is None:
+        asyncio.run(run_async_migrations())
+        return
+    do_run_migrations(app_connection)
 
 
 if context.is_offline_mode():
