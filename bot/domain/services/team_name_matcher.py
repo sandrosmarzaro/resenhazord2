@@ -1,8 +1,8 @@
 """Pairs club names across sources: official (Transfermarkt) vs short (ESPN, TheSportsDB)."""
 
-import difflib
 import re
 from typing import ClassVar
+lazy import difflib  # type: ignore[syntax]
 
 from bot.data.football_team_prefixes import CLUB_PREFIXES
 

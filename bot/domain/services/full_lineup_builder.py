@@ -3,8 +3,8 @@
 import asyncio
 import random
 from collections.abc import Sequence
-from statistics import mean
 from typing import ClassVar
+lazy from statistics import mean  # type: ignore[syntax]
 
 from bot.data.football import LEAGUES
 from bot.data.football_formations import Formation, specific_roles

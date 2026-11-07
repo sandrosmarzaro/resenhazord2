@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import httpx
 import structlog
-from bs4 import BeautifulSoup, Tag
+lazy from bs4 import BeautifulSoup, Tag  # type: ignore[syntax]
 
 from bot.data.browser_headers import BROWSER_HEADERS
 from bot.domain.exceptions import ExternalServiceError

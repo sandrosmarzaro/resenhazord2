@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import structlog
-from bs4 import BeautifulSoup
+lazy from bs4 import BeautifulSoup  # type: ignore[syntax]
 
 from bot.data.bicho import ANIMAL_EMOJIS, ARG_TO_DRAW_ID, DRAWS, PRIZE_EMOJIS
 from bot.data.browser_headers import BROWSER_HEADERS

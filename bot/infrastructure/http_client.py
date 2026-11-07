@@ -1,7 +1,7 @@
 """HTTPX client singleton with retry logic — replaces AxiosClient."""
 
 import httpx
-from httpx_retries import Retry, RetryTransport
+lazy from httpx_retries import Retry, RetryTransport  # type: ignore[syntax]
 
 
 class HttpClient:
