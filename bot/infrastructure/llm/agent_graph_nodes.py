@@ -22,7 +22,7 @@ from bot.infrastructure.metrics import record_agent_mapping
 logger = structlog.get_logger()
 
 
-class AgentTurnState(TypedDict, total=False):
+class AgentTurnState(TypedDict, total=False, closed=True):
     # Primitives only: the Redis checkpointer will refuse to deserialize custom types.
     conversation: dict[str, Any]
     intent: str
