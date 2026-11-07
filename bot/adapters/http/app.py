@@ -32,6 +32,7 @@ from bot.infrastructure.database import Database
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.infrastructure.platform_supervisor import PlatformSupervisor, Shutdown
 from bot.infrastructure.runtime_metrics import LoopLagMonitor
+from bot.infrastructure.schema_migrator import SchemaMigrator
 from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.settings import Settings
 
@@ -98,6 +99,7 @@ async def _connect_discord(agent: AgentOrchestratorPort) -> Shutdown:
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     agent = register_all_commands()
+    await SchemaMigrator.upgrade(Database.engine())
     platforms = PlatformSupervisor()
     fastapi_app.state.platforms = platforms
     if settings.rabbitmq_url:

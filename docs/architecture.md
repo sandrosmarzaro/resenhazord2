@@ -67,7 +67,8 @@ each one's connect to `PlatformSupervisor`, which runs it in its own task.
 probe, so Docker never restart-loops the whole bot over one platform.
 Supporting services (Postgres, Mongo, Redis, LLM providers) are outside this
 model: they are configured lazily and fail per command. The one startup
-dependency is Postgres, since the container runs `alembic upgrade head` first.
+dependency is Postgres: the lifespan applies pending migrations (`alembic upgrade head`)
+through the app's own engine before any platform starts.
 
 ### WhatsApp (via Gateway)
 
