@@ -23,12 +23,27 @@ class TestLoad:
         store.load.assert_awaited_once_with('whatsapp', '120@g.us')
 
     @pytest.mark.anyio
+    async def test_keeps_a_quiet_chat_cached_between_commands(self, mocker):
+        store = mocker.AsyncMock()
+        store.load.return_value = ChatConfig()
+        mocker.patch(
+            'bot.infrastructure.cached_config_store.monotonic',
+            side_effect=[0.0, 600.0],
+        )
+        cached = CachedConfigStore(store)
+
+        await cached.load('whatsapp', '120@g.us')
+        await cached.load('whatsapp', '120@g.us')
+
+        store.load.assert_awaited_once_with('whatsapp', '120@g.us')
+
+    @pytest.mark.anyio
     async def test_expires_after_ttl(self, mocker):
         store = mocker.AsyncMock()
         store.load.return_value = ChatConfig()
         mocker.patch(
             'bot.infrastructure.cached_config_store.monotonic',
-            side_effect=[0.0, 100.0],
+            side_effect=[0.0, 3700.0],
         )
         cached = CachedConfigStore(store)
 
