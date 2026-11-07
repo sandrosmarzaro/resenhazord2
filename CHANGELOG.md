@@ -2,6 +2,16 @@
 
 <!-- version list -->
 
+## v2.16.3 (2026-11-07)
+
+### Refactor
+
+- **mongo**: replace Motor with pymongo's asyncio client (#327)
+
+### Perf
+
+- **config**: keep chat config cached for an hour (#328)
+
 ## v2.16.2 (2026-11-07)
 
 ### Refactor

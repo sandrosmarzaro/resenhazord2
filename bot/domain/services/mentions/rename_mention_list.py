@@ -1,5 +1,5 @@
 import structlog
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 
 from bot.infrastructure.mongodb import MongoDBConnection
 
@@ -30,9 +30,7 @@ class RenameMentionList:
         return {'ok': True, 'old_name': old_name, 'new_name': new_name}
 
     @staticmethod
-    async def _refusal(
-        col: AsyncIOMotorCollection, chat_jid: str, old_name: str, new_name: str
-    ) -> dict:
+    async def _refusal(col: AsyncCollection, chat_jid: str, old_name: str, new_name: str) -> dict:
         # The update already decided; this read only picks the message.
         if await col.find_one({'_id': chat_jid, GROUP_NAME_FIELD: old_name}):
             return {'ok': False, 'message': f'Já existe um grupo com o nome *{new_name}* 😔'}
