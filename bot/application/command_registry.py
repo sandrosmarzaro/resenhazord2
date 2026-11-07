@@ -57,7 +57,7 @@ class CommandRegistry:
         return list(self._commands)
 
     def _lookup_by_leading_token(self, text: str) -> Command | None:
-        match = self._LEADING_TOKEN_PATTERN.match(text)
+        match = self._LEADING_TOKEN_PATTERN.prefixmatch(text)
         if not match:
             return None
         return self._by_name.get(match.group(1).lower())

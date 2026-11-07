@@ -81,7 +81,7 @@ class GroupMentionsCommand(Command):
         return [Reply.to(data).text(f'Grupo *{result["group_name"]}* criado com sucesso! 🎉')]
 
     async def _handle_rename(self, data: CommandData, rest: str) -> list[BotMessage]:
-        if not re.match(r'\S+\s+\S+', rest):
+        if not re.prefixmatch(r'\S+\s+\S+', rest):
             return [Reply.to(data).text('Cadê os nomes dos grupos? 🤔')]
         parts = rest.split()
         old_name, new_name = parts[0].lower(), parts[1].lower()

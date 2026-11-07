@@ -104,11 +104,11 @@ class AudioCommand(Command):
         return result
 
     def _is_space_or_punct(self, text: str, index: int) -> bool:
-        return bool(self.SPACE_AND_PUNCT_RE.match(text[index]))
+        return bool(self.SPACE_AND_PUNCT_RE.prefixmatch(text[index]))
 
     @staticmethod
     def _last_space_or_punct(text: str, left: int, right: int) -> int:
         for i in range(right, left - 1, -1):
-            if AudioCommand.SPACE_AND_PUNCT_RE.match(text[i]):
+            if AudioCommand.SPACE_AND_PUNCT_RE.prefixmatch(text[i]):
                 return i
         return -1
