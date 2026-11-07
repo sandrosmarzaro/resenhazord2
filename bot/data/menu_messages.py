@@ -56,13 +56,15 @@ MENU_BIBLIA = """\t\t\t📝 *COMANDOS DE BÍBLIA* 📝
 
 _Tradução: João Ferreira de Almeida_"""
 
-CATEGORY_HEADERS: dict[str, str] = {
-    'group': '🫂 FUNÇÕES DE GRUPO 🫂',
-    'random': '🎲 FUNÇÕES ALEATÓRIAS 🎲',
-    'download': '💾 FUNÇÕES DE DOWNLOAD 💾',
-    'info': '📰 INFORMAÇÕES 📰',
-    'other': '🙂 OUTRAS FUNÇÕES 🙂',
-}
+CATEGORY_HEADERS: frozendict[str, str] = frozendict(
+    {
+        'group': '🫂 FUNÇÕES DE GRUPO 🫂',
+        'random': '🎲 FUNÇÕES ALEATÓRIAS 🎲',
+        'download': '💾 FUNÇÕES DE DOWNLOAD 💾',
+        'info': '📰 INFORMAÇÕES 📰',
+        'other': '🙂 OUTRAS FUNÇÕES 🙂',
+    }
+)
 
 CATEGORY_ORDER: list[str] = ['group', 'random', 'download', 'info', 'other']
 

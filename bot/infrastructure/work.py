@@ -20,10 +20,12 @@ class Work:
     _TRACER: ClassVar[Tracer] = trace.get_tracer(__name__)
     # The automatic exception record would copy the message onto the span, and a
     # message can carry a URL with secrets in it. The command span classifies the error.
-    _QUIET: ClassVar[dict[str, bool]] = {
-        'record_exception': False,
-        'set_status_on_exception': False,
-    }
+    _QUIET: ClassVar[frozendict[str, bool]] = frozendict(
+        {
+            'record_exception': False,
+            'set_status_on_exception': False,
+        }
+    )
 
     @classmethod
     async def cpu[T](cls, func: Callable[..., T], *args: object) -> T:

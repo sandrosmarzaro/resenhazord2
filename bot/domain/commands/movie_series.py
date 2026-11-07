@@ -25,12 +25,14 @@ class MovieSeriesCommand(Command):
     OMDB_BASE_URL: str = 'http://www.omdbapi.com/'
     TMDB_BASE_URL: str = 'https://api.themoviedb.org/3'
     # TMDB's own top_rated list lets titles with a few hundred votes lead it.
-    TOP_MIN_VOTES: ClassVar[dict[str, int]] = {'movie': 5000, 'tv': 1000}
-    OMDB_SOURCE_MAP: ClassVar[dict[str, str]] = {
-        'Internet Movie Database': 'imdb',
-        'Rotten Tomatoes': 'rt',
-        'Metacritic': 'metacritic',
-    }
+    TOP_MIN_VOTES: ClassVar[frozendict[str, int]] = frozendict({'movie': 5000, 'tv': 1000})
+    OMDB_SOURCE_MAP: ClassVar[frozendict[str, str]] = frozendict(
+        {
+            'Internet Movie Database': 'imdb',
+            'Rotten Tomatoes': 'rt',
+            'Metacritic': 'metacritic',
+        }
+    )
 
     def __init__(self, *, tmdb_api_key: str = '', omdb_api_key: str = '') -> None:
         super().__init__()
