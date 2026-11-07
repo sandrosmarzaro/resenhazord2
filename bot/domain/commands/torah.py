@@ -78,7 +78,7 @@ class TorahCommand(Command):
     def _parse_ref(self, rest: str) -> str | None:
         if not rest:
             return self._random_ref()
-        match = re.match(r'^(.+?)\s+(\d+):(\d+)$', rest)
+        match = re.fullmatch(r'(.+?)\s+(\d+):(\d+)', rest)
         if not match:
             return None
         book_name, chapter, verse = match.group(1), match.group(2), match.group(3)
