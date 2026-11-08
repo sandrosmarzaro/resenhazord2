@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v2.16.4 (2026-11-07)
+
+### Perf
+
+- **boot**: migrate inside the app instead of a separate alembic run (#330)
+
 ## v2.16.3 (2026-11-07)
 
 ### Refactor
