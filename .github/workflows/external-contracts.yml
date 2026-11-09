@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}
@@ -49,24 +50,68 @@ jobs:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           YTDLP_COOKIES: ${{ runner.temp }}/cookies.txt
+      # The next night's report reads this one's failures to spot a repeat.
+      - if: always() && github.event_name == 'schedule'
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts
+          path: contracts.xml
+          retention-days: 7
+      # Every failing night comments on the nightly issue. A call that also failed the
+      # night before gets an issue of its own, and further failures comment on that one.
       - if: failure() && github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NIGHTLY_TITLE: External API contracts failing
         run: |
-          failed=$(python3 - <<'EOF'
+          # One failed call per line. pytest escapes non-ASCII ids (,b\xedblia) and
+          # unicode_escape restores them.
+          failures() {
+            python3 - "$1" <<'EOF'
+          import sys
           import xml.etree.ElementTree as ElementTree
-          for case in ElementTree.parse('contracts.xml').iter('testcase'):
+          for case in ElementTree.parse(sys.argv[1]).iter('testcase'):
               if case.find('failure') is not None or case.find('error') is not None:
-                  # pytest escapes non-ASCII ids (,b\xedblia); unicode_escape restores them.
                   call = case.get('name').partition('[')[2].rstrip(']')
-                  print(f"- `{call.encode().decode('unicode_escape')}`")
+                  print(call.encode().decode('unicode_escape'))
           EOF
-          )
-          body=$(printf 'Failed on %s:\n\n%s\n\nRun: %s' "$(date -u +%F)" "$failed" "$RUN_URL")
-          issue=$(gh issue list --label external-api --state open --json number --jq '.[0].number')
-          if [ -n "$issue" ]; then
-            gh issue comment "$issue" --body "$body"
+          }
+          open_issue() {
+            TITLE="$1" gh issue list --label external-api --state open --json number,title \
+              --jq '.[] | select(.title == env.TITLE) | .number'
+          }
+          today=$(date -u +%F)
+          mapfile -t failed < <(failures contracts.xml)
+
+          list=$(printf -- "- \`%s\`\n" "${failed[@]}")
+          body=$(printf 'Failed on %s:\n\n%s\n\nRun: %s' "$today" "$list" "$RUN_URL")
+          nightly=$(open_issue "$NIGHTLY_TITLE")
+          if [ -n "$nightly" ]; then
+            gh issue comment "$nightly" --body "$body"
           else
-            gh issue create --title 'External API contracts failing' --label external-api --body "$body"
+            url=$(gh issue create --title "$NIGHTLY_TITLE" --label external-api --body "$body")
+            nightly=${url##*/}
           fi
+
+          read -r previous_run previous_date < <(gh run list --workflow external-contracts.yml \
+            --event schedule --status completed --limit 1 --json databaseId,createdAt \
+            --jq '.[0] | "\(.databaseId) \(.createdAt[:10])"') || true
+          # A night from before the artifact existed, or one it expired on, has no report.
+          previous=''
+          if [ -n "$previous_run" ] && gh run download "$previous_run" -n contracts -D previous; then
+            previous=$(failures previous/contracts.xml)
+          fi
+
+          for call in "${failed[@]}"; do
+            title="\`$call\` fails its external contract"
+            issue=$(open_issue "$title")
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --body "Failed again on $today: $RUN_URL"
+            elif grep -qxF -- "$call" <<<"$previous"; then
+              previous_url="${RUN_URL%/*}/$previous_run"
+              body=$(printf "%s failed its external contract two nights in a row.\n\n- %s: %s\n- %s: %s\n\nNightly report: #%s" \
+                "\`$call\`" "$previous_date" "$previous_url" "$today" "$RUN_URL" "$nightly")
+              gh issue create --title "$title" --label external-api --label bug --body "$body"
+            fi
+          done
