@@ -6,7 +6,7 @@ from typing import ClassVar
 import httpx
 import structlog
 
-from bot.data.bible import BIBLE_CHAPTERS
+from bot.data.bible import BIBLE_BOOK_NAMES, BIBLE_CHAPTERS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     ArgType,
@@ -18,6 +18,7 @@ from bot.domain.commands.base import (
 )
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.text import strip_accents
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -31,6 +32,16 @@ class BibleCommand(Command):
     SEPARATORS = ':-'
     # Codes getbible answers a reference it can't resolve with, unlike a missing translation.
     BAD_REFERENCE_CODES: ClassVar[frozenset[str]] = frozenset({'invalid_reference', 'not_found'})
+
+    @staticmethod
+    def _book_key(name: str) -> str:
+        return strip_accents(name).casefold().replace(' ', '')
+
+    # getbible resolves only its own spelling, so joao, GENESIS and 1joao map to it. Other
+    # names (John) go through untouched.
+    BOOKS: ClassVar[frozendict[str, str]] = frozendict(
+        zip(map(_book_key, BIBLE_BOOK_NAMES), BIBLE_BOOK_NAMES, strict=True)
+    )
 
     @property
     def config(self) -> CommandConfig:
@@ -70,14 +81,17 @@ class BibleCommand(Command):
         return Reply.to(data).text(f'*{verse["name"]}*\n\n> {verse["text"].strip()}')
 
     async def _passage(self, data: CommandData, reference: str) -> BotMessage:
-        if not self.VERSE_PATTERN.search(reference):
+        for separator in self.SEPARATORS:
+            reference = separator.join(part.strip() for part in reference.split(separator))
+        verses = self.VERSE_PATTERN.search(reference)
+        if not verses or not verses.start():
             return Reply.to(data).text(
                 'Me manda no formato *livro capítulo:versículo*, tipo _João 3:16-18_ 🙂'
             )
 
-        for separator in self.SEPARATORS:
-            reference = separator.join(part.strip() for part in reference.split(separator))
-        response = await HttpClient.get(f'{self.QUERY_URL}/{reference}')
+        book = reference[: verses.start()].strip()
+        name = self.BOOKS.get(self._book_key(book), book)
+        response = await HttpClient.get(f'{self.QUERY_URL}/{name} {reference[verses.start() :]}')
         if response.status_code == HTTPStatus.NOT_FOUND and self._is_bad_reference(response):
             return Reply.to(data).text(
                 'Não consegui encontrar essa passagem... 😔 Confere o livro e os versículos 🙏'
