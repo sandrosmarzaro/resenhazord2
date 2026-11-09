@@ -27,7 +27,8 @@ class BibleCommand(Command):
     CHAPTER_URL = 'https://api.getbible.net/v2/livre'
     QUERY_URL = 'https://query.getbible.net/v2/livre'
     VERSE_PATTERN = re.compile(r'\d{1,3}\s*:\s*\d{1,3}\s*(?:-\s*\d{1,3})?')
-    SEPARATOR_SPACES = re.compile(r'\s*([:-])\s*')
+    # getbible rejects spaces around these, which VERSE_PATTERN accepts.
+    SEPARATORS = ':-'
     # Codes getbible answers a reference it can't resolve with, unlike a missing translation.
     BAD_REFERENCE_CODES: ClassVar[frozenset[str]] = frozenset({'invalid_reference', 'not_found'})
 
@@ -74,9 +75,9 @@ class BibleCommand(Command):
                 'Me manda no formato *livro capítulo:versículo*, tipo _João 3:16-18_ 🙂'
             )
 
-        response = await HttpClient.get(
-            f'{self.QUERY_URL}/{self.SEPARATOR_SPACES.sub(r"\1", reference)}'
-        )
+        for separator in self.SEPARATORS:
+            reference = separator.join(part.strip() for part in reference.split(separator))
+        response = await HttpClient.get(f'{self.QUERY_URL}/{reference}')
         if response.status_code == HTTPStatus.NOT_FOUND and self._is_bad_reference(response):
             return Reply.to(data).text(
                 'Não consegui encontrar essa passagem... 😔 Confere o livro e os versículos 🙏'
