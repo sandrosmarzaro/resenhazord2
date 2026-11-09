@@ -8,15 +8,23 @@ export default class MessageUpsertEvent {
   private static readonly mutedChats = new Set<string>();
 
   static async run(data: BaileysEventMap['messages.upsert']): Promise<void> {
-    const [message] = data.messages;
+    const messages = data.messages.filter((message) => !MessageUpsertEvent.isGroupStatus(message));
+    const [message] = messages;
+    if (!message) return;
     if (data.type === 'notify') {
-      MessageUpsertEvent.markRead(data.messages);
-      MessageUpsertEvent.muteNewChats(data.messages);
+      MessageUpsertEvent.markRead(messages);
+      MessageUpsertEvent.muteNewChats(messages);
     }
     if (process.env.DEBUG === 'true' && data.type !== 'notify') {
       return;
     }
     await CommandHandler.run(message);
+  }
+
+  // Members' group statuses stay invisible to the bot: reading one would list the bot
+  // among its viewers, and a caption is not a command.
+  private static isGroupStatus(message: WAMessage): boolean {
+    return !!(message.message?.groupStatusMessage || message.message?.groupStatusMessageV2);
   }
 
   // A bot on a regular account otherwise leaves every chat unread. Fire-and-forget:
