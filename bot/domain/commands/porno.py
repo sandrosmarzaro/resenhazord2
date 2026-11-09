@@ -1,7 +1,6 @@
 import html
 import random
 import re
-import unicodedata
 from typing import ClassVar
 
 import structlog
@@ -24,6 +23,7 @@ from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.redgifs import RedGifs
+from bot.domain.text import strip_accents
 from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
@@ -65,7 +65,7 @@ class PornoCommand(Command):
         return await self._real_porn(data)
 
     async def _category_porn(self, data: CommandData, category: str) -> list[BotMessage]:
-        tag = PORN_CATEGORIES.get(self._fold(category))
+        tag = PORN_CATEGORIES.get(strip_accents(category.strip().lower()))
         if not tag:
             categories = ', '.join(PORN_CATEGORIES)
             return [Reply.to(data).text(f'Categoria inválida! 🫣\n\nCategorias: {categories}')]
@@ -73,11 +73,6 @@ class PornoCommand(Command):
         if media.is_video:
             return [Reply.to(data).video(media.url, 'Aqui está seu vídeo 🤤')]
         return [Reply.to(data).image(media.url, 'Aqui está sua imagem 🤤')]
-
-    @staticmethod
-    def _fold(text: str) -> str:
-        decomposed = unicodedata.normalize('NFD', text.strip().lower())
-        return ''.join(char for char in decomposed if unicodedata.category(char) != 'Mn')
 
     async def _real_porn(self, data: CommandData) -> list[BotMessage]:
         try:

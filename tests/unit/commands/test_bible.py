@@ -85,7 +85,7 @@ class TestPassage:
     @pytest.mark.anyio
     async def test_specific_verse(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bíblia joão 3:16')
-        respx_mock.get(f'{QUERY_URL}/joão 3:16').mock(
+        respx_mock.get(f'{QUERY_URL}/João 3:16').mock(
             return_value=httpx.Response(
                 200, json={'livre_43_3': _chapter('João', 3, 'joão 3:16', (16, 'Porque Deus'))}
             )
@@ -112,7 +112,7 @@ class TestPassage:
     @pytest.mark.anyio
     async def test_spaces_around_separators_are_dropped(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bíblia joão 3 : 16 - 17')
-        route = respx_mock.get(f'{QUERY_URL}/joão 3:16-17').mock(
+        route = respx_mock.get(f'{QUERY_URL}/João 3:16-17').mock(
             return_value=httpx.Response(
                 200, json={'livre_43_3': _chapter('João', 3, 'joão 3:16-17', (16, 'A'), (17, 'B'))}
             )
@@ -125,7 +125,7 @@ class TestPassage:
     @pytest.mark.anyio
     async def test_references_across_chapters(self, command, respx_mock):
         data = GroupCommandDataFactory.build(text=', bíblia joão 3:16;4:1')
-        respx_mock.get(f'{QUERY_URL}/joão 3:16;4:1').mock(
+        respx_mock.get(f'{QUERY_URL}/João 3:16;4:1').mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -160,6 +160,37 @@ class TestPassage:
         assert 'livro capítulo:versículo' in messages[0].content.text
 
 
+class TestBookNames:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('text', 'query'),
+        [
+            (', bíblia joao 3:16', 'João 3:16'),
+            (', bíblia GENESIS 1:1', 'Gênesis 1:1'),
+            (', bíblia 1joao 1:1', '1 João 1:1'),
+            (', bíblia cantico dos canticos 1:1', 'Cântico dos Cânticos 1:1'),
+            (', bíblia John 3:16', 'John 3:16'),
+        ],
+    )
+    async def test_book_is_sent_as_named_by_the_translation(self, command, respx_mock, text, query):
+        data = GroupCommandDataFactory.build(text=text)
+        route = respx_mock.get(f'{QUERY_URL}/{query}').mock(
+            return_value=httpx.Response(200, json={'livre': _chapter('Livro', 1, query, (1, 'A'))})
+        )
+
+        await command.run(data)
+
+        assert route.called
+
+    @pytest.mark.anyio
+    async def test_reference_without_book_asks_for_format(self, command):
+        data = GroupCommandDataFactory.build(text=', bíblia 3:16')
+
+        messages = await command.run(data)
+
+        assert 'livro capítulo:versículo' in messages[0].content.text
+
+
 class TestErrors:
     @pytest.mark.anyio
     async def test_api_down_returns_friendly_message(self, command, respx_mock):
@@ -181,7 +212,7 @@ class TestErrors:
     )
     async def test_upstream_404_is_logged_as_failure(self, command, respx_mock, response):
         data = GroupCommandDataFactory.build(text=', bíblia joão 3:16')
-        respx_mock.get(f'{QUERY_URL}/joão 3:16').mock(return_value=response)
+        respx_mock.get(f'{QUERY_URL}/João 3:16').mock(return_value=response)
 
         with capture_logs() as logs:
             messages = await command.run(data)
