@@ -2,6 +2,7 @@ import type { MiscMessageGenerationOptions, WAMessage } from '@whiskeysockets/ba
 import type BrokerPort from '../ports/BrokerPort.js';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
 import type InFlightCommands from './InFlightCommands.js';
+import type { Message } from '../types/message.js';
 import ReplyDeserializer from './ReplyDeserializer.js';
 import TypingIndicator from '../utils/TypingIndicator.js';
 import logger from '../infra/Logger.js';
@@ -13,6 +14,7 @@ interface ReplyEnvelope {
 
 export default class ReplyConsumer {
   private static readonly QUEUE = 'replies';
+  private static readonly POSTED_REACTION = '✅';
 
   constructor(
     private readonly broker: BrokerPort,
@@ -36,11 +38,25 @@ export default class ReplyConsumer {
     const command = this.inFlight.resolve(envelope.id);
     for (const raw of envelope.messages) {
       const message = await ReplyDeserializer.toMessage(raw);
+      if (raw.group_status) {
+        await this.postGroupStatus(message, command?.quoted);
+        continue;
+      }
       const options = ReplyConsumer.withQuoted(message.options, raw, command?.quoted);
       await this.whatsapp.sendMessage(message.jid, message.content, options);
     }
 
     if (command) await TypingIndicator.stop(command.jid);
+  }
+
+  // The status lands outside the chat, so a reaction on the request is the only
+  // sign in the chat that it went up.
+  private async postGroupStatus(message: Message, request: WAMessage | undefined): Promise<void> {
+    await this.whatsapp.sendGroupStatus(message.jid, message.content);
+    if (!request) return;
+    await this.whatsapp.sendMessage(message.jid, {
+      react: { text: ReplyConsumer.POSTED_REACTION, key: request.key },
+    });
   }
 
   private static withQuoted(
