@@ -206,11 +206,35 @@ class TestLifespan:
     @pytest.fixture(autouse=True)
     def startup(self, mocker):
         mocker.patch.object(app, 'register_all_commands')
+        mocker.patch.object(app.SchemaMigrator, 'upgrade')
+        mocker.patch.object(app.Database, 'engine')
         mocker.patch.object(app.MongoDBConnection, 'close')
         mocker.patch.object(app.Database, 'close')
         mocker.patch.object(app.settings, 'discord_token', '')
         mocker.patch.object(app.settings, 'telegram_token', '')
         mocker.patch.object(app.settings, 'rabbitmq_url', '')
+
+    @pytest.mark.anyio
+    async def test_migrates_the_schema_before_any_platform_starts(self, mocker):
+        mocker.patch.object(app.settings, 'rabbitmq_url', 'amqp://broker')
+        steps: list[str] = []
+        upgrade = mocker.patch.object(
+            app.SchemaMigrator, 'upgrade', side_effect=lambda _engine: steps.append('migrate')
+        )
+        connected = asyncio.Event()
+
+        async def connect(_agent):
+            steps.append('whatsapp')
+            connected.set()
+            return mocker.AsyncMock()
+
+        mocker.patch.object(app, '_connect_whatsapp', connect)
+
+        async with app.lifespan(FastAPI()):
+            await connected.wait()
+
+        assert steps == ['migrate', 'whatsapp']
+        upgrade.assert_awaited_once_with(app.Database.engine.return_value)
 
     @pytest.mark.anyio
     async def test_starts_when_telegram_rejects_the_token(self, mocker):
