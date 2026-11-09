@@ -67,6 +67,7 @@ _CALLS = [
     _call(',ygo'),
     _call(',ygo booster'),
     _call(',bíblia'),
+    _call(',bíblia joão 3:16-17'),
     _call(',bandeira', 'restcountries_api_key'),
     _call(',bandeira detail', 'restcountries_api_key'),
     _call(',filme', 'tmdb_api_key'),
