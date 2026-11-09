@@ -230,5 +230,5 @@ class Command(ABC):
                 msg.content, self._VIEW_ONCE_TYPES
             ):
                 msg.content.view_once = False
-            msg.group_status = status
+            msg.group_status = msg.group_status or status
         return messages

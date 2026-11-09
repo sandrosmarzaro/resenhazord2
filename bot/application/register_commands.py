@@ -31,6 +31,7 @@ from bot.domain.commands.football_team import FootballTeamCommand
 from bot.domain.commands.fuck import FuckCommand
 from bot.domain.commands.game import GameCommand
 from bot.domain.commands.group_mentions import GroupMentionsCommand
+from bot.domain.commands.group_status import GroupStatusCommand
 from bot.domain.commands.hearthstone import HearthstoneCommand
 from bot.domain.commands.hentai import HentaiCommand
 from bot.domain.commands.horoscope import HoroscopeCommand
@@ -144,6 +145,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(FootballStandingsCommand())
     registry.register(FootballTeamCommand())
     registry.register(GroupMentionsCommand())
+    registry.register(GroupStatusCommand())
     registry.register(HoroscopeCommand())
     registry.register(JackpotCommand())
     registry.register(FuckCommand())
