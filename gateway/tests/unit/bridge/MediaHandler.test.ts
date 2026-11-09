@@ -31,6 +31,30 @@ describe('MediaHandler', () => {
       });
     });
 
+    it('reads a quoted document as the media its mimetype names', () => {
+      const data = quoting({ documentMessage: { mimetype: 'video/mp4', caption: 'filme' } });
+
+      expect(handler.detectMedia(data)).toEqual({
+        type: 'video',
+        source: 'quoted',
+        caption: 'filme',
+      });
+    });
+
+    it('unwraps a quoted document sent with a caption', () => {
+      const data = quoting({
+        documentWithCaptionMessage: { message: { documentMessage: { mimetype: 'audio/mpeg' } } },
+      });
+
+      expect(handler.detectMedia(data)).toEqual({ type: 'audio', source: 'quoted' });
+    });
+
+    it('ignores a quoted document that is not media', () => {
+      const data = quoting({ documentMessage: { mimetype: 'application/pdf' } });
+
+      expect(handler.detectMedia(data)).toBeNull();
+    });
+
     it('ignores a quoted view-once wrapper, which never carries media to linked devices', () => {
       const data = quoting({ viewOnceMessageV2: { message: { imageMessage: {} } } });
 

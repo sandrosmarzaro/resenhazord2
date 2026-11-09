@@ -25,6 +25,13 @@ const TYPE_MAP: Record<string, MediaInfo['type']> = {
 const DOWNLOAD_TIMEOUT_MS = 50_000;
 
 export default class MediaHandler {
+  // A file sent as a document still names its media family in the mimetype.
+  private static readonly DOCUMENT_FAMILIES: Record<string, MediaInfo['type']> = {
+    image: 'image',
+    video: 'video',
+    audio: 'audio',
+  };
+
   constructor(private readonly whatsapp: WhatsAppPort) {}
 
   static hasDirectMedia(message: WAMessage['message']): boolean {
@@ -62,7 +69,20 @@ export default class MediaHandler {
       };
     }
 
-    return this.findQuotedDirectMedia(quoted);
+    return this.findQuotedDirectMedia(quoted) ?? this.findQuotedDocument(quoted);
+  }
+
+  private findQuotedDocument(quoted: AnyMsg): MediaInfo | null {
+    const captioned = quoted.documentWithCaptionMessage?.message as AnyMsg | undefined;
+    const document = quoted.documentMessage ?? captioned?.documentMessage;
+    if (!document) return null;
+    const type = MediaHandler.DOCUMENT_FAMILIES[String(document.mimetype).split('/')[0]];
+    if (!type) return null;
+    return {
+      type,
+      source: 'quoted',
+      caption: typeof document.caption === 'string' ? document.caption : undefined,
+    };
   }
 
   private findQuotedDirectMedia(quoted: AnyMsg): MediaInfo | null {
