@@ -58,7 +58,9 @@ jobs:
           import xml.etree.ElementTree as ElementTree
           for case in ElementTree.parse('contracts.xml').iter('testcase'):
               if case.find('failure') is not None or case.find('error') is not None:
-                  print(f"- `{case.get('name').partition('[')[2].rstrip(']')}`")
+                  # pytest escapes non-ASCII ids (,b\xedblia); unicode_escape restores them.
+                  call = case.get('name').partition('[')[2].rstrip(']')
+                  print(f"- `{call.encode().decode('unicode_escape')}`")
           EOF
           )
           body=$(printf 'Failed on %s:\n\n%s\n\nRun: %s' "$(date -u +%F)" "$failed" "$RUN_URL")
