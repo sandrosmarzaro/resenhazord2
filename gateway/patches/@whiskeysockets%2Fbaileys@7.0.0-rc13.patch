@@ -1,3 +1,18 @@
+diff --git a/lib/Socket/messages-recv.js b/lib/Socket/messages-recv.js
+index f2003ac00ef223468c432a1bbe0a0eb02c1453b2..0cc2226578b497ad07659415f7464a69d164ee07 100644
+--- a/lib/Socket/messages-recv.js
++++ b/lib/Socket/messages-recv.js
+@@ -1612,6 +1612,10 @@ export const makeMessagesRecvSocket = (config) => {
+     ws.on('CB:message', async (node) => {
+         await processNode('message', node, 'processing message', handleMessage);
+     });
++    // group status arrives as <status from="<group>@g.us">, same payload as a group message
++    ws.on('CB:status', async (node) => {
++        await processNode('message', node, 'processing status', handleMessage);
++    });
+     ws.on('CB:call', async (node) => {
+         await processNode('call', node, 'handling call', handleCall);
+     });
 diff --git a/lib/Socket/messages-send.js b/lib/Socket/messages-send.js
 index d61e064d01252fb1aaae4bf7b0f295df8a3c4def..eb333d940ca6ac830cc3ad6cd00ae10eccf59b21 100644
 --- a/lib/Socket/messages-send.js
