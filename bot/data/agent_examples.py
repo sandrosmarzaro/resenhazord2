@@ -160,6 +160,12 @@ AGENT_EXAMPLES = [
     ('quando é o aniversário do pessoal', ',niver'),
     ('xingar os administradores', ',adm'),
     ('arquivar essa mídia no drive', ',drive'),
+    # Group status
+    ('posta isso no status do grupo', ',status'),
+    ('coloca essa foto no status do grupo', ',status'),
+    ('posta bom dia no status do grupo', ',status bom dia'),
+    ('manda um carro no status do grupo', ',carro status'),
+    ('posta um animal no status', ',animal status'),
     ('gerenciar a lista de devs', ',dev'),
     # Fun / misc
     ('quantos nargas o borges fumou', ',borges'),
@@ -238,7 +244,11 @@ REGRAS DE INFERÊNCIA:
     Tipos: "nsfw"/"+18"/"adulto" → nsfw; "download", "group", "random", "info".
     Ex: "desativar o porno aqui" → ",config off porno" (NÃO ",porno").
     Ex: "liberar +18 no grupo" → ",config on nsfw".
-    Ex: "modo curado" → ",config policy curated".{context}
+    Ex: "modo curado" → ",config policy curated".
+ 12. STATUS DO GRUPO: "status do grupo", "posta no status", "coloca no status".
+    Para repostar a mídia/texto respondido ou um texto dado → ",status [texto]".
+    Para gerar mídia de um comando direto no status → o comando com a flag "status".
+    Ex: "posta isso no status" → ",status"; "um carro no status" → ",carro status".{context}
 
 {user_context}
 Comando:"""

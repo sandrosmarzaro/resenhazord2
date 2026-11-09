@@ -24,6 +24,7 @@ PROMPT_REGRESSION_CASES: Final[list[tuple[str, str]]] = [
     ('transforma essa imagem em figurinha', ',stic'),
     ('qual é o meu horóscopo hoje', ',horóscopo'),
     ('me mostra a lista de comandos', ',menu'),
+    ('joga essa imagem no status do grupo', ',status'),
 ]
 
 # Requests users denied in production (the agent_denied log), each paired with the
