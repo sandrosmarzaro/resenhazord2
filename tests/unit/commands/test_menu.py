@@ -49,7 +49,7 @@ class TestSectionMenus:
         text = messages[0].content.text
         assert 'COMANDOS DE BÍBLIA' in text
         assert ',biblia' in text
-        assert 'Almeida' in text
+        assert 'Bíblia Livre' in text
 
 
 class TestDynamicMenu:
