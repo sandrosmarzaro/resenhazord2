@@ -1,5 +1,3 @@
-import unicodedata
-
 from bot.data.horoscope import SIGN_LIST_TEXT, SIGN_LOOKUP, SIGNS
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
@@ -14,6 +12,7 @@ from bot.domain.commands.base import (
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.translator import Translator
+from bot.domain.text import strip_accents
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -41,7 +40,7 @@ class HoroscopeCommand(Command):
         if not sign_input:
             return [Reply.to(data).text(f'Uso: ,horóscopo <signo>\n\n{SIGN_LIST_TEXT}')]
 
-        normalized = self._strip_accents(sign_input)
+        normalized = strip_accents(sign_input)
         api_name = SIGN_LOOKUP.get(sign_input) or SIGN_LOOKUP.get(normalized)
         if not api_name:
             return [Reply.to(data).text(f'Signo inválido! 🙂\n\n{SIGN_LIST_TEXT}')]
@@ -55,9 +54,3 @@ class HoroscopeCommand(Command):
 
         header = f'{sign.emoji} *{sign.pt_name}* ({sign.dates})'
         return [Reply.to(data).text(f'{header}\n\n{horoscope_pt}')]
-
-    @staticmethod
-    def _strip_accents(text: str) -> str:
-        return ''.join(
-            c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn'
-        )
