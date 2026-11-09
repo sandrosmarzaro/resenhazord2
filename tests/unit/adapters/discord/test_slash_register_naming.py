@@ -62,6 +62,11 @@ class TestBuildSignature:
         assert 'show' not in sig.parameters
         assert 'detail' in sig.parameters
 
+    def test_status_flag_skipped(self):
+        config = CommandConfig(name='test', flags=['show'])
+        sig = DiscordSlashRegistrar._build_signature(config)
+        assert 'status' not in sig.parameters
+
     def test_flag_is_optional_bool(self):
         config = CommandConfig(name='test', flags=['detail'])
         sig = DiscordSlashRegistrar._build_signature(config)
