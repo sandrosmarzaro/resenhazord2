@@ -32,7 +32,7 @@ export default class GroupStatus {
       messageContextInfo: {
         messageSecret: secret ?? crypto.getRandomValues(new Uint8Array(GroupStatus.SECRET_BYTES)),
       },
-      groupStatusMessageV2: { message: { [kind]: this.decorate(kind, message[kind] ?? {}) } },
+      groupStatusMessageV2: { message: { [kind]: this.decorate(kind, message[kind]!) } },
     };
   }
 
