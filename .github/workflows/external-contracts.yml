@@ -50,13 +50,6 @@ jobs:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           YTDLP_COOKIES: ${{ runner.temp }}/cookies.txt
-      # The next night's report reads this one's failures to spot a repeat.
-      - if: always() && github.event_name == 'schedule'
-        uses: actions/upload-artifact@v4
-        with:
-          name: contracts
-          path: contracts.xml
-          retention-days: 7
       # Every failing night comments on the nightly issue. A call that also failed the
       # night before gets an issue of its own, and further failures comment on that one.
       - if: failure() && github.event_name == 'schedule'
@@ -65,24 +58,21 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           NIGHTLY_TITLE: External API contracts failing
         run: |
-          # One failed call per line. pytest escapes non-ASCII ids (,b\xedblia) and
-          # unicode_escape restores them.
-          failures() {
-            python3 - "$1" <<'EOF'
-          import sys
-          import xml.etree.ElementTree as ElementTree
-          for case in ElementTree.parse(sys.argv[1]).iter('testcase'):
-              if case.find('failure') is not None or case.find('error') is not None:
-                  call = case.get('name').partition('[')[2].rstrip(']')
-                  print(call.encode().decode('unicode_escape'))
-          EOF
-          }
           open_issue() {
             TITLE="$1" gh issue list --label external-api --state open --json number,title \
               --jq '.[] | select(.title == env.TITLE) | .number'
           }
           today=$(date -u +%F)
-          mapfile -t failed < <(failures contracts.xml)
+          # One failed call per line. pytest escapes non-ASCII ids (,b\xedblia) and
+          # unicode_escape restores them.
+          python3 - > failures.txt <<'EOF'
+          import xml.etree.ElementTree as ElementTree
+          for case in ElementTree.parse('contracts.xml').iter('testcase'):
+              if case.find('failure') is not None or case.find('error') is not None:
+                  call = case.get('name').partition('[')[2].rstrip(']')
+                  print(call.encode().decode('unicode_escape'))
+          EOF
+          mapfile -t failed < failures.txt
 
           list=$(printf -- "- \`%s\`\n" "${failed[@]}")
           body=$(printf 'Failed on %s:\n\n%s\n\nRun: %s' "$today" "$list" "$RUN_URL")
@@ -97,10 +87,10 @@ jobs:
           read -r previous_run previous_date < <(gh run list --workflow external-contracts.yml \
             --event schedule --status completed --limit 1 --json databaseId,createdAt \
             --jq '.[0] | "\(.databaseId) \(.createdAt[:10])"') || true
-          # A night from before the artifact existed, or one it expired on, has no report.
+          # A passing night uploads no list, nor did one from before this step existed.
           previous=''
-          if [ -n "$previous_run" ] && gh run download "$previous_run" -n contracts -D previous; then
-            previous=$(failures previous/contracts.xml)
+          if [ -n "$previous_run" ] && gh run download "$previous_run" -n failures -D previous; then
+            previous=$(cat previous/failures.txt)
           fi
 
           for call in "${failed[@]}"; do
@@ -115,3 +105,11 @@ jobs:
               gh issue create --title "$title" --label external-api --label bug --body "$body"
             fi
           done
+      # Only the failed call names, never contracts.xml: its tracebacks and captured logs
+      # can hold API keys, and GitHub masks secrets in logs but not in artifacts.
+      - if: failure() && github.event_name == 'schedule'
+        uses: actions/upload-artifact@v4
+        with:
+          name: failures
+          path: failures.txt
+          retention-days: 7
