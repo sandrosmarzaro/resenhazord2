@@ -45,3 +45,10 @@ class VoiceNoteError(CommandError):
 
     def __init__(self, detail: str) -> None:
         super().__init__('Não consegui converter esse áudio pro status do grupo! 😅', detail=detail)
+
+
+class VideoRemuxError(CommandError):
+    """ffmpeg could not rewrite the mp4 into one WhatsApp accepts."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__('Não consegui preparar esse vídeo, tenta de novo! 😅', detail=detail)
