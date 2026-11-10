@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v2.17.0 (2026-11-10)
+
+### Feat
+
+- **gateway**: post and ignore whatsapp group statuses (#337)
+- **commands**: accept bible book names without accents (#336)
+- **ci**: open an issue per contract that fails two nights in a row (#335)
+
+### Fix
+
+- **prompt**: move hub tags instead of creating them (#339)
+- **ci**: check gateway partial branches in the patch coverage gate (#338)
+- **ci**: show accented commands as typed in contract failure comments
+- **ci**: copy alembic config into the mutation sandbox
+- **commands**: strip bible separator spaces without a backtracking regex
+- **commands**: move bible to getbible.net after bible-api dropped almeida
+
 ## v2.16.4 (2026-11-07)
 
 ### Perf
