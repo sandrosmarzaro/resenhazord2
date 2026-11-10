@@ -25,6 +25,7 @@ class VideoBufferContent:
     caption: str | None = None
     view_once: bool = True
     gif_playback: bool = False
+    mentions: list[str] | None = None
     type: str = 'video_buffer'
 
     @property
@@ -41,4 +42,6 @@ class VideoBufferContent:
             d['gif_playback'] = True
         if self.caption:
             d['caption'] = self.caption
+        if self.mentions:
+            d['mentions'] = self.mentions
         return d
