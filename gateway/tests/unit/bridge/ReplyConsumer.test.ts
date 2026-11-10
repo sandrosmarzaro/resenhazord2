@@ -116,6 +116,34 @@ describe('ReplyConsumer', () => {
     expect(content.image).toEqual(buffer);
   });
 
+  describe('group status', () => {
+    const statusReply = {
+      id: 'corr-1',
+      messages: [{ jid: 'g@g.us', content: { type: 'text', text: 'oi' }, group_status: true }],
+    };
+
+    it('posts the reply as a group status instead of a chat message', async () => {
+      const { whatsapp, deliver } = await startConsumer();
+
+      await deliver(statusReply);
+
+      expect(whatsapp.sendGroupStatus).toHaveBeenCalledWith('g@g.us', { text: 'oi' });
+      expect(whatsapp.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('reacts to the request once the status is up', async () => {
+      const { whatsapp, inFlight, deliver } = await startConsumer();
+      const original = { key: { id: 'ORIG_1', remoteJid: 'g@g.us' } } as WAMessage;
+      inFlight.track('corr-1', 'g@g.us', original);
+
+      await deliver(statusReply);
+
+      expect(whatsapp.sendMessage).toHaveBeenCalledWith('g@g.us', {
+        react: { text: '✅', key: original.key },
+      });
+    });
+  });
+
   it('stops the typing indicator for a tracked command', async () => {
     const { inFlight, deliver } = await startConsumer();
     inFlight.track('corr-1', 'g@g.us', { key: { id: 'ORIG_1' } } as WAMessage);

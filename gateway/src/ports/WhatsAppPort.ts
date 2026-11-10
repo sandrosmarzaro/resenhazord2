@@ -14,6 +14,8 @@ export default interface WhatsAppPort {
     options?: MiscMessageGenerationOptions,
   ): Promise<WAMessage | undefined>;
 
+  sendGroupStatus(jid: string, content: AnyMessageContent): Promise<void>;
+
   groupMetadata(jid: string): Promise<GroupMetadata>;
 
   groupParticipantsUpdate(

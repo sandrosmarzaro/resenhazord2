@@ -42,6 +42,7 @@ class BotMessage:
     content: MessageContent
     quoted_message_id: str | None = None
     expiration: int | None = None
+    group_status: bool = False
 
     def to_dict(self) -> dict:
         result: dict = {
@@ -52,4 +53,6 @@ class BotMessage:
             result['quoted_message_id'] = self.quoted_message_id
         if self.expiration:
             result['expiration'] = self.expiration
+        if self.group_status:
+            result['group_status'] = True
         return result

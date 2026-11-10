@@ -67,6 +67,35 @@ describe('MessageUpsertEvent', () => {
     });
   });
 
+  describe('group status', () => {
+    const groupStatus = () =>
+      WAMessageFactory.build({
+        key: { remoteJid: 'group@g.us', participant: 'a@lid' },
+        message: { groupStatusMessageV2: { message: { imageMessage: { caption: ',menu' } } } },
+      });
+
+    it('leaves a group status unread', async () => {
+      await MessageUpsertEvent.run({ type: 'notify', messages: [groupStatus()] });
+
+      expect(whatsapp.readMessages).not.toHaveBeenCalled();
+    });
+
+    it('never handles a group status as a command', async () => {
+      await MessageUpsertEvent.run({ type: 'notify', messages: [groupStatus()] });
+
+      expect(handleCommand).not.toHaveBeenCalled();
+    });
+
+    it('still handles the group messages that arrive alongside it', async () => {
+      const message = WAMessageFactory.build({ key: { remoteJid: 'group@g.us' } });
+
+      await MessageUpsertEvent.run({ type: 'notify', messages: [groupStatus(), message] });
+
+      expect(handleCommand).toHaveBeenCalledWith(message);
+      expect(whatsapp.readMessages).toHaveBeenCalledWith([message.key]);
+    });
+  });
+
   describe('muting', () => {
     it('mutes each chat the first time a message shows up in it', async () => {
       const group = 'group@g.us';
