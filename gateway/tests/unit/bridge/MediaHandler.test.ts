@@ -116,5 +116,25 @@ describe('MediaHandler', () => {
       await rejected;
       expect(stream.destroyed).toBe(true);
     });
+
+    it('stops a download whose request hangs, and closes the stream that comes late', async () => {
+      vi.useFakeTimers();
+      const late = Promise.withResolvers<Buffer>();
+      vi.mocked(downloadMediaMessage).mockReturnValue(late.promise);
+
+      const result = handler.downloadMedia(storedQuoting(), 'quoted');
+      const rejected = expect(result).rejects.toThrow('Media download timed out');
+      await vi.advanceTimersByTimeAsync(50_000);
+      await rejected;
+      const stream = new Readable({ read() {} });
+      late.resolve(stream as unknown as Buffer);
+      await vi.waitFor(() => expect(stream.destroyed).toBe(true));
+    });
+
+    it('passes on a failed download', async () => {
+      vi.mocked(downloadMediaMessage).mockRejectedValue(new Error('403'));
+
+      await expect(handler.downloadMedia(storedQuoting(), 'quoted')).rejects.toThrow('403');
+    });
   });
 });

@@ -35,6 +35,7 @@ export default class MediaHandler {
   // Any member can quote a 2 GB document: count the bytes that arrive, since the
   // sender declares fileLength, and stop before the 384 MB container runs out.
   private static readonly MAX_MEDIA_BYTES = 64 * 1024 * 1024;
+  private static readonly TIMED_OUT = 'Media download timed out';
 
   constructor(private readonly whatsapp: WhatsAppPort) {}
 
@@ -119,7 +120,11 @@ export default class MediaHandler {
       });
     }
 
-    const stream = await downloadMediaMessage(
+    // Baileys' fetch takes no abort signal: the deadline rejects a hung request and
+    // destroys the stream, even one that arrives after it.
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), DOWNLOAD_TIMEOUT_MS);
+    const download = downloadMediaMessage(
       message,
       'stream',
       {},
@@ -128,16 +133,27 @@ export default class MediaHandler {
         logger: pino({ level: 'silent' }),
       },
     );
-    return await MediaHandler.read(stream);
+    download.then(
+      (stream) => deadline.signal.aborted && stream.destroy(),
+      () => undefined,
+    );
+    try {
+      const stream = await Promise.race([download, MediaHandler.expiry(deadline.signal)]);
+      return await MediaHandler.read(stream, deadline.signal);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
-  // Baileys' fetch takes no abort signal, so a hung download is stopped by
-  // destroying its stream.
-  private static async read(stream: Readable): Promise<Buffer> {
-    const timer = setTimeout(
-      () => stream.destroy(new Error('Media download timed out')),
-      DOWNLOAD_TIMEOUT_MS,
-    );
+  private static expiry(deadline: AbortSignal): Promise<never> {
+    return new Promise((_, reject) => {
+      deadline.addEventListener('abort', () => reject(new Error(MediaHandler.TIMED_OUT)));
+    });
+  }
+
+  private static async read(stream: Readable, deadline: AbortSignal): Promise<Buffer> {
+    const stop = () => stream.destroy(new Error(MediaHandler.TIMED_OUT));
+    deadline.addEventListener('abort', stop);
     const chunks: Buffer[] = [];
     let size = 0;
     try {
@@ -149,7 +165,7 @@ export default class MediaHandler {
         chunks.push(chunk);
       }
     } finally {
-      clearTimeout(timer);
+      deadline.removeEventListener('abort', stop);
     }
     return Buffer.concat(chunks);
   }
