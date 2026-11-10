@@ -73,6 +73,14 @@ class TestCategory:
         assert messages[0].content.data == b'isom'
 
     @pytest.mark.anyio
+    async def test_sends_the_video_without_mentions(self, command, redgifs):
+        redgifs(1)
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno pes'))
+
+        assert 'mentions' not in messages[0].to_dict()['content']
+
+    @pytest.mark.anyio
     async def test_sends_an_image_when_the_item_is_one(self, command, redgifs):
         redgifs(2)
 
