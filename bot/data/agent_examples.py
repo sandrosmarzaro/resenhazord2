@@ -174,6 +174,7 @@ AGENT_EXAMPLES = [
     # NSFW
     ('manda um porno', ',porno'),
     ('porno de ruiva', ',porno ruiva'),
+    ('manda uma pornografia', ',porno'),
     ('um hentai aleatório', ',hentai'),
     ('imagem da rule 34', ',rule34'),
     # Config (admin: per-chat command toggles)
