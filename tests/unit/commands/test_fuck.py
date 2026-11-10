@@ -2,7 +2,8 @@ import httpx
 import pytest
 
 from bot.domain.commands.fuck import FuckCommand
-from bot.domain.models.message import RawContent, TextContent
+from bot.domain.models.message import TextContent, VideoBufferContent
+from bot.domain.services.mp4_remux import Mp4Remux
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 
@@ -34,15 +35,17 @@ class TestRun:
     VIDEO_URL = 'https://media.redgifs.com/Clip-mobile.mp4'
 
     @pytest.fixture
-    def search_route(self, respx_mock):
+    def search_route(self, respx_mock, mocker):
         respx_mock.get(self.AUTH_URL).mock(return_value=httpx.Response(200, json={'token': 't'}))
+        respx_mock.get(self.VIDEO_URL).mock(return_value=httpx.Response(200, content=b'm4v'))
+        mocker.patch.object(Mp4Remux, 'remux', return_value=b'isom')
         item = {'type': 1, 'tags': ['Sex'], 'niches': [], 'urls': {'sd': self.VIDEO_URL}}
         return respx_mock.get(url__startswith=self.SEARCH_URL).mock(
             return_value=httpx.Response(200, json={'gifs': [item]})
         )
 
     @pytest.mark.anyio
-    async def test_returns_raw_video_with_mentions(self, command, search_route):
+    async def test_returns_remuxed_video_with_mentions(self, command, search_route):
         sender = '5511999990001@s.whatsapp.net'
         mentioned = '5511888880001@s.whatsapp.net'
         data = GroupCommandDataFactory.build(
@@ -55,13 +58,27 @@ class TestRun:
         messages = await command.run(data)
 
         assert len(messages) == 1
-        assert isinstance(messages[0].content, RawContent)
-        content = messages[0].content.content
-        assert content['viewOnce'] is True
-        assert content['video']['url'] == self.VIDEO_URL
-        assert sender in content['mentions']
-        assert mentioned in content['mentions']
-        assert 'fudendo' in content['caption']
+        content = messages[0].content
+        assert isinstance(content, VideoBufferContent)
+        assert content.data == b'isom'
+        assert content.view_once is True
+        assert content.mentions == [sender, mentioned]
+        assert 'fudendo' in content.caption
+
+    @pytest.mark.anyio
+    async def test_sends_the_mentions_to_the_gateway(self, command, search_route):
+        sender = '5511999990001@s.whatsapp.net'
+        mentioned = '5511888880001@s.whatsapp.net'
+        data = GroupCommandDataFactory.build(
+            text=', fuck @5511888880001',
+            sender_jid=sender,
+            participant=sender,
+            mentioned_jids=[mentioned],
+        )
+
+        messages = await command.run(data)
+
+        assert messages[0].to_dict()['content']['mentions'] == [sender, mentioned]
 
     @pytest.mark.anyio
     async def test_strips_lid_suffix_from_phones(self, command, search_route):
@@ -76,9 +93,9 @@ class TestRun:
 
         messages = await command.run(data)
 
-        content = messages[0].content.content
-        assert '@5511999990001' in content['caption']
-        assert '@5511888880001' in content['caption']
+        caption = messages[0].content.caption
+        assert '@5511999990001' in caption
+        assert '@5511888880001' in caption
 
     @pytest.mark.anyio
     async def test_group_only_rejects_private(self, command):
@@ -102,8 +119,7 @@ class TestRun:
 
         messages = await command.run(data)
 
-        content = messages[0].content.content
-        assert sender in content['mentions']
+        assert sender in messages[0].content.mentions
 
     @pytest.mark.anyio
     async def test_empty_mentioned_when_no_jids(self, command, search_route):
@@ -117,9 +133,9 @@ class TestRun:
 
         messages = await command.run(data)
 
-        content = messages[0].content.content
-        assert '@' in content['caption']
-        assert '' in content['mentions']
+        content = messages[0].content
+        assert '@' in content.caption
+        assert '' in content.mentions
 
     @pytest.mark.anyio
     async def test_searches_sex_videos(self, command, search_route):

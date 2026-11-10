@@ -41,10 +41,19 @@ class Reply:
         return self._build(VideoContent(url=url, caption=caption, view_once=True))
 
     def video_buffer(
-        self, data: bytes, caption: str | None = None, *, gif_playback: bool = False
+        self,
+        data: bytes,
+        caption: str | None = None,
+        *,
+        gif_playback: bool = False,
+        mentions: list[str] | None = None,
     ) -> BotMessage:
         content = VideoBufferContent(
-            data=data, caption=caption, view_once=True, gif_playback=gif_playback
+            data=data,
+            caption=caption,
+            view_once=True,
+            gif_playback=gif_playback,
+            mentions=mentions,
         )
         return self._build(content)
 

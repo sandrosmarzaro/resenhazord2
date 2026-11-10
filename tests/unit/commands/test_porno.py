@@ -2,7 +2,13 @@ import httpx
 import pytest
 
 from bot.domain.commands.porno import PornoCommand
-from bot.domain.models.message import ImageContent, TextContent, VideoContent
+from bot.domain.models.message import (
+    ImageContent,
+    TextContent,
+    VideoBufferContent,
+    VideoContent,
+)
+from bot.domain.services.mp4_remux import Mp4Remux
 from tests.factories.command_data import GroupCommandDataFactory
 
 
@@ -23,6 +29,8 @@ class TestMatches:
             (', porno show', True),
             (', porno dm', True),
             ('  , porno  ', True),
+            (',porn', True),
+            (', porn gay', True),
             ('porno', False),
             ('hello', False),
         ],
@@ -34,17 +42,20 @@ class TestMatches:
 class TestCategory:
     AUTH_URL = 'https://api.redgifs.com/v2/auth/temporary'
     SEARCH_URL = 'https://api.redgifs.com/v2/gifs/search'
+    VIDEO_URL = 'https://media.redgifs.com/Clip-mobile.mp4'
 
     @pytest.fixture
-    def redgifs(self, respx_mock):
+    def redgifs(self, respx_mock, mocker):
         respx_mock.get(self.AUTH_URL).mock(return_value=httpx.Response(200, json={'token': 't'}))
+        respx_mock.get(self.VIDEO_URL).mock(return_value=httpx.Response(200, content=b'm4v'))
+        mocker.patch.object(Mp4Remux, 'remux', return_value=b'isom')
 
         def search_returns(kind: int):
             item = {
                 'type': kind,
                 'tags': ['Feet'],
                 'niches': [],
-                'urls': {'sd': 'https://media.redgifs.com/Clip-mobile.mp4'},
+                'urls': {'sd': self.VIDEO_URL},
             }
             return respx_mock.get(url__startswith=self.SEARCH_URL).mock(
                 return_value=httpx.Response(200, json={'gifs': [item]})
@@ -53,13 +64,21 @@ class TestCategory:
         return search_returns
 
     @pytest.mark.anyio
-    async def test_sends_a_video_of_the_category(self, command, redgifs):
+    async def test_sends_the_remuxed_video_of_the_category(self, command, redgifs):
         redgifs(1)
 
         messages = await command.run(GroupCommandDataFactory.build(text=', porno pes'))
 
-        assert isinstance(messages[0].content, VideoContent)
-        assert messages[0].content.url == 'https://media.redgifs.com/Clip-mobile.mp4'
+        assert isinstance(messages[0].content, VideoBufferContent)
+        assert messages[0].content.data == b'isom'
+
+    @pytest.mark.anyio
+    async def test_sends_the_video_without_mentions(self, command, redgifs):
+        redgifs(1)
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno pes'))
+
+        assert 'mentions' not in messages[0].to_dict()['content']
 
     @pytest.mark.anyio
     async def test_sends_an_image_when_the_item_is_one(self, command, redgifs):

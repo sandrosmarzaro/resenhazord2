@@ -59,6 +59,7 @@ export default class ReplyDeserializer {
         viewOnce: c.view_once as boolean,
         gifPlayback: (c.gif_playback as boolean) ?? false,
         caption: c.caption as string | undefined,
+        ...(c.mentions ? { mentions: c.mentions as string[] } : {}),
       }),
       audio: (c) => ({
         audio: { url: c.url as string },

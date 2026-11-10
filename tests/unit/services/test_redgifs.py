@@ -3,6 +3,7 @@ import pytest
 
 from bot.data.redgifs_media import RedGifsMedia
 from bot.domain.exceptions import ExternalServiceError
+from bot.domain.services.mp4_remux import Mp4Remux
 from bot.domain.services.redgifs import RedGifs
 
 AUTH_URL = 'https://api.redgifs.com/v2/auth/temporary'
@@ -122,3 +123,17 @@ class TestMinors:
 
         with pytest.raises(ExternalServiceError):
             await redgifs.random_media('Feet')
+
+
+class TestDownload:
+    @pytest.mark.anyio
+    async def test_remuxes_the_downloaded_video(self, respx_mock, mocker):
+        respx_mock.get('https://media.redgifs.com/Clip-mobile.mp4').mock(
+            return_value=httpx.Response(200, content=b'm4v-mp4')
+        )
+        remux = mocker.patch.object(Mp4Remux, 'remux', return_value=b'isom-mp4')
+
+        video = await RedGifs.download('https://media.redgifs.com/Clip-mobile.mp4')
+
+        assert video == b'isom-mp4'
+        remux.assert_called_once_with(b'm4v-mp4')
