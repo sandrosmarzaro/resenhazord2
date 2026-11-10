@@ -7,6 +7,7 @@ import httpx
 from bot.data.redgifs_media import RedGifsMedia
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.services.minors_filter import MinorsFilter
+from bot.domain.services.mp4_remux import Mp4Remux
 from bot.infrastructure.http_client import HttpClient
 
 
@@ -42,6 +43,12 @@ class RedGifs:
             raise ExternalServiceError(msg)
         item = random.choice(safe)
         return RedGifsMedia(url=item['urls']['sd'], is_video=item['type'] == self.VIDEO_TYPE)
+
+    @classmethod
+    async def download(cls, video_url: str) -> bytes:
+        # WhatsApp rejects RedGifs' mp4 as is, so it goes as a remuxed buffer, not a URL.
+        video = await HttpClient.get_buffer(video_url, timeout=cls.REQUEST_TIMEOUT_SECONDS)
+        return await Mp4Remux.remux(video)
 
     async def _search(self, params: dict[str, Any]) -> list[dict[str, Any]]:
         response = await self._get_search(params)

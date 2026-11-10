@@ -72,7 +72,8 @@ class PornoCommand(Command):
             return [Reply.to(data).text(f'Categoria inválida! 🫣\n\nCategorias: {categories}')]
         media = await self._redgifs.random_media(tag)
         if media.is_video:
-            return [Reply.to(data).video(media.url, 'Aqui está seu vídeo 🤤')]
+            video = await RedGifs.download(media.url)
+            return [Reply.to(data).video_buffer(video, 'Aqui está seu vídeo 🤤')]
         return [Reply.to(data).image(media.url, 'Aqui está sua imagem 🤤')]
 
     async def _real_porn(self, data: CommandData) -> list[BotMessage]:
