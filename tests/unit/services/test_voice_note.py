@@ -1,3 +1,4 @@
+import anyio
 import httpx
 import pytest
 
@@ -30,6 +31,8 @@ class TestForStatus:
         assert (args[:4], args[5:]) == (
             ('ffmpeg', '-v', 'error', '-i'),
             (
+                '-t',
+                '600',
                 '-vn',
                 '-ac',
                 '1',
@@ -87,3 +90,19 @@ class TestErrors:
 
         with pytest.raises(VoiceNoteError):
             await VoiceNote.for_status(message)
+
+    @pytest.mark.anyio
+    async def test_kills_ffmpeg_when_it_hangs(self, mocker):
+        never = anyio.Event()
+
+        async def hang(*_args):
+            await never.wait()
+
+        process = mocker.MagicMock(communicate=hang)
+        mocker.patch(FFMPEG, return_value=process)
+        mocker.patch.object(VoiceNote, '_TIMEOUT_SECONDS', 0.01)
+        message = status(AudioBufferContent(data=b'crafted'))
+
+        with pytest.raises(VoiceNoteError):
+            await VoiceNote.for_status(message)
+        process.kill.assert_called_once_with()

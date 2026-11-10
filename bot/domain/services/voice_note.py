@@ -3,6 +3,8 @@ import tempfile
 from pathlib import Path
 from typing import ClassVar
 
+import anyio
+
 from bot.domain.exceptions import VoiceNoteError
 from bot.domain.models.message import AudioBufferContent, AudioContent, BotMessage
 from bot.infrastructure.http_client import HttpClient
@@ -12,7 +14,13 @@ class VoiceNote:
     # A group status carries audio only as a voice note, and WhatsApp plays a voice
     # note only as ogg/opus: any other format shows "something is wrong with the file".
     MIMETYPE: ClassVar[str] = 'audio/ogg; codecs=opus'
+    # Any member can hand ffmpeg a file: cap how much of it is read and how long it runs.
+    _MAX_SECONDS: ClassVar[int] = 600
+    _TIMEOUT_SECONDS: ClassVar[float] = 60
+    _TIMED_OUT: ClassVar[str] = 'ffmpeg timed out'
     _ENCODE_ARGS: ClassVar[tuple[str, ...]] = (
+        '-t',
+        str(_MAX_SECONDS),
         '-vn',
         '-ac',
         '1',
@@ -56,7 +64,12 @@ class VoiceNote:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            output, error = await process.communicate()
+            try:
+                with anyio.fail_after(cls._TIMEOUT_SECONDS):
+                    output, error = await process.communicate()
+            except TimeoutError as timeout:
+                process.kill()
+                raise VoiceNoteError(cls._TIMED_OUT) from timeout
         if process.returncode != 0:
             raise VoiceNoteError(error.decode().strip())
         return output
