@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import type { WAMessage } from '@whiskeysockets/baileys';
 import { downloadMediaMessage, generateWAMessageFromContent } from '@whiskeysockets/baileys';
 import pino from 'pino';
@@ -31,6 +32,9 @@ export default class MediaHandler {
     video: 'video',
     audio: 'audio',
   };
+  // Any member can quote a 2 GB document: count the bytes that arrive, since the
+  // sender declares fileLength, and stop before the 384 MB container runs out.
+  private static readonly MAX_MEDIA_BYTES = 64 * 1024 * 1024;
 
   constructor(private readonly whatsapp: WhatsAppPort) {}
 
@@ -115,20 +119,38 @@ export default class MediaHandler {
       });
     }
 
-    const download = downloadMediaMessage(
+    const stream = await downloadMediaMessage(
       message,
-      'buffer',
+      'stream',
       {},
       {
         reuploadRequest: this.whatsapp.updateMediaMessage,
         logger: pino({ level: 'silent' }),
       },
     );
+    return await MediaHandler.read(stream);
+  }
 
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Media download timed out')), DOWNLOAD_TIMEOUT_MS),
+  // Baileys' fetch takes no abort signal, so a hung download is stopped by
+  // destroying its stream.
+  private static async read(stream: Readable): Promise<Buffer> {
+    const timer = setTimeout(
+      () => stream.destroy(new Error('Media download timed out')),
+      DOWNLOAD_TIMEOUT_MS,
     );
-
-    return await Promise.race([download, timeout]);
+    const chunks: Buffer[] = [];
+    let size = 0;
+    try {
+      for await (const chunk of stream) {
+        size += chunk.length;
+        if (size > MediaHandler.MAX_MEDIA_BYTES) {
+          throw new Error(`Media is larger than ${MediaHandler.MAX_MEDIA_BYTES} bytes`);
+        }
+        chunks.push(chunk);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+    return Buffer.concat(chunks);
   }
 }

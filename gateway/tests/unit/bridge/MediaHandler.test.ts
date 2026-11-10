@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { Readable } from 'node:stream';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 
 import MediaHandler from '../../../src/bridge/MediaHandler.js';
@@ -63,20 +64,57 @@ describe('MediaHandler', () => {
   });
 
   describe('downloadMedia', () => {
-    it('downloads the quoted message content', async () => {
-      const buffer = Buffer.from([1, 2, 3]);
-      vi.mocked(downloadMediaMessage).mockResolvedValue(buffer);
+    const quotedMessage = { imageMessage: { mimetype: 'image/jpeg' } };
+
+    function storedQuoting() {
       const stored = WAMessageFactory.build({}, { transient: { isGroup: true } });
-      const quotedMessage = { imageMessage: { mimetype: 'image/jpeg' } };
       stored.message = {
         extendedTextMessage: { text: ',sticker', contextInfo: { quotedMessage } },
       };
+      return stored;
+    }
 
-      const result = await handler.downloadMedia(stored, 'quoted');
+    function downloading(stream: Readable) {
+      // The stream overload of a function mocked as a whole; its type is the buffer one.
+      vi.mocked(downloadMediaMessage).mockResolvedValue(stream as unknown as Buffer);
+    }
 
-      expect(result).toBe(buffer);
-      const [message] = vi.mocked(downloadMediaMessage).mock.calls[0];
-      expect(message.message).toEqual(quotedMessage);
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('downloads the quoted message content', async () => {
+      downloading(Readable.from([Buffer.from([1, 2]), Buffer.from([3])]));
+
+      const result = await handler.downloadMedia(storedQuoting(), 'quoted');
+
+      expect(result).toEqual(Buffer.from([1, 2, 3]));
+      const [message, type] = vi.mocked(downloadMediaMessage).mock.calls[0];
+      expect([message.message, type]).toEqual([quotedMessage, 'stream']);
+    });
+
+    it('stops downloading media past the size cap', async () => {
+      const mebibyte = Buffer.alloc(1024 * 1024);
+      const stream = Readable.from(Array.from({ length: 65 }, () => mebibyte));
+      downloading(stream);
+
+      await expect(handler.downloadMedia(storedQuoting(), 'quoted')).rejects.toThrow(
+        'Media is larger than 67108864 bytes',
+      );
+      expect(stream.destroyed).toBe(true);
+    });
+
+    it('stops a download that hangs', async () => {
+      vi.useFakeTimers();
+      const stream = new Readable({ read() {} });
+      downloading(stream);
+
+      const result = handler.downloadMedia(storedQuoting(), 'quoted');
+      const rejected = expect(result).rejects.toThrow('Media download timed out');
+      await vi.advanceTimersByTimeAsync(50_000);
+
+      await rejected;
+      expect(stream.destroyed).toBe(true);
     });
   });
 });
