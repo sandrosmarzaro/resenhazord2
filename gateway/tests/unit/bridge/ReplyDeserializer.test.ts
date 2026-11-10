@@ -72,6 +72,20 @@ describe('ReplyDeserializer', () => {
       expect(message.content).toMatchObject({ video: Buffer.from([1, 2, 3]), viewOnce: true });
     });
 
+    it('video_buffer with mentions', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'video_buffer', buffer_b64: b64, mentions: ['a@s', 'b@s'] }),
+      );
+      expect(message.content).toMatchObject({ mentions: ['a@s', 'b@s'] });
+    });
+
+    it('video_buffer without mentions leaves the key out', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'video_buffer', buffer_b64: b64 }),
+      );
+      expect(message.content).not.toHaveProperty('mentions');
+    });
+
     it('audio_buffer', async () => {
       const message = await ReplyDeserializer.toMessage(
         content({ type: 'audio_buffer', buffer_b64: b64, mimetype: 'audio/ogg' }),
