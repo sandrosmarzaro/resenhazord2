@@ -23,6 +23,25 @@ describe('BaileysAdapter', () => {
     expect(readMessages).toHaveBeenCalledWith(keys);
   });
 
+  it('posts content as a group status authored by the bot', async () => {
+    const relayMessage = vi.fn();
+    const socket = {
+      updateMediaMessage: vi.fn(),
+      relayMessage,
+      waUploadToServer: vi.fn(),
+      user: { id: '5527999999999:3@s.whatsapp.net', lid: '189129606340826:3@lid' },
+    } as unknown as WASocket;
+
+    await new BaileysAdapter(socket).sendGroupStatus('g@g.us', { text: 'oi' });
+
+    const [jid, message, options] = relayMessage.mock.calls[0];
+    const text = message.groupStatusMessageV2.message.extendedTextMessage;
+    expect([jid, options, text.text]).toEqual(['g@g.us', {}, 'oi']);
+    expect(text.contextInfo.statusAttributions[0].groupStatus.authorJid).toBe(
+      '189129606340826@lid',
+    );
+  });
+
   it("mutes a chat for good, WhatsApp's 'Always'", async () => {
     const chatModify = vi.fn();
     const socket = { updateMediaMessage: vi.fn(), chatModify } as unknown as WASocket;

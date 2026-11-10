@@ -8,8 +8,8 @@ Homologation gate: run this only on a commit the prompt-eval workflow has passed
 commit; the bot's next pull (SDK cache TTL 300s) serves it with no re-deploy.
 Rollback is the same call pointed at an older green commit.
 
-The SDK's push_prompt only creates tags, and the hub answers 409 once `prod`
-exists, so this moves the tag through the REST API instead.
+The tag moves through scripts/prompt_hub.py, which also creates `prod` on a hub
+that has none.
 """
 
 import argparse
@@ -17,21 +17,18 @@ import argparse
 import httpx
 
 from bot.settings import Settings
+from scripts.prompt_hub import hub_client, move_tag
 
-_API_URL = 'https://api.smith.langchain.com'
 _MISSING_KEY = 'LANGSMITH_API_KEY is not set; cannot promote the prompt'
 _PROD_TAG = 'prod'
-_TIMEOUT_SECONDS = 30.0
 _COMMITS_PAGE = 100
 
 
 def promote_prompt(settings: Settings, source: str) -> str:
     name = settings.langsmith_prompt_name
-    headers = {'x-api-key': settings.langsmith_api_key}
-    with httpx.Client(base_url=_API_URL, headers=headers, timeout=_TIMEOUT_SECONDS) as client:
+    with hub_client(settings.langsmith_api_key) as client:
         commit_id = _commit_id(client, name, source)
-        response = client.patch(f'/repos/-/{name}/tags/{_PROD_TAG}', json={'commit_id': commit_id})
-        response.raise_for_status()
+        move_tag(client, name, _PROD_TAG, commit_id)
     return f'{_PROD_TAG} -> {source} ({commit_id})'
 
 

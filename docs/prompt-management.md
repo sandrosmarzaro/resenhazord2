@@ -40,6 +40,11 @@ uv run task prompt:eval              # local regression eval (needs provider key
 uv run task prompt:promote           # re-tag the dev commit as `prod`
 ```
 
+`prompt:push` moves `dev` to the new commit even when `dev` already points elsewhere.
+Run on an unchanged template, it moves `dev` to the latest commit, since the hub keeps
+no duplicate. Both scripts create a tag the hub lacks, so the seed and a first
+promotion need no manual tagging.
+
 The `prompt-eval` GitHub workflow runs the same eval automatically on changes to
 `bot/data/agent_examples.py`, `tests/eval/**`, or the prompt scripts, and on demand
 (`workflow_dispatch`, input `prompt_tag`). By default it evaluates `prod`, the prompt

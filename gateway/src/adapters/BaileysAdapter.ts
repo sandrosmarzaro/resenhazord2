@@ -7,7 +7,9 @@ import type {
   WAPresence,
   WASocket,
 } from '@whiskeysockets/baileys';
+import { generateWAMessageContent, jidNormalizedUser } from '@whiskeysockets/baileys';
 import type WhatsAppPort from '../ports/WhatsAppPort.js';
+import GroupStatus from '../builders/GroupStatus.js';
 
 export default class BaileysAdapter implements WhatsAppPort {
   // What WhatsApp itself sends for a chat muted 'Always'.
@@ -26,6 +28,14 @@ export default class BaileysAdapter implements WhatsAppPort {
     options?: MiscMessageGenerationOptions,
   ): Promise<WAMessage | undefined> {
     return this.socket.sendMessage(jid, content, options);
+  }
+
+  async sendGroupStatus(jid: string, content: AnyMessageContent): Promise<void> {
+    const message = await generateWAMessageContent(content, {
+      upload: this.socket.waUploadToServer,
+    });
+    const author = jidNormalizedUser(this.socket.user?.lid);
+    await this.socket.relayMessage(jid, new GroupStatus(author).wrap(message), {});
   }
 
   async groupMetadata(jid: string): Promise<GroupMetadata> {

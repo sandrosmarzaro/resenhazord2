@@ -21,7 +21,7 @@ class DiscordSlashRegistrar:
     NAME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9_-]')
     NAME_MAX_LENGTH: ClassVar[int] = 32
     DESC_MAX_LENGTH: ClassVar[int] = 100
-    WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({Flag.DM, Flag.SHOW})
+    WHATSAPP_ONLY_FLAGS: ClassVar[frozenset[str]] = frozenset({Flag.DM, Flag.SHOW, Flag.STATUS})
 
     def __init__(
         self,

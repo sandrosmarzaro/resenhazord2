@@ -38,3 +38,10 @@ class StickerTooLargeError(CommandError):
             'Esse sticker passou do limite de 500 KB do WhatsApp. Tente uma mídia mais curta '
             'ou com menos qualidade, tipo ,stic quality 50! 😵'
         )
+
+
+class VoiceNoteError(CommandError):
+    """ffmpeg could not turn the audio into the opus voice note a status needs."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__('Não consegui converter esse áudio pro status do grupo! 😅', detail=detail)

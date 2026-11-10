@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
-// Guards the bun patch for WhiskeySockets/Baileys#2435. Baileys' internal getMediaType
-// checks message.imageMessage directly; a view-once message is wrapped in viewOnceMessage,
-// so without the patch it returns '' — the enc node ships an empty mediatype and WhatsApp
-// drops the media. getMediaType is not exported, so we assert the patch is present in the
-// installed source. Re-verify this when bumping @whiskeysockets/baileys.
-describe('Baileys view-once patch (getMediaType)', () => {
+// Guards the bun patch on Baileys' internal getMediaType. It checks message.imageMessage
+// directly, so a wrapped message (view-once, WhiskeySockets/Baileys#2435; group status)
+// returns '' and the enc node ships type="media" with no mediatype, which WhatsApp drops.
+// getMediaType is not exported, so we assert the patch is present in the installed
+// source. Re-verify this when bumping @whiskeysockets/baileys.
+describe('Baileys getMediaType patch', () => {
   function patchedGetMediaTypeSource(): string {
     const require = createRequire(import.meta.url);
     const source = readFileSync(
@@ -19,11 +19,18 @@ describe('Baileys view-once patch (getMediaType)', () => {
     return source.slice(start, start + 600);
   }
 
-  it('unwraps the viewOnceMessage wrapper inside getMediaType', () => {
+  it('unwraps the viewOnceMessage wrapper', () => {
     const region = patchedGetMediaTypeSource();
 
     expect(region).toContain('viewOnceMessage?.message');
     expect(region).toContain('viewOnceMessageV2?.message');
+  });
+
+  it('unwraps the groupStatusMessage wrapper', () => {
+    const region = patchedGetMediaTypeSource();
+
+    expect(region).toContain('groupStatusMessage?.message');
+    expect(region).toContain('groupStatusMessageV2?.message');
   });
 
   it('unwraps before the plain imageMessage lookup, so it takes effect', () => {

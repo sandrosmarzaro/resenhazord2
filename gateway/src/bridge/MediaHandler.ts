@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import type { WAMessage } from '@whiskeysockets/baileys';
 import { downloadMediaMessage, generateWAMessageFromContent } from '@whiskeysockets/baileys';
 import pino from 'pino';
@@ -25,6 +26,17 @@ const TYPE_MAP: Record<string, MediaInfo['type']> = {
 const DOWNLOAD_TIMEOUT_MS = 50_000;
 
 export default class MediaHandler {
+  // A file sent as a document still names its media family in the mimetype.
+  private static readonly DOCUMENT_FAMILIES: Record<string, MediaInfo['type']> = {
+    image: 'image',
+    video: 'video',
+    audio: 'audio',
+  };
+  // Any member can quote a 2 GB document: count the bytes that arrive, since the
+  // sender declares fileLength, and stop before the 384 MB container runs out.
+  private static readonly MAX_MEDIA_BYTES = 64 * 1024 * 1024;
+  private static readonly TIMED_OUT = 'Media download timed out';
+
   constructor(private readonly whatsapp: WhatsAppPort) {}
 
   static hasDirectMedia(message: WAMessage['message']): boolean {
@@ -62,7 +74,20 @@ export default class MediaHandler {
       };
     }
 
-    return this.findQuotedDirectMedia(quoted);
+    return this.findQuotedDirectMedia(quoted) ?? this.findQuotedDocument(quoted);
+  }
+
+  private findQuotedDocument(quoted: AnyMsg): MediaInfo | null {
+    const captioned = quoted.documentWithCaptionMessage?.message as AnyMsg | undefined;
+    const document = quoted.documentMessage ?? captioned?.documentMessage;
+    if (!document) return null;
+    const type = MediaHandler.DOCUMENT_FAMILIES[String(document.mimetype).split('/')[0]];
+    if (!type) return null;
+    return {
+      type,
+      source: 'quoted',
+      caption: typeof document.caption === 'string' ? document.caption : undefined,
+    };
   }
 
   private findQuotedDirectMedia(quoted: AnyMsg): MediaInfo | null {
@@ -95,20 +120,53 @@ export default class MediaHandler {
       });
     }
 
+    // Baileys' fetch takes no abort signal: the deadline rejects a hung request and
+    // destroys the stream, even one that arrives after it.
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), DOWNLOAD_TIMEOUT_MS);
     const download = downloadMediaMessage(
       message,
-      'buffer',
+      'stream',
       {},
       {
         reuploadRequest: this.whatsapp.updateMediaMessage,
         logger: pino({ level: 'silent' }),
       },
     );
-
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Media download timed out')), DOWNLOAD_TIMEOUT_MS),
+    download.then(
+      (stream) => deadline.signal.aborted && stream.destroy(),
+      () => undefined,
     );
+    try {
+      const stream = await Promise.race([download, MediaHandler.expiry(deadline.signal)]);
+      return await MediaHandler.read(stream, deadline.signal);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
-    return await Promise.race([download, timeout]);
+  private static expiry(deadline: AbortSignal): Promise<never> {
+    return new Promise((_, reject) => {
+      deadline.addEventListener('abort', () => reject(new Error(MediaHandler.TIMED_OUT)));
+    });
+  }
+
+  private static async read(stream: Readable, deadline: AbortSignal): Promise<Buffer> {
+    const stop = () => stream.destroy(new Error(MediaHandler.TIMED_OUT));
+    deadline.addEventListener('abort', stop);
+    const chunks: Buffer[] = [];
+    let size = 0;
+    try {
+      for await (const chunk of stream) {
+        size += chunk.length;
+        if (size > MediaHandler.MAX_MEDIA_BYTES) {
+          throw new Error(`Media is larger than ${MediaHandler.MAX_MEDIA_BYTES} bytes`);
+        }
+        chunks.push(chunk);
+      }
+    } finally {
+      deadline.removeEventListener('abort', stop);
+    }
+    return Buffer.concat(chunks);
   }
 }

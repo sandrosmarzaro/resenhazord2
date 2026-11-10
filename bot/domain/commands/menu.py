@@ -89,7 +89,7 @@ class MenuCommand(Command):
     @staticmethod
     def _format_options(config: CommandConfig) -> str:
         parts: list[str] = [f'[{" | ".join(opt.values)}]' for opt in config.options if opt.values]
-        parts.extend(f'+{f}' for f in config.flags if f not in {Flag.DM, Flag.SHOW})
+        parts.extend(f'+{f}' for f in config.flags if f not in {Flag.DM, Flag.SHOW, Flag.STATUS})
 
         label = config.args_label or 'texto'
         if config.args == ArgType.REQUIRED:

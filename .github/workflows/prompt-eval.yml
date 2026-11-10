@@ -14,6 +14,7 @@ on:
       - tests/eval/**
       - scripts/push_prompt.py
       - scripts/promote_prompt.py
+      - scripts/prompt_hub.py
   schedule:
     - cron: '0 12 * * 1'
   workflow_dispatch:

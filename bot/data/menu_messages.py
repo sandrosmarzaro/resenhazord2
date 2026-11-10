@@ -54,7 +54,7 @@ MENU_BIBLIA = """\t\t\t📝 *COMANDOS DE BÍBLIA* 📝
 - *,biblia* _Mateus 1:2-3_
 > Receba junto os vários versículos especificados.
 
-_Tradução: João Ferreira de Almeida_"""
+_Tradução: Bíblia Livre (CC BY 3.0 BR), via getbible.net_"""
 
 CATEGORY_HEADERS: frozendict[str, str] = frozendict(
     {
@@ -70,5 +70,6 @@ CATEGORY_ORDER: list[str] = ['group', 'random', 'download', 'info', 'other']
 
 ALEATORIA_SUBHEADER = (
     '\n\n_(use as opções *show* e/ou *dm* para enviar imagens'
-    ' sem visualização única e no chat privado respectivamente)_'
+    ' sem visualização única e no chat privado respectivamente,'
+    ' ou *status* para postar no status do grupo)_'
 )

@@ -49,7 +49,7 @@ class TestSectionMenus:
         text = messages[0].content.text
         assert 'COMANDOS DE BÍBLIA' in text
         assert ',biblia' in text
-        assert 'Almeida' in text
+        assert 'Bíblia Livre' in text
 
 
 class TestDynamicMenu:
@@ -101,6 +101,7 @@ class TestDynamicMenu:
         text = messages[0].content.text
         assert 'show' in text
         assert 'dm' in text
+        assert 'status' in text
         assert 'visualização única' in text
 
     @pytest.mark.anyio
@@ -152,6 +153,21 @@ class TestFormatOptions:
         messages = await command.run(data)
 
         assert ',config on nsfw' in messages[0].content.text
+
+    @pytest.mark.anyio
+    async def test_hides_the_flags_every_media_command_takes(self, command):
+        from bot.domain.commands.car import CarCommand
+
+        registry = CommandRegistry.instance()
+        registry.register(CarCommand())
+        registry.register(command)
+        data = GroupCommandDataFactory.build(text=',menu')
+
+        messages = await command.run(data)
+
+        text = messages[0].content.text
+        assert '+wiki' in text
+        assert '+status' not in text
 
     @pytest.mark.anyio
     async def test_shows_flags(self, command):

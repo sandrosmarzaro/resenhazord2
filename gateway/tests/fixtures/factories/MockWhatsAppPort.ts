@@ -4,6 +4,7 @@ import type WhatsAppPort from '../../../src/ports/WhatsAppPort.js';
 export function createMockWhatsAppPort(overrides: Partial<WhatsAppPort> = {}): WhatsAppPort {
   return {
     sendMessage: vi.fn(),
+    sendGroupStatus: vi.fn(),
     groupMetadata: vi.fn(),
     groupParticipantsUpdate: vi.fn(),
     groupUpdateSubject: vi.fn(),
