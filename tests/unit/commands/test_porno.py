@@ -23,6 +23,8 @@ class TestMatches:
             (', porno show', True),
             (', porno dm', True),
             ('  , porno  ', True),
+            (',porn', True),
+            (', porn gay', True),
             ('porno', False),
             ('hello', False),
         ],

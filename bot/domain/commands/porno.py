@@ -47,6 +47,7 @@ class PornoCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='porno',
+            aliases=['porn'],
             args=ArgType.OPTIONAL,
             args_label='categoria',
             flags=[Flag.SHOW, Flag.DM],
