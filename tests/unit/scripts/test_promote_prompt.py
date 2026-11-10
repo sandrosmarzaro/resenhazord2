@@ -1,4 +1,5 @@
 import json
+from http import HTTPStatus
 
 import httpx
 import pytest
@@ -41,27 +42,39 @@ def hub():
                 },
             )
         )
-        yield mock.patch(f'{_REPO}/tags/prod').mock(
+        mock.patch(f'{_REPO}/tags/prod', name='prod').mock(
             return_value=httpx.Response(200, json={'tag_name': 'prod', 'commit_id': _DEV_ID})
         )
+        yield mock
 
 
 class TestPromotePrompt:
     def test_moves_prod_to_the_commit_behind_an_alias(self, settings, hub):
         promote_prompt(settings, 'dev')
 
-        assert json.loads(hub.calls.last.request.content) == {'commit_id': _DEV_ID}
+        assert json.loads(hub['prod'].calls.last.request.content) == {'commit_id': _DEV_ID}
 
     def test_moves_prod_to_a_commit_hash_prefix(self, settings, hub):
         promote_prompt(settings, '6630920a')
 
-        assert json.loads(hub.calls.last.request.content) == {'commit_id': _OLD_ID}
+        assert json.loads(hub['prod'].calls.last.request.content) == {'commit_id': _OLD_ID}
 
     def test_sends_the_api_key(self, settings, hub):
         promote_prompt(settings, 'dev')
 
-        assert hub.calls.last.request.headers['x-api-key'] == 'key'
+        assert hub['prod'].calls.last.request.headers['x-api-key'] == 'key'
 
     def test_rejects_an_unknown_source(self, settings, hub):
         with pytest.raises(SystemExit):
             promote_prompt(settings, 'nope')
+
+    def test_creates_prod_when_the_hub_has_none(self, settings, hub):
+        hub['prod'].return_value = httpx.Response(HTTPStatus.NOT_FOUND)
+        created = hub.post(f'{_REPO}/tags').mock(return_value=httpx.Response(HTTPStatus.OK))
+
+        promote_prompt(settings, 'dev')
+
+        assert json.loads(created.calls.last.request.content) == {
+            'tag_name': 'prod',
+            'commit_id': _DEV_ID,
+        }
