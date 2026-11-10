@@ -34,7 +34,7 @@ export default class BaileysAdapter implements WhatsAppPort {
     const message = await generateWAMessageContent(content, {
       upload: this.socket.waUploadToServer,
     });
-    const author = jidNormalizedUser(this.socket.user?.lid ?? undefined);
+    const author = jidNormalizedUser(this.socket.user?.lid);
     await this.socket.relayMessage(jid, new GroupStatus(author).wrap(message), {});
   }
 
