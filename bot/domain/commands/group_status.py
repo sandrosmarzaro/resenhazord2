@@ -22,8 +22,6 @@ class GroupStatusCommand(Command):
         'ou mande *,status <texto>* pra eu postar no status do grupo! 📸'
     )
     UNSUPPORTED_MEDIA: ClassVar[str] = 'Status de grupo só aceita imagem, vídeo, áudio ou texto! 😅'
-    # A status voice note is always ptt, and WhatsApp's own voice notes are ogg/opus.
-    VOICE_MIMETYPE: ClassVar[str] = 'audio/ogg; codecs=opus'
     MEDIA_CONTENTS: ClassVar[dict[str, MediaContent]] = {
         'image': lambda data, caption: ImageBufferContent(
             data=data, caption=caption, view_once=False
@@ -31,9 +29,7 @@ class GroupStatusCommand(Command):
         'video': lambda data, caption: VideoBufferContent(
             data=data, caption=caption, view_once=False
         ),
-        'audio': lambda data, _caption: AudioBufferContent(
-            data=data, mimetype=GroupStatusCommand.VOICE_MIMETYPE
-        ),
+        'audio': lambda data, _caption: AudioBufferContent(data=data),
     }
 
     @property

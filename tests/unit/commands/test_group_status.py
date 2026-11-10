@@ -7,6 +7,7 @@ from bot.domain.models.message import (
     TextContent,
     VideoBufferContent,
 )
+from bot.domain.services.voice_note import VoiceNote
 from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
 
 
@@ -86,12 +87,15 @@ class TestMedia:
         assert message.content == VideoBufferContent(data=b'media', view_once=False)
 
     @pytest.mark.anyio
-    async def test_posts_the_quoted_audio_as_a_voice_note(self, command):
+    async def test_posts_the_quoted_audio_as_an_opus_voice_note(self, command, mock_subprocess):
+        mock_subprocess(
+            'bot.domain.services.voice_note.asyncio.create_subprocess_exec',
+            calls=[(b'ogg', b'', 0)],
+        )
+
         [message] = await command.run(quoting('audio'))
 
-        assert message.content == AudioBufferContent(
-            data=b'media', mimetype='audio/ogg; codecs=opus'
-        )
+        assert message.content == AudioBufferContent(data=b'ogg', mimetype=VoiceNote.MIMETYPE)
 
 
 class TestRefusals:

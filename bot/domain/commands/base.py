@@ -17,6 +17,7 @@ from bot.domain.models.contents.image_content import ImageBufferContent, ImageCo
 from bot.domain.models.contents.video_content import VideoBufferContent, VideoContent
 from bot.domain.models.message import BotMessage
 from bot.domain.parsers.command_parser import CommandParser
+from bot.domain.services.voice_note import VoiceNote
 
 logger = structlog.get_logger()
 
@@ -193,8 +194,8 @@ class Command(ABC):
         parsed = self.parser.parse(data.text)
         if Flag.STATUS in parsed.flags and not self._in_whatsapp_group(data):
             return [Reply.to(data).text(self.STATUS_ONLY_IN_GROUPS)]
-        messages = await self.execute(data, parsed)
-        return self._apply_flags(data, parsed, messages)
+        messages = self._apply_flags(data, parsed, await self.execute(data, parsed))
+        return [await VoiceNote.for_status(message) for message in messages]
 
     @staticmethod
     def _in_whatsapp_group(data: CommandData) -> bool:
