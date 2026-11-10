@@ -18,6 +18,14 @@ class VoiceNote:
     _MAX_SECONDS: ClassVar[int] = 600
     _TIMEOUT_SECONDS: ClassVar[float] = 60
     _TIMED_OUT: ClassVar[str] = 'ffmpeg timed out'
+    # A crafted "audio" can be an hls or concat playlist that makes ffmpeg fetch URLs
+    # or read local files: open only the input file, as one of the audio containers.
+    _INPUT_ARGS: ClassVar[tuple[str, ...]] = (
+        '-protocol_whitelist',
+        'file',
+        '-format_whitelist',
+        'mp3,ogg,mov,wav,aac,flac,matroska,amr',
+    )
     _ENCODE_ARGS: ClassVar[tuple[str, ...]] = (
         '-t',
         str(_MAX_SECONDS),
@@ -58,6 +66,7 @@ class VoiceNote:
                 'ffmpeg',
                 '-v',
                 'error',
+                *cls._INPUT_ARGS,
                 '-i',
                 str(source),
                 *cls._ENCODE_ARGS,

@@ -28,24 +28,38 @@ class TestForStatus:
 
         args = ffmpeg.call_args.args
         assert message.content == VOICE
-        assert (args[:4], args[5:]) == (
-            ('ffmpeg', '-v', 'error', '-i'),
-            (
-                '-t',
-                '600',
-                '-vn',
-                '-ac',
-                '1',
-                '-ar',
-                '48000',
-                '-c:a',
-                'libopus',
-                '-b:a',
-                '64k',
-                '-f',
-                'ogg',
-                'pipe:1',
-            ),
+        assert args[args.index('-i') + 2 :] == (
+            '-t',
+            '600',
+            '-vn',
+            '-ac',
+            '1',
+            '-ar',
+            '48000',
+            '-c:a',
+            'libopus',
+            '-b:a',
+            '64k',
+            '-f',
+            'ogg',
+            'pipe:1',
+        )
+
+    @pytest.mark.anyio
+    async def test_opens_only_local_audio_containers(self, mock_subprocess):
+        ffmpeg = mock_subprocess(FFMPEG, calls=[(b'ogg', b'', 0)])
+
+        await VoiceNote.for_status(status(AudioBufferContent(data=b'#EXTM3U')))
+
+        args = ffmpeg.call_args.args
+        assert args[: args.index('-i')] == (
+            'ffmpeg',
+            '-v',
+            'error',
+            '-protocol_whitelist',
+            'file',
+            '-format_whitelist',
+            'mp3,ogg,mov,wav,aac,flac,matroska,amr',
         )
 
     @pytest.mark.anyio
