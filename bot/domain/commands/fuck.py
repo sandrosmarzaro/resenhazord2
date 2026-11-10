@@ -44,14 +44,12 @@ class FuckCommand(Command):
         mentioned_phone = strip_jid(mentioned)
 
         media = await self._redgifs.random_media(self.TAG, video_only=True)
+        video = await RedGifs.download(media.url)
 
         return [
-            Reply.to(data).raw(
-                {
-                    'viewOnce': True,
-                    'video': {'url': media.url},
-                    'mentions': [sender, mentioned],
-                    'caption': f'@{sender_phone} está fudendo @{mentioned_phone} 😩',
-                }
+            Reply.to(data).video_buffer(
+                video,
+                f'@{sender_phone} está fudendo @{mentioned_phone} 😩',
+                mentions=[sender, mentioned],
             )
         ]
