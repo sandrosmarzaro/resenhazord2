@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v2.17.1 (2026-11-10)
+
+### Fix
+
+- **commands**: send redgifs videos whatsapp can play (#342)
+
 ## v2.17.0 (2026-11-10)
 
 ### Feat
