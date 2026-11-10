@@ -101,7 +101,7 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: >-
-          uv run --frozen diff-cover gateway/coverage/lcov.info
+          uv run --frozen diff-cover gateway/coverage/cobertura-coverage.xml
           --compare-branch="origin/$BASE_REF" --fail-under=100 --branch-coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
