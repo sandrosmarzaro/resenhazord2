@@ -273,6 +273,11 @@ each rule also needs a minimum number of runs in its long window. That replaced 
 failure and counted `bot_error` as a failure. Backtested on 14 days of `command.handle`
 (212 runs, 2 real failures): the burn rules stay quiet and the old rule fired once.
 
+Every ratio divides by `clamp_min(total, 1)`. A window with no runs would otherwise give
+`0/0 = NaN`, Grafana's math carries NaN through `&&` past the run-count guard, and a NaN
+condition counts as firing. Before the clamp the fast-burn rule emailed after every quiet
+hour (six times on 2026-11-11, each with zero runs).
+
 When applying the file, also `DELETE` `rz2-command-error-surge` from Grafana.
 
 ## Edge host metrics
