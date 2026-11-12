@@ -256,7 +256,7 @@
           "refId": "A",
           "instant": true,
           "range": false,
-          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[1h])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h]))"
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[1h])) / clamp_min(sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[1h])), 1)"
         }
       },
       {
@@ -267,7 +267,7 @@
           "refId": "B",
           "instant": true,
           "range": false,
-          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[5m])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[5m]))"
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[5m])), 1)"
         }
       },
       {
@@ -312,7 +312,7 @@
           "refId": "A",
           "instant": true,
           "range": false,
-          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[6h])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[6h]))"
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[6h])) / clamp_min(sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[6h])), 1)"
         }
       },
       {
@@ -323,7 +323,7 @@
           "refId": "B",
           "instant": true,
           "range": false,
-          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[30m])) / sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[30m]))"
+          "expr": "sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\", status_code=\"STATUS_CODE_ERROR\"}[30m])) / clamp_min(sum(increase(traces_span_metrics_calls_total{span_name=\"command.run\"}[30m])), 1)"
         }
       },
       {
@@ -368,7 +368,7 @@
           "refId": "A",
           "instant": true,
           "range": false,
-          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[1h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[1h]))"
+          "expr": "(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[1h])) - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[1h]))) / clamp_min(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[1h])), 1)"
         }
       },
       {
@@ -379,7 +379,7 @@
           "refId": "B",
           "instant": true,
           "range": false,
-          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[5m])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[5m]))"
+          "expr": "(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[5m])) - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[5m]))) / clamp_min(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[5m])), 1)"
         }
       },
       {
@@ -424,7 +424,7 @@
           "refId": "A",
           "instant": true,
           "range": false,
-          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[6h])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[6h]))"
+          "expr": "(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[6h])) - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[6h]))) / clamp_min(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[6h])), 1)"
         }
       },
       {
@@ -435,7 +435,7 @@
           "refId": "B",
           "instant": true,
           "range": false,
-          "expr": "1 - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[30m])) / sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30m]))"
+          "expr": "(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30m])) - sum(increase(traces_span_metrics_duration_milliseconds_bucket{span_name=\"command.run\", command_name!=\"dl\", le=\"10000\"}[30m]))) / clamp_min(sum(increase(traces_span_metrics_duration_milliseconds_count{span_name=\"command.run\", command_name!=\"dl\"}[30m])), 1)"
         }
       },
       {
