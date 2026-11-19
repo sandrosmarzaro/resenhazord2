@@ -40,6 +40,7 @@ count, group or alert on. The other events explain one.
 | `command_unexpected_error` | error | traceback | a command raised something it didn't classify. The user got the generic error reply |
 | `command_retry_scheduled` | warning | `attempts`, `error` | an external failure sent the command down the retry ladder |
 | `command_retries_exhausted` | error (warning for downloads) | `attempts`, `error` | the ladder ran out and the command went to `commands.dlq` |
+| `video_thumbnail_failed` | warning | `error` | the core couldn't draw a video's thumbnail. The video went out without one |
 | `command_duplicate_skipped`, `command_redelivery_skipped` | info | none | at-least-once delivery handed over a command already running or already answered |
 | `agent_routing` | info | `text` | a message went to the natural-language agent |
 | `agent_provider_failed` | warning | `error` | an LLM provider failed. The chain tries the next one |

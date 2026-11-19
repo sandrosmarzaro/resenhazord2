@@ -20,6 +20,7 @@ from bot.domain.commands.base import Command
 from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.video_thumbnail import VideoThumbnail
 from bot.infrastructure.metrics import record_lane_wait, track_in_flight
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort
@@ -139,7 +140,9 @@ class CommandConsumer:
                     envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
                 )
             else:
-                await self._publish_reply(envelope, messages or [])
+                # Only WhatsApp needs a thumbnail sent: Baileys can't draw one on the edge.
+                thumbnailed = [await VideoThumbnail.attach(message) for message in messages or []]
+                await self._publish_reply(envelope, thumbnailed)
             finally:
                 span.set_attribute('command.outcome', outcome)
 
