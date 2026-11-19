@@ -141,8 +141,10 @@ class CommandConsumer:
                 )
             else:
                 # Only WhatsApp needs a thumbnail sent: Baileys can't draw one on the edge.
-                thumbnailed = [await VideoThumbnail.attach(message) for message in messages or []]
-                await self._publish_reply(envelope, thumbnailed)
+                replies = messages or []
+                for message in replies:
+                    await VideoThumbnail.attach(message)
+                await self._publish_reply(envelope, replies)
             finally:
                 span.set_attribute('command.outcome', outcome)
 

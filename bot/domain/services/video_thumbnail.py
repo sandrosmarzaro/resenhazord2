@@ -43,15 +43,14 @@ class VideoThumbnail:
     )
 
     @classmethod
-    async def attach(cls, message: BotMessage) -> BotMessage:
+    async def attach(cls, message: BotMessage) -> None:
         content = message.content
         if not isinstance(content, VideoBufferContent | VideoContent):
-            return message
+            return
         try:
             content.jpeg_thumbnail = await cls._draw(content)
         except VideoThumbnailError as error:
             logger.warning('video_thumbnail_failed', error=str(error))
-        return message
 
     @classmethod
     async def _draw(cls, content: VideoBufferContent | VideoContent) -> bytes | None:

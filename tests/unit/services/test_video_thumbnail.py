@@ -36,8 +36,9 @@ class TestBufferVideo:
     @pytest.mark.anyio
     async def test_attaches_the_frame_ffmpeg_wrote(self, fake_ffmpeg):
         fake_ffmpeg(b'jpeg')
+        message = _video_message()
 
-        message = await VideoThumbnail.attach(_video_message())
+        await VideoThumbnail.attach(message)
 
         assert message.content.jpeg_thumbnail == b'jpeg'
 
@@ -105,8 +106,9 @@ class TestUrlVideo:
             return process
 
         mocker.patch(FFMPEG, side_effect=run)
+        message = self._url_message()
 
-        message = await VideoThumbnail.attach(self._url_message())
+        await VideoThumbnail.attach(message)
 
         assert drawn_from == [b'preview']
         assert message.content.jpeg_thumbnail == b'jpeg'
@@ -114,8 +116,9 @@ class TestUrlVideo:
     @pytest.mark.anyio
     async def test_skips_a_video_with_no_upstream_preview(self, fake_ffmpeg):
         ffmpeg = fake_ffmpeg(b'jpeg')
+        message = self._url_message(thumbnail_url=None)
 
-        message = await VideoThumbnail.attach(self._url_message(thumbnail_url=None))
+        await VideoThumbnail.attach(message)
 
         ffmpeg.assert_not_called()
         assert message.content.jpeg_thumbnail is None
@@ -126,9 +129,10 @@ class TestUrlVideo:
     ):
         respx_mock.get(PREVIEW_URL).mock(return_value=httpx.Response(404))
         fake_ffmpeg(b'jpeg')
+        message = self._url_message()
 
         with capture_logs() as logs:
-            message = await VideoThumbnail.attach(self._url_message())
+            await VideoThumbnail.attach(message)
 
         assert message.content.jpeg_thumbnail is None
         assert logs == [
@@ -140,8 +144,9 @@ class TestFailure:
     @pytest.mark.anyio
     async def test_sends_the_video_without_a_thumbnail_when_ffmpeg_fails(self, fake_ffmpeg):
         fake_ffmpeg(b'', returncode=1)
+        message = _video_message()
 
-        message = await VideoThumbnail.attach(_video_message())
+        await VideoThumbnail.attach(message)
 
         assert message.content.jpeg_thumbnail is None
 
@@ -170,8 +175,9 @@ class TestFailure:
         process = mocker.MagicMock(communicate=hang)
         mocker.patch(FFMPEG, return_value=process)
         mocker.patch.object(VideoThumbnail, '_TIMEOUT_SECONDS', 0.01)
+        message = _video_message()
 
-        message = await VideoThumbnail.attach(_video_message())
+        await VideoThumbnail.attach(message)
 
         process.kill.assert_called_once_with()
         assert message.content.jpeg_thumbnail is None
