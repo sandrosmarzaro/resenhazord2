@@ -133,7 +133,10 @@ class TestRealPorn:
 """
     VIDEO_HTML = """
 <html>
-<head><title>Test Video - XVIDEOS.COM</title></head>
+<head>
+<title>Test Video - XVIDEOS.COM</title>
+<meta property="og:image" content="https://thumbs.example.com/og.jpg" />
+</head>
 <body>
 <script>setVideoUrlLow('https://cdn.example.com/low.mp4')</script>
 <script>setVideoUrlHigh('https://cdn.example.com/high.mp4')</script>
@@ -148,7 +151,8 @@ class TestRealPorn:
 {
 "@context": "https://schema.org",
 "@type": "VideoObject",
-"contentUrl": "https://cdn.example.com/sd.mp4?secure=abc==,123"
+"contentUrl": "https://cdn.example.com/sd.mp4?secure=abc==,123",
+"thumbnailUrl": ["https://thumbs.example.com/ld.jpg"]
 }
 </script>
 <script>xv.age_go.init()</script>
@@ -171,6 +175,47 @@ class TestRealPorn:
         assert isinstance(messages[0].content, VideoContent)
         assert messages[0].content.url == 'https://cdn.example.com/low.mp4'
         assert messages[0].content.caption == 'Test Video'
+
+    @pytest.mark.anyio
+    async def test_names_the_page_preview_as_the_thumbnail(self, command, respx_mock):
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=self.LISTING_HTML),
+                httpx.Response(200, text=self.VIDEO_HTML),
+            ]
+        )
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno'))
+
+        assert messages[0].content.thumbnail_url == 'https://thumbs.example.com/og.jpg'
+
+    @pytest.mark.anyio
+    async def test_names_the_json_ld_preview_when_the_page_is_age_gated(self, command, respx_mock):
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=self.LISTING_HTML),
+                httpx.Response(200, text=self.AGE_GATED_HTML),
+            ]
+        )
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno'))
+
+        assert messages[0].content.thumbnail_url == 'https://thumbs.example.com/ld.jpg'
+
+    @pytest.mark.anyio
+    async def test_sends_the_video_when_the_page_has_no_preview(self, command, respx_mock):
+        page = "<html><body><script>setVideoUrlLow('https://cdn.example.com/low.mp4')</script>"
+        respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=[
+                httpx.Response(200, text=self.LISTING_HTML),
+                httpx.Response(200, text=page),
+            ]
+        )
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno'))
+
+        assert messages[0].content.url == 'https://cdn.example.com/low.mp4'
+        assert messages[0].content.thumbnail_url is None
 
     @pytest.mark.anyio
     async def test_returns_error_message_on_failure(self, command, respx_mock):

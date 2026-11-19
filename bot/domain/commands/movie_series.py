@@ -22,7 +22,7 @@ class MovieSeriesCommand(Command):
     ITEMS_PER_PAGE = 20
     POSTER_SIZE = 'w500'
     MOVIE_NAMES: frozenset[str] = frozenset({'filme', 'movie'})
-    OMDB_BASE_URL: str = 'http://www.omdbapi.com/'
+    OMDB_BASE_URL: str = 'https://www.omdbapi.com/'
     TMDB_BASE_URL: str = 'https://api.themoviedb.org/3'
     # TMDB's own top_rated list lets titles with a few hundred votes lead it.
     TOP_MIN_VOTES: ClassVar[frozendict[str, int]] = frozendict({'movie': 5000, 'tv': 1000})

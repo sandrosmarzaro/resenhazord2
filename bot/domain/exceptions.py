@@ -52,3 +52,7 @@ class VideoRemuxError(CommandError):
 
     def __init__(self, detail: str) -> None:
         super().__init__('Não consegui preparar esse vídeo, tenta de novo! 😅', detail=detail)
+
+
+class VideoThumbnailError(Exception):
+    """ffmpeg could not draw a video's thumbnail. The video still goes out without one."""

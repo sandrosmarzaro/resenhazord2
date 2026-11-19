@@ -84,7 +84,7 @@ class TestRun:
         respx_mock.get(
             url__regex=rf'.*themoviedb\.org/3/{media_type}/{tmdb_id}/external_ids.*'
         ).mock(return_value=httpx.Response(200, json={'imdb_id': 'tt0133093'}))
-        respx_mock.get(url__startswith='http://www.omdbapi.com/').mock(
+        respx_mock.get(url__startswith='https://www.omdbapi.com/').mock(
             return_value=httpx.Response(200, json=OMDB_ALL_RATINGS)
         )
 
@@ -233,7 +233,7 @@ class TestRun:
         respx_mock.get(url__startswith='https://api.themoviedb.org/3/genre/').mock(
             return_value=httpx.Response(200, json={'genres': []})
         )
-        omdb_route = respx_mock.get(url__startswith='http://www.omdbapi.com/').mock(
+        omdb_route = respx_mock.get(url__startswith='https://www.omdbapi.com/').mock(
             return_value=httpx.Response(200, json=OMDB_ALL_RATINGS)
         )
 

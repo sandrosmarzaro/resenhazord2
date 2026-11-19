@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import structlog
 from upstash_vector import AsyncIndex
 from upstash_vector.types import Data
@@ -8,6 +10,8 @@ logger = structlog.get_logger()
 
 
 class UpstashExampleRetriever:
+    _RANGE_PAGE_SIZE: ClassVar[int] = 500
+
     def __init__(self, index: AsyncIndex) -> None:
         self._index = index
 
@@ -34,4 +38,17 @@ class UpstashExampleRetriever:
                 for example in examples
             ]
         )
-        logger.info('example_bank_indexed', count=len(examples))
+        stale_ids = await self._indexed_ids() - {example.text for example in examples}
+        if stale_ids:
+            await self._index.delete(ids=sorted(stale_ids))
+        logger.info('example_bank_indexed', upserted=len(examples), deleted=len(stale_ids))
+
+    async def _indexed_ids(self) -> set[str]:
+        ids: set[str] = set()
+        cursor = ''
+        while True:
+            page = await self._index.range(cursor=cursor, limit=self._RANGE_PAGE_SIZE)
+            ids.update(vector.id for vector in page.vectors)
+            if not page.next_cursor:
+                return ids
+            cursor = page.next_cursor

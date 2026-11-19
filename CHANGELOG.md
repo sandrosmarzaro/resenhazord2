@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v2.18.0 (2026-11-19)
+
+### Feat
+
+- **commands**: send whatsapp video thumbnails from the core (#359)
+- **gateway**: accept an optional video jpeg_thumbnail from the core
+
+### Fix
+
+- **agent**: delete stale vectors when indexing the example bank (#357)
+- **ci**: install ffmpeg on the external contracts runner (#356)
+- **commands**: request omdb over https (#355)
+- **observability**: stop slo burn alerts firing on idle windows
+
 ## v2.17.1 (2026-11-10)
 
 ### Fix

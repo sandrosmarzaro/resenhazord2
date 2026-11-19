@@ -44,6 +44,20 @@ describe('ReplyDeserializer', () => {
       expect(message.content).toMatchObject({ video: { url: 'https://x/v.mp4' }, viewOnce: false });
     });
 
+    it('video with jpeg_thumbnail carries it as jpegThumbnail', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'video', url: 'https://x/v.mp4', jpeg_thumbnail: 'dGh1bWI=' }),
+      );
+      expect(message.content).toMatchObject({ jpegThumbnail: 'dGh1bWI=' });
+    });
+
+    it('video without jpeg_thumbnail leaves the key out', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'video', url: 'https://x/v.mp4' }),
+      );
+      expect(message.content).not.toHaveProperty('jpegThumbnail');
+    });
+
     it('audio with default mimetype', async () => {
       const message = await ReplyDeserializer.toMessage(
         content({ type: 'audio', url: 'https://x/a' }),
@@ -84,6 +98,20 @@ describe('ReplyDeserializer', () => {
         content({ type: 'video_buffer', buffer_b64: b64 }),
       );
       expect(message.content).not.toHaveProperty('mentions');
+    });
+
+    it('video_buffer with jpeg_thumbnail carries it as jpegThumbnail', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'video_buffer', buffer_b64: b64, jpeg_thumbnail: 'dGh1bWI=' }),
+      );
+      expect(message.content).toMatchObject({ jpegThumbnail: 'dGh1bWI=' });
+    });
+
+    it('video_buffer without jpeg_thumbnail leaves the key out', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'video_buffer', buffer_b64: b64 }),
+      );
+      expect(message.content).not.toHaveProperty('jpegThumbnail');
     });
 
     it('audio_buffer', async () => {

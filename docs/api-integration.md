@@ -36,6 +36,6 @@
     `tests/integration/external/test_command_contracts.py`, with the setting that holds
     its key when it needs one. The row runs the real command and fails when it logs an
     error or `upstream_failed`. Run them with `uv run task test:external`. The
-    `external-contracts` workflow runs them every night, retries the failures once, and
-    files or comments on one issue labelled `external-api`. It is not a PR gate. Keyed
-    calls skip until their key is a repo secret.
+    `external-contracts` workflow runs them every night and retries the failures once.
+    A call that fails two nights in a row gets its own issue labelled `external-api`.
+    It is not a PR gate. Keyed calls skip until their key is a repo secret.

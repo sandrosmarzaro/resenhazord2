@@ -38,6 +38,11 @@ class PornoCommand(Command):
         r"setVideoUrlHigh\('([^']+)'\)",
         r'"contentUrl"\s*:\s*"([^"]+)"',
     )
+    # WhatsApp's thumbnail is drawn from the page's preview image, not the whole video.
+    THUMBNAIL_URL_PATTERNS: ClassVar[tuple[str, ...]] = (
+        r'<meta property="og:image" content="([^"]+)"',
+        r'"thumbnailUrl"\s*:\s*\[?\s*"([^"]+)"',
+    )
 
     def __init__(self) -> None:
         super().__init__()
@@ -79,7 +84,10 @@ class PornoCommand(Command):
     async def _real_porn(self, data: CommandData) -> list[BotMessage]:
         try:
             result = await self._scrape_random_video()
-            return [Reply.to(data).video(result['url'], result['title'])]
+            thumbnail_url = result.get('thumbnail_url')
+            return [
+                Reply.to(data).video(result['url'], result['title'], thumbnail_url=thumbnail_url)
+            ]
         except Exception:
             logger.exception('upstream_failed', upstream='xvideos')
             return [
@@ -120,16 +128,20 @@ class PornoCommand(Command):
         else:
             title = 'Vídeo'
 
-        video_url = next(
-            (
-                match.group(1)
-                for pattern in cls.VIDEO_URL_PATTERNS
-                if (match := re.search(pattern, page_html))
-            ),
-            None,
-        )
+        video_url = cls._first_match(cls.VIDEO_URL_PATTERNS, page_html)
         if not video_url:
             msg = 'Não foi possível extrair URL do vídeo'
             raise ExternalServiceError(msg)
 
-        return {'url': video_url, 'title': title}
+        video = {'url': video_url, 'title': title}
+        thumbnail_url = cls._first_match(cls.THUMBNAIL_URL_PATTERNS, page_html)
+        if thumbnail_url:
+            video['thumbnail_url'] = thumbnail_url
+        return video
+
+    @staticmethod
+    def _first_match(patterns: tuple[str, ...], page_html: str) -> str | None:
+        return next(
+            (match.group(1) for pattern in patterns if (match := re.search(pattern, page_html))),
+            None,
+        )
