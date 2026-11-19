@@ -2,9 +2,9 @@ name: External contracts
 
 # Runs every command against its real upstream each night, so a broken third-party
 # API shows up here before a user reports it. It is not a PR gate, because an
-# upstream outage must not block merges. A failing night files or comments on one
-# issue labelled external-api. The GitHub-hosted runner is a datacenter IP like the
-# OCI nodes, so IP-based blocks show up here as they do in prod.
+# upstream outage must not block merges. A call that fails two nights in a row gets
+# its own issue labelled external-api. The GitHub-hosted runner is a datacenter IP
+# like the OCI nodes, so IP-based blocks show up here as they do in prod.
 on:
   schedule:
     - cron: '0 6 * * *'
@@ -53,13 +53,12 @@ jobs:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           YTDLP_COOKIES: ${{ runner.temp }}/cookies.txt
-      # Every failing night comments on the nightly issue. A call that also failed the
-      # night before gets an issue of its own, and further failures comment on that one.
+      # A call that also failed the night before gets an issue of its own, and further
+      # failures comment on that one.
       - if: failure() && github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          NIGHTLY_TITLE: External API contracts failing
         run: |
           open_issue() {
             TITLE="$1" gh issue list --label external-api --state open --json number,title \
@@ -77,16 +76,6 @@ jobs:
           EOF
           mapfile -t failed < failures.txt
 
-          list=$(printf -- "- \`%s\`\n" "${failed[@]}")
-          body=$(printf 'Failed on %s:\n\n%s\n\nRun: %s' "$today" "$list" "$RUN_URL")
-          nightly=$(open_issue "$NIGHTLY_TITLE")
-          if [ -n "$nightly" ]; then
-            gh issue comment "$nightly" --body "$body"
-          else
-            url=$(gh issue create --title "$NIGHTLY_TITLE" --label external-api --body "$body")
-            nightly=${url##*/}
-          fi
-
           read -r previous_run previous_date < <(gh run list --workflow external-contracts.yml \
             --event schedule --status completed --limit 1 --json databaseId,createdAt \
             --jq '.[0] | "\(.databaseId) \(.createdAt[:10])"') || true
@@ -103,8 +92,8 @@ jobs:
               gh issue comment "$issue" --body "Failed again on $today: $RUN_URL"
             elif grep -qxF -- "$call" <<<"$previous"; then
               previous_url="${RUN_URL%/*}/$previous_run"
-              body=$(printf "%s failed its external contract two nights in a row.\n\n- %s: %s\n- %s: %s\n\nNightly report: #%s" \
-                "\`$call\`" "$previous_date" "$previous_url" "$today" "$RUN_URL" "$nightly")
+              body=$(printf "%s failed its external contract two nights in a row.\n\n- %s: %s\n- %s: %s" \
+                "\`$call\`" "$previous_date" "$previous_url" "$today" "$RUN_URL")
               gh issue create --title "$title" --label external-api --label bug --body "$body"
             fi
           done
