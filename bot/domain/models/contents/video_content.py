@@ -9,6 +9,8 @@ class VideoContent:
     view_once: bool = True
     type: str = 'video'
     jpeg_thumbnail: bytes | None = None
+    # The upstream's preview image: WhatsApp's thumbnail is drawn from it, not the video.
+    thumbnail_url: str | None = None
 
     @property
     def has_buffer(self) -> bool:

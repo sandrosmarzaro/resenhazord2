@@ -4,11 +4,13 @@ from pathlib import Path
 from typing import ClassVar
 
 import anyio
+import httpx
 import structlog
 
 from bot.domain.exceptions import VideoThumbnailError
-from bot.domain.models.contents.video_content import VideoBufferContent
+from bot.domain.models.contents.video_content import VideoBufferContent, VideoContent
 from bot.domain.models.message import BotMessage
+from bot.infrastructure.http_client import HttpClient
 
 logger = structlog.get_logger()
 
@@ -43,13 +45,31 @@ class VideoThumbnail:
     @classmethod
     async def attach(cls, message: BotMessage) -> BotMessage:
         content = message.content
-        if not isinstance(content, VideoBufferContent):
+        if not isinstance(content, VideoBufferContent | VideoContent):
             return message
         try:
-            content.jpeg_thumbnail = await cls._frame(content.data)
+            content.jpeg_thumbnail = await cls._draw(content)
         except VideoThumbnailError as error:
             logger.warning('video_thumbnail_failed', error=str(error))
         return message
+
+    @classmethod
+    async def _draw(cls, content: VideoBufferContent | VideoContent) -> bytes | None:
+        if isinstance(content, VideoBufferContent):
+            return await cls._frame(content.data)
+        # A URL video has no bytes here, and downloading it all for one frame costs far
+        # more than the upstream's preview image.
+        if content.thumbnail_url is None:
+            return None
+        return await cls._frame(await cls._preview(content.thumbnail_url))
+
+    @classmethod
+    async def _preview(cls, url: str) -> bytes:
+        try:
+            return await HttpClient.get_buffer(url, timeout=cls._TIMEOUT_SECONDS)
+        except httpx.HTTPError as error:
+            # Only the type: an httpx message carries the whole URL.
+            raise VideoThumbnailError(type(error).__name__) from error
 
     @classmethod
     async def _frame(cls, media: bytes) -> bytes:
