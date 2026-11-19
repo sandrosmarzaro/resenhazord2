@@ -183,7 +183,7 @@ def tmdb_route(respx_mock):
 
 @pytest.fixture
 def omdb_route(respx_mock):
-    return respx_mock.get(url__startswith='http://www.omdbapi.com/')
+    return respx_mock.get(url__startswith='https://www.omdbapi.com/')
 
 
 @pytest.fixture
