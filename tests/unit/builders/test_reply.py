@@ -86,6 +86,13 @@ class TestReplyVideo:
         assert msg.content.caption == 'vid'
         assert msg.content.view_once is True
 
+    def test_carries_the_upstream_thumbnail_url(self):
+        data = _make_data()
+
+        msg = Reply.to(data).video('https://x/v.mp4', thumbnail_url='https://x/t.jpg')
+
+        assert msg.content.thumbnail_url == 'https://x/t.jpg'
+
 
 class TestReplyAudio:
     def test_build_audio_with_view_once_and_mimetype(self):

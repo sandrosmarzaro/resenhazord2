@@ -1,3 +1,4 @@
+import base64
 from dataclasses import dataclass
 
 
@@ -7,6 +8,9 @@ class VideoContent:
     caption: str | None = None
     view_once: bool = True
     type: str = 'video'
+    jpeg_thumbnail: bytes | None = None
+    # The upstream's preview image: WhatsApp's thumbnail is drawn from it, not the video.
+    thumbnail_url: str | None = None
 
     @property
     def has_buffer(self) -> bool:
@@ -16,6 +20,8 @@ class VideoContent:
         d: dict = {'type': self.type, 'url': self.url, 'view_once': self.view_once}
         if self.caption:
             d['caption'] = self.caption
+        if self.jpeg_thumbnail:
+            d['jpeg_thumbnail'] = base64.b64encode(self.jpeg_thumbnail).decode()
         return d
 
 
@@ -27,6 +33,7 @@ class VideoBufferContent:
     gif_playback: bool = False
     mentions: list[str] | None = None
     type: str = 'video_buffer'
+    jpeg_thumbnail: bytes | None = None
 
     @property
     def has_buffer(self) -> bool:
@@ -44,4 +51,6 @@ class VideoBufferContent:
             d['caption'] = self.caption
         if self.mentions:
             d['mentions'] = self.mentions
+        if self.jpeg_thumbnail:
+            d['jpeg_thumbnail'] = base64.b64encode(self.jpeg_thumbnail).decode()
         return d

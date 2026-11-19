@@ -17,6 +17,7 @@ from bot.domain.exceptions import BotError, DownloadError, ExternalServiceError,
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.contents.image_content import ImageBufferContent
 from bot.domain.models.contents.text_content import TextContent
+from bot.domain.models.contents.video_content import VideoBufferContent
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.command_inbox import RedisCommandInbox
 from tests.fixtures.mock_broker import MockBrokerPort
@@ -107,6 +108,26 @@ class TestMediaReply:
         content = json.loads(body)['messages'][0]['content']
         assert content['type'] == 'image_buffer'
         assert content['buffer_b64'] == base64.b64encode(b'\x01\x02\x03').decode()
+
+    @pytest.mark.anyio
+    async def test_sends_a_video_with_the_thumbnail_ffmpeg_drew(self, mocker):
+        broker = MockBrokerPort()
+        process = mocker.AsyncMock(returncode=0)
+        process.communicate.return_value = (b'jpeg', b'')
+        mocker.patch(
+            'bot.domain.services.video_thumbnail.asyncio.create_subprocess_exec',
+            return_value=process,
+        )
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = [BotMessage(jid='g@g.us', content=VideoBufferContent(b'mp4'))]
+        consumer = CommandConsumer(broker, handler)
+        await consumer.start()
+
+        await broker.deliver('commands', _envelope(',dl'))
+
+        _, body = broker.published[0]
+        content = json.loads(body)['messages'][0]['content']
+        assert content['jpeg_thumbnail'] == base64.b64encode(b'jpeg').decode()
 
 
 class TestRetry:

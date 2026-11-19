@@ -37,8 +37,13 @@ class Reply:
     def image_buffer(self, data: bytes, caption: str | None = None) -> BotMessage:
         return self._build(ImageBufferContent(data=data, caption=caption, view_once=True))
 
-    def video(self, url: str, caption: str | None = None) -> BotMessage:
-        return self._build(VideoContent(url=url, caption=caption, view_once=True))
+    def video(
+        self, url: str, caption: str | None = None, *, thumbnail_url: str | None = None
+    ) -> BotMessage:
+        content = VideoContent(
+            url=url, caption=caption, view_once=True, thumbnail_url=thumbnail_url
+        )
+        return self._build(content)
 
     def video_buffer(
         self,
