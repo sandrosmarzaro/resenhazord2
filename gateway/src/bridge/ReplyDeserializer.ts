@@ -32,8 +32,15 @@ export default class ReplyDeserializer {
     return Buffer.from(String(content.buffer_b64), 'base64');
   }
 
+  // Baileys only shells out to ffmpeg for a video thumbnail when none is given, and the
+  // edge image has no ffmpeg, so the core sends one. Baileys takes it as base64 as is.
+  private static thumbnail(content: ContentDict): { jpegThumbnail?: string } {
+    return content.jpeg_thumbnail ? { jpegThumbnail: content.jpeg_thumbnail as string } : {};
+  }
+
   private static deserializers(): Record<string, Deserializer> {
     const buf = ReplyDeserializer.buffer;
+    const thumbnail = ReplyDeserializer.thumbnail;
     return {
       text: (c) =>
         c.mentions
@@ -53,6 +60,7 @@ export default class ReplyDeserializer {
         video: { url: c.url as string },
         viewOnce: c.view_once as boolean,
         caption: c.caption as string | undefined,
+        ...thumbnail(c),
       }),
       video_buffer: (c) => ({
         video: buf(c),
@@ -60,6 +68,7 @@ export default class ReplyDeserializer {
         gifPlayback: (c.gif_playback as boolean) ?? false,
         caption: c.caption as string | undefined,
         ...(c.mentions ? { mentions: c.mentions as string[] } : {}),
+        ...thumbnail(c),
       }),
       audio: (c) => ({
         audio: { url: c.url as string },
