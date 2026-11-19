@@ -29,6 +29,9 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}
       - run: uv sync --frozen
+      # The prod image ships ffmpeg and the runner does not. ,porno and ,fuck remux
+      # every RedGifs video through it.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
       # The core node's login cookies, so ,dl reaches X and Instagram as in prod.
       - run: printf '%s\n' "$COOKIES" > "$RUNNER_TEMP/cookies.txt"
         env:
