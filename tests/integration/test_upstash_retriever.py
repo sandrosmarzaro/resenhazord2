@@ -2,7 +2,6 @@ import os
 
 import pytest
 
-from bot.domain.models.retrieved_example import RetrievedExample
 from bot.infrastructure.llm.upstash_retriever import UpstashExampleRetriever
 
 UPSTASH_URL = os.environ.get('UPSTASH_VECTOR_REST_URL')
@@ -17,23 +16,19 @@ pytestmark = [
 ]
 
 
-class TestRetrieveRoundTrip:
+# Read-only: index_examples prunes every id outside the given bank, so indexing a
+# fixture here would wipe the shared index. It queries the bank index:examples built.
+class TestRetrieve:
     @pytest.fixture
     def anyio_backend(self):
         return 'asyncio'
 
     @pytest.mark.anyio
-    async def test_indexes_and_retrieves_most_similar_first(self):
+    async def test_retrieves_the_most_similar_bank_example_first(self):
         assert UPSTASH_URL is not None
         assert UPSTASH_TOKEN is not None
 
         retriever = UpstashExampleRetriever.from_credentials(UPSTASH_URL, UPSTASH_TOKEN)
-        await retriever.index_examples(
-            [
-                RetrievedExample(text='ver o placar do jogo', command=',score --now'),
-                RetrievedExample(text='me manda um carro aleatório', command=',carro'),
-            ]
-        )
 
         results = await retriever.retrieve('placar dos jogos agora', top_k=1)
 
