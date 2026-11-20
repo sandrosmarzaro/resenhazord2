@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
-          cache-suffix: ${{ github.job }}
+          save-cache: false
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
-          cache-suffix: ${{ github.job }}
+          save-cache: false
       - run: uv sync --frozen
       - run: uv run bandit -c bandit.toml -r bot/
       - name: Dependency cooldown (no package younger than 7 days)
@@ -91,7 +91,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
-          cache-suffix: ${{ github.job }}
+          save-cache: false
       - run: bun install --frozen-lockfile
       - run: bun test:coverage
       # Codecov's patch status is not posted on PRs without coverage, so it cannot be a
@@ -125,7 +125,7 @@ jobs:
           fetch-depth: 0 # diff-cover diffs against the PR base
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
-          cache-suffix: ${{ github.job }}
+          save-cache: false
       - run: uv sync --frozen
       - run: uv run pytest -v --cov=bot --cov-report=xml
       # Codecov's patch status is not posted on PRs without coverage, so it cannot be a
@@ -199,7 +199,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
-          cache-suffix: ${{ github.job }}
+          save-cache: false
       - run: uv sync --frozen
       - run: uv run task complexity
 
@@ -214,7 +214,7 @@ jobs:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
-          cache-suffix: ${{ github.job }}
+          save-cache: false
       - run: uv sync --frozen
       - name: Scope mutation to changed files
         run: |
