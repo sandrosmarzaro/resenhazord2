@@ -145,6 +145,8 @@ AGENT_EXAMPLES = [
     # Download / media extraction
     ('baixar vídeo do youtube', ',dl'),
     ('baixa esse vídeo do tiktok', ',dl'),
+    ('manda um short', ',short'),
+    ('um reels de gato', ',short gato'),
     ('extrair a imagem do sticker', ',extrair'),
     ('imagem original da figurinha', ',extrair'),
     # Country flag
@@ -167,6 +169,9 @@ AGENT_EXAMPLES = [
     ('manda um carro no status do grupo', ',carro status'),
     ('posta um animal no status', ',animal status'),
     ('gerenciar a lista de devs', ',dev'),
+    # Bot links
+    ('como adiciono o bot no discord', ',links'),
+    ('link do bot', ',links'),
     # Fun / misc
     ('quantos nargas o borges fumou', ',borges'),
     ('probabilidade do mateus nascer', ',mateus'),

@@ -37,6 +37,7 @@ from bot.domain.commands.hentai import HentaiCommand
 from bot.domain.commands.horoscope import HoroscopeCommand
 from bot.domain.commands.jackpot import JackpotCommand
 from bot.domain.commands.league_of_legends import LeagueOfLegendsCommand
+from bot.domain.commands.links import LinksCommand
 from bot.domain.commands.lottery import LotteryCommand
 from bot.domain.commands.magic_the_gathering import MagicTheGatheringCommand
 from bot.domain.commands.mateus import MateusCommand
@@ -55,6 +56,7 @@ from bot.domain.commands.puppy import PuppyCommand
 from bot.domain.commands.quran import QuranCommand
 from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.commands.score import ScoreCommand
+from bot.domain.commands.short import ShortCommand
 from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
@@ -163,6 +165,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(PornoCommand())
     registry.register(PuppyCommand())
     registry.register(Rule34Command())
+    registry.register(ShortCommand())
     registry.register(StickerCommand())
     registry.register(TorahCommand())
     registry.register(YugiohCommand())
@@ -172,6 +175,11 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
     registry.register(AddCommand(bot_jid=settings.resenhazord2_jid))
     registry.register(BanCommand(bot_jid=settings.resenhazord2_jid))
     registry.register(BibleCommand())
+    registry.register(
+        LinksCommand(
+            settings.resenhazord2_jid, settings.discord_app_id, settings.telegram_bot_username
+        )
+    )
     registry.register(CountryFlagCommand(api_key=settings.restcountries_api_key))
     registry.register(DownloadCommand(cookies_path=settings.ytdlp_cookies))
     registry.register(
