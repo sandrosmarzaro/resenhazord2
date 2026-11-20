@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 
-from bot.data.short_topics import SHORT_TOPICS
 from bot.domain.commands.short import ShortCommand
 from bot.domain.exceptions import DownloadError
 from bot.domain.models.message import TextContent, VideoBufferContent
@@ -11,6 +11,8 @@ from tests.factories.command_data import GroupCommandDataFactory
 
 MERGED_FORMAT = 'bv*[vcodec^=avc1]+ba[ext=m4a]/b[ext=mp4]'
 DOWNLOAD_FAILED = 'Não consegui baixar um short agora, tenta de novo! 😅'
+FEED_URL = 'https://www.youtube.com/shorts/'
+SEQUENCE_URL = 'https://www.youtube.com/youtubei/v1/reel/reel_watch_sequence'
 
 # Trimmed from a real `yt-dlp --flat-playlist --dump-json "ytsearch5:gato caindo #shorts"`.
 SHORT_ENTRY = {
@@ -33,6 +35,31 @@ LONG_ENTRY = {
 }
 LIVE_ENTRY = {**SHORT_ENTRY, 'id': 'live', 'url': 'https://www.youtube.com/watch?v=live'}
 LIVE_ENTRY['duration'] = None
+
+# Trimmed from the ytInitialData of a real logged-out https://www.youtube.com/shorts/.
+SEQUENCE_PARAMS = (
+    'GnAKC29jY19SWmUyVU5FGAAgATC99czq4fuBuQNCUwgAECAaNfIGMgowCgWaAQIQARgBIgIgAerE77wLFRIT'
+    'CLW28_fRlpgDFe4cHgAdLMoyhOq6yvMNAggMIgcKBTMyOlNIKg0KC29jY19SWmUyVU5FKgIYDEIAYgRSRFNI'
+)
+FEED_PAGE = (
+    '<script nonce="x">var ytInitialData = {"responseContext":{},'
+    '"replacementEndpoint":{"reelWatchEndpoint":{"videoId":"occ_RZe2UNE"}},'
+    f'"sequenceContinuation":"{SEQUENCE_PARAMS}"}};</script>'
+)
+# Trimmed from the real reel_watch_sequence answer to that page.
+FEED_IDS = ('HEzlab6sfCg', '8UdWKXeIiII', 'ZHbMehel4l0')
+FEED_SEQUENCE = {
+    'entries': [
+        {
+            'command': {
+                'commandMetadata': {'webCommandMetadata': {'url': f'/shorts/{video_id}'}},
+                'reelWatchEndpoint': {'videoId': video_id},
+            }
+        }
+        for video_id in FEED_IDS
+    ],
+}
+FEED_URLS = {f'https://www.youtube.com/shorts/{video_id}' for video_id in FEED_IDS}
 
 
 def _search_output(*entries: dict) -> bytes:
@@ -59,6 +86,7 @@ class FakeYtDlp:
         self._mocker = mocker
         self.search = (_search_output(SHORT_ENTRY), b'', 0)
         self.download = (b'video-bytes', b'', 0)
+        self.metadata = {'title': SHORT_ENTRY['title'], 'channel': SHORT_ENTRY['channel']}
         self.exec = mocker.patch('asyncio.create_subprocess_exec', side_effect=self._run)
 
     def args(self, run: int) -> tuple:
@@ -68,19 +96,37 @@ class FakeYtDlp:
         if '--flat-playlist' in args:
             stdout, stderr, returncode = self.search
         else:
-            stdout, (video, stderr, returncode) = b'', self.download
-            # yt-dlp merges the streams into the file the output template names.
-            if video is not None:
-                template = args[args.index('-o') + 1]
-                Path(template.replace('%(ext)s', 'mp4')).write_bytes(video)
+            stdout, stderr, returncode = self._download(args)
         process = self._mocker.AsyncMock(returncode=returncode)
         process.communicate.return_value = (stdout, stderr)
         return process
+
+    def _download(self, args: tuple) -> tuple[bytes, bytes, int]:
+        video, stderr, returncode = self.download
+        # --print alone only simulates; --no-simulate prints and downloads.
+        printed = args[args.index('--print') + 1] % self.metadata if '--print' in args else ''
+        # yt-dlp merges the streams into the file the output template names.
+        if video is not None and '--no-simulate' in args:
+            template = args[args.index('-o') + 1]
+            Path(template.replace('%(ext)s', 'mp4')).write_bytes(video)
+        return f'{printed}\n'.encode(), stderr, returncode
 
 
 @pytest.fixture
 def yt_dlp(mocker):
     return FakeYtDlp(mocker)
+
+
+@pytest.fixture
+def feed_page(respx_mock):
+    return respx_mock.get(FEED_URL).mock(return_value=httpx.Response(200, text=FEED_PAGE))
+
+
+@pytest.fixture
+def feed_sequence(respx_mock):
+    return respx_mock.post(url__startswith=SEQUENCE_URL).mock(
+        return_value=httpx.Response(200, json=FEED_SEQUENCE)
+    )
 
 
 class TestMatches:
@@ -125,15 +171,6 @@ class TestRun:
         assert yt_dlp.args(0)[-1] == 'ytsearch50:gato caindo #shorts'
 
     @pytest.mark.anyio
-    async def test_draws_a_topic_without_a_term(self, command, yt_dlp):
-        data = GroupCommandDataFactory.build(text=',short')
-
-        await command.run(data)
-
-        query = yt_dlp.args(0)[-1]
-        assert query.removeprefix('ytsearch50:').removesuffix(' #shorts') in SHORT_TOPICS
-
-    @pytest.mark.anyio
     async def test_skips_videos_over_a_minute_or_without_duration(self, command, yt_dlp):
         data = GroupCommandDataFactory.build(text=',short gato')
         yt_dlp.search = (_search_output(LONG_ENTRY, LIVE_ENTRY, SHORT_ENTRY), b'', 0)
@@ -166,6 +203,64 @@ class TestRun:
         messages = await command.run(data)
 
         assert messages[0].content.gif_playback is gif_playback
+
+
+class TestFeed:
+    @pytest.mark.anyio
+    async def test_sends_a_short_from_the_feed_without_a_term(
+        self, command, yt_dlp, feed_page, feed_sequence
+    ):
+        data = GroupCommandDataFactory.build(text=',short')
+
+        await command.run(data)
+
+        assert yt_dlp.args(0)[-1] in FEED_URLS
+
+    @pytest.mark.anyio
+    async def test_continues_the_feed_the_page_starts(
+        self, command, yt_dlp, feed_page, feed_sequence
+    ):
+        data = GroupCommandDataFactory.build(text=',short')
+
+        await command.run(data)
+
+        body = json.loads(feed_sequence.calls.last.request.content)
+        assert body['sequenceParams'] == SEQUENCE_PARAMS
+        assert body['context']['client']['clientName'] == 'WEB'
+
+    @pytest.mark.anyio
+    async def test_page_without_a_feed_is_a_download_error(self, command, yt_dlp, respx_mock):
+        data = GroupCommandDataFactory.build(text=',short')
+        respx_mock.get(FEED_URL).mock(return_value=httpx.Response(200, text='<html></html>'))
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == DOWNLOAD_FAILED
+
+    @pytest.mark.anyio
+    async def test_empty_feed_is_a_download_error(self, command, yt_dlp, feed_page, respx_mock):
+        data = GroupCommandDataFactory.build(text=',short')
+        respx_mock.post(url__startswith=SEQUENCE_URL).mock(
+            return_value=httpx.Response(200, json={'entries': []})
+        )
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == DOWNLOAD_FAILED
+
+    @pytest.mark.anyio
+    async def test_feed_http_failure_is_a_download_error(
+        self, command, yt_dlp, feed_page, respx_mock
+    ):
+        data = GroupCommandDataFactory.build(text=',short')
+        respx_mock.post(url__startswith=SEQUENCE_URL).mock(return_value=httpx.Response(500))
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert exc_info.value.user_message == DOWNLOAD_FAILED
 
 
 class TestNoResults:

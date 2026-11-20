@@ -1,7 +1,8 @@
 import random
 from typing import ClassVar
 
-from bot.data.short_topics import SHORT_TOPICS
+import httpx
+
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import (
     ArgType,
@@ -40,20 +41,17 @@ class ShortCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Recebe um short aleatório do YouTube, ou um sobre o que você buscar.'
+        return 'Recebe um short aleatório do feed do YouTube, ou um sobre o que você buscar.'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        term = parsed.rest.strip() or random.choice(SHORT_TOPICS)
         try:
-            return await self._send_random_short(data, term)
-        except RuntimeError as error:
+            return await self._send_random_short(data, parsed.rest.strip())
+        except (RuntimeError, httpx.HTTPError) as error:
             raise DownloadError(self.DOWNLOAD_FAILED, detail=str(error)) from error
 
     async def _send_random_short(self, data: CommandData, term: str) -> list[BotMessage]:
-        shorts = await YouTubeShorts.search(term)
+        shorts = await YouTubeShorts.search(term) if term else await YouTubeShorts.feed()
         if not shorts:
             return [Reply.to(data).text(self.NO_RESULTS.format(term=term))]
-        short = random.choice(shorts)
-        video = await YtDlpService.download_merged(short.url)
-        caption = f'{short.title} · {short.channel}'
+        video, caption = await YtDlpService.download_merged(random.choice(shorts))
         return [Reply.to(data).video_buffer(video, caption, gif_playback=Mp4.is_silent(video))]
