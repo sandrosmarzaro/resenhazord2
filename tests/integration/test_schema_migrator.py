@@ -13,6 +13,7 @@ from bot.infrastructure.schema_migrator import SchemaMigrator
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / 'alembic.ini'
 CHAT_TABLES = '21e07392eca2'
 DEV_ADMIN = '04501864102e'
+BLOCKED_USERS = 'f0bad2d6baa2'
 
 
 @pytest.fixture(scope='module')
@@ -48,6 +49,14 @@ async def _migrate(engine, step, revision: str) -> None:
 
     async with engine.begin() as connection:
         await connection.run_sync(run)
+
+
+async def _unique_keys(engine, table: str) -> list[list[str]]:
+    async with engine.connect() as connection:
+        constraints = await connection.run_sync(
+            lambda sync: inspect(sync).get_unique_constraints(table)
+        )
+    return [constraint['column_names'] for constraint in constraints]
 
 
 async def _chat_columns(engine) -> set[str]:
@@ -103,3 +112,22 @@ class TestDevAdminRevision:
         await _migrate(engine, command.downgrade, CHAT_TABLES)
 
         assert 'dev_admin' not in await _chat_columns(engine)
+
+
+class TestBlockedUserRevision:
+    @pytest.mark.anyio
+    async def test_creates_the_table_unique_per_chat_and_user(self, engine):
+        await _migrate(engine, command.downgrade, 'base')
+
+        await _migrate(engine, command.upgrade, BLOCKED_USERS)
+
+        assert await _unique_keys(engine, 'chat_blocked_user') == [['chat_id', 'user_key']]
+
+    @pytest.mark.anyio
+    async def test_downgrade_drops_the_table(self, engine):
+        await _migrate(engine, command.upgrade, BLOCKED_USERS)
+
+        await _migrate(engine, command.downgrade, DEV_ADMIN)
+
+        _, tables = await _schema(engine)
+        assert 'chat_blocked_user' not in tables
