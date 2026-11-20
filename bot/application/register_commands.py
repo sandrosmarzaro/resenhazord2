@@ -56,6 +56,7 @@ from bot.domain.commands.puppy import PuppyCommand
 from bot.domain.commands.quran import QuranCommand
 from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.commands.score import ScoreCommand
+from bot.domain.commands.short import ShortCommand
 from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
@@ -164,6 +165,7 @@ def _register_simple_commands(registry: CommandRegistry) -> None:
     registry.register(PornoCommand())
     registry.register(PuppyCommand())
     registry.register(Rule34Command())
+    registry.register(ShortCommand())
     registry.register(StickerCommand())
     registry.register(TorahCommand())
     registry.register(YugiohCommand())
