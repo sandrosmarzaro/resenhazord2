@@ -45,9 +45,10 @@ Findings come through the official plugin (`aikido@claude-plugins-official`, MCP
 
 SonarCloud flags every changed line that calls `random.choice`, `random.randint` or
 `random.shuffle` with `python:S2245` ("pseudorandom generator"). The CI step "Fail on new
-Sonar issues" then fails the PR. In this repo `random` only picks content to show (a page,
-a player, a club, a lineup order), so these are false positives. Keep `random` with
-`# noqa: S311` (the ruff equivalent) and do not switch to `secrets` just to quiet Sonar.
+Sonar issues" then fails the release PR (Sonar runs only on PRs into `main`). In this repo
+`random` only picks content to show (a page, a player, a club, a lineup order), so these
+are false positives. Keep `random` with `# noqa: S311` (the ruff equivalent) and do not
+switch to `secrets` just to quiet Sonar.
 
 Resolve them as **false positive** in SonarCloud with a one-line reason, then rerun the
 failed job (`gh run rerun <run> --failed`). Through the API, with `SONAR_TOKEN` read from

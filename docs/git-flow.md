@@ -117,7 +117,8 @@ When `develop` has accumulated enough changes to release:
    This reads conventional commits since the last tag, bumps `pyproject.toml` version, and updates `CHANGELOG.md`. It deletes the local tag so the tag is created on `main` by CI later.
 2. Push to develop: `git push origin develop`
 3. Open a PR **from `develop` into `main`** using the Release PR template (append `?template=release.md` to the PR URL, or pick it from the template dropdown).
-4. Confirm CI is green.
+4. Confirm CI is green. Mutation testing and the SonarQube scan run only on PRs into `main`,
+   over everything changed since the last release, so fix or resolve their findings here.
 5. **Merge with "Create a merge commit"** — not squash, not rebase. This is **mandatory**.
 
    Why: the merge commit must include every conventional commit so the version bump and CHANGELOG in the PR already reflect the correct changes. A squash would collapse history.
