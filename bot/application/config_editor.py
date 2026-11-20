@@ -15,7 +15,8 @@ Handler = Callable[[CommandData, str], Awaitable[str]]
 class ConfigEditor:
     _HELP: ClassVar[str] = (
         'Use: *,config on|off|reset <comando|nsfw|download|group|random|info>* '
-        'ou *,config policy open|curated* ou *,config dev on|off*.'
+        'ou *,config policy open|curated* ou *,config dev on|off* '
+        'ou *,config bloquear|desbloquear @fulano* ou *,config bloqueados*.'
     )
     _INVALID: ClassVar[str] = '❓ Não reconheço *{token}* como comando ou tipo configurável.'
     _UNKNOWN_POLICY: ClassVar[str] = '❓ Política inválida. Use *open* ou *curated*.'
