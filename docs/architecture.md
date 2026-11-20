@@ -19,7 +19,7 @@ resenhazord2/
     data/                        Lookup tables, emoji maps, static datasets
     domain/
       builders/reply.py          Fluent Reply.to(data).text(...) API
-      commands/                  46 command implementations (base.py + subclasses)
+      commands/                  56 command implementations (base.py + subclasses)
       models/                    CommandData, BotMessage, content types
       parsers/command_parser.py  Regex + tokenizer generated from CommandConfig
       services/                  Shared business logic used by commands
