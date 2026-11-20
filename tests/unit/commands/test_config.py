@@ -8,6 +8,7 @@ from tests.factories.command_data import GroupCommandDataFactory
 def admin(mocker):
     admin = mocker.AsyncMock()
     admin.is_authorized.return_value = True
+    admin.is_admin.return_value = True
     return admin
 
 
@@ -54,3 +55,35 @@ class TestUnauthorized:
 
         assert 'admin' in result[0].content.text.lower()
         editor.apply.assert_not_called()
+
+
+class TestDevAdminToggle:
+    @pytest.mark.anyio
+    async def test_turning_it_on_takes_a_real_admin(self, command, admin, editor):
+        admin.is_admin.return_value = False
+        data = GroupCommandDataFactory(text=', config dev on', platform='whatsapp')
+
+        result = await command.run(data)
+
+        assert 'admin' in result[0].content.text.lower()
+        editor.apply.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_a_real_admin_turns_it_on(self, command, admin, editor):
+        data = GroupCommandDataFactory(text=', config Dev On', platform='whatsapp')
+
+        await command.run(data)
+
+        admin.is_admin.assert_awaited_once()
+        admin.is_authorized.assert_not_called()
+        assert editor.apply.await_args.args[1] == 'Dev On'
+
+    @pytest.mark.anyio
+    async def test_turning_it_off_takes_the_usual_check(self, command, admin, editor):
+        data = GroupCommandDataFactory(text=', config dev off', platform='whatsapp')
+
+        await command.run(data)
+
+        admin.is_authorized.assert_awaited_once()
+        admin.is_admin.assert_not_called()
+        assert editor.apply.await_args.args[1] == 'dev off'
