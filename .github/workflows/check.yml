@@ -80,7 +80,8 @@ jobs:
   test-ts:
     name: TS tests
     runs-on: ubuntu-latest
-    needs: lint-ts
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true'
     defaults:
       run:
         working-directory: gateway
@@ -118,7 +119,8 @@ jobs:
   test-py:
     name: Python tests
     runs-on: ubuntu-latest
-    needs: [lint-py, security-py, complexity-py]
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     steps:
       - uses: actions/checkout@v5
         with:
