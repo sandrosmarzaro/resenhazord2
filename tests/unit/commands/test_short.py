@@ -136,7 +136,7 @@ class TestMatches:
             (',short', True),
             (', short', True),
             (', SHORT gato caindo', True),
-            (',reels futebol', True),
+            (',reels futebol', False),
             (',short show', True),
             ('short', False),
             ('hello', False),
@@ -164,7 +164,7 @@ class TestRun:
 
     @pytest.mark.anyio
     async def test_searches_shorts_about_the_term(self, command, yt_dlp):
-        data = GroupCommandDataFactory.build(text=',reels gato caindo')
+        data = GroupCommandDataFactory.build(text=',short gato caindo')
 
         await command.run(data)
 
