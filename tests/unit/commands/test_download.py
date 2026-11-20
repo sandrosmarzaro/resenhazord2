@@ -493,7 +493,8 @@ class FakeYouTube:
         return process
 
     def _answer(self, args: tuple) -> tuple[bytes, bytes, int]:
-        if '--print' in args:
+        # --print alone only simulates; --no-simulate prints and downloads.
+        if '--print' in args and '--no-simulate' not in args:
             return b'Gato caindo\n', b'', 0
         template = args[args.index('-o') + 1]
         if template == '-':

@@ -13,6 +13,7 @@ class YtDlpService:
     MAX_FILESIZE = '50M'
     # H.264 and AAC, which every WhatsApp client plays.
     MERGED_FORMAT = 'bv*[vcodec^=avc1]+ba[ext=m4a]/b[ext=mp4]'
+    CAPTION_TEMPLATE = '%(title)s · %(channel)s'
     IMAGE_HOST_SUFFIX = '.fbcdn.net'
 
     @classmethod
@@ -33,7 +34,8 @@ class YtDlpService:
         title_stdout, _ = await title_proc.communicate()
         title = title_stdout.decode().strip() or 'Vídeo'
         if cls._is_youtube(url):
-            return await cls.download_merged(url, cookies_path), title
+            video, _ = await cls.download_merged(url, cookies_path)
+            return video, title
 
         video_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
@@ -68,7 +70,7 @@ class YtDlpService:
         return video_stdout, title
 
     @classmethod
-    async def download_merged(cls, url: str, cookies_path: str = '') -> bytes:
+    async def download_merged(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
         # YouTube no longer serves one mp4 with both streams, and yt-dlp merges into
         # stdout only as MPEG-TS, so the streams merge into an mp4 file first.
         cookies = ['--cookies', cookies_path] if cookies_path else []
@@ -76,6 +78,10 @@ class YtDlpService:
             process = await asyncio.create_subprocess_exec(
                 'yt-dlp',
                 *cookies,
+                # The caption rides the same run; --print alone would skip the download.
+                '--no-simulate',
+                '--print',
+                cls.CAPTION_TEMPLATE,
                 '--playlist-items',
                 '1',
                 '-f',
@@ -92,13 +98,13 @@ class YtDlpService:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, stderr = await process.communicate()
+            stdout, stderr = await process.communicate()
             video = Path(directory) / 'video.mp4'
             # An over-cap file aborts with exit 0 and writes nothing.
             if process.returncode != 0 or not video.exists():
                 msg = f'yt-dlp failed: {stderr.decode().strip()}'
                 raise RuntimeError(msg)
-            return video.read_bytes()
+            return video.read_bytes(), stdout.decode().strip()
 
     @staticmethod
     def _is_youtube(url: str) -> bool:
