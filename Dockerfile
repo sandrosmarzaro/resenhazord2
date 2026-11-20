@@ -47,8 +47,12 @@ RUN apk add --no-cache \
     libsodium \
     ttf-dejavu \
     font-noto-emoji \
+    libstdc++ \
+    libgcc \
     && addgroup -S nonroot && adduser -S -G nonroot nonroot
 
+# yt-dlp solves YouTube's n challenge in JavaScript; the gateway's Bun build runs on musl.
+COPY --from=oven/bun:1.3.9-alpine /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=builder /app /app
 
 ENV PATH="/app/.venv/bin:$PATH"
