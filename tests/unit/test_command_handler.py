@@ -138,6 +138,7 @@ class TestPerGroupConfig:
     ):
         config_service = mocker.AsyncMock()
         config_service.is_enabled.return_value = False
+        config_service.is_blocked.return_value = False
         handler = CommandHandler(
             registry=registry, agent=agent, dev_list=mock_dev_list, config_service=config_service
         )
@@ -601,3 +602,22 @@ class TestSuggestHandler:
 
         assert result is not None
         assert result[0].content.text == AGENT_MENU_HINT
+
+
+class TestBlockedSender:
+    @pytest.mark.anyio
+    async def test_a_command_gets_an_empty_reply_and_never_runs(self, handler, mock_config_service):
+        mock_config_service.is_blocked.return_value = True
+
+        result = await handler.handle(_group(',pub'))
+
+        assert result == []
+
+    @pytest.mark.anyio
+    async def test_agent_text_never_reaches_the_agent(self, handler, agent, mock_config_service):
+        mock_config_service.is_blocked.return_value = True
+
+        result = await handler.handle(_group('me mande um pacotinho de yugioh'))
+
+        assert result is None
+        agent.run.assert_not_awaited()

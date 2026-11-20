@@ -9,7 +9,7 @@ from bot.domain.commands.base import (
     CommandScope,
     ParsedCommand,
 )
-from bot.domain.models.chat_config import ChatConfig, ChatPolicy
+from bot.domain.models.chat_config import ChatConfig, ChatKey, ChatPolicy, ChatType
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from tests.factories.command_data import GroupCommandDataFactory
@@ -163,3 +163,41 @@ class TestRender:
         assert 'curated' in response
         assert 'oi' in response
         assert 'hentai' in response
+
+
+class TestDevAdmin:
+    @pytest.mark.anyio
+    async def test_on_lets_devs_configure_the_group(self, editor, store, data):
+        response = await editor.apply(data, 'dev on')
+
+        key = ChatKey(platform='whatsapp', native_id=data.jid, type=ChatType.GROUP)
+        store.set_dev_admin.assert_awaited_once_with(key, enabled=True)
+        assert response == '✅ Devs podem configurar o bot neste grupo.'
+
+    @pytest.mark.anyio
+    async def test_off_takes_it_back(self, editor, store, data):
+        response = await editor.apply(data, 'dev OFF')
+
+        assert store.set_dev_admin.await_args.kwargs == {'enabled': False}
+        assert response == '🚫 Devs voltam a precisar ser admin aqui.'
+
+    @pytest.mark.anyio
+    async def test_unknown_state_writes_nothing(self, editor, store, data):
+        response = await editor.apply(data, 'dev talvez')
+
+        assert '*,config dev on*' in response
+        store.set_dev_admin.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_status_shows_the_flag_when_on(self, editor, store, data):
+        store.load.return_value = ChatConfig(dev_admin=True)
+
+        response = await editor.apply(data, '')
+
+        assert response.splitlines()[-1] == '🛠️ Devs podem configurar o bot aqui'
+
+    @pytest.mark.anyio
+    async def test_status_omits_the_flag_when_off(self, editor, store, data):
+        response = await editor.apply(data, '')
+
+        assert 'Devs' not in response

@@ -2,6 +2,8 @@ import pytest
 from telegram.constants import ChatType
 
 from bot.adapters.telegram.agent_router import TelegramAgentRouter
+from bot.adapters.telegram.handler import TelegramUpdateHandler
+from bot.adapters.telegram.renderer import TelegramResponseRenderer
 from bot.domain.commands.base import CommandScope, Platform
 from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.exceptions import BotError
@@ -10,8 +12,10 @@ from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
 from bot.ports.telegram_port import TelegramKind
 from tests.unit.adapters.telegram.conftest import (
+    DEFAULT_BOT_USERNAME,
     DEFAULT_CHAT_ID,
     DEFAULT_USER_ID,
+    make_mention_update,
     make_strategy,
     make_update,
     patch_registry,
@@ -166,6 +170,38 @@ class TestErrorHandling:
 
         await handler.handle(port, make_update('just some text', chat_type=ChatType.GROUP))
 
+        port.send.assert_not_called()
+
+
+class TestBlockedMember:
+    @pytest.fixture
+    def blocked_handler(self, agent, mock_config_service, mock_dev_list):
+        mock_config_service.is_blocked.return_value = True
+        return TelegramUpdateHandler(
+            bot_username=DEFAULT_BOT_USERNAME,
+            router=TelegramAgentRouter(TelegramResponseRenderer(), agent),
+            config_service=mock_config_service,
+            dev_list=mock_dev_list,
+        )
+
+    @pytest.mark.anyio
+    async def test_a_command_gets_no_reply(self, blocked_handler, port, mocker):
+        strategy = make_strategy(mocker, messages=[_ok_message()])
+        patch_registry(mocker, strategy=strategy)
+
+        await blocked_handler.handle(port, make_update('/d20', chat_type=ChatType.GROUP))
+
+        port.send.assert_not_called()
+        strategy.run.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_a_mention_never_reaches_the_agent(self, blocked_handler, port, agent, mocker):
+        patch_registry(mocker, strategy=None)
+        mention = f'@{DEFAULT_BOT_USERNAME}'
+
+        await blocked_handler.handle(port, make_mention_update(f'{mention} oi', len(mention)))
+
+        agent.run.assert_not_awaited()
         port.send.assert_not_called()
 
 

@@ -2,6 +2,26 @@
 
 <!-- version list -->
 
+## v2.19.0 (2026-11-20)
+
+### Feat
+
+- **commands**: send a random instagram reel with ,reels (#373)
+- **commands**: draw ,short from the youtube shorts feed (#371)
+- **config**: let admins block members from using the bot in a group (#367)
+- **commands**: add ,short to send a random youtube short (#366)
+- **commands**: add ,links with the bot's platform links (#364)
+- **config**: let devs pass admin checks in groups that allow it (#365)
+
+### Fix
+
+- **commands**: download youtube links in ,dl as a merged mp4 (#370)
+- **gateway**: bump vitest to 4.1.12 and vite override to 7.3.8 (#369)
+
+### Refactor
+
+- **commands**: share the yt-dlp cookie arguments (#372)
+
 ## v2.18.0 (2026-11-19)
 
 ### Feat

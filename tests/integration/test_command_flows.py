@@ -50,6 +50,8 @@ DEV_ONLY = 'Esse comando é apenas para desenvolvedores. 🛠️'
 CREATED = 'Grupo *futebol* criado com sucesso! 🎉'
 SKIPPED = frozenset({'command_redelivery_skipped', 'command_duplicate_skipped'})
 HANG_SECONDS = 5
+ADMIN_LID = '200000000000002@lid'
+MEMBER_LID = '200000000000003@lid'
 
 
 @pytest.fixture(scope='module')
@@ -322,6 +324,147 @@ class TestChatConfig:
         reply = await bot.send(',hentai', sender=MEMBER_JID)
 
         assert texts(reply) == [COMMAND_OFF_IN_CHAT]
+
+
+class TestDevAdmin:
+    @pytest.mark.anyio
+    async def test_a_dev_member_is_refused_until_the_chat_allows_it(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+
+        refused = await bot.send(',config off d20', sender=MEMBER_JID)
+
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+    @pytest.mark.anyio
+    async def test_a_dev_member_configures_once_an_admin_allows_it(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        await bot.send(',config off d20', sender=MEMBER_JID)
+
+        reply = await bot.send(',d20', sender=OTHER_JID)
+        assert texts(reply) == [COMMAND_OFF_IN_CHAT]
+
+    @pytest.mark.anyio
+    async def test_a_plain_member_stays_refused_where_devs_are_allowed(self, bot, admins_group):
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        refused = await bot.send(',config off d20', sender=MEMBER_JID)
+
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+    @pytest.mark.anyio
+    async def test_a_dev_member_cannot_turn_it_on(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        refused = await bot.send(',config dev on', sender=MEMBER_JID)
+
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+    @pytest.mark.anyio
+    async def test_a_dev_member_turns_it_off(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        await bot.send(',config dev off', sender=MEMBER_JID)
+
+        refused = await bot.send(',config off d20', sender=MEMBER_JID)
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+
+class TestMemberBlocks:
+    @pytest.fixture
+    def lid_group(self, mock_whatsapp):
+        mock_whatsapp.group_metadata.return_value = group_metadata(
+            {'id': ADMIN_LID, 'phoneNumber': ADMIN_JID, 'admin': 'admin'},
+            {'id': MEMBER_LID, 'phoneNumber': MEMBER_JID, 'admin': None},
+        )
+        return mock_whatsapp
+
+    @pytest.mark.anyio
+    async def test_a_blocked_member_gets_no_reply_in_the_group(self, bot, admins_group):
+        await bot.send(',config bloquear @x', sender=ADMIN_JID, mentioned=[MEMBER_JID])
+
+        reply = await bot.send(',d20', sender=MEMBER_JID)
+
+        assert reply['messages'] == []
+
+    @pytest.mark.anyio
+    async def test_a_blocked_member_still_works_in_another_group_and_in_dm(self, bot, admins_group):
+        await bot.send(',config bloquear @x', sender=ADMIN_JID, mentioned=[MEMBER_JID])
+
+        elsewhere = await bot.send(',d20', sender=MEMBER_JID, jid=GROUP_B)
+        private = await bot.send(',d20', sender=MEMBER_JID, jid=MEMBER_JID, is_group=False)
+
+        assert texts(elsewhere)[0].startswith('Aqui está sua rolada:')
+        assert texts(private)[0].startswith('Aqui está sua rolada:')
+
+    @pytest.mark.anyio
+    async def test_unblocking_lets_the_member_back_in(self, bot, admins_group):
+        await bot.send(',config bloquear @x', sender=ADMIN_JID, mentioned=[MEMBER_JID])
+        await bot.send(',config desbloquear @x', sender=ADMIN_JID, mentioned=[MEMBER_JID])
+
+        reply = await bot.send(',d20', sender=MEMBER_JID)
+
+        assert texts(reply)[0].startswith('Aqui está sua rolada:')
+
+    @pytest.mark.anyio
+    async def test_a_member_cannot_block(self, bot, admins_group):
+        refused = await bot.send(',config bloquear @x', sender=MEMBER_JID, mentioned=[OTHER_JID])
+
+        reply = await bot.send(',d20', sender=OTHER_JID)
+
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+        assert texts(reply)[0].startswith('Aqui está sua rolada:')
+
+    @pytest.mark.anyio
+    async def test_an_admin_cannot_be_blocked(self, bot, admins_group):
+        refused = await bot.send(',config bloquear @x', sender=OWNER_JID, mentioned=[ADMIN_JID])
+
+        reply = await bot.send(',d20', sender=ADMIN_JID)
+
+        assert texts(refused) == ['🙅 Admin não pode ser bloqueado.']
+        assert texts(reply)[0].startswith('Aqui está sua rolada:')
+
+    @pytest.mark.anyio
+    async def test_a_blocked_dev_is_exempt(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+        await bot.send(',config bloquear @x', sender=ADMIN_JID, mentioned=[MEMBER_JID])
+
+        reply = await bot.send(',d20', sender=MEMBER_JID)
+
+        assert texts(reply)[0].startswith('Aqui está sua rolada:')
+
+    @pytest.mark.anyio
+    async def test_the_list_mentions_each_blocked_member_once(self, bot, lid_group):
+        await bot.send(
+            ',config bloquear @x', sender=ADMIN_JID, participant=ADMIN_LID, mentioned=[MEMBER_LID]
+        )
+
+        reply = await bot.send(',config bloqueados', sender=ADMIN_JID, participant=ADMIN_LID)
+
+        assert texts(reply) == ['Bloqueados neste grupo: @5527900000003']
+
+    @pytest.mark.anyio
+    async def test_a_lid_mention_blocks_the_phone_number_sender(self, bot, lid_group):
+        await bot.send(
+            ',config bloquear @x', sender=ADMIN_JID, participant=ADMIN_LID, mentioned=[MEMBER_LID]
+        )
+
+        reply = await bot.send(',d20', sender=MEMBER_JID, participant=MEMBER_JID)
+
+        assert reply['messages'] == []
+
+    @pytest.mark.anyio
+    async def test_a_phone_number_mention_blocks_the_lid_sender(self, bot, lid_group):
+        await bot.send(
+            ',config bloquear @x', sender=ADMIN_JID, participant=ADMIN_LID, mentioned=[MEMBER_JID]
+        )
+
+        reply = await bot.send(',d20', sender=MEMBER_LID, participant=MEMBER_LID)
+
+        assert reply['messages'] == []
 
 
 class TestBan:

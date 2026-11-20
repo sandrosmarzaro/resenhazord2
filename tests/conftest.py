@@ -52,6 +52,7 @@ def _reset_singletons():
 def mock_config_service(mocker):
     service = mocker.AsyncMock()
     service.is_enabled.return_value = True
+    service.is_blocked.return_value = False
     return service
 
 

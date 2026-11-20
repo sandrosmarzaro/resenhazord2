@@ -86,6 +86,8 @@ _CALLS = [
     _call(',dl https://x.com/captainamerica/status/719944021058060289', 'ytdlp_cookies'),
     _call(',dl https://www.instagram.com/reel/CDUMkliABpa/', 'ytdlp_cookies'),
     _call(',dl https://x.com/TheEllenShow/status/440322224407314432'),
+    _call(',short'),
+    _call(',reels', 'ytdlp_cookies'),
 ]
 
 

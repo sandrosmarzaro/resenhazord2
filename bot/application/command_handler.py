@@ -50,8 +50,7 @@ class CommandHandler:
         logger.debug('handle_raw', text=repr(data.text))
 
         if self._agent_routing.should_route(data):
-            logger.info('agent_routing', text=data.text)
-            mapped = await self._agent_routing.map(data)
+            mapped = await self._map_by_agent(data)
             if mapped is None:
                 return None
             data = mapped
@@ -73,6 +72,12 @@ class CommandHandler:
 
         return await self._dispatch(command, data, repeat, on_match)
 
+    async def _map_by_agent(self, data: CommandData) -> CommandData | None:
+        if await self._gate.blocks_agent(data):
+            return None
+        logger.info('agent_routing', text=data.text)
+        return await self._agent_routing.map(data)
+
     async def _dispatch(
         self,
         command: Command,
@@ -81,7 +86,7 @@ class CommandHandler:
         on_match: Callable[[Command], Awaitable[None]] | None,
     ) -> list[BotMessage] | None:
         rejection, repeat = await self._gate.admit(command, data, repeat)
-        if rejection:
+        if rejection is not None:
             return rejection
 
         # Only a command that will run reaches the hook, so a rejected ,dl never waits

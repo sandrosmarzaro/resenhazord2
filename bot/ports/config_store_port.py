@@ -1,5 +1,7 @@
+from collections.abc import Sequence
 from typing import Protocol
 
+from bot.domain.models.blocked_member import BlockedMember
 from bot.domain.models.chat_config import ChatConfig, ChatKey, ChatPolicy
 
 
@@ -11,3 +13,9 @@ class ConfigStorePort(Protocol):
     async def clear_override(self, key: ChatKey, command_name: str) -> None: ...
 
     async def set_policy(self, key: ChatKey, policy: ChatPolicy) -> None: ...
+
+    async def set_dev_admin(self, key: ChatKey, *, enabled: bool) -> None: ...
+
+    async def block_members(self, key: ChatKey, members: Sequence[BlockedMember]) -> None: ...
+
+    async def unblock_members(self, key: ChatKey, members: Sequence[BlockedMember]) -> None: ...

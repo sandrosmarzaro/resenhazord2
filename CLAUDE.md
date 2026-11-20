@@ -8,7 +8,7 @@ in this repository.
 Resenhazord2 is a **platform-agnostic chatbot**. Python owns the business logic;
 platform adapters translate native messages into a unified command surface.
 
-- **Python core** (FastAPI + uvicorn) — all 46 commands, services, business logic,
+- **Python core** (FastAPI + uvicorn) — all 56 commands, services, business logic,
   Discord adapter. Located at repo root under `bot/`.
 - **`gateway/`** (Bun + Baileys, TypeScript) — WhatsApp adapter. Receives messages,
   proactively downloads media, forwards command data + binary frames to Python

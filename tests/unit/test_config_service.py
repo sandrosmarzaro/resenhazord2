@@ -2,8 +2,12 @@ import pytest
 
 from bot.application.config_service import ConfigService
 from bot.domain.commands.base import CommandConfig, CommandScope
+from bot.domain.models.blocked_member import BlockedMember
 from bot.domain.models.chat_config import ChatConfig, ChatPolicy
-from tests.factories.command_data import GroupCommandDataFactory
+from tests.factories.command_data import GroupCommandDataFactory, PrivateCommandDataFactory
+
+PN = '5527900000003@s.whatsapp.net'
+LID = '123456789012345@lid'
 
 
 @pytest.fixture
@@ -96,3 +100,34 @@ class TestCuratedPolicy:
         enabled = await service.is_enabled(data, public())
 
         assert enabled is True
+
+
+class TestIsBlocked:
+    @pytest.mark.anyio
+    async def test_a_group_blocks_a_sender_stored_under_the_other_form(self, mocker):
+        store = mocker.AsyncMock()
+        store.load.return_value = ChatConfig(blocked=(BlockedMember(key=PN, alt_key=LID),))
+        data = GroupCommandDataFactory(platform='whatsapp', sender_jid=LID, participant=LID)
+
+        blocked = await ConfigService(store).is_blocked(data)
+
+        assert blocked is True
+        store.load.assert_awaited_once_with('whatsapp', data.jid)
+
+    @pytest.mark.anyio
+    async def test_a_group_lets_an_unblocked_sender_through(self, mocker):
+        store = mocker.AsyncMock()
+        store.load.return_value = ChatConfig(blocked=(BlockedMember(key=PN, alt_key=LID),))
+        data = GroupCommandDataFactory(platform='whatsapp')
+
+        assert await ConfigService(store).is_blocked(data) is False
+
+    @pytest.mark.anyio
+    async def test_a_private_chat_never_blocks_without_loading(self, mocker):
+        store = mocker.AsyncMock()
+        data = PrivateCommandDataFactory(platform='whatsapp')
+
+        blocked = await ConfigService(store).is_blocked(data)
+
+        assert blocked is False
+        store.load.assert_not_called()

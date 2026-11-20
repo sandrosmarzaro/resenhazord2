@@ -64,14 +64,21 @@ class TelegramUpdateHandler:
 
         is_admin = await self._resolve_admin(port, strategy, chat, user)
         data = self._build_command_data(message, chat, user, text, is_admin=is_admin)
-        rejection = await self._gate.rejection_text(strategy, data)
-        if rejection:
-            await self._reply_text(port, chat.id, rejection)
+        if not await self._admit(port, strategy, data, chat.id):
             return
 
         await TelegramAgentRouter.safe_react(port, chat.id, message.message_id)
         async with TypingLoop.keep_typing(port, chat.id):
             await self._router.run_and_reply(port, strategy, data, chat.id, command_name)
+
+    async def _admit(
+        self, port: TelegramPort, strategy: Command, data: CommandData, chat_id: int
+    ) -> bool:
+        rejection = await self._gate.rejection_text(strategy, data)
+        # An empty rejection is a blocked member, who gets no reply at all.
+        if rejection:
+            await self._reply_text(port, chat_id, rejection)
+        return rejection is None
 
     async def _resolve_admin(
         self, port: TelegramPort, strategy: Command, chat: Chat, user: User
@@ -93,6 +100,8 @@ class TelegramUpdateHandler:
         if not (is_dm or TelegramAgentRouter.is_agent_mention(message, self._bot_username)):
             return
         data = self._build_command_data(message, chat, user, message.text or '')
+        if await self._gate.blocks_agent(data):
+            return
         await self._router.route(port, message, chat, data)
 
     def _extract_command_name(self, message: Message) -> str | None:

@@ -31,7 +31,7 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | `,dl` lane wait | `command_lane_wait_milliseconds_bucket` | none |
 | Event loop lag | `event_loop_lag_milliseconds_bucket` | none; one sample a second |
 | Bot process | `process_memory_rss_bytes`, `process_cpu_time_seconds_total` | `service_name` |
-| Gate refusals | `command_rejections_total` | `reason` (disabled/dev_only/off_here/nsfw_channel), `command_name`, `command_scope` |
+| Gate refusals | `command_rejections_total` | `reason` (disabled/dev_only/off_here/nsfw_channel/blocked), `command_name`, `command_scope` (`agent` for agent text from a blocked member) |
 | Minors filter drops | `compliance_minors_dropped_total` | `source` (redgifs/rule34/hentai) |
 | Retries scheduled | `command_retries_total` | `service_name` |
 | Dead-lettered | `command_dlq_total` | `service_name` |

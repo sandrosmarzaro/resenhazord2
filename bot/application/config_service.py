@@ -1,5 +1,6 @@
 from bot.data.config_defaults import SCOPE_DEFAULT_ENABLED, TOGGLABLE_SCOPES
 from bot.domain.commands.base import CommandConfig, CommandScope
+from bot.domain.models.blocked_member import BlockedMember
 from bot.domain.models.chat_config import ChatConfig, ChatPolicy
 from bot.domain.models.command_data import CommandData
 from bot.ports.config_store_port import ConfigStorePort
@@ -14,6 +15,12 @@ class ConfigService:
             return True
         chat_config = await self._store.load(data.platform or '', data.jid)
         return self._resolve(chat_config, config.name, config.scope)
+
+    async def is_blocked(self, data: CommandData) -> bool:
+        if not data.is_group:
+            return False
+        chat_config = await self._store.load(data.platform or '', data.jid)
+        return chat_config.blocks(BlockedMember.of_sender(data))
 
     @staticmethod
     def _resolve(chat_config: ChatConfig, command_name: str, scope: CommandScope) -> bool:

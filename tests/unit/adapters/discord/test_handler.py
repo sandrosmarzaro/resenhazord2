@@ -577,6 +577,27 @@ class TestPerGroupConfig:
         port.send_followup.assert_awaited_once_with(COMMAND_OFF_IN_CHAT)
         strategy.run.assert_not_called()
 
+    @pytest.mark.anyio
+    async def test_a_blocked_member_gets_no_reply(
+        self, port, mocker, mock_config_service, mock_dev_list
+    ):
+        mock_config_service.is_blocked.return_value = True
+        handler = DiscordInteractionHandler(
+            config_service=mock_config_service, dev_list=mock_dev_list
+        )
+        strategy = make_strategy(
+            mocker, [BotMessage(jid='111', content=TextContent(text='roll: 7'))]
+        )
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
+        )
+
+        await handler.handle(port, make_interaction(mocker))
+
+        port.send_followup.assert_not_called()
+        strategy.run.assert_not_called()
+
 
 class TestAdminStamping:
     def _member(self, mocker, *, administrator: bool, manage_guild: bool):
