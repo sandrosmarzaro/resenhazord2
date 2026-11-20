@@ -2,6 +2,12 @@
 
 <!-- version list -->
 
+## v2.19.1 (2026-11-20)
+
+### Fix
+
+- **commands**: get past youtube's bot check with signed-in cookies and bun (#378)
+
 ## v2.19.0 (2026-11-20)
 
 ### Feat
