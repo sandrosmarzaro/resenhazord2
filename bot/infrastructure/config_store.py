@@ -17,7 +17,11 @@ class SqlConfigStore:
             if chat is None:
                 return ChatConfig()
             overrides = {override.command_name: override.enabled for override in chat.overrides}
-            return ChatConfig(policy=ChatPolicy(chat.default_policy), overrides=overrides)
+            return ChatConfig(
+                policy=ChatPolicy(chat.default_policy),
+                overrides=overrides,
+                dev_admin=chat.dev_admin,
+            )
 
     async def set_override(self, key: ChatKey, command_name: str, *, enabled: bool) -> None:
         async with Database.session() as session:
@@ -51,6 +55,11 @@ class SqlConfigStore:
             await self._upsert_chat(session, key, default_policy=policy.value)
             await session.commit()
 
+    async def set_dev_admin(self, key: ChatKey, *, enabled: bool) -> None:
+        async with Database.session() as session:
+            await self._upsert_chat(session, key, dev_admin=enabled)
+            await session.commit()
+
     @staticmethod
     async def _find(session: AsyncSession, platform: str, native_id: str) -> ChatRow | None:
         result = await session.execute(
@@ -61,7 +70,7 @@ class SqlConfigStore:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def _upsert_chat(session: AsyncSession, key: ChatKey, **fields: str) -> UUID:
+    async def _upsert_chat(session: AsyncSession, key: ChatKey, **fields: str | bool) -> UUID:
         result = await session.execute(
             insert(ChatRow)
             .values(platform=key.platform, native_id=key.native_id, type=key.type.value, **fields)

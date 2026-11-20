@@ -46,6 +46,7 @@ count, group or alert on. The other events explain one.
 | `agent_provider_failed` | warning | `error` | an LLM provider failed. The chain tries the next one |
 | `agent_over_budget`, `agent_rate_limited` | info | none | the agent refused a call to protect the token budget or the rate limit |
 | `platform_up`, `platform_failed`, `platform_retrying` | info, error, warning | `platform` | a platform adapter connected, crashed, or is backing off |
+| `dev_admin_bypass` | info | `chat`, `dev` | a dev who isn't an admin passed a `,config` check because the chat turned on `,config dev on`. The reply doesn't say so |
 | `birthday_celebration_error` | error | traceback | the midnight birthday job failed. It retries next midnight |
 
 ## Queries

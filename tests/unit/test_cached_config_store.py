@@ -92,3 +92,16 @@ class TestWriteInvalidation:
 
         assert store.load.await_count == 2
         store.set_policy.assert_awaited_once_with(group_key(), ChatPolicy.CURATED)
+
+    @pytest.mark.anyio
+    async def test_set_dev_admin_invalidates_and_delegates(self, mocker):
+        store = mocker.AsyncMock()
+        store.load.return_value = ChatConfig()
+        cached = CachedConfigStore(store)
+
+        await cached.load('whatsapp', '120@g.us')
+        await cached.set_dev_admin(group_key(), enabled=True)
+        await cached.load('whatsapp', '120@g.us')
+
+        assert store.load.await_count == 2
+        store.set_dev_admin.assert_awaited_once_with(group_key(), enabled=True)

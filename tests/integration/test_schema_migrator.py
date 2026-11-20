@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
@@ -10,6 +11,8 @@ from testcontainers.postgres import PostgresContainer
 from bot.infrastructure.schema_migrator import SchemaMigrator
 
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / 'alembic.ini'
+CHAT_TABLES = '21e07392eca2'
+DEV_ADMIN = '04501864102e'
 
 
 @pytest.fixture(scope='module')
@@ -37,6 +40,22 @@ async def _schema(engine) -> tuple[str, set[str]]:
     return revision, tables
 
 
+async def _migrate(engine, step, revision: str) -> None:
+    def run(connection) -> None:
+        config = Config(ALEMBIC_INI)
+        config.attributes['connection'] = connection
+        step(config, revision)
+
+    async with engine.begin() as connection:
+        await connection.run_sync(run)
+
+
+async def _chat_columns(engine) -> set[str]:
+    async with engine.connect() as connection:
+        columns = await connection.run_sync(lambda sync: inspect(sync).get_columns('chat'))
+    return {column['name'] for column in columns}
+
+
 class TestUpgrade:
     @pytest.mark.anyio
     async def test_brings_a_fresh_database_to_the_head_revision(self, engine):
@@ -56,3 +75,31 @@ class TestUpgrade:
         await SchemaMigrator.upgrade(engine)
 
         assert await _schema(engine) == before
+
+
+class TestDevAdminRevision:
+    @pytest.mark.anyio
+    async def test_leaves_existing_chats_with_the_flag_off(self, engine):
+        await _migrate(engine, command.downgrade, 'base')
+        await _migrate(engine, command.upgrade, CHAT_TABLES)
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    'INSERT INTO chat (id, platform, native_id, type, default_policy,'
+                    " created_at, updated_at) VALUES (gen_random_uuid(), 'whatsapp',"
+                    " '120@g.us', 'group', 'open', now(), now())"
+                )
+            )
+
+        await _migrate(engine, command.upgrade, DEV_ADMIN)
+
+        async with engine.connect() as connection:
+            assert await connection.scalar(text('SELECT dev_admin FROM chat')) is False
+
+    @pytest.mark.anyio
+    async def test_downgrade_drops_the_column(self, engine):
+        await _migrate(engine, command.upgrade, DEV_ADMIN)
+
+        await _migrate(engine, command.downgrade, CHAT_TABLES)
+
+        assert 'dev_admin' not in await _chat_columns(engine)

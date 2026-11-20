@@ -324,6 +324,53 @@ class TestChatConfig:
         assert texts(reply) == [COMMAND_OFF_IN_CHAT]
 
 
+class TestDevAdmin:
+    @pytest.mark.anyio
+    async def test_a_dev_member_is_refused_until_the_chat_allows_it(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+
+        refused = await bot.send(',config off d20', sender=MEMBER_JID)
+
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+    @pytest.mark.anyio
+    async def test_a_dev_member_configures_once_an_admin_allows_it(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        await bot.send(',config off d20', sender=MEMBER_JID)
+
+        reply = await bot.send(',d20', sender=OTHER_JID)
+        assert texts(reply) == [COMMAND_OFF_IN_CHAT]
+
+    @pytest.mark.anyio
+    async def test_a_plain_member_stays_refused_where_devs_are_allowed(self, bot, admins_group):
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        refused = await bot.send(',config off d20', sender=MEMBER_JID)
+
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+    @pytest.mark.anyio
+    async def test_a_dev_member_cannot_turn_it_on(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        refused = await bot.send(',config dev on', sender=MEMBER_JID)
+
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+    @pytest.mark.anyio
+    async def test_a_dev_member_turns_it_off(self, bot, admins_group):
+        await make_dev(MEMBER_JID)
+        await bot.send(',config dev on', sender=ADMIN_JID)
+
+        await bot.send(',config dev off', sender=MEMBER_JID)
+
+        refused = await bot.send(',config off d20', sender=MEMBER_JID)
+        assert texts(refused) == ['Só admin configura os comandos do chat. 🙅']
+
+
 class TestBan:
     @pytest.mark.anyio
     async def test_refuses_when_the_bot_is_not_admin(self, bot, mock_whatsapp):

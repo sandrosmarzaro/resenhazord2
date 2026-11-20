@@ -15,10 +15,19 @@ Handler = Callable[[CommandData, str], Awaitable[str]]
 class ConfigEditor:
     _HELP: ClassVar[str] = (
         'Use: *,config on|off|reset <comando|nsfw|download|group|random|info>* '
-        'ou *,config policy open|curated*.'
+        'ou *,config policy open|curated* ou *,config dev on|off*.'
     )
     _INVALID: ClassVar[str] = '❓ Não reconheço *{token}* como comando ou tipo configurável.'
     _UNKNOWN_POLICY: ClassVar[str] = '❓ Política inválida. Use *open* ou *curated*.'
+    _DEV_STATES: ClassVar[frozendict[str, bool]] = frozendict({'on': True, 'off': False})
+    _DEV_REPLIES: ClassVar[frozendict[bool, str]] = frozendict(
+        {
+            True: '✅ Devs podem configurar o bot neste grupo.',
+            False: '🚫 Devs voltam a precisar ser admin aqui.',
+        }
+    )
+    _UNKNOWN_DEV_STATE: ClassVar[str] = '❓ Use *,config dev on* ou *,config dev off*.'
+    _DEV_STATUS: ClassVar[str] = '🛠️ Devs podem configurar o bot aqui'
 
     def __init__(
         self,
@@ -32,6 +41,7 @@ class ConfigEditor:
             'off': self._disable,
             'reset': self._reset,
             'policy': self._set_policy,
+            'dev': self._set_dev_admin,
         }
 
     async def apply(self, data: CommandData, rest: str) -> str:
@@ -77,6 +87,13 @@ class ConfigEditor:
         await self._store.set_policy(self._key(data), policy)
         return f'⚙️ Política deste chat: *{policy.value}*'
 
+    async def _set_dev_admin(self, data: CommandData, token: str) -> str:
+        enabled = self._DEV_STATES.get(token.lower())
+        if enabled is None:
+            return self._UNKNOWN_DEV_STATE
+        await self._store.set_dev_admin(self._key(data), enabled=enabled)
+        return self._DEV_REPLIES[enabled]
+
     async def _render(self, data: CommandData) -> str:
         config = await self._store.load(data.platform or '', data.jid)
         return self._format_status(config)
@@ -101,11 +118,13 @@ class ConfigEditor:
         chat_type = ChatType.GROUP if data.is_group else ChatType.PRIVATE
         return ChatKey(platform=data.platform or '', native_id=data.jid, type=chat_type)
 
-    @staticmethod
-    def _format_status(config: ChatConfig) -> str:
+    @classmethod
+    def _format_status(cls, config: ChatConfig) -> str:
         enabled = sorted(name for name, on in config.overrides.items() if on)
         disabled = sorted(name for name, on in config.overrides.items() if not on)
         lines = [f'*Config deste chat* (política: {config.policy.value})']
         lines.append(f'✅ {", ".join(enabled)}' if enabled else '✅ —')
         lines.append(f'🚫 {", ".join(disabled)}' if disabled else '🚫 —')
+        if config.dev_admin:
+            lines.append(cls._DEV_STATUS)
         return '\n'.join(lines)

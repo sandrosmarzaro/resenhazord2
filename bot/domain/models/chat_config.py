@@ -23,6 +23,7 @@ class ChatKey:
 class ChatConfig:
     policy: ChatPolicy = ChatPolicy.OPEN
     overrides: dict[str, bool] = field(default_factory=dict)
+    dev_admin: bool = False
 
     def override_for(self, command_name: str) -> bool | None:
         return self.overrides.get(command_name)

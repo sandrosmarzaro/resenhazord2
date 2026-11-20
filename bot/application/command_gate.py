@@ -2,8 +2,9 @@ from typing import ClassVar
 
 from bot.application.config_service import ConfigService
 from bot.domain.builders.reply import Reply
-from bot.domain.commands.base import Command, CommandScope, Platform
+from bot.domain.commands.base import Command, CommandScope
 from bot.domain.constants import COMMAND_OFF_IN_CHAT
+from bot.domain.dev_key import DevKey
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
@@ -17,9 +18,6 @@ class CommandGate:
             'dev_only': 'Esse comando é apenas para desenvolvedores. 🛠️',
             'off_here': COMMAND_OFF_IN_CHAT,
         }
-    )
-    _NAMESPACED_PLATFORMS: ClassVar[frozenset[Platform]] = frozenset(
-        {Platform.DISCORD, Platform.TELEGRAM}
     )
 
     def __init__(self, dev_list: DevListService, config: ConfigService) -> None:
@@ -62,12 +60,4 @@ class CommandGate:
         # round trip.
         if command.config.scope != CommandScope.DEV and repeat == 1:
             return False
-        return await self._dev_list.is_dev(self._dev_key(data))
-
-    @classmethod
-    def _dev_key(cls, data: CommandData) -> str:
-        # Discord and Telegram send the bare user id. Namespaced, it can't be read as a
-        # WhatsApp number or LID, and it matches the discord:<id> that ,dev add stores.
-        if data.platform in cls._NAMESPACED_PLATFORMS:
-            return f'{data.platform}:{data.sender_jid}'
-        return data.sender_jid
+        return await self._dev_list.is_dev(DevKey.of(data))
