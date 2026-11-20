@@ -153,6 +153,16 @@ class TestConfig:
 
 class TestRun:
     @pytest.mark.anyio
+    async def test_downloads_with_the_configured_cookies(self, yt_dlp):
+        command = ShortCommand(cookies_path='/secrets/cookies.txt')
+        data = GroupCommandDataFactory.build(text=',short gato caindo')
+
+        await command.run(data)
+
+        download_args = yt_dlp.args(1)
+        assert download_args[download_args.index('--cookies') + 1] == '/secrets/cookies.txt'
+
+    @pytest.mark.anyio
     async def test_sends_the_short_captioned_with_title_and_channel(self, command, yt_dlp):
         data = GroupCommandDataFactory.build(text=',short gato caindo')
 

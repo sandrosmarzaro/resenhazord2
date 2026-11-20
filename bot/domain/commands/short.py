@@ -25,6 +25,10 @@ class ShortCommand(Command):
     NO_RESULTS: ClassVar[str] = 'Não achei nenhum short sobre *{term}* 😕'
     DOWNLOAD_FAILED: ClassVar[str] = 'Não consegui baixar um short agora, tenta de novo! 😅'
 
+    def __init__(self, cookies_path: str = '') -> None:
+        super().__init__()
+        self._cookies_path = cookies_path
+
     @property
     def config(self) -> CommandConfig:
         return CommandConfig(
@@ -52,5 +56,7 @@ class ShortCommand(Command):
         shorts = await YouTubeShorts.search(term) if term else await YouTubeShorts.feed()
         if not shorts:
             return [Reply.to(data).text(self.NO_RESULTS.format(term=term))]
-        video, caption = await YtDlpService.download_merged(random.choice(shorts))
+        video, caption = await YtDlpService.download_merged(
+            random.choice(shorts), self._cookies_path
+        )
         return [Reply.to(data).video_buffer(video, caption, gif_playback=Mp4.is_silent(video))]
