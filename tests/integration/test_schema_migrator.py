@@ -85,7 +85,7 @@ class TestDevAdminRevision:
         async with engine.begin() as connection:
             await connection.execute(
                 text(
-                    "INSERT INTO chat (id, platform, native_id, type, default_policy,"
+                    'INSERT INTO chat (id, platform, native_id, type, default_policy,'
                     " created_at, updated_at) VALUES (gen_random_uuid(), 'whatsapp',"
                     " '120@g.us', 'group', 'open', now(), now())"
                 )
