@@ -59,8 +59,10 @@ class DiscordInteractionHandler:
 
         data = self._build_command_data(interaction, text)
         rejection = await self._gate.rejection_text(strategy, data)
+        # An empty rejection is a blocked member, who gets no reply at all.
         if rejection:
             await port.send_followup(rejection)
+        if rejection is not None:
             return
         await self._run_and_reply(port, strategy, data, command_name)
 
