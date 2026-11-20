@@ -1,0 +1,15 @@
+{
+  "name": "zuban-lsp",
+  "description": "Python language server (zuban), matching uv run task typecheck",
+  "version": "1.0.0",
+  "lspServers": {
+    "zuban": {
+      "command": "uv",
+      "args": ["run", "--quiet", "zuban", "server"],
+      "extensionToLanguage": {
+        ".py": "python",
+        ".pyi": "python"
+      }
+    }
+  }
+}

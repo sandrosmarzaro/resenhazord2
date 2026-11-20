@@ -59,6 +59,14 @@
     "code-simplifier@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true
+    "zuban-lsp@resenhazord": true
+  },
+  "extraKnownMarketplaces": {
+    "resenhazord": {
+      "source": {
+        "source": "directory",
+        "path": "./.claude/marketplace"
+      }
+    }
   }
 }
