@@ -18,7 +18,7 @@ class YtDlpService:
 
     @classmethod
     async def download(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
-        cookies = ['--cookies', cookies_path] if cookies_path else []
+        cookies = cls._cookie_args(cookies_path)
 
         title_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
@@ -73,7 +73,7 @@ class YtDlpService:
     async def download_merged(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
         # YouTube no longer serves one mp4 with both streams, and yt-dlp merges into
         # stdout only as MPEG-TS, so the streams merge into an mp4 file first.
-        cookies = ['--cookies', cookies_path] if cookies_path else []
+        cookies = cls._cookie_args(cookies_path)
         with tempfile.TemporaryDirectory() as directory:
             process = await asyncio.create_subprocess_exec(
                 'yt-dlp',
@@ -107,13 +107,17 @@ class YtDlpService:
             return video.read_bytes(), stdout.decode().strip()
 
     @staticmethod
+    def _cookie_args(cookies_path: str) -> list[str]:
+        return ['--cookies', cookies_path] if cookies_path else []
+
+    @staticmethod
     def _is_youtube(url: str) -> bool:
         host = urlparse(url).hostname or ''
         return any(host == domain or host.endswith(f'.{domain}') for domain in YOUTUBE_DOMAINS)
 
     @classmethod
     async def download_image(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:
-        cookies = ['--cookies', cookies_path] if cookies_path else []
+        cookies = cls._cookie_args(cookies_path)
 
         # Photo posts have no formats; the full-size photo is the best thumbnail.
         proc = await asyncio.create_subprocess_exec(
