@@ -14,6 +14,8 @@ class YtDlpService:
     # H.264 and AAC, which every WhatsApp client plays.
     MERGED_FORMAT = 'bv*[vcodec^=avc1]+ba[ext=m4a]/b[ext=mp4]'
     CAPTION_TEMPLATE = '%(title)s · %(channel)s'
+    # Signed-in YouTube needs its player's n challenge solved; the image ships Bun.
+    JS_RUNTIME = 'bun'
     IMAGE_HOST_SUFFIX = '.fbcdn.net'
 
     @classmethod
@@ -78,6 +80,8 @@ class YtDlpService:
             process = await asyncio.create_subprocess_exec(
                 'yt-dlp',
                 *cookies,
+                '--js-runtimes',
+                cls.JS_RUNTIME,
                 # The caption rides the same run; --print alone would skip the download.
                 '--no-simulate',
                 '--print',
