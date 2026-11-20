@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+from bot.data.youtube_domains import YOUTUBE_DOMAINS
 from bot.domain.exceptions import DownloadError
 from bot.infrastructure.http_client import HttpClient
 
@@ -31,6 +32,8 @@ class YtDlpService:
         )
         title_stdout, _ = await title_proc.communicate()
         title = title_stdout.decode().strip() or 'Vídeo'
+        if cls._is_youtube(url):
+            return await cls.download_merged(url, cookies_path), title
 
         video_proc = await asyncio.create_subprocess_exec(
             'yt-dlp',
@@ -65,12 +68,14 @@ class YtDlpService:
         return video_stdout, title
 
     @classmethod
-    async def download_merged(cls, url: str) -> bytes:
+    async def download_merged(cls, url: str, cookies_path: str = '') -> bytes:
         # YouTube no longer serves one mp4 with both streams, and yt-dlp merges into
         # stdout only as MPEG-TS, so the streams merge into an mp4 file first.
+        cookies = ['--cookies', cookies_path] if cookies_path else []
         with tempfile.TemporaryDirectory() as directory:
             process = await asyncio.create_subprocess_exec(
                 'yt-dlp',
+                *cookies,
                 '--playlist-items',
                 '1',
                 '-f',
@@ -94,6 +99,11 @@ class YtDlpService:
                 msg = f'yt-dlp failed: {stderr.decode().strip()}'
                 raise RuntimeError(msg)
             return video.read_bytes()
+
+    @staticmethod
+    def _is_youtube(url: str) -> bool:
+        host = urlparse(url).hostname or ''
+        return any(host == domain or host.endswith(f'.{domain}') for domain in YOUTUBE_DOMAINS)
 
     @classmethod
     async def download_image(cls, url: str, cookies_path: str = '') -> tuple[bytes, str]:

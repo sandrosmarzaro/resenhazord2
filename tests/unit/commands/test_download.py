@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from pathlib import Path
 
 import httpx
 import pytest
@@ -43,7 +44,7 @@ class TestConfig:
 class TestRun:
     @pytest.mark.anyio
     async def test_returns_video_buffer(self, command, mock_subprocess):
-        data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
+        data = GroupCommandDataFactory.build(text=',dl https://tiktok.com/@user/video/123')
         mock_subprocess(
             'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
@@ -60,7 +61,7 @@ class TestRun:
 
     @pytest.mark.anyio
     async def test_video_data_is_buffer(self, command, mock_subprocess):
-        data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
+        data = GroupCommandDataFactory.build(text=',dl https://tiktok.com/@user/video/123')
         mock_subprocess(
             'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
@@ -206,7 +207,7 @@ class TestQuotedLink:
     @pytest.mark.anyio
     async def test_prefers_own_link_over_quoted(self, command, mock_subprocess):
         data = GroupCommandDataFactory.build(
-            text=',dl https://youtube.com/watch?v=own',
+            text=',dl https://tiktok.com/@user/video/own',
             quoted_text=',dl https://instagram.com/reel/abc',
         )
         mock_exec = mock_subprocess(
@@ -219,7 +220,7 @@ class TestQuotedLink:
 
         await command.run(data)
 
-        assert 'https://youtube.com/watch?v=own' in mock_exec.call_args_list[0][0]
+        assert 'https://tiktok.com/@user/video/own' in mock_exec.call_args_list[0][0]
 
     @pytest.mark.anyio
     @pytest.mark.parametrize('quoted_text', [None, 'sem link aqui'])
@@ -471,6 +472,95 @@ class TestXPhotoPost:
         assert exc_info.value.user_message == 'Vídeo muito grande pra baixar 📦'
 
 
+class FakeYouTube:
+    # YouTube serves video and audio apart: a stream to stdout fails, a merge writes a file.
+    NO_SINGLE_FORMAT = b'ERROR: [youtube] abc: Requested format is not available.'
+
+    def __init__(self, mocker) -> None:
+        self._mocker = mocker
+        self.video = _mp4(b'vide', b'soun')
+        self.exec = mocker.patch(
+            'bot.domain.services.ytdlp.asyncio.create_subprocess_exec', side_effect=self._run
+        )
+
+    def download_args(self) -> tuple:
+        return self.exec.call_args_list[-1][0]
+
+    def _run(self, *args, **_kwargs):
+        stdout, stderr, returncode = self._answer(args)
+        process = self._mocker.AsyncMock(returncode=returncode)
+        process.communicate.return_value = (stdout, stderr)
+        return process
+
+    def _answer(self, args: tuple) -> tuple[bytes, bytes, int]:
+        if '--print' in args:
+            return b'Gato caindo\n', b'', 0
+        template = args[args.index('-o') + 1]
+        if template == '-':
+            return b'', self.NO_SINGLE_FORMAT, 1
+        Path(template.replace('%(ext)s', 'mp4')).write_bytes(self.video)
+        return b'', b'', 0
+
+
+@pytest.fixture
+def youtube(mocker):
+    return FakeYouTube(mocker)
+
+
+class TestYouTube:
+    MERGED_FORMAT = 'bv*[vcodec^=avc1]+ba[ext=m4a]/b[ext=mp4]'
+
+    @pytest.mark.parametrize(
+        'url',
+        [
+            'https://www.youtube.com/watch?v=abc',
+            'https://youtube.com/watch?v=abc',
+            'https://m.youtube.com/watch?v=abc',
+            'https://www.youtube.com/shorts/abc',
+            'https://youtu.be/abc',
+            'https://music.youtube.com/watch?v=abc',
+        ],
+    )
+    @pytest.mark.anyio
+    async def test_sends_the_merged_mp4_with_the_title(self, command, youtube, url):
+        data = GroupCommandDataFactory.build(text=f',dl {url}')
+
+        messages = await command.run(data)
+
+        assert messages[0].content.data == youtube.video
+        assert messages[0].content.caption == 'Gato caindo'
+
+    @pytest.mark.anyio
+    async def test_merges_h264_and_aac_into_an_mp4_under_the_cap(self, command, youtube):
+        data = GroupCommandDataFactory.build(text=',dl https://youtu.be/abc')
+
+        await command.run(data)
+
+        download_args = youtube.download_args()
+        assert download_args[download_args.index('-f') + 1] == self.MERGED_FORMAT
+        assert download_args[download_args.index('--merge-output-format') + 1] == 'mp4'
+        assert download_args[download_args.index('--max-filesize') + 1] == '50M'
+
+    @pytest.mark.anyio
+    async def test_passes_cookies_to_the_merge(self, youtube):
+        command = DownloadCommand(cookies_path='/secrets/cookies.txt')
+        data = GroupCommandDataFactory.build(text=',dl https://youtu.be/abc')
+
+        await command.run(data)
+
+        download_args = youtube.download_args()
+        assert download_args[download_args.index('--cookies') + 1] == '/secrets/cookies.txt'
+
+    @pytest.mark.anyio
+    async def test_lookalike_host_keeps_the_stream(self, command, youtube):
+        data = GroupCommandDataFactory.build(text=',dl https://notyoutube.com/watch?v=abc')
+
+        with pytest.raises(DownloadError) as exc_info:
+            await command.run(data)
+
+        assert 'Requested format is not available' in str(exc_info.value)
+
+
 class TestCookies:
     @pytest.mark.anyio
     async def test_passes_cookies_to_both_subprocesses(self, mock_subprocess):
@@ -492,7 +582,7 @@ class TestCookies:
 
     @pytest.mark.anyio
     async def test_omits_cookies_when_unset(self, command, mock_subprocess):
-        data = GroupCommandDataFactory.build(text=',dl https://youtube.com/watch?v=abc')
+        data = GroupCommandDataFactory.build(text=',dl https://instagram.com/reel/abc')
         mock_exec = mock_subprocess(
             'bot.domain.services.ytdlp.asyncio.create_subprocess_exec',
             calls=[
