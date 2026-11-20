@@ -123,8 +123,9 @@ When `develop` has accumulated enough changes to release:
 
    Why: the merge commit must include every conventional commit so the version bump and CHANGELOG in the PR already reflect the correct changes. A squash would collapse history.
 6. `Pipeline` runs automatically on `main`: build → deploy → register deployment → tag. The
-   release PR already passed every gate, so nothing re-checks the code before the deploy. Tests
-   and the Sonar scan run beside it only to refresh the README badges, which read `main`.
+   release PR already passed every gate, so nothing re-checks the code before the deploy. When
+   it succeeds, `Badges` runs the tests and the Sonar scan on `develop`, which the README badges
+   read (`develop` is Sonar's main branch).
 
    The `tag` job reads `project.version` from `pyproject.toml` and creates a `v$VERSION` tag on the merge commit.
 7. Pipeline's `back-merge` job then merges `main` into `develop`, so `develop` holds the release merge commit too. Nothing to do by hand; it exits early when `develop` already contains `main`.
