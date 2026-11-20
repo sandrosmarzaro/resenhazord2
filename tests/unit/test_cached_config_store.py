@@ -1,5 +1,6 @@
 import pytest
 
+from bot.domain.models.blocked_member import BlockedMember
 from bot.domain.models.chat_config import ChatConfig, ChatKey, ChatPolicy, ChatType
 from bot.infrastructure.cached_config_store import CachedConfigStore
 
@@ -105,3 +106,31 @@ class TestWriteInvalidation:
 
         assert store.load.await_count == 2
         store.set_dev_admin.assert_awaited_once_with(group_key(), enabled=True)
+
+    @pytest.mark.anyio
+    async def test_block_members_invalidates_and_delegates(self, mocker):
+        store = mocker.AsyncMock()
+        store.load.return_value = ChatConfig()
+        cached = CachedConfigStore(store)
+        members = [BlockedMember(key='5527900000003@s.whatsapp.net')]
+
+        await cached.load('whatsapp', '120@g.us')
+        await cached.block_members(group_key(), members)
+        await cached.load('whatsapp', '120@g.us')
+
+        assert store.load.await_count == 2
+        store.block_members.assert_awaited_once_with(group_key(), members)
+
+    @pytest.mark.anyio
+    async def test_unblock_members_invalidates_and_delegates(self, mocker):
+        store = mocker.AsyncMock()
+        store.load.return_value = ChatConfig()
+        cached = CachedConfigStore(store)
+        members = [BlockedMember(key='5527900000003@s.whatsapp.net')]
+
+        await cached.load('whatsapp', '120@g.us')
+        await cached.unblock_members(group_key(), members)
+        await cached.load('whatsapp', '120@g.us')
+
+        assert store.load.await_count == 2
+        store.unblock_members.assert_awaited_once_with(group_key(), members)

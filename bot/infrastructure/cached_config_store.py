@@ -1,6 +1,8 @@
+from collections.abc import Sequence
 from time import monotonic
 from typing import ClassVar
 
+from bot.domain.models.blocked_member import BlockedMember
 from bot.domain.models.chat_config import ChatConfig, ChatKey, ChatPolicy
 from bot.infrastructure.config_store import SqlConfigStore
 from bot.ports.config_store_port import ConfigStorePort
@@ -50,6 +52,14 @@ class CachedConfigStore:
 
     async def set_dev_admin(self, key: ChatKey, *, enabled: bool) -> None:
         await self._store.set_dev_admin(key, enabled=enabled)
+        self._invalidate(key)
+
+    async def block_members(self, key: ChatKey, members: Sequence[BlockedMember]) -> None:
+        await self._store.block_members(key, members)
+        self._invalidate(key)
+
+    async def unblock_members(self, key: ChatKey, members: Sequence[BlockedMember]) -> None:
+        await self._store.unblock_members(key, members)
         self._invalidate(key)
 
     def _invalidate(self, key: ChatKey) -> None:
