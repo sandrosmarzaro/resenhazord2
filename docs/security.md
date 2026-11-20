@@ -43,22 +43,12 @@ Findings come through the official plugin (`aikido@claude-plugins-official`, MCP
 
 ## Sonar S2245 — `random` is not a vulnerability here
 
-SonarCloud flags every changed line that calls `random.choice`, `random.randint` or
-`random.shuffle` with `python:S2245` ("pseudorandom generator"). The CI step "Fail on new
-Sonar issues" then fails the release PR (Sonar runs only on PRs into `main`). In this repo
-`random` only picks content to show (a page, a player, a club, a lineup order), so these
-are false positives. Keep `random` with `# noqa: S311` (the ruff equivalent) and do not
-switch to `secrets` just to quiet Sonar.
+SonarCloud flags `random.choice`, `random.randint` and `random.shuffle` with `python:S2245`
+("pseudorandom generator"). In `bot/domain` random output is the product (jokes, games,
+draws), so `sonar-project.properties` ignores the rule there. Keep `random` with
+`# noqa: S311` (the ruff equivalent) and do not switch to `secrets` just to quiet Sonar.
 
-Resolve them as **false positive** in SonarCloud with a one-line reason, then rerun the
-failed job (`gh run rerun <run> --failed`). Through the API, with `SONAR_TOKEN` read from
-`.env` and never printed:
-
-- list: `GET /api/issues/search?componentKeys=resenhazord2&pullRequest=N&resolved=false`
-  (basic auth `token:`; without auth the query returns nothing)
-- comment, then resolve: `POST /api/issues/add_comment` and
-  `POST /api/issues/do_transition` with `transition=falsepositive`
-
-Only S2245 on content picks qualifies. Any `random` use for tokens, ids or secrets is a real
-finding: use `secrets`.
+The rule stays active everywhere else, such as `bot/infrastructure` and `bot/adapters`.
+Bandit skips `B311` project-wide, so Sonar is the only guard there. Treat a hit outside
+`bot/domain` as a real finding and use `secrets` for tokens, ids and secrets.
 
