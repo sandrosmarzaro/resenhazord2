@@ -167,6 +167,9 @@ AGENT_EXAMPLES = [
     ('manda um carro no status do grupo', ',carro status'),
     ('posta um animal no status', ',animal status'),
     ('gerenciar a lista de devs', ',dev'),
+    # Bot links
+    ('como adiciono o bot no discord', ',links'),
+    ('link do bot', ',links'),
     # Fun / misc
     ('quantos nargas o borges fumou', ',borges'),
     ('probabilidade do mateus nascer', ',mateus'),
