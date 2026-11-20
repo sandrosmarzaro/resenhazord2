@@ -553,6 +553,15 @@ class TestYouTube:
         assert download_args[download_args.index('--cookies') + 1] == '/secrets/cookies.txt'
 
     @pytest.mark.anyio
+    async def test_solves_the_player_challenge_with_bun(self, command, youtube):
+        data = GroupCommandDataFactory.build(text=',dl https://youtu.be/abc')
+
+        await command.run(data)
+
+        download_args = youtube.download_args()
+        assert download_args[download_args.index('--js-runtimes') + 1] == 'bun'
+
+    @pytest.mark.anyio
     async def test_lookalike_host_keeps_the_stream(self, command, youtube):
         data = GroupCommandDataFactory.build(text=',dl https://notyoutube.com/watch?v=abc')
 
