@@ -154,9 +154,12 @@ jobs:
     name: SonarQube Cloud scan
     runs-on: ubuntu-latest
     needs: [test-py, test-ts]
-    # Run when either side tested; a plain `needs` would skip Sonar on every one-sided PR.
+    # Release and hotfix PRs only, so its issues gate each release instead of adding a
+    # minute after the tests on every feature PR. Skipped by `if`, it still satisfies
+    # the required check on develop. Run when either side tested; a plain `needs`
+    # would skip Sonar on every one-sided PR.
     if: >-
-      !failure() && !cancelled()
+      github.base_ref == 'main' && !failure() && !cancelled()
       && (needs.test-py.result == 'success' || needs.test-ts.result == 'success')
     steps:
       - uses: actions/checkout@v5
@@ -209,6 +212,9 @@ jobs:
     name: Python mutation testing
     runs-on: ubuntu-latest
     needs: test-py
+    # Release and hotfix PRs only, so one run covers every module changed since the
+    # last release instead of adding up to 12 minutes to each feature PR.
+    if: github.base_ref == 'main'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
@@ -219,6 +225,8 @@ jobs:
           save-cache: false
       - run: uv sync --frozen
       - name: Scope mutation to changed files
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Keep paths_to_mutate = bot/ so the sandbox holds the full package
           # (conftest imports bot.application etc.). Narrowing it copies only the
@@ -228,7 +236,7 @@ jobs:
           # makes mutmut abort when a data file is the only changed mutable file.
           # Keep this list in sync with do_not_mutate in setup.cfg.
           EXCLUDE='^bot/(infrastructure|adapters|ports|data)/|^bot/(main|settings)\.py$|^bot/domain/services/discord\.py$'
-          CHANGED=$(git diff --name-only origin/develop...HEAD -- 'bot/**.py' | { grep -vE "$EXCLUDE" || true; })
+          CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- 'bot/**.py' | { grep -vE "$EXCLUDE" || true; })
           if [ -z "$CHANGED" ]; then
             echo "No mutable Python files changed in bot/, skipping mutation testing"
             echo "SKIP_MUTMUT=true" >> "$GITHUB_ENV"
