@@ -20,6 +20,10 @@ class ChatRow(Base):
         back_populates='chat',
         cascade='all, delete-orphan',
     )
+    blocked: Mapped[list['BlockedUserRow']] = relationship(
+        back_populates='chat',
+        cascade='all, delete-orphan',
+    )
 
     def __repr__(self) -> str:
         return f'ChatRow(platform={self.platform!r}, native_id={self.native_id!r})'
@@ -37,3 +41,17 @@ class CommandOverrideRow(Base):
 
     def __repr__(self) -> str:
         return f'CommandOverrideRow(command_name={self.command_name!r}, enabled={self.enabled!r})'
+
+
+class BlockedUserRow(Base):
+    __tablename__ = 'chat_blocked_user'
+    __table_args__ = (UniqueConstraint('chat_id', 'user_key', name='uq_blocked_chat_user'),)
+
+    chat_id: Mapped[UUID] = mapped_column(ForeignKey('chat.id', ondelete='CASCADE'))
+    user_key: Mapped[str] = mapped_column(String(64))
+    alt_key: Mapped[str | None] = mapped_column(String(64))
+
+    chat: Mapped['ChatRow'] = relationship(back_populates='blocked')
+
+    def __repr__(self) -> str:
+        return f'BlockedUserRow(user_key={self.user_key!r}, alt_key={self.alt_key!r})'

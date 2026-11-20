@@ -1,4 +1,4 @@
-from bot.infrastructure.config_tables import ChatRow, CommandOverrideRow
+from bot.infrastructure.config_tables import BlockedUserRow, ChatRow, CommandOverrideRow
 
 
 class TestRepr:
@@ -11,3 +11,8 @@ class TestRepr:
         row = CommandOverrideRow(command_name='hentai', enabled=False)
 
         assert repr(row) == "CommandOverrideRow(command_name='hentai', enabled=False)"
+
+    def test_blocked_user_repr_shows_both_keys(self):
+        row = BlockedUserRow(user_key='55@s.whatsapp.net', alt_key='1@lid')
+
+        assert repr(row) == "BlockedUserRow(user_key='55@s.whatsapp.net', alt_key='1@lid')"

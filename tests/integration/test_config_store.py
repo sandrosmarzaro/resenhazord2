@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import text
 from testcontainers.postgres import PostgresContainer
 
+from bot.domain.models.blocked_member import BlockedMember
 from bot.domain.models.chat_config import ChatKey, ChatPolicy, ChatType
 from bot.infrastructure.config_store import SqlConfigStore
 from bot.infrastructure.database import Database
@@ -36,6 +37,8 @@ async def store(database_url):
 
 # One round can pass by luck of scheduling; twenty can't.
 ROUNDS = 20
+PN = '5527900000003@s.whatsapp.net'
+LID = '123456789012345@lid'
 
 
 async def wipe() -> None:
@@ -150,6 +153,76 @@ class TestSetDevAdmin:
         assert config.overrides == {'hentai': True}
 
 
+class TestBlockMembers:
+    @pytest.mark.anyio
+    async def test_an_unknown_chat_blocks_nobody(self, store):
+        config = await store.load('whatsapp', 'never-seen@g.us')
+
+        assert config.blocked == ()
+
+    @pytest.mark.anyio
+    async def test_stores_both_forms_of_a_member(self, store):
+        await store.block_members(group_key(), [BlockedMember(key=PN, alt_key=LID)])
+
+        config = await store.load('whatsapp', '120@g.us')
+
+        assert config.blocked == (BlockedMember(key=PN, alt_key=LID),)
+
+    @pytest.mark.anyio
+    async def test_blocking_again_stores_one(self, store):
+        await store.block_members(group_key(), [BlockedMember(key=PN, alt_key=LID)])
+        await store.block_members(group_key(), [BlockedMember(key=PN, alt_key=LID)])
+
+        config = await store.load('whatsapp', '120@g.us')
+
+        assert config.blocked == (BlockedMember(key=PN, alt_key=LID),)
+
+    @pytest.mark.anyio
+    async def test_a_block_stays_in_its_own_chat(self, store):
+        await store.block_members(group_key(), [BlockedMember(key=PN)])
+
+        config = await store.load('whatsapp', 'other@g.us')
+
+        assert config.blocked == ()
+
+    @pytest.mark.anyio
+    async def test_keeps_the_overrides(self, store):
+        await store.set_override(group_key(), 'hentai', enabled=True)
+
+        await store.block_members(group_key(), [BlockedMember(key=PN)])
+
+        config = await store.load('whatsapp', '120@g.us')
+        assert config.overrides == {'hentai': True}
+
+
+class TestUnblockMembers:
+    @pytest.mark.anyio
+    async def test_removes_a_member_named_by_the_alternate_form(self, store):
+        await store.block_members(group_key(), [BlockedMember(key=PN, alt_key=LID)])
+
+        await store.unblock_members(group_key(), [BlockedMember(key=LID)])
+
+        config = await store.load('whatsapp', '120@g.us')
+        assert config.blocked == ()
+
+    @pytest.mark.anyio
+    async def test_leaves_the_other_members(self, store):
+        other = BlockedMember(key='5527900000004@s.whatsapp.net')
+        await store.block_members(group_key(), [BlockedMember(key=PN), other])
+
+        await store.unblock_members(group_key(), [BlockedMember(key=PN)])
+
+        config = await store.load('whatsapp', '120@g.us')
+        assert config.blocked == (other,)
+
+    @pytest.mark.anyio
+    async def test_unblocking_on_an_unknown_chat_is_a_noop(self, store):
+        await store.unblock_members(group_key('absent@g.us'), [BlockedMember(key=PN)])
+
+        config = await store.load('whatsapp', 'absent@g.us')
+        assert config.blocked == ()
+
+
 class TestConcurrentWrites:
     @pytest.mark.anyio
     async def test_same_override_in_a_new_chat_stores_one(self, store):
@@ -200,6 +273,17 @@ class TestConcurrentWrites:
 
             config = await store.load('whatsapp', '120@g.us')
             assert config.policy is ChatPolicy.CURATED
+
+    @pytest.mark.anyio
+    async def test_same_block_twice_in_a_new_chat_stores_one(self, store):
+        member = BlockedMember(key=PN, alt_key=LID)
+        for _ in range(ROUNDS):
+            await wipe()
+
+            await asyncio.gather(*(store.block_members(group_key(), [member]) for _ in range(2)))
+
+            config = await store.load('whatsapp', '120@g.us')
+            assert config.blocked == (member,)
 
     @pytest.mark.anyio
     async def test_same_reset_twice_clears_the_override(self, store):
