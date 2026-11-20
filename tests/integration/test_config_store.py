@@ -54,6 +54,7 @@ class TestLoad:
 
         assert config.policy is ChatPolicy.OPEN
         assert config.overrides == {}
+        assert config.dev_admin is False
 
     @pytest.mark.anyio
     async def test_reflects_a_stored_override(self, store):
@@ -109,6 +110,44 @@ class TestSetPolicy:
         config = await store.load('whatsapp', '120@g.us')
 
         assert config.policy is ChatPolicy.CURATED
+
+
+class TestSetDevAdmin:
+    @pytest.mark.anyio
+    async def test_a_chat_created_by_another_write_starts_off(self, store):
+        await store.set_policy(group_key(), ChatPolicy.OPEN)
+
+        config = await store.load('whatsapp', '120@g.us')
+
+        assert config.dev_admin is False
+
+    @pytest.mark.anyio
+    async def test_turns_the_flag_on(self, store):
+        await store.set_dev_admin(group_key(), enabled=True)
+
+        config = await store.load('whatsapp', '120@g.us')
+
+        assert config.dev_admin is True
+
+    @pytest.mark.anyio
+    async def test_turns_the_flag_back_off(self, store):
+        await store.set_dev_admin(group_key(), enabled=True)
+        await store.set_dev_admin(group_key(), enabled=False)
+
+        config = await store.load('whatsapp', '120@g.us')
+
+        assert config.dev_admin is False
+
+    @pytest.mark.anyio
+    async def test_keeps_the_policy_and_overrides(self, store):
+        await store.set_policy(group_key(), ChatPolicy.CURATED)
+        await store.set_override(group_key(), 'hentai', enabled=True)
+
+        await store.set_dev_admin(group_key(), enabled=True)
+
+        config = await store.load('whatsapp', '120@g.us')
+        assert config.policy is ChatPolicy.CURATED
+        assert config.overrides == {'hentai': True}
 
 
 class TestConcurrentWrites:

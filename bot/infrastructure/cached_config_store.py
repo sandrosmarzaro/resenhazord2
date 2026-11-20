@@ -48,5 +48,9 @@ class CachedConfigStore:
         await self._store.set_policy(key, policy)
         self._invalidate(key)
 
+    async def set_dev_admin(self, key: ChatKey, *, enabled: bool) -> None:
+        await self._store.set_dev_admin(key, enabled=enabled)
+        self._invalidate(key)
+
     def _invalidate(self, key: ChatKey) -> None:
         self._cache.pop((key.platform, key.native_id), None)

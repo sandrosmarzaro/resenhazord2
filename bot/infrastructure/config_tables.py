@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.infrastructure.models import Base
@@ -14,6 +14,7 @@ class ChatRow(Base):
     native_id: Mapped[str] = mapped_column(String(64))
     type: Mapped[str] = mapped_column(String(8))
     default_policy: Mapped[str] = mapped_column(String(8), default='open')
+    dev_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     overrides: Mapped[list['CommandOverrideRow']] = relationship(
         back_populates='chat',
