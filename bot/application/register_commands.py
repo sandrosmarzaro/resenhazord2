@@ -54,6 +54,7 @@ from bot.domain.commands.pokemon_tcg import PokemonTCGCommand
 from bot.domain.commands.porno import PornoCommand
 from bot.domain.commands.puppy import PuppyCommand
 from bot.domain.commands.quran import QuranCommand
+from bot.domain.commands.reels import ReelsCommand
 from bot.domain.commands.rule34 import Rule34Command
 from bot.domain.commands.score import ScoreCommand
 from bot.domain.commands.short import ShortCommand
@@ -182,6 +183,7 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
     )
     registry.register(CountryFlagCommand(api_key=settings.restcountries_api_key))
     registry.register(DownloadCommand(cookies_path=settings.ytdlp_cookies))
+    registry.register(ReelsCommand(cookies_path=settings.ytdlp_cookies))
     registry.register(
         DriveCommand(
             discord=DiscordService(settings.discord_token, settings.discord_drive_guild_id)

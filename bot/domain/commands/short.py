@@ -29,7 +29,6 @@ class ShortCommand(Command):
     def config(self) -> CommandConfig:
         return CommandConfig(
             name='short',
-            aliases=['reels'],
             flags=[Flag.SHOW, Flag.DM],
             args=ArgType.OPTIONAL,
             args_label='busca',
