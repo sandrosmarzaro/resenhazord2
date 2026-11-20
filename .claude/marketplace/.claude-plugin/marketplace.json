@@ -1,0 +1,11 @@
+{
+  "name": "resenhazord",
+  "owner": { "name": "Sandro Smarzaro" },
+  "plugins": [
+    {
+      "name": "zuban-lsp",
+      "description": "Python language server (zuban), matching uv run task typecheck",
+      "source": "./plugins/zuban-lsp"
+    }
+  ]
+}
