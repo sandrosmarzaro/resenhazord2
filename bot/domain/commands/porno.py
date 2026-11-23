@@ -1,6 +1,7 @@
 import html
 import random
 import re
+import unicodedata
 from typing import ClassVar
 
 import structlog
@@ -45,6 +46,11 @@ class PornoCommand(Command):
         r'"thumbnailUrl"\s*:\s*\[?\s*"([^"]+)"',
     )
 
+    # The minors check and the search see the same plain string: anything outside it
+    # (invisible characters, lookalike letters, punctuation) splits the word instead.
+    NOT_SEARCHABLE: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9]+')
+    INVISIBLE_CATEGORY = 'Cf'
+
     def __init__(self) -> None:
         super().__init__()
         self._redgifs = RedGifs()
@@ -67,15 +73,23 @@ class PornoCommand(Command):
         return 'Recebe um vídeo adulto aleatório, ou um da sua busca (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        if parsed.rest:
-            return await self._searched_porn(data, parsed.rest.strip())
+        if term := self._search_term(parsed.rest):
+            return await self._searched_porn(data, term)
         return await self._real_porn(data)
 
+    @classmethod
+    def _search_term(cls, text: str) -> str:
+        visible = ''.join(
+            char
+            for char in unicodedata.normalize('NFKC', text)
+            if unicodedata.category(char) != cls.INVISIBLE_CATEGORY
+        )
+        return cls.NOT_SEARCHABLE.sub(' ', strip_accents(visible.casefold())).strip()
+
     async def _searched_porn(self, data: CommandData, term: str) -> list[BotMessage]:
-        folded = strip_accents(term.lower())
-        if MinorsFilter.flags('redgifs', [folded]):
+        if MinorsFilter.flags('redgifs', [term]):
             return [Reply.to(data).text('Essa busca não rola 🚫')]
-        media = await self._redgifs.random_media(PORN_CATEGORIES.get(folded, term))
+        media = await self._redgifs.random_media(PORN_CATEGORIES.get(term, term))
         if media.is_video:
             video = await RedGifs.download(media.url)
             return [Reply.to(data).video_buffer(video, 'Aqui está seu vídeo 🤤')]

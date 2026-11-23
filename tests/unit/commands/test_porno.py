@@ -113,12 +113,41 @@ class TestCategory:
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_searches_a_term_outside_the_categories_as_is(self, command, redgifs):
+    async def test_searches_a_term_outside_the_categories(self, command, redgifs):
         search = redgifs(1)
 
         await command.run(GroupCommandDataFactory.build(text=', porno Cachorro Quente'))
 
-        assert search.calls[0].request.url.params['tags'] == 'Cachorro Quente'
+        assert search.calls[0].request.url.params['tags'] == 'cachorro quente'
+
+    @pytest.mark.anyio
+    async def test_searches_the_term_reduced_to_letters_and_digits(self, command, redgifs):
+        search = redgifs(1)
+
+        await command.run(GroupCommandDataFactory.build(text=', porno Pão-de-Queijo!! 69'))
+
+        assert search.calls[0].request.url.params['tags'] == 'pao de queijo 69'
+
+    @pytest.mark.anyio
+    async def test_refuses_a_minors_term_split_by_an_invisible_character(self, command, redgifs):
+        search = redgifs(1)
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno te\u200ben'))
+
+        assert messages[0].content.text == 'Essa busca não rola 🚫'
+        assert search.call_count == 0
+
+    @pytest.mark.anyio
+    async def test_refuses_a_minors_term_in_fullwidth_letters(self, command, redgifs):
+        search = redgifs(1)
+        fullwidth_teen = '\uff54\uff45\uff45\uff4e'
+
+        messages = await command.run(
+            GroupCommandDataFactory.build(text=f', porno {fullwidth_teen}')
+        )
+
+        assert messages[0].content.text == 'Essa busca não rola 🚫'
+        assert search.call_count == 0
 
     @pytest.mark.anyio
     async def test_refuses_a_term_pointing_to_minors(self, command, redgifs):
@@ -224,6 +253,16 @@ class TestRealPorn:
 
         assert messages[0].content.url == 'https://cdn.example.com/low.mp4'
         assert messages[0].content.thumbnail_url is None
+
+    @pytest.mark.anyio
+    async def test_draws_a_random_video_when_the_term_has_no_letters(self, command, respx_mock):
+        listing = respx_mock.get(url__startswith='https://www.xvideos.com/').mock(
+            side_effect=Exception('Connection error')
+        )
+
+        await command.run(GroupCommandDataFactory.build(text=', porno 🍆💦'))
+
+        assert listing.call_count == 1
 
     @pytest.mark.anyio
     async def test_returns_error_message_on_failure(self, command, respx_mock):
