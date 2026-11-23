@@ -113,13 +113,21 @@ class TestCategory:
         assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
-    async def test_lists_the_categories_for_an_unknown_one(self, command):
-        messages = await command.run(GroupCommandDataFactory.build(text=', porno xyz'))
+    async def test_searches_a_term_outside_the_categories_as_is(self, command, redgifs):
+        search = redgifs(1)
 
-        text = messages[0].content.text
-        assert 'Categoria inválida' in text
-        assert 'pes' in text
-        assert 'ruiva' in text
+        await command.run(GroupCommandDataFactory.build(text=', porno Cachorro Quente'))
+
+        assert search.calls[0].request.url.params['tags'] == 'Cachorro Quente'
+
+    @pytest.mark.anyio
+    async def test_refuses_a_term_pointing_to_minors(self, command, redgifs):
+        search = redgifs(1)
+
+        messages = await command.run(GroupCommandDataFactory.build(text=', porno novinha'))
+
+        assert messages[0].content.text == 'Essa busca não rola 🚫'
+        assert search.call_count == 0
 
 
 class TestRealPorn:
