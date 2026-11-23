@@ -58,7 +58,7 @@ class TestCategory:
                 'urls': {'sd': self.VIDEO_URL},
             }
             return respx_mock.get(url__startswith=self.SEARCH_URL).mock(
-                return_value=httpx.Response(200, json={'gifs': [item]})
+                return_value=httpx.Response(200, json={'gifs': [item], 'pages': 1})
             )
 
         return search_returns

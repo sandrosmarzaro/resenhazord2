@@ -11,7 +11,7 @@ class CommandError(BotError):
 
 
 class MediaNotFoundError(CommandError):
-    """No media attached when expected."""
+    """No media attached when expected, or none found for the request."""
 
 
 class MediaUnavailableError(CommandError):

@@ -1,8 +1,10 @@
+import random
+
 import httpx
 import pytest
 
 from bot.data.redgifs_media import RedGifsMedia
-from bot.domain.exceptions import ExternalServiceError
+from bot.domain.exceptions import ExternalServiceError, MediaNotFoundError
 from bot.domain.services.mp4_remux import Mp4Remux
 from bot.domain.services.redgifs import RedGifs
 
@@ -24,8 +26,8 @@ def _item(name: str, kind: int = VIDEO, tags: list[str] | None = None) -> dict:
     }
 
 
-def _page(*items: dict) -> httpx.Response:
-    return httpx.Response(200, json={'gifs': list(items)})
+def _page(*items: dict, pages: int = 1) -> httpx.Response:
+    return httpx.Response(200, json={'gifs': list(items), 'pages': pages})
 
 
 @pytest.fixture
@@ -92,6 +94,67 @@ class TestRandomMedia:
         await RedGifs().random_media('Sex', video_only=True)
 
         assert search.calls[0].request.url.params['type'] == 'g'
+
+
+class TestPages:
+    @pytest.mark.anyio
+    async def test_starts_from_the_first_page(self, respx_mock, auth_route):
+        search = respx_mock.get(url__startswith=SEARCH_URL).mock(return_value=_page(_item('A')))
+
+        await RedGifs().random_media('Feet')
+
+        assert search.calls[0].request.url.params['page'] == '1'
+
+    @pytest.mark.anyio
+    async def test_draws_the_page_within_the_pages_the_tag_has(
+        self, respx_mock, auth_route, mocker
+    ):
+        respx_mock.get(url__startswith=SEARCH_URL).mock(return_value=_page(_item('A'), pages=3))
+        draw = mocker.patch.object(random, 'randint', return_value=1)
+
+        await RedGifs().random_media('Feet')
+
+        draw.assert_called_once_with(1, 3)
+
+    @pytest.mark.anyio
+    async def test_caps_the_draw_at_the_trending_depth(self, respx_mock, auth_route, mocker):
+        respx_mock.get(url__startswith=SEARCH_URL).mock(return_value=_page(_item('A'), pages=250))
+        draw = mocker.patch.object(random, 'randint', return_value=1)
+
+        await RedGifs().random_media('Feet')
+
+        draw.assert_called_once_with(1, RedGifs.MAX_PAGE)
+
+    @pytest.mark.anyio
+    async def test_fetches_the_drawn_page(self, respx_mock, auth_route, mocker):
+        search = respx_mock.get(url__startswith=SEARCH_URL).mock(
+            side_effect=[_page(_item('First'), pages=3), _page(_item('Third'), pages=3)]
+        )
+        mocker.patch.object(random, 'randint', return_value=3)
+
+        media = await RedGifs().random_media('Feet')
+
+        assert search.calls[1].request.url.params['page'] == '3'
+        assert media.url == 'https://media.redgifs.com/Third-mobile.mp4'
+
+    @pytest.mark.anyio
+    async def test_reuses_the_first_page_when_it_is_drawn(self, respx_mock, auth_route, mocker):
+        search = respx_mock.get(url__startswith=SEARCH_URL).mock(
+            return_value=_page(_item('A'), pages=3)
+        )
+        mocker.patch.object(random, 'randint', return_value=1)
+
+        await RedGifs().random_media('Feet')
+
+        assert search.call_count == 1
+
+    @pytest.mark.anyio
+    async def test_raises_not_found_when_the_tag_has_nothing(self, respx_mock, auth_route):
+        respx_mock.get(url__startswith=SEARCH_URL).mock(return_value=_page(pages=0))
+        redgifs = RedGifs()
+
+        with pytest.raises(MediaNotFoundError):
+            await redgifs.random_media('Xqzvwk')
 
 
 class TestMinors:
