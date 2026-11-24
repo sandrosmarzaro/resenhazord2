@@ -20,6 +20,7 @@ class CommandData:
     media_is_animated: bool = False
     media_caption: str | None = None
     media_buffer: bytes | None = None
+    media_audio: bytes | None = None
     message_id: str | None = None
     push_name: str | None = None
     platform: str | None = None
