@@ -4,6 +4,7 @@ import pytest
 from PIL import Image
 
 from bot.domain.commands.extract import ExtractCommand
+from bot.domain.services.sticker.sticker_video import StickerVideo
 from tests.factories.command_data import GroupCommandDataFactory
 
 MESSAGE_ID = 'MSG_99'
@@ -35,6 +36,7 @@ class TestMatches:
             (',extrair', True),
             (', extrair', True),
             (', EXTRAIR', True),
+            (',extrair mute', True),
             ('extrair', False),
             ('hello', False),
         ],
@@ -151,6 +153,69 @@ class TestAnimatedSticker:
         assert messages[0].content.type == 'video_buffer'
         assert messages[0].content.gif_playback is True
         assert messages[0].content.view_once is True
+
+    @pytest.mark.anyio
+    async def test_detects_the_animation_a_web_quote_drops(self, command):
+        data = GroupCommandDataFactory.build(
+            text=',extrair',
+            media_type='sticker',
+            media_source='quoted',
+            media_is_animated=False,
+            media_buffer=_make_webp(animated=True),
+        )
+
+        messages = await command.run(data)
+
+        assert messages[0].content.gif_playback is True
+
+
+class TestAudioSticker:
+    AUDIO = b'ogg-opus'
+
+    @pytest.fixture
+    def render(self, mocker):
+        return mocker.patch.object(StickerVideo, 'render', return_value=b'mp4')
+
+    def _quoting(self, *, animated: bool = True, text: str = ',extrair'):
+        return GroupCommandDataFactory.build(
+            text=text,
+            media_type='sticker',
+            media_source='quoted',
+            media_buffer=_make_webp(animated=animated),
+            media_audio=self.AUDIO,
+        )
+
+    @pytest.mark.anyio
+    async def test_sends_a_video_with_sound(self, command, render):
+        messages = await command.run(self._quoting())
+
+        content = messages[0].content
+        assert (content.type, content.data, content.gif_playback) == ('video_buffer', b'mp4', False)
+
+    @pytest.mark.anyio
+    async def test_loops_the_animation_under_the_audio(self, command, render):
+        await command.run(self._quoting(animated=True))
+
+        frames, audio = render.await_args.args
+        assert (frames[:6], audio, render.await_args.kwargs) == (
+            b'GIF89a',
+            self.AUDIO,
+            {'animated': True},
+        )
+
+    @pytest.mark.anyio
+    async def test_holds_a_still_sticker_under_the_audio(self, command, render):
+        await command.run(self._quoting(animated=False))
+
+        frames, _ = render.await_args.args
+        assert (frames[:8], render.await_args.kwargs) == (b'\x89PNG\r\n\x1a\n', {'animated': False})
+
+    @pytest.mark.anyio
+    async def test_mute_sends_the_silent_gif(self, command, render):
+        messages = await command.run(self._quoting(text=',extrair mute'))
+
+        render.assert_not_awaited()
+        assert messages[0].content.gif_playback is True
 
 
 class TestConversionError:

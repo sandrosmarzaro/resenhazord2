@@ -54,5 +54,12 @@ class VideoRemuxError(CommandError):
         super().__init__('Não consegui preparar esse vídeo, tenta de novo! 😅', detail=detail)
 
 
+class StickerVideoError(CommandError):
+    """ffmpeg could not turn an audio sticker into a video with its sound."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__('Não consegui tirar o áudio desse sticker! 😅', detail=detail)
+
+
 class VideoThumbnailError(Exception):
     """ffmpeg could not draw a video's thumbnail. The video still goes out without one."""
