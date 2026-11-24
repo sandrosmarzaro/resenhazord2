@@ -34,7 +34,7 @@ class StickerVideo:
     )
     _ANIMATION_ARGS: ClassVar[tuple[str, ...]] = ('-stream_loop', '-1', '-f', 'gif')
     _STILL_ARGS: ClassVar[tuple[str, ...]] = ('-loop', '1', '-f', 'image2')
-    _ENCODE_ARGS: ClassVar[tuple[str, ...]] = (
+    _SOUND_ARGS: ClassVar[tuple[str, ...]] = (
         '-map',
         '0:v',
         '-map',
@@ -42,6 +42,10 @@ class StickerVideo:
         '-shortest',
         '-t',
         str(_MAX_SECONDS),
+        '-c:a',
+        'aac',
+    )
+    _VIDEO_ARGS: ClassVar[tuple[str, ...]] = (
         # yuv420p, the pixel format every player decodes, needs even dimensions.
         '-vf',
         'scale=trunc(iw/2)*2:trunc(ih/2)*2',
@@ -52,8 +56,6 @@ class StickerVideo:
         'veryfast',
         '-pix_fmt',
         'yuv420p',
-        '-c:a',
-        'aac',
         '-movflags',
         '+faststart',
     )
@@ -66,13 +68,10 @@ class StickerVideo:
         with tempfile.TemporaryDirectory() as directory:
             frames_path = Path(directory) / ('frames.gif' if animated else 'frames.png')
             audio_path = Path(directory) / 'audio.ogg'
-            target = Path(directory) / 'video.mp4'
             frames_path.write_bytes(frames)
             audio_path.write_bytes(audio)
-            process = await asyncio.create_subprocess_exec(
-                'ffmpeg',
-                '-v',
-                'error',
+            return await cls._encode(
+                Path(directory),
                 *cls._FRAMES_INPUT_ARGS,
                 *frames_args,
                 '-i',
@@ -80,17 +79,45 @@ class StickerVideo:
                 *cls._AUDIO_INPUT_ARGS,
                 '-i',
                 str(audio_path),
-                *cls._ENCODE_ARGS,
-                str(target),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                *cls._SOUND_ARGS,
             )
-            try:
-                with anyio.fail_after(cls._TIMEOUT_SECONDS):
-                    _, error = await process.communicate()
-            except TimeoutError as timeout:
-                process.kill()
-                raise StickerVideoError(cls._TIMED_OUT) from timeout
-            if process.returncode != 0:
-                raise StickerVideoError(error.decode().strip())
-            return target.read_bytes()
+
+    # WhatsApp sends a gifPlayback video only as an mp4: GIF bytes show as a broken file.
+    # Played once, since WhatsApp loops a gifPlayback video by itself.
+    @classmethod
+    async def silent(cls, gif: bytes) -> bytes:
+        with tempfile.TemporaryDirectory() as directory:
+            frames_path = Path(directory) / 'frames.gif'
+            frames_path.write_bytes(gif)
+            return await cls._encode(
+                Path(directory),
+                *cls._FRAMES_INPUT_ARGS,
+                '-f',
+                'gif',
+                '-i',
+                str(frames_path),
+                '-an',
+            )
+
+    @classmethod
+    async def _encode(cls, directory: Path, *args: str) -> bytes:
+        target = directory / 'video.mp4'
+        process = await asyncio.create_subprocess_exec(
+            'ffmpeg',
+            '-v',
+            'error',
+            *args,
+            *cls._VIDEO_ARGS,
+            str(target),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            with anyio.fail_after(cls._TIMEOUT_SECONDS):
+                _, error = await process.communicate()
+        except TimeoutError as timeout:
+            process.kill()
+            raise StickerVideoError(cls._TIMED_OUT) from timeout
+        if process.returncode != 0:
+            raise StickerVideoError(error.decode().strip())
+        return target.read_bytes()

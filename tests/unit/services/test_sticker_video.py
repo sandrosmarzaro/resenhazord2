@@ -105,6 +105,39 @@ class TestRender:
         assert args[args.index('-t') + 1] == '65'
 
 
+class TestSilent:
+    @pytest.mark.anyio
+    async def test_returns_what_ffmpeg_wrote(self, fake_ffmpeg):
+        fake_ffmpeg(b'mp4')
+
+        assert await StickerVideo.silent(b'gif') == b'mp4'
+
+    @pytest.mark.anyio
+    async def test_reads_the_gif_once_without_audio(self, fake_ffmpeg):
+        ffmpeg = fake_ffmpeg(b'mp4')
+
+        await StickerVideo.silent(b'gif')
+
+        args = ffmpeg.call_args.args
+        assert (args.count('-i'), '-stream_loop' in args, '-an' in args) == (1, False, True)
+
+    @pytest.mark.anyio
+    async def test_opens_only_a_local_gif(self, fake_ffmpeg):
+        ffmpeg = fake_ffmpeg(b'mp4')
+
+        await StickerVideo.silent(b'gif')
+
+        args = ffmpeg.call_args.args
+        assert args[3 : args.index('-i')] == (
+            '-protocol_whitelist',
+            'file',
+            '-format_whitelist',
+            'gif,image2',
+            '-f',
+            'gif',
+        )
+
+
 class TestErrors:
     @pytest.mark.anyio
     async def test_raises_when_ffmpeg_fails(self, fake_ffmpeg):
@@ -184,6 +217,13 @@ class TestOnFfmpeg:
     @pytest.fixture
     def anyio_backend(self):
         return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_turns_a_gif_into_a_silent_mp4(self, tmp_path):
+        video = await StickerVideo.silent(_gif())
+
+        probed = _probe(video, tmp_path)
+        assert [stream['codec_name'] for stream in probed['streams']] == ['h264']
 
     @pytest.mark.anyio
     async def test_loops_a_short_animation_for_the_whole_audio(self, tmp_path):

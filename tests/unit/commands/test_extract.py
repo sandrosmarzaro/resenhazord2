@@ -135,6 +135,25 @@ class TestStaticSticker:
 
 
 class TestAnimatedSticker:
+    @pytest.fixture(autouse=True)
+    def silent(self, mocker):
+        return mocker.patch.object(StickerVideo, 'silent', return_value=b'silent-mp4')
+
+    @pytest.mark.anyio
+    async def test_sends_the_animation_as_a_looping_mp4(self, command, silent):
+        data = GroupCommandDataFactory.build(
+            text=',extrair',
+            media_type='sticker',
+            media_source='quoted',
+            media_buffer=_make_webp(animated=True),
+        )
+
+        messages = await command.run(data)
+
+        frames = silent.await_args.args[0]
+        content = messages[0].content
+        assert (frames[:6], content.data, content.gif_playback) == (b'GIF89a', b'silent-mp4', True)
+
     @pytest.mark.anyio
     async def test_converts_to_gif_video(self, command, mock_whatsapp):
         webp_data = _make_webp(animated=True)
@@ -211,11 +230,13 @@ class TestAudioSticker:
         assert (frames[:8], render.await_args.kwargs) == (b'\x89PNG\r\n\x1a\n', {'animated': False})
 
     @pytest.mark.anyio
-    async def test_mute_sends_the_silent_gif(self, command, render):
+    async def test_mute_sends_the_silent_animation(self, command, render, mocker):
+        mocker.patch.object(StickerVideo, 'silent', return_value=b'silent-mp4')
+
         messages = await command.run(self._quoting(text=',extrair mute'))
 
         render.assert_not_awaited()
-        assert messages[0].content.gif_playback is True
+        assert (messages[0].content.data, messages[0].content.gif_playback) == (b'silent-mp4', True)
 
 
 class TestConversionError:

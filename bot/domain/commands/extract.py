@@ -48,7 +48,8 @@ class ExtractCommand(Command):
                 video = await StickerVideo.render(frames, audio, animated=animated)
                 return [Reply.to(data).video_buffer(video)]
             if animated:
-                return [Reply.to(data).video_buffer(frames, gif_playback=True)]
+                video = await StickerVideo.silent(frames)
+                return [Reply.to(data).video_buffer(video, gif_playback=True)]
             return [Reply.to(data).image_buffer(frames)]
         except Exception:
             logger.exception('extrair_error', jid=data.jid)
