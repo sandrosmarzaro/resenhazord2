@@ -35,6 +35,10 @@ class StickerAudio:
         'libopus',
         '-b:a',
         '64k',
+        # A phone's AAC track starts with priming samples that ffmpeg carries into the
+        # ogg as negative timestamps, and Android won't play the sticker's sound then.
+        '-avoid_negative_ts',
+        'make_zero',
         '-f',
         'ogg',
         'pipe:1',

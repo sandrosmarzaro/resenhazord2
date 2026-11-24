@@ -84,6 +84,17 @@ class TestFromVideo:
         )
         assert whitelist < args.index('-i')
 
+    # A phone's AAC track starts with priming samples, which ffmpeg carries into the ogg
+    # as negative timestamps; Android then refuses to play the sticker's sound.
+    @pytest.mark.anyio
+    async def test_starts_the_audio_at_zero(self, fake_tools):
+        tools = fake_tools()
+
+        await StickerAudio.from_video(b'mp4')
+
+        encode = _call(tools, 1)
+        assert encode[encode.index('-avoid_negative_ts') + 1] == 'make_zero'
+
 
 class TestErrors:
     @pytest.mark.anyio
@@ -139,6 +150,27 @@ def _video(path: Path, *, with_audio: bool) -> bytes:
     return path.read_bytes()
 
 
+def _first_pts(audio: bytes, path: Path) -> int:
+    path.write_bytes(audio)
+    probed = subprocess.run(
+        [
+            'ffprobe',
+            '-v',
+            'error',
+            '-show_packets',
+            '-show_entries',
+            'packet=pts',
+            '-of',
+            'csv=p=0',
+            str(path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return int(probed.stdout.splitlines()[0].split(',')[0])
+
+
 def _duration(audio: bytes, path: Path) -> float:
     path.write_bytes(audio)
     probed = subprocess.run(
@@ -166,6 +198,15 @@ class TestOnFfmpeg:
 
         assert audio is not None
         assert _duration(audio, tmp_path / 'audio.ogg') == pytest.approx(10, abs=0.2)
+
+    @pytest.mark.anyio
+    async def test_drops_the_aac_priming_before_zero(self, tmp_path):
+        video = _video(tmp_path / 'sound.mp4', with_audio=True)
+
+        audio = await StickerAudio.from_video(video)
+
+        assert audio is not None
+        assert _first_pts(audio, tmp_path / 'audio.ogg') == 0
 
     @pytest.mark.anyio
     async def test_finds_no_audio_in_a_silent_video(self, tmp_path):
