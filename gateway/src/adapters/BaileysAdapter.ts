@@ -69,7 +69,7 @@ export default class BaileysAdapter implements WhatsAppPort {
 
   private static isAnimatedWebp(webp: Buffer): boolean {
     const extended = webp.toString('ascii', 12, 16) === BaileysAdapter.WEBP_EXTENDED;
-    const features = webp[BaileysAdapter.WEBP_FEATURES_OFFSET] ?? 0;
+    const features = webp[BaileysAdapter.WEBP_FEATURES_OFFSET];
     return extended && (features & BaileysAdapter.WEBP_ANIMATION_FLAG) !== 0;
   }
 
