@@ -239,6 +239,72 @@ class TestAudioSticker:
         assert (messages[0].content.data, messages[0].content.gif_playback) == (b'silent-mp4', True)
 
 
+def _padded_webp(*, animated: bool) -> bytes:
+    # What ,stic full makes of a portrait video: 6x10 content on a transparent 20x10.
+    frames = []
+    for color in ['red', 'blue']:
+        frame = Image.new('RGBA', (20, 10), (0, 0, 0, 0))
+        frame.paste(Image.new('RGBA', (6, 10), color), (7, 0))
+        frames.append(frame)
+    output = io.BytesIO()
+    if animated:
+        frames[0].save(
+            output,
+            format='WEBP',
+            save_all=True,
+            append_images=frames[1:],
+            duration=[100, 300],
+            lossless=True,
+        )
+    else:
+        frames[0].save(output, format='WEBP', lossless=True)
+    return output.getvalue()
+
+
+class TestTransparentPadding:
+    def _quoting(self, webp: bytes):
+        return GroupCommandDataFactory.build(
+            text=',extrair', media_type='sticker', media_source='quoted', media_buffer=webp
+        )
+
+    @pytest.mark.anyio
+    async def test_trims_the_padding_off_an_animation(self, command, mocker):
+        silent = mocker.patch.object(StickerVideo, 'silent', return_value=b'mp4')
+
+        await command.run(self._quoting(_padded_webp(animated=True)))
+
+        gif = Image.open(io.BytesIO(silent.await_args.args[0]))
+        assert (gif.size, gif.n_frames) == ((6, 10), 2)
+
+    @pytest.mark.anyio
+    async def test_keeps_each_frame_duration(self, command, mocker):
+        silent = mocker.patch.object(StickerVideo, 'silent', return_value=b'mp4')
+
+        await command.run(self._quoting(_padded_webp(animated=True)))
+
+        gif = Image.open(io.BytesIO(silent.await_args.args[0]))
+        durations = []
+        for index in range(gif.n_frames):
+            gif.seek(index)
+            durations.append(gif.info['duration'])
+        assert durations == [100, 300]
+
+    @pytest.mark.anyio
+    async def test_keeps_a_fully_transparent_sticker_whole(self, command):
+        output = io.BytesIO()
+        Image.new('RGBA', (20, 10), (0, 0, 0, 0)).save(output, format='WEBP', lossless=True)
+
+        messages = await command.run(self._quoting(output.getvalue()))
+
+        assert Image.open(io.BytesIO(messages[0].content.data)).size == (20, 10)
+
+    @pytest.mark.anyio
+    async def test_trims_the_padding_off_a_still(self, command):
+        messages = await command.run(self._quoting(_padded_webp(animated=False)))
+
+        assert Image.open(io.BytesIO(messages[0].content.data)).size == (6, 10)
+
+
 class TestConversionError:
     @pytest.mark.anyio
     async def test_returns_error_on_bad_data(self, command, mock_whatsapp):

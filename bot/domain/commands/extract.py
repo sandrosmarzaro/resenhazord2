@@ -1,7 +1,8 @@
 import io
+from collections.abc import Iterator
 
 import structlog
-from PIL import Image
+from PIL import Image, ImageSequence
 
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Category, Command, CommandConfig, Flag, ParsedCommand
@@ -55,16 +56,43 @@ class ExtractCommand(Command):
             logger.exception('extrair_error', jid=data.jid)
             return [Reply.to(data).text('Não consegui extrair a imagem do sticker 😅')]
 
-    @staticmethod
-    def _convert_to_png(buffer: bytes) -> bytes:
+    @classmethod
+    def _convert_to_png(cls, buffer: bytes) -> bytes:
         img = Image.open(io.BytesIO(buffer))
         output = io.BytesIO()
-        img.save(output, format='PNG')
+        img.crop(cls._content_box(img)).save(output, format='PNG')
         return output.getvalue()
 
-    @staticmethod
-    def _convert_to_gif(buffer: bytes) -> bytes:
+    @classmethod
+    def _convert_to_gif(cls, buffer: bytes) -> bytes:
         img = Image.open(io.BytesIO(buffer))
+        box = cls._content_box(img)
+        durations = MediaFormat.frame_durations(buffer, getattr(img, 'n_frames', 1))
+        frames = cls._cropped_frames(img, box)
         output = io.BytesIO()
-        img.save(output, format='GIF', save_all=True)
+        next(frames).save(
+            output, format='GIF', save_all=True, append_images=frames, duration=durations, loop=0
+        )
         return output.getvalue()
+
+    # A sticker pads a non-square picture with transparent borders, which a video can
+    # only show as black bars: keep the box any frame paints. Frames are read one at a
+    # time, since 150 RGBA frames held at once take ~150 MB.
+    @staticmethod
+    def _content_box(img: Image.Image) -> tuple[int, int, int, int] | None:
+        boxes = [
+            box
+            for frame in ImageSequence.Iterator(img)
+            if (box := frame.convert('RGBA').getchannel('A').getbbox())
+        ]
+        if not boxes:
+            return None
+        lefts, tops, rights, bottoms = zip(*boxes, strict=True)
+        return min(lefts), min(tops), max(rights), max(bottoms)
+
+    @staticmethod
+    def _cropped_frames(
+        img: Image.Image, box: tuple[int, int, int, int] | None
+    ) -> Iterator[Image.Image]:
+        for frame in ImageSequence.Iterator(img):
+            yield frame.convert('RGBA').crop(box)
