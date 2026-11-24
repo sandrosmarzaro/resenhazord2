@@ -156,6 +156,20 @@ describe('MessageUpsertEvent', () => {
       expect(save).toHaveBeenCalledWith(sticker.key, audio);
     });
 
+    // Baileys emits the bot's own sends as an upsert: that is how ,extrair finds the
+    // audio of a sticker the bot made.
+    it("keeps the audio of the bot's own audio sticker", async () => {
+      const save = vi.spyOn(stickerAudioStore, 'save').mockResolvedValue();
+      const own = WAMessageFactory.build({
+        key: { remoteJid: 'g@g.us', id: 'BOT1', fromMe: true },
+        message: { stickerMessage: { audioMessage: audio } },
+      });
+
+      await MessageUpsertEvent.run({ type: 'append', messages: [own] });
+
+      expect(save).toHaveBeenCalledWith(own.key, audio);
+    });
+
     it('ignores a silent sticker', async () => {
       const save = vi.spyOn(stickerAudioStore, 'save').mockResolvedValue();
       const sticker = WAMessageFactory.build({ message: { stickerMessage: { url: 'x' } } });

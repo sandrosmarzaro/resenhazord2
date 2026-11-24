@@ -5,6 +5,7 @@ export function createMockWhatsAppPort(overrides: Partial<WhatsAppPort> = {}): W
   return {
     sendMessage: vi.fn(),
     sendGroupStatus: vi.fn(),
+    sendAudioSticker: vi.fn(),
     groupMetadata: vi.fn(),
     groupParticipantsUpdate: vi.fn(),
     groupUpdateSubject: vi.fn(),
