@@ -1,6 +1,7 @@
 import html
 import random
 import re
+import unicodedata
 from typing import ClassVar
 
 import structlog
@@ -22,6 +23,7 @@ from bot.domain.commands.base import (
 from bot.domain.exceptions import ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
+from bot.domain.services.minors_filter import MinorsFilter
 from bot.domain.services.redgifs import RedGifs
 from bot.domain.text import strip_accents
 from bot.infrastructure.http_client import HttpClient
@@ -44,6 +46,11 @@ class PornoCommand(Command):
         r'"thumbnailUrl"\s*:\s*\[?\s*"([^"]+)"',
     )
 
+    # The minors check and the search see the same plain string: anything outside it
+    # (invisible characters, lookalike letters, punctuation) splits the word instead.
+    NOT_SEARCHABLE: ClassVar[re.Pattern[str]] = re.compile(r'[^a-z0-9]+')
+    INVISIBLE_CATEGORY = 'Cf'
+
     def __init__(self) -> None:
         super().__init__()
         self._redgifs = RedGifs()
@@ -54,7 +61,7 @@ class PornoCommand(Command):
             name='porno',
             aliases=['porn'],
             args=ArgType.OPTIONAL,
-            args_label='categoria',
+            args_label='busca',
             flags=[Flag.SHOW, Flag.DM],
             category=Category.RANDOM,
             scope=CommandScope.NSFW,
@@ -63,19 +70,26 @@ class PornoCommand(Command):
 
     @property
     def menu_description(self) -> str:
-        return 'Recebe um vídeo adulto aleatório, ou um da categoria escolhida (18+).'
+        return 'Recebe um vídeo adulto aleatório, ou um da sua busca (18+).'
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
-        if parsed.rest:
-            return await self._category_porn(data, parsed.rest)
+        if term := self._search_term(parsed.rest):
+            return await self._searched_porn(data, term)
         return await self._real_porn(data)
 
-    async def _category_porn(self, data: CommandData, category: str) -> list[BotMessage]:
-        tag = PORN_CATEGORIES.get(strip_accents(category.strip().lower()))
-        if not tag:
-            categories = ', '.join(PORN_CATEGORIES)
-            return [Reply.to(data).text(f'Categoria inválida! 🫣\n\nCategorias: {categories}')]
-        media = await self._redgifs.random_media(tag)
+    @classmethod
+    def _search_term(cls, text: str) -> str:
+        visible = ''.join(
+            char
+            for char in unicodedata.normalize('NFKC', text)
+            if unicodedata.category(char) != cls.INVISIBLE_CATEGORY
+        )
+        return cls.NOT_SEARCHABLE.sub(' ', strip_accents(visible.casefold())).strip()
+
+    async def _searched_porn(self, data: CommandData, term: str) -> list[BotMessage]:
+        if MinorsFilter.flags('redgifs', [term]):
+            return [Reply.to(data).text('Essa busca não rola 🚫')]
+        media = await self._redgifs.random_media(PORN_CATEGORIES.get(term, term))
         if media.is_video:
             video = await RedGifs.download(media.url)
             return [Reply.to(data).video_buffer(video, 'Aqui está seu vídeo 🤤')]

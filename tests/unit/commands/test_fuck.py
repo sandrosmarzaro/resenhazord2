@@ -41,7 +41,7 @@ class TestRun:
         mocker.patch.object(Mp4Remux, 'remux', return_value=b'isom')
         item = {'type': 1, 'tags': ['Sex'], 'niches': [], 'urls': {'sd': self.VIDEO_URL}}
         return respx_mock.get(url__startswith=self.SEARCH_URL).mock(
-            return_value=httpx.Response(200, json={'gifs': [item]})
+            return_value=httpx.Response(200, json={'gifs': [item], 'pages': 1})
         )
 
     @pytest.mark.anyio
