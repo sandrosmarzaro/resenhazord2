@@ -1,3 +1,92 @@
+diff --git a/node_modules/@whiskeysockets/baileys/.bun-tag-10a3f626af888df6 b/.bun-tag-10a3f626af888df6
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/WAProto/WAProto.proto b/WAProto/WAProto.proto
+index d76317480be18c2f7576efc8e86b8608a3b655ca..7688412dc939a9d5d6eeca26850d3d5862392e7e 100644
+--- a/WAProto/WAProto.proto
++++ b/WAProto/WAProto.proto
+@@ -3500,6 +3500,7 @@ message Message {
+         optional bool isLottie = 21;
+         optional string accessibilityLabel = 22;
+         optional Message.MediaKeyDomain mediaKeyDomain = 23;
++        optional AudioMessage audioMessage = 26;
+     }
+ 
+     message StickerPackMessage {
+diff --git a/WAProto/index.d.ts b/WAProto/index.d.ts
+index 8640580089a3815c7efa1016c034476cfa75bd4d..33dc4ad19bc6ceb10bd854020143948651f7fb57 100644
+--- a/WAProto/index.d.ts
++++ b/WAProto/index.d.ts
+@@ -9008,6 +9008,7 @@ export namespace proto {
+             isLottie?: (boolean|null);
+             accessibilityLabel?: (string|null);
+             mediaKeyDomain?: (proto.Message.MediaKeyDomain|null);
++            audioMessage?: (proto.Message.IAudioMessage|null);
+         }
+ 
+         class StickerMessage implements IStickerMessage {
+@@ -9033,6 +9034,7 @@ export namespace proto {
+             public isLottie?: (boolean|null);
+             public accessibilityLabel?: (string|null);
+             public mediaKeyDomain?: (proto.Message.MediaKeyDomain|null);
++            public audioMessage?: (proto.Message.IAudioMessage|null);
+             public static create(properties?: proto.Message.IStickerMessage): proto.Message.StickerMessage;
+             public static encode(m: proto.Message.IStickerMessage, w?: $protobuf.Writer): $protobuf.Writer;
+             public static decode(r: ($protobuf.Reader|Uint8Array), l?: number): proto.Message.StickerMessage;
+diff --git a/WAProto/index.js b/WAProto/index.js
+index 8950f90693dd60ef317e1527c1fc7b3159f4159f..17442e77844da82383391c1cf7b65c66ad240631 100644
+--- a/WAProto/index.js
++++ b/WAProto/index.js
+@@ -62624,6 +62624,7 @@ export const proto = $root.proto = (() => {
+             StickerMessage.prototype.isLottie = null;
+             StickerMessage.prototype.accessibilityLabel = null;
+             StickerMessage.prototype.mediaKeyDomain = null;
++            StickerMessage.prototype.audioMessage = null;
+ 
+             let $oneOfFields;
+ 
+@@ -62802,6 +62803,8 @@ export const proto = $root.proto = (() => {
+                     w.uint32(178).string(m.accessibilityLabel);
+                 if (m.mediaKeyDomain != null && Object.hasOwnProperty.call(m, "mediaKeyDomain"))
+                     w.uint32(184).int32(m.mediaKeyDomain);
++                if (m.audioMessage != null && Object.hasOwnProperty.call(m, "audioMessage"))
++                    $root.proto.Message.AudioMessage.encode(m.audioMessage, w.uint32(210).fork()).ldelim();
+                 return w;
+             };
+ 
+@@ -62898,6 +62901,10 @@ export const proto = $root.proto = (() => {
+                             m.mediaKeyDomain = r.int32();
+                             break;
+                         }
++                    case 26: {
++                            m.audioMessage = $root.proto.Message.AudioMessage.decode(r, r.uint32());
++                            break;
++                        }
+                     default:
+                         r.skipType(t & 7);
+                         break;
+@@ -63036,6 +63043,11 @@ export const proto = $root.proto = (() => {
+                     m.mediaKeyDomain = 4;
+                     break;
+                 }
++                if (d.audioMessage != null) {
++                    if (typeof d.audioMessage !== "object")
++                        throw TypeError(".proto.Message.StickerMessage.audioMessage: object expected");
++                    m.audioMessage = $root.proto.Message.AudioMessage.fromObject(d.audioMessage);
++                }
+                 return m;
+             };
+ 
+@@ -63157,6 +63169,9 @@ export const proto = $root.proto = (() => {
+                     if (o.oneofs)
+                         d._mediaKeyDomain = "mediaKeyDomain";
+                 }
++                if (m.audioMessage != null && m.hasOwnProperty("audioMessage")) {
++                    d.audioMessage = $root.proto.Message.AudioMessage.toObject(m.audioMessage, o);
++                }
+                 return d;
+             };
+ 
 diff --git a/lib/Socket/messages-recv.js b/lib/Socket/messages-recv.js
 index f2003ac00ef223468c432a1bbe0a0eb02c1453b2..0cc2226578b497ad07659415f7464a69d164ee07 100644
 --- a/lib/Socket/messages-recv.js
