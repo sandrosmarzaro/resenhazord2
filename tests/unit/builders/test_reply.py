@@ -75,6 +75,16 @@ class TestReplyImageBuffer:
         assert msg.content.caption == 'cap'
         assert msg.content.view_once is True
 
+    def test_image_buffer_can_skip_view_once(self):
+        msg = Reply.to(_make_data()).image_buffer(b'fake-image', view_once=False)
+
+        assert msg.content.view_once is False
+
+    def test_video_buffer_can_skip_view_once(self):
+        msg = Reply.to(_make_data()).video_buffer(b'fake-video', view_once=False)
+
+        assert msg.content.view_once is False
+
 
 class TestReplyVideo:
     def test_build_video_with_view_once(self):

@@ -115,7 +115,7 @@ class TestStaticSticker:
 
         assert len(messages) == 1
         assert messages[0].content.type == 'image_buffer'
-        assert messages[0].content.view_once is True
+        assert messages[0].content.view_once is False
         img = Image.open(io.BytesIO(messages[0].content.data))
         assert img.format == 'PNG'
 
@@ -171,7 +171,7 @@ class TestAnimatedSticker:
         assert len(messages) == 1
         assert messages[0].content.type == 'video_buffer'
         assert messages[0].content.gif_playback is True
-        assert messages[0].content.view_once is True
+        assert messages[0].content.view_once is False
 
     @pytest.mark.anyio
     async def test_detects_the_animation_a_web_quote_drops(self, command):
@@ -259,6 +259,23 @@ def _padded_webp(*, animated: bool) -> bytes:
     else:
         frames[0].save(output, format='WEBP', lossless=True)
     return output.getvalue()
+
+
+class TestDelivery:
+    @pytest.mark.anyio
+    async def test_audio_video_is_not_view_once(self, command, mocker):
+        mocker.patch.object(StickerVideo, 'render', return_value=b'mp4')
+        data = GroupCommandDataFactory.build(
+            text=',extrair',
+            media_type='sticker',
+            media_source='quoted',
+            media_buffer=_make_webp(animated=True),
+            media_audio=b'ogg',
+        )
+
+        messages = await command.run(data)
+
+        assert messages[0].content.view_once is False
 
 
 class TestTransparentPadding:

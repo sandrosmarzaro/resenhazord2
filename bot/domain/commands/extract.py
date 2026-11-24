@@ -38,6 +38,7 @@ class ExtractCommand(Command):
         audio = None if self.MUTE in parsed.flags else data.media_audio
         logger.info('extrair_command', jid=data.jid, has_audio=audio is not None)
 
+        # An extraction is meant to be kept, so it skips the bot's view-once default.
         try:
             buffer = await self._get_media(data)
             # Decided from the bytes: a reply from WhatsApp Web quotes the sticker
@@ -47,11 +48,11 @@ class ExtractCommand(Command):
             frames = await Work.cpu(convert, buffer)
             if audio:
                 video = await StickerVideo.render(frames, audio, animated=animated)
-                return [Reply.to(data).video_buffer(video)]
+                return [Reply.to(data).video_buffer(video, view_once=False)]
             if animated:
                 video = await StickerVideo.silent(frames)
-                return [Reply.to(data).video_buffer(video, gif_playback=True)]
-            return [Reply.to(data).image_buffer(frames)]
+                return [Reply.to(data).video_buffer(video, gif_playback=True, view_once=False)]
+            return [Reply.to(data).image_buffer(frames, view_once=False)]
         except Exception:
             logger.exception('extrair_error', jid=data.jid)
             return [Reply.to(data).text('Não consegui extrair a imagem do sticker 😅')]
