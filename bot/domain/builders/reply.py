@@ -68,8 +68,10 @@ class Reply:
     def audio_buffer(self, data: bytes, mimetype: str = 'audio/mp4') -> BotMessage:
         return self._build(AudioBufferContent(data=data, mimetype=mimetype))
 
-    def sticker(self, data: bytes, pack: str = '', author: str = '') -> BotMessage:
-        return self._build(StickerContent(data=data, pack=pack, author=author))
+    def sticker(
+        self, data: bytes, pack: str = '', author: str = '', *, audio: bytes | None = None
+    ) -> BotMessage:
+        return self._build(StickerContent(data=data, pack=pack, author=author, audio=audio))
 
     def raw(self, content: dict) -> BotMessage:
         return self._build(RawContent(content=content))

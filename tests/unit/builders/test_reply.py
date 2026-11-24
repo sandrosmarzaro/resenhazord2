@@ -114,6 +114,16 @@ class TestReplySticker:
         assert isinstance(msg.content, StickerContent)
         assert msg.content.data == buffer
 
+    def test_sticker_carries_its_audio_base64(self):
+        msg = Reply.to(_make_data()).sticker(b'fake-sticker', audio=b'ogg-opus')
+
+        assert msg.to_dict()['content']['audio_b64'] == 'b2dnLW9wdXM='
+
+    def test_silent_sticker_sends_no_audio(self):
+        msg = Reply.to(_make_data()).sticker(b'fake-sticker')
+
+        assert 'audio_b64' not in msg.to_dict()['content']
+
 
 class TestReplyRaw:
     def test_build_raw_content(self):
