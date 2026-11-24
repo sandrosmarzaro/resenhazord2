@@ -15,13 +15,22 @@ class StickerVideo:
     _TIMED_OUT: ClassVar[str] = 'ffmpeg timed out'
     # WhatsApp's own audio stickers carry a bit over a minute of audio (60.5s seen).
     _MAX_SECONDS: ClassVar[int] = 65
-    # The audio comes from any member's sticker: open only local files, as the formats
-    # this class writes for the frames and WhatsApp's ogg/opus for the audio.
-    _INPUT_ARGS: ClassVar[tuple[str, ...]] = (
+    # Any member's sticker supplies these files: a crafted one can be an hls or concat
+    # playlist that makes ffmpeg fetch URLs or read local files. ffmpeg binds input
+    # options to the next -i only, so each input carries its own whitelist.
+    _FRAMES_INPUT_ARGS: ClassVar[tuple[str, ...]] = (
         '-protocol_whitelist',
         'file',
         '-format_whitelist',
-        'gif,image2,ogg',
+        'gif,image2',
+    )
+    _AUDIO_INPUT_ARGS: ClassVar[tuple[str, ...]] = (
+        '-protocol_whitelist',
+        'file',
+        '-format_whitelist',
+        'ogg',
+        '-f',
+        'ogg',
     )
     _ANIMATION_ARGS: ClassVar[tuple[str, ...]] = ('-stream_loop', '-1', '-f', 'gif')
     _STILL_ARGS: ClassVar[tuple[str, ...]] = ('-loop', '1', '-f', 'image2')
@@ -64,10 +73,11 @@ class StickerVideo:
                 'ffmpeg',
                 '-v',
                 'error',
-                *cls._INPUT_ARGS,
+                *cls._FRAMES_INPUT_ARGS,
                 *frames_args,
                 '-i',
                 str(frames_path),
+                *cls._AUDIO_INPUT_ARGS,
                 '-i',
                 str(audio_path),
                 *cls._ENCODE_ARGS,

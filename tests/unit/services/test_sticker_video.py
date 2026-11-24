@@ -61,20 +61,37 @@ class TestRender:
         assert _frames_input(ffmpeg.call_args.args) == ('-loop', '1', '-f', 'image2')
 
     @pytest.mark.anyio
-    async def test_opens_only_local_image_and_ogg_files(self, fake_ffmpeg):
+    async def test_opens_the_frames_only_as_a_local_image(self, fake_ffmpeg):
         ffmpeg = fake_ffmpeg(b'mp4')
 
         await StickerVideo.render(b'gif', b'ogg', animated=True)
 
         args = ffmpeg.call_args.args
-        assert args[:7] == (
-            'ffmpeg',
-            '-v',
-            'error',
+        assert args[3 : args.index('-i') - 4] == (
             '-protocol_whitelist',
             'file',
             '-format_whitelist',
-            'gif,image2,ogg',
+            'gif,image2',
+        )
+
+    # ffmpeg options bind to the next -i only: the audio, which any member's sticker
+    # supplies, needs its own whitelist or a crafted playlist could fetch URLs.
+    @pytest.mark.anyio
+    async def test_opens_the_audio_only_as_a_local_ogg(self, fake_ffmpeg):
+        ffmpeg = fake_ffmpeg(b'mp4')
+
+        await StickerVideo.render(b'gif', b'ogg', animated=True)
+
+        args = ffmpeg.call_args.args
+        frames_input = args.index('-i')
+        audio_input = args.index('-i', frames_input + 1)
+        assert args[frames_input + 2 : audio_input] == (
+            '-protocol_whitelist',
+            'file',
+            '-format_whitelist',
+            'ogg',
+            '-f',
+            'ogg',
         )
 
     @pytest.mark.anyio
