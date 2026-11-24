@@ -22,7 +22,7 @@ describe('StickerAudioStore', () => {
     seconds: 8,
   };
 
-  it('keeps the audio for seven days under the chat and message id', async () => {
+  it('keeps the first audio for seven days under the chat and message id', async () => {
     const redis = mapBackedRedis();
 
     await new StickerAudioStore(redis).save(key, audio);
@@ -30,7 +30,7 @@ describe('StickerAudioStore', () => {
     expect(redis.set).toHaveBeenCalledWith(
       'sticker-audio:group@g.us:STICKER1',
       { audio: expect.any(String) },
-      { ex: 604800 },
+      { ex: 604800, nx: true },
     );
   });
 

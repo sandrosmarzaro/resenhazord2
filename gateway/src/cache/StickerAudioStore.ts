@@ -19,6 +19,8 @@ export default class StickerAudioStore {
     const value: StoredAudio = { audio: Buffer.from(encoded).toString('base64') };
     await this.redis.set(StickerAudioStore.key(key.remoteJid!, key.id!), value, {
       ex: StickerAudioStore.TTL_SECONDS,
+      // First writer wins: a reused message id can't swap another sticker's audio.
+      nx: true,
     });
   }
 

@@ -104,6 +104,15 @@ describe('MediaHandler', () => {
       expect(stream.destroyed).toBe(true);
     });
 
+    it('stops at a tighter cap when the caller gives one', async () => {
+      const mebibyte = Buffer.alloc(1024 * 1024);
+      downloading(Readable.from([mebibyte, mebibyte]));
+
+      await expect(handler.downloadMedia(storedQuoting(), 'quoted', 1024 * 1024)).rejects.toThrow(
+        'Media is larger than 1048576 bytes',
+      );
+    });
+
     it('stops a download that hangs', async () => {
       vi.useFakeTimers();
       const stream = new Readable({ read() {} });

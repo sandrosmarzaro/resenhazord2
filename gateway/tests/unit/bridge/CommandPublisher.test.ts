@@ -237,6 +237,7 @@ describe('CommandPublisher', () => {
           message: { audioMessage: audio },
         },
         'direct',
+        4 * 1024 * 1024,
       );
     });
 

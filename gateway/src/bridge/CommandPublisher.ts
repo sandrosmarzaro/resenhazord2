@@ -13,6 +13,9 @@ interface ConversationMentionShape {
 
 export default class CommandPublisher {
   private static readonly QUEUE = 'commands';
+  // A real sticker's audio is ~0.5 MB (60s of opus); the cap keeps a forged one from
+  // doubling the envelope's memory next to the 64 MiB media download.
+  private static readonly MAX_STICKER_AUDIO_BYTES = 4 * 1024 * 1024;
 
   constructor(
     private readonly broker: BrokerPort,
@@ -99,12 +102,20 @@ export default class CommandPublisher {
     const audioMessage = await this.stickerAudio.find(jid, contextInfo.stanzaId);
     if (!audioMessage) return null;
     const key = { remoteJid: jid, id: contextInfo.stanzaId, participant: contextInfo.participant };
-    return this.download({ key, message: { audioMessage } }, 'direct');
+    return this.download(
+      { key, message: { audioMessage } },
+      'direct',
+      CommandPublisher.MAX_STICKER_AUDIO_BYTES,
+    );
   }
 
-  private async download(message: WAMessage, source: string): Promise<Buffer | null> {
+  private async download(
+    message: WAMessage,
+    source: string,
+    maxBytes?: number,
+  ): Promise<Buffer | null> {
     try {
-      return await this.mediaHandler.downloadMedia(message, source);
+      return await this.mediaHandler.downloadMedia(message, source, maxBytes);
     } catch (error) {
       logger.warn({
         event: 'media_download_failed',
