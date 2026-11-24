@@ -54,6 +54,10 @@ class VideoRemuxError(CommandError):
         super().__init__('Não consegui preparar esse vídeo, tenta de novo! 😅', detail=detail)
 
 
+class StickerAudioError(Exception):
+    """ffmpeg could not pull a video's audio for its sticker. The sticker goes out silent."""
+
+
 class StickerVideoError(CommandError):
     """ffmpeg could not turn an audio sticker into a video with its sound."""
 
