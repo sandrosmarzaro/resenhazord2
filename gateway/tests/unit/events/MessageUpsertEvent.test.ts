@@ -3,6 +3,7 @@ import MessageUpsertEvent from '../../../src/events/MessageUpsertEvent.js';
 import CommandHandler from '../../../src/handlers/CommandHandler.js';
 import Resenhazord2 from '../../../src/models/Resenhazord2.js';
 import logger from '../../../src/infra/Logger.js';
+import { stickerAudioStore } from '../../../src/cache/index.js';
 import { createMockWhatsAppPort } from '../../fixtures/factories/MockWhatsAppPort.js';
 import { WAMessageFactory } from '../../fixtures/factories/WAMessageFactory.js';
 import type WhatsAppPort from '../../../src/ports/WhatsAppPort.js';
@@ -138,6 +139,48 @@ describe('MessageUpsertEvent', () => {
       await MessageUpsertEvent.run({ type: 'append', messages: [WAMessageFactory.build()] });
 
       expect(whatsapp.muteChat).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('audio stickers', () => {
+    const audio = { url: 'https://mmg.whatsapp.net/audio', mimetype: 'audio/ogg; codecs=opus' };
+
+    it('keeps the audio of an incoming audio sticker', async () => {
+      const save = vi.spyOn(stickerAudioStore, 'save').mockResolvedValue();
+      const sticker = WAMessageFactory.build({
+        message: { audioStickerMessage: { message: { stickerMessage: { audioMessage: audio } } } },
+      });
+
+      await MessageUpsertEvent.run({ type: 'notify', messages: [sticker] });
+
+      expect(save).toHaveBeenCalledWith(sticker.key, audio);
+    });
+
+    it('ignores a silent sticker', async () => {
+      const save = vi.spyOn(stickerAudioStore, 'save').mockResolvedValue();
+      const sticker = WAMessageFactory.build({ message: { stickerMessage: { url: 'x' } } });
+
+      await MessageUpsertEvent.run({ type: 'notify', messages: [sticker] });
+
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('logs a failed save and still handles the message', async () => {
+      const warn = vi.spyOn(logger, 'warn');
+      vi.spyOn(stickerAudioStore, 'save').mockRejectedValue(new Error('redis down'));
+      const sticker = WAMessageFactory.build({
+        message: { audioStickerMessage: { message: { stickerMessage: { audioMessage: audio } } } },
+      });
+
+      await MessageUpsertEvent.run({ type: 'notify', messages: [sticker] });
+
+      expect(handleCommand).toHaveBeenCalledWith(sticker);
+      await vi.waitFor(() =>
+        expect(warn).toHaveBeenCalledWith({
+          event: 'sticker_audio_save_failed',
+          error: 'Error: redis down',
+        }),
+      );
     });
   });
 });

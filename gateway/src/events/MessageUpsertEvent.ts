@@ -1,4 +1,9 @@
-import type { BaileysEventMap, WAMessage } from '@whiskeysockets/baileys';
+import {
+  normalizeMessageContent,
+  type BaileysEventMap,
+  type WAMessage,
+} from '@whiskeysockets/baileys';
+import { stickerAudioStore } from '../cache/index.js';
 import CommandHandler from '../handlers/CommandHandler.js';
 import logger from '../infra/Logger.js';
 import Resenhazord2 from '../models/Resenhazord2.js';
@@ -11,6 +16,7 @@ export default class MessageUpsertEvent {
     const messages = data.messages.filter((message) => !MessageUpsertEvent.isGroupStatus(message));
     const [message] = messages;
     if (!message) return;
+    MessageUpsertEvent.keepStickerAudio(messages);
     if (data.type === 'notify') {
       MessageUpsertEvent.markRead(messages);
       MessageUpsertEvent.muteNewChats(messages);
@@ -25,6 +31,18 @@ export default class MessageUpsertEvent {
   // among its viewers, and a caption is not a command.
   private static isGroupStatus(message: WAMessage): boolean {
     return !!(message.message?.groupStatusMessage || message.message?.groupStatusMessageV2);
+  }
+
+  // A reply quotes an audio sticker without its audio, so keep it for the lookup.
+  // Fire-and-forget like the receipts: Redis must never delay the command.
+  private static keepStickerAudio(messages: WAMessage[]): void {
+    for (const message of messages) {
+      const audio = normalizeMessageContent(message.message)?.stickerMessage?.audioMessage;
+      if (!audio) continue;
+      stickerAudioStore.save(message.key, audio).catch((error: unknown) => {
+        logger.warn({ event: 'sticker_audio_save_failed', error: String(error) });
+      });
+    }
   }
 
   // A bot on a regular account otherwise leaves every chat unread. Fire-and-forget:
