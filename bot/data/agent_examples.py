@@ -10,6 +10,7 @@ _SCORE_NOW = ',score --now'
 _MENU = ',menu'
 _CARRO = ',carro'
 _STIC = ',stic'
+_EXTRAIR = ',extrair'
 _MUSICA_ROCK = ',música rock'
 _AUDIO_LANG_ZH = ',áudio lang zh'
 _CONFIG = ',config'
@@ -150,9 +151,9 @@ AGENT_EXAMPLES = [
     ('manda um short', ',short'),
     ('um short de gato', ',short gato'),
     ('manda um reels', ',reels'),
-    ('extrair a imagem do sticker', ',extrair'),
-    ('imagem original da figurinha', ',extrair'),
-    ('extrair o áudio do sticker', ',extrair'),
+    ('extrair a imagem do sticker', _EXTRAIR),
+    ('imagem original da figurinha', _EXTRAIR),
+    ('extrair o áudio do sticker', _EXTRAIR),
     ('extrair o sticker sem som', ',extrair mute'),
     # Country flag
     ('bandeira de um país aleatório', ',bandeira'),
