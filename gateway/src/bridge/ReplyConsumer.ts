@@ -43,10 +43,19 @@ export default class ReplyConsumer {
         continue;
       }
       const options = ReplyConsumer.withQuoted(message.options, raw, command?.quoted);
-      await this.whatsapp.sendMessage(message.jid, message.content, options);
+      await this.send(message, options);
     }
 
     if (command) await TypingIndicator.stop(command.jid);
+  }
+
+  private async send(message: Message, options: MiscMessageGenerationOptions): Promise<void> {
+    if (message.audioSticker) {
+      const { sticker, audio } = message.audioSticker;
+      await this.whatsapp.sendAudioSticker(message.jid, sticker, audio, options);
+      return;
+    }
+    await this.whatsapp.sendMessage(message.jid, message.content, options);
   }
 
   // The status lands outside the chat, so a reaction on the request is the only

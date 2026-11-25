@@ -104,7 +104,11 @@ export default class MediaHandler {
     return null;
   }
 
-  async downloadMedia(stored: WAMessage, source: string): Promise<Buffer> {
+  async downloadMedia(
+    stored: WAMessage,
+    source: string,
+    maxBytes: number = MediaHandler.MAX_MEDIA_BYTES,
+  ): Promise<Buffer> {
     let message: WAMessage;
 
     if (source === 'direct') {
@@ -139,7 +143,7 @@ export default class MediaHandler {
     );
     try {
       const stream = await Promise.race([download, MediaHandler.expiry(deadline.signal)]);
-      return await MediaHandler.read(stream, deadline.signal);
+      return await MediaHandler.read(stream, deadline.signal, maxBytes);
     } finally {
       clearTimeout(timer);
     }
@@ -151,7 +155,11 @@ export default class MediaHandler {
     });
   }
 
-  private static async read(stream: Readable, deadline: AbortSignal): Promise<Buffer> {
+  private static async read(
+    stream: Readable,
+    deadline: AbortSignal,
+    maxBytes: number,
+  ): Promise<Buffer> {
     const stop = () => stream.destroy(new Error(MediaHandler.TIMED_OUT));
     deadline.addEventListener('abort', stop);
     const chunks: Buffer[] = [];
@@ -159,8 +167,8 @@ export default class MediaHandler {
     try {
       for await (const chunk of stream) {
         size += chunk.length;
-        if (size > MediaHandler.MAX_MEDIA_BYTES) {
-          throw new Error(`Media is larger than ${MediaHandler.MAX_MEDIA_BYTES} bytes`);
+        if (size > maxBytes) {
+          throw new Error(`Media is larger than ${maxBytes} bytes`);
         }
         chunks.push(chunk);
       }

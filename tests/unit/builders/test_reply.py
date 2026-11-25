@@ -75,6 +75,16 @@ class TestReplyImageBuffer:
         assert msg.content.caption == 'cap'
         assert msg.content.view_once is True
 
+    def test_image_buffer_can_skip_view_once(self):
+        msg = Reply.to(_make_data()).image_buffer(b'fake-image', view_once=False)
+
+        assert msg.content.view_once is False
+
+    def test_video_buffer_can_skip_view_once(self):
+        msg = Reply.to(_make_data()).video_buffer(b'fake-video', view_once=False)
+
+        assert msg.content.view_once is False
+
 
 class TestReplyVideo:
     def test_build_video_with_view_once(self):
@@ -113,6 +123,16 @@ class TestReplySticker:
 
         assert isinstance(msg.content, StickerContent)
         assert msg.content.data == buffer
+
+    def test_sticker_carries_its_audio_base64(self):
+        msg = Reply.to(_make_data()).sticker(b'fake-sticker', audio=b'ogg-opus')
+
+        assert msg.to_dict()['content']['audio_b64'] == 'b2dnLW9wdXM='
+
+    def test_silent_sticker_sends_no_audio(self):
+        msg = Reply.to(_make_data()).sticker(b'fake-sticker')
+
+        assert 'audio_b64' not in msg.to_dict()['content']
 
 
 class TestReplyRaw:

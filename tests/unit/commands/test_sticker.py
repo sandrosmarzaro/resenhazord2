@@ -1,6 +1,9 @@
 import pytest
 
 from bot.domain.commands.sticker import StickerCommand
+from bot.domain.exceptions import StickerAudioError
+from bot.domain.services.sticker.sticker_audio import StickerAudio
+from bot.domain.services.sticker_creator import StickerCreator
 from tests.factories.command_data import GroupCommandDataFactory
 
 MESSAGE_ID = 'MSG_42'
@@ -28,6 +31,7 @@ class TestMatches:
             (', fig', True),
             (', figurinha', True),
             (', stic Anime | Sandro', True),
+            (', stic mute', True),
             (', stic crop Anime | Sandro', True),
             (', sticker Meu Pack', True),
             (', stic -50%', True),
@@ -340,6 +344,76 @@ class TestQualityReduction:
     )
     def test_parse_quality_with_and_without_percent(self, command, token, expected):
         assert command._parse_quality_reduction(token) == expected
+
+
+class TestAudio:
+    VIDEO = b'\x00\x00\x00\x18ftypmp42' + bytes(16)
+
+    @pytest.fixture(autouse=True)
+    def create(self, mocker):
+        return mocker.patch.object(StickerCreator, 'create', return_value=b'webp')
+
+    @pytest.fixture
+    def from_video(self, mocker):
+        return mocker.patch.object(StickerAudio, 'from_video', return_value=b'opus')
+
+    def _data(self, text: str = ',stic', **media):
+        defaults = {'media_type': 'video', 'media_source': 'quoted', 'media_buffer': self.VIDEO}
+        return GroupCommandDataFactory.build(text=text, **{**defaults, **media})
+
+    @pytest.mark.anyio
+    async def test_a_video_sticker_keeps_the_soundtrack(self, command, from_video):
+        messages = await command.run(self._data())
+
+        from_video.assert_awaited_once_with(self.VIDEO)
+        assert messages[0].content.audio == b'opus'
+
+    @pytest.mark.anyio
+    async def test_mute_drops_the_soundtrack(self, command, from_video):
+        messages = await command.run(self._data(',stic mute'))
+
+        from_video.assert_not_awaited()
+        assert messages[0].content.audio is None
+
+    @pytest.mark.anyio
+    async def test_a_quoted_audio_sticker_keeps_its_audio(self, command, from_video):
+        data = self._data(media_type='sticker', media_buffer=b'RIFF-webp', media_audio=b'ogg')
+
+        messages = await command.run(data)
+
+        from_video.assert_not_awaited()
+        assert messages[0].content.audio == b'ogg'
+
+    @pytest.mark.anyio
+    async def test_mute_drops_a_quoted_sticker_audio(self, command, from_video):
+        data = self._data(',stic mute', media_type='sticker', media_audio=b'ogg')
+
+        messages = await command.run(data)
+
+        assert messages[0].content.audio is None
+
+    @pytest.mark.anyio
+    async def test_an_image_sticker_has_no_audio(self, command, from_video):
+        data = self._data(media_type='image', media_buffer=b'\x89PNG')
+
+        messages = await command.run(data)
+
+        from_video.assert_not_awaited()
+        assert messages[0].content.audio is None
+
+    @pytest.mark.anyio
+    async def test_sends_the_sticker_silent_when_the_audio_fails(self, command, mocker):
+        mocker.patch.object(StickerAudio, 'from_video', side_effect=StickerAudioError('boom'))
+
+        messages = await command.run(self._data())
+
+        assert (messages[0].content.data, messages[0].content.audio) == (b'webp', None)
+
+    @pytest.mark.anyio
+    async def test_mute_leaves_pack_and_author_alone(self, command, from_video):
+        messages = await command.run(self._data(',stic mute Anime | Sandro'))
+
+        assert (messages[0].content.pack, messages[0].content.author) == ('Anime', 'Sandro')
 
 
 class TestParsePackAuthor:

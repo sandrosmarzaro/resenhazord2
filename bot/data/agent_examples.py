@@ -89,6 +89,8 @@ AGENT_EXAMPLES = [
     ('sticker sem bordas', ',stic type rounded'),
     ('figurinha redonda', ',stic type circle'),
     ('sticker circular', ',stic type circle'),
+    ('figurinha sem som', ',stic mute'),
+    ('sticker mudo do vídeo', ',stic mute'),
     # Greetings
     ('oi', ',oi'),
     ('me mande um oi', ',oi'),
@@ -150,6 +152,8 @@ AGENT_EXAMPLES = [
     ('manda um reels', ',reels'),
     ('extrair a imagem do sticker', ',extrair'),
     ('imagem original da figurinha', ',extrair'),
+    ('extrair o áudio do sticker', ',extrair'),
+    ('extrair o sticker sem som', ',extrair mute'),
     # Country flag
     ('bandeira de um país aleatório', ',bandeira'),
     # Slot machine

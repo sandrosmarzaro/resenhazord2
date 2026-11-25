@@ -64,6 +64,34 @@ describe('ReplyConsumer', () => {
     expect(whatsapp.sendMessage).toHaveBeenCalledWith('g@g.us', { text: 'pong' }, {});
   });
 
+  it('sends a sticker with audio as an audio sticker, quoting the request', async () => {
+    const { whatsapp, inFlight, deliver } = await startConsumer();
+    const original = { key: { id: 'ORIG_1', remoteJid: 'g@g.us' } } as WAMessage;
+    inFlight.track('corr-1', 'g@g.us', original);
+    const sticker = Buffer.from('webp');
+    const audio = Buffer.from('ogg');
+
+    await deliver({
+      id: 'corr-1',
+      messages: [
+        {
+          jid: 'g@g.us',
+          quoted_message_id: 'ORIG_1',
+          content: {
+            type: 'sticker',
+            buffer_b64: sticker.toString('base64'),
+            audio_b64: audio.toString('base64'),
+          },
+        },
+      ],
+    });
+
+    expect(whatsapp.sendAudioSticker).toHaveBeenCalledWith('g@g.us', sticker, audio, {
+      quoted: original,
+    });
+    expect(whatsapp.sendMessage).not.toHaveBeenCalled();
+  });
+
   it('quotes the original tracked message and attaches expiration', async () => {
     const { whatsapp, inFlight, deliver } = await startConsumer();
     const original = { key: { id: 'ORIG_1', remoteJid: 'g@g.us' } } as WAMessage;

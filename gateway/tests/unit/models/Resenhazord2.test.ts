@@ -88,5 +88,24 @@ describe('Resenhazord2', () => {
 
       expect(arm).toHaveBeenCalledOnce();
     });
+
+    it('opens the command path once the broker connects', async () => {
+      vi.spyOn(ConnectionWatchdog, 'arm').mockImplementation(() => {});
+      vi.spyOn(CreateAuthState, 'getAuthState').mockResolvedValue({
+        state: {} as never,
+        saveCreds: vi.fn(),
+      });
+      vi.spyOn(CreateSocket, 'getSocket').mockResolvedValue({
+        updateMediaMessage: vi.fn(),
+      } as never);
+      vi.spyOn(Resenhazord2.broker, 'connect').mockResolvedValue();
+      const consume = vi.spyOn(Resenhazord2.broker, 'consume').mockResolvedValue();
+      vi.spyOn(Resenhazord2.broker, 'respondRpc').mockResolvedValue();
+
+      await Resenhazord2.connectToWhatsApp();
+
+      expect(consume).toHaveBeenCalledWith('replies', expect.any(Function));
+      expect(Resenhazord2.brokerForwarder).not.toBeNull();
+    });
   });
 });

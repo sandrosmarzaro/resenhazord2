@@ -1,3 +1,4 @@
+import base64
 from dataclasses import dataclass
 
 
@@ -6,6 +7,9 @@ class StickerContent:
     data: bytes
     pack: str = ''
     author: str = ''
+    # WhatsApp audio stickers: ogg/opus played over the animation. Other platforms
+    # drop it.
+    audio: bytes | None = None
     type: str = 'sticker'
 
     @property
@@ -22,4 +26,6 @@ class StickerContent:
             d['pack'] = self.pack
         if self.author:
             d['author'] = self.author
+        if self.audio:
+            d['audio_b64'] = base64.b64encode(self.audio).decode()
         return d

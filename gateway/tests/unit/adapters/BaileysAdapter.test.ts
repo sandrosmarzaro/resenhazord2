@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { WASocket } from '@whiskeysockets/baileys';
+import { readFileSync } from 'node:fs';
+import { generateWAMessageContent, type WASocket } from '@whiskeysockets/baileys';
 import BaileysAdapter from '../../../src/adapters/BaileysAdapter.js';
 
 describe('BaileysAdapter', () => {
@@ -49,5 +50,66 @@ describe('BaileysAdapter', () => {
     await new BaileysAdapter(socket).muteChat('g@g.us');
 
     expect(chatModify).toHaveBeenCalledWith({ mute: -1 }, 'g@g.us');
+  });
+
+  describe('audio stickers', () => {
+    const media = (name: string) =>
+      readFileSync(new URL(`../../fixtures/media/${name}`, import.meta.url));
+    const options = { ephemeralExpiration: 86400 };
+
+    function uploadingSocket() {
+      const sendMessage = vi.fn();
+      const waUploadToServer = vi.fn().mockResolvedValue({
+        mediaUrl: 'https://mmg.whatsapp.net/m',
+        directPath: '/m',
+      });
+      const socket = { updateMediaMessage: vi.fn(), sendMessage, waUploadToServer };
+      return { socket: socket as unknown as WASocket, sendMessage };
+    }
+
+    async function sentSticker(webp: string) {
+      const { socket, sendMessage } = uploadingSocket();
+      await new BaileysAdapter(socket).sendAudioSticker(
+        'g@g.us',
+        media(webp),
+        media('silence.ogg'),
+        options,
+      );
+      const [jid, content, sentOptions] = sendMessage.mock.calls[0];
+      return { jid, content, sentOptions, sticker: content.forward.message.stickerMessage };
+    }
+
+    it('sends the sticker with its opus audio attached', async () => {
+      const { jid, sentOptions, sticker } = await sentSticker('animated.webp');
+
+      expect([jid, sentOptions, sticker.mimetype]).toEqual(['g@g.us', options, 'image/webp']);
+      expect(sticker.audioMessage).toMatchObject({
+        mimetype: 'audio/ogg; codecs=opus',
+        url: 'https://mmg.whatsapp.net/m',
+      });
+    });
+
+    it('marks an animated webp as animated', async () => {
+      const { sticker } = await sentSticker('animated.webp');
+
+      expect(sticker.isAnimated).toBe(true);
+    });
+
+    it('leaves a still webp unanimated', async () => {
+      const { sticker } = await sentSticker('still.webp');
+
+      expect(sticker.isAnimated).toBe(false);
+    });
+
+    // Sending through sendMessage keeps quoting and disappearing messages: Baileys
+    // copies a forward of the bot's own message without marking it forwarded.
+    it('goes out as an unforwarded sticker that keeps its audio', async () => {
+      const { content } = await sentSticker('animated.webp');
+
+      const message = await generateWAMessageContent(content, { upload: vi.fn() });
+
+      expect(message.stickerMessage?.contextInfo).toEqual({});
+      expect(message.stickerMessage?.audioMessage?.mimetype).toBe('audio/ogg; codecs=opus');
+    });
   });
 });

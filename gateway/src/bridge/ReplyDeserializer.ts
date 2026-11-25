@@ -10,15 +10,33 @@ type Deserializer = (content: ContentDict) => AnyMessageContent | Promise<AnyMes
 export default class ReplyDeserializer {
   static async toMessage(raw: ContentDict): Promise<Message> {
     const content = raw.content as ContentDict;
-    const deserializer = ReplyDeserializer.deserializers()[content.type as string];
-    const deserialized: AnyMessageContent = deserializer
-      ? await deserializer(content)
-      : { text: `Unknown content type: ${content.type as string}` };
-
-    const message: Message = { jid: raw.jid as string, content: deserialized };
+    const message: Message = { jid: raw.jid as string, ...(await ReplyDeserializer.body(content)) };
     const options = ReplyDeserializer.options(raw);
     if (options) message.options = options;
     return message;
+  }
+
+  private static async body(
+    content: ContentDict,
+  ): Promise<Pick<Message, 'content' | 'audioSticker'>> {
+    if (content.type === 'sticker' && content.audio_b64) {
+      const sticker = await ReplyDeserializer.sticker(content);
+      const audio = Buffer.from(String(content.audio_b64), 'base64');
+      return { content: { sticker }, audioSticker: { sticker, audio } };
+    }
+    const deserializer = ReplyDeserializer.deserializers()[content.type as string];
+    return {
+      content: deserializer
+        ? await deserializer(content)
+        : { text: `Unknown content type: ${content.type as string}` },
+    };
+  }
+
+  private static async sticker(content: ContentDict): Promise<Buffer> {
+    const webp = ReplyDeserializer.buffer(content);
+    const pack = (content.pack as string) ?? '';
+    const author = (content.author as string) ?? '';
+    return pack || author ? injectStickerExif(webp, pack, author) : webp;
   }
 
   // Quoting belongs to ReplyConsumer: it holds the original WAMessage in flight,
@@ -79,13 +97,7 @@ export default class ReplyDeserializer {
         audio: buf(c),
         mimetype: (c.mimetype as string) ?? 'audio/mp4',
       }),
-      sticker: async (c) => {
-        const webp = buf(c);
-        const pack = (c.pack as string) ?? '';
-        const author = (c.author as string) ?? '';
-        if (pack || author) return { sticker: await injectStickerExif(webp, pack, author) };
-        return { sticker: webp };
-      },
+      sticker: async (c) => ({ sticker: await ReplyDeserializer.sticker(c) }),
       raw: (c) => c.content as AnyMessageContent,
     };
   }

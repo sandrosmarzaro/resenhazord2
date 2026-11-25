@@ -16,6 +16,14 @@ from bot.domain.exceptions import StickerTooLargeError
 class VideoStickerEncoder:
     MAX_VIDEO_DURATION: ClassVar[int] = 10
     VIDEO_FPS: ClassVar[int] = 15
+    # Any member can hand over the video: a crafted one can be an hls or concat
+    # playlist that makes ffmpeg fetch URLs or read local files.
+    INPUT_ARGS: ClassVar[tuple[str, ...]] = (
+        '-protocol_whitelist',
+        'file',
+        '-format_whitelist',
+        'mov,avi,matroska',
+    )
 
     @classmethod
     async def encode(
@@ -45,6 +53,7 @@ class VideoStickerEncoder:
     ) -> None:
         proc = await asyncio.create_subprocess_exec(
             'ffmpeg',
+            *cls.INPUT_ARGS,
             '-i',
             str(input_path),
             '-vcodec',
