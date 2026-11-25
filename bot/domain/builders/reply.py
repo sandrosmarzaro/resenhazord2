@@ -34,8 +34,10 @@ class Reply:
     def image(self, url: str, caption: str | None = None) -> BotMessage:
         return self._build(ImageContent(url=url, caption=caption, view_once=True))
 
-    def image_buffer(self, data: bytes, caption: str | None = None) -> BotMessage:
-        return self._build(ImageBufferContent(data=data, caption=caption, view_once=True))
+    def image_buffer(
+        self, data: bytes, caption: str | None = None, *, view_once: bool = True
+    ) -> BotMessage:
+        return self._build(ImageBufferContent(data=data, caption=caption, view_once=view_once))
 
     def video(
         self, url: str, caption: str | None = None, *, thumbnail_url: str | None = None
@@ -52,11 +54,12 @@ class Reply:
         *,
         gif_playback: bool = False,
         mentions: list[str] | None = None,
+        view_once: bool = True,
     ) -> BotMessage:
         content = VideoBufferContent(
             data=data,
             caption=caption,
-            view_once=True,
+            view_once=view_once,
             gif_playback=gif_playback,
             mentions=mentions,
         )
@@ -68,8 +71,10 @@ class Reply:
     def audio_buffer(self, data: bytes, mimetype: str = 'audio/mp4') -> BotMessage:
         return self._build(AudioBufferContent(data=data, mimetype=mimetype))
 
-    def sticker(self, data: bytes, pack: str = '', author: str = '') -> BotMessage:
-        return self._build(StickerContent(data=data, pack=pack, author=author))
+    def sticker(
+        self, data: bytes, pack: str = '', author: str = '', *, audio: bytes | None = None
+    ) -> BotMessage:
+        return self._build(StickerContent(data=data, pack=pack, author=author, audio=audio))
 
     def raw(self, content: dict) -> BotMessage:
         return self._build(RawContent(content=content))

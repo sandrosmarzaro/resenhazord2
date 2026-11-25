@@ -10,7 +10,7 @@ import ConnectionWatchdog from '../infra/ConnectionWatchdog.js';
 import GroupParticipantsUpdateEvent from '../events/GroupParticipantsUpdateEvent.js';
 import GroupsUpsertEvent from '../events/GroupsUpsertEvent.js';
 import CallEvent from '../events/CallEvent.js';
-import groupMetadataCache from '../cache/index.js';
+import groupMetadataCache, { stickerAudioStore } from '../cache/index.js';
 import CommandFactory from '../factories/CommandFactory.js';
 import GroupEventPublisher from '../bridge/GroupEventPublisher.js';
 import CommandPublisher from '../bridge/CommandPublisher.js';
@@ -67,7 +67,11 @@ export default class Resenhazord2 {
 
   private static async startCommandPath(): Promise<void> {
     const adapter = this.adapter!;
-    const publisher = new CommandPublisher(this.broker, new MediaHandler(adapter));
+    const publisher = new CommandPublisher(
+      this.broker,
+      new MediaHandler(adapter),
+      stickerAudioStore,
+    );
     this.brokerForwarder = new BrokerForwarder(publisher, this.inFlightCommands);
     await new ReplyConsumer(this.broker, adapter, this.inFlightCommands).start();
     await new WaActionConsumer(this.broker, adapter).start();

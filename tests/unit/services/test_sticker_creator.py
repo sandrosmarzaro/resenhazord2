@@ -341,13 +341,27 @@ class TestVideoFfmpegCommand:
         'fps=15/1,pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
     )
 
+    # Any member can hand over the video: a crafted one can be an hls or concat playlist
+    # that makes ffmpeg fetch URLs or read local files.
+    @pytest.mark.anyio
+    async def test_opens_only_a_local_video_file(self, ffmpeg_argv) -> None:
+        await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        argv = ffmpeg_argv[0]
+        assert argv[1 : argv.index('-i')] == (
+            '-protocol_whitelist',
+            'file',
+            '-format_whitelist',
+            'mov,avi,matroska',
+        )
+
     @pytest.mark.anyio
     async def test_full_video_runs_the_expected_ffmpeg_command(self, ffmpeg_argv) -> None:
         await StickerCreator.create(VIDEO_BUFFER, 'full')
 
         argv = ffmpeg_argv[0]
-        assert argv[:2] == ('ffmpeg', '-i')
-        assert argv[3:-1] == (
+        assert argv[:2] == ('ffmpeg', '-protocol_whitelist')
+        assert argv[argv.index('-i') + 2 : -1] == (
             '-vcodec',
             'libwebp',
             '-vf',

@@ -10,6 +10,7 @@ _SCORE_NOW = ',score --now'
 _MENU = ',menu'
 _CARRO = ',carro'
 _STIC = ',stic'
+_EXTRAIR = ',extrair'
 _MUSICA_ROCK = ',música rock'
 _AUDIO_LANG_ZH = ',áudio lang zh'
 _CONFIG = ',config'
@@ -89,6 +90,8 @@ AGENT_EXAMPLES = [
     ('sticker sem bordas', ',stic type rounded'),
     ('figurinha redonda', ',stic type circle'),
     ('sticker circular', ',stic type circle'),
+    ('figurinha sem som', ',stic mute'),
+    ('sticker mudo do vídeo', ',stic mute'),
     # Greetings
     ('oi', ',oi'),
     ('me mande um oi', ',oi'),
@@ -148,8 +151,10 @@ AGENT_EXAMPLES = [
     ('manda um short', ',short'),
     ('um short de gato', ',short gato'),
     ('manda um reels', ',reels'),
-    ('extrair a imagem do sticker', ',extrair'),
-    ('imagem original da figurinha', ',extrair'),
+    ('extrair a imagem do sticker', _EXTRAIR),
+    ('imagem original da figurinha', _EXTRAIR),
+    ('extrair o áudio do sticker', _EXTRAIR),
+    ('extrair o sticker sem som', ',extrair mute'),
     # Country flag
     ('bandeira de um país aleatório', ',bandeira'),
     # Slot machine

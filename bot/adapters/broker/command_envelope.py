@@ -12,6 +12,7 @@ class CommandEnvelope:
     def to_command_data(data: dict[str, Any]) -> CommandData:
         parsed = CommandPayload.model_validate(data)
         buffer = data.get('media_buffer_b64')
+        audio = data.get('media_audio_b64')
         return CommandData(
             text=parsed.text,
             jid=parsed.jid,
@@ -27,6 +28,7 @@ class CommandEnvelope:
             media_is_animated=parsed.media_is_animated,
             media_caption=parsed.media_caption,
             media_buffer=base64.b64decode(buffer) if buffer else None,
+            media_audio=base64.b64decode(audio) if audio else None,
             message_id=parsed.message_id,
             push_name=parsed.push_name,
             platform=Platform.WHATSAPP,

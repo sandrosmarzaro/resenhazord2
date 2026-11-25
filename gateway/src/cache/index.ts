@@ -4,12 +4,17 @@ import type { CachePort } from './CachePort.js';
 import MemoryGroupMetadataCache from './MemoryGroupMetadataCache.js';
 import RedisGroupMetadataCache from './RedisGroupMetadataCache.js';
 import FallbackGroupMetadataCache from './FallbackGroupMetadataCache.js';
+import StickerAudioStore from './StickerAudioStore.js';
 
-function createGroupMetadataCache(): CachePort<GroupMetadata> {
+function createRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (url && token) {
-    const redis = new Redis({ url, token });
+  return url && token ? new Redis({ url, token }) : null;
+}
+
+function createGroupMetadataCache(): CachePort<GroupMetadata> {
+  const redis = createRedis();
+  if (redis) {
     return new FallbackGroupMetadataCache(
       new RedisGroupMetadataCache(redis),
       new MemoryGroupMetadataCache(),
@@ -17,5 +22,7 @@ function createGroupMetadataCache(): CachePort<GroupMetadata> {
   }
   return new MemoryGroupMetadataCache();
 }
+
+export const stickerAudioStore = new StickerAudioStore(createRedis());
 
 export default createGroupMetadataCache();

@@ -137,6 +137,27 @@ describe('ReplyDeserializer', () => {
       );
       expect(message.content).toEqual({ sticker: Buffer.from('exif-sticker') });
     });
+
+    it('sticker with audio carries both buffers for the audio sticker send', async () => {
+      const audio = Buffer.from('ogg').toString('base64');
+
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'sticker', buffer_b64: b64, pack: 'P', audio_b64: audio }),
+      );
+
+      expect(message.audioSticker).toEqual({
+        sticker: Buffer.from('exif-sticker'),
+        audio: Buffer.from('ogg'),
+      });
+    });
+
+    it('silent sticker has no audio sticker', async () => {
+      const message = await ReplyDeserializer.toMessage(
+        content({ type: 'sticker', buffer_b64: b64 }),
+      );
+
+      expect(message.audioSticker).toBeUndefined();
+    });
   });
 
   describe('raw and unknown', () => {

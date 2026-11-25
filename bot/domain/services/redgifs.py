@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 
 from bot.data.redgifs_media import RedGifsMedia
-from bot.domain.exceptions import ExternalServiceError
+from bot.domain.exceptions import ExternalServiceError, MediaNotFoundError
 from bot.domain.services.minors_filter import MinorsFilter
 from bot.domain.services.mp4_remux import Mp4Remux
 from bot.infrastructure.http_client import HttpClient
@@ -29,15 +29,11 @@ class RedGifs:
         self._token: str | None = None
 
     async def random_media(self, tag: str, *, video_only: bool = False) -> RedGifsMedia:
-        params = {
-            'tags': tag,
-            'order': 'trending',
-            'count': self.PAGE_SIZE,
-            'page': random.randint(1, self.MAX_PAGE),
-        }
+        params: dict[str, Any] = {'tags': tag, 'order': 'trending', 'count': self.PAGE_SIZE}
         if video_only:
             params['type'] = self.VIDEOS_ONLY
-        safe = [item for item in await self._search(params) if not self._points_to_minors(item)]
+        items = await self._random_page(params)
+        safe = [item for item in items if not self._points_to_minors(item)]
         if not safe:
             msg = 'Não achei nada nessa categoria agora, tenta de novo'
             raise ExternalServiceError(msg)
@@ -50,14 +46,26 @@ class RedGifs:
         video = await HttpClient.get_buffer(video_url, timeout=cls.REQUEST_TIMEOUT_SECONDS)
         return await Mp4Remux.remux(video)
 
-    async def _search(self, params: dict[str, Any]) -> list[dict[str, Any]]:
+    async def _random_page(self, params: dict[str, Any]) -> list[dict[str, Any]]:
+        # A page past the tag's last one is a 500, so the first page says how many there are.
+        first = await self._search({**params, 'page': 1})
+        pages = min(first['pages'], self.MAX_PAGE)
+        if not pages:
+            msg = f'Não achei nada pra *{params["tags"]}* 🫣'
+            raise MediaNotFoundError(msg)
+        page = random.randint(1, pages)
+        if page == 1:
+            return first['gifs']
+        return (await self._search({**params, 'page': page}))['gifs']
+
+    async def _search(self, params: dict[str, Any]) -> dict[str, Any]:
         response = await self._get_search(params)
         # The temporary token lasts a day.
         if response.status_code == HTTPStatus.UNAUTHORIZED:
             self._token = None
             response = await self._get_search(params)
         response.raise_for_status()
-        return response.json()['gifs']
+        return response.json()
 
     async def _get_search(self, params: dict[str, Any]) -> httpx.Response:
         token = self._token or await self._fetch_token()

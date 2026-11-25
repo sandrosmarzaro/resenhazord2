@@ -769,6 +769,7 @@ _FULL_PAYLOAD = {
     'media_is_animated': True,
     'media_caption': 'caption',
     'media_buffer_b64': base64.b64encode(b'media').decode(),
+    'media_audio_b64': base64.b64encode(b'audio').decode(),
     'message_id': 'MSG-1',
     'push_name': 'Fulano',
 }
@@ -830,6 +831,7 @@ class TestQueueContract:
             media_is_animated=True,
             media_caption='caption',
             media_buffer=b'media',
+            media_audio=b'audio',
             message_id='MSG-1',
             push_name='Fulano',
             platform=Platform.WHATSAPP,

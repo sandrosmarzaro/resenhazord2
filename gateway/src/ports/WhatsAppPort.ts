@@ -16,6 +16,13 @@ export default interface WhatsAppPort {
 
   sendGroupStatus(jid: string, content: AnyMessageContent): Promise<void>;
 
+  sendAudioSticker(
+    jid: string,
+    sticker: Buffer,
+    audio: Buffer,
+    options?: MiscMessageGenerationOptions,
+  ): Promise<WAMessage | undefined>;
+
   groupMetadata(jid: string): Promise<GroupMetadata>;
 
   groupParticipantsUpdate(

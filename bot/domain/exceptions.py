@@ -11,7 +11,7 @@ class CommandError(BotError):
 
 
 class MediaNotFoundError(CommandError):
-    """No media attached when expected."""
+    """No media attached when expected, or none found for the request."""
 
 
 class MediaUnavailableError(CommandError):
@@ -52,6 +52,17 @@ class VideoRemuxError(CommandError):
 
     def __init__(self, detail: str) -> None:
         super().__init__('Não consegui preparar esse vídeo, tenta de novo! 😅', detail=detail)
+
+
+class StickerAudioError(Exception):
+    """ffmpeg could not pull a video's audio for its sticker. The sticker goes out silent."""
+
+
+class StickerVideoError(CommandError):
+    """ffmpeg could not turn an audio sticker into a video with its sound."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__('Não consegui tirar o áudio desse sticker! 😅', detail=detail)
 
 
 class VideoThumbnailError(Exception):
