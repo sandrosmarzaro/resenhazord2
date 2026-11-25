@@ -19,9 +19,9 @@ export default class ReplyDeserializer {
   private static async body(
     content: ContentDict,
   ): Promise<Pick<Message, 'content' | 'audioSticker'>> {
-    if (content.type === 'sticker' && content.audio_b64) {
+    if (content.type === 'sticker' && typeof content.audio_b64 === 'string') {
       const sticker = await ReplyDeserializer.sticker(content);
-      const audio = Buffer.from(String(content.audio_b64), 'base64');
+      const audio = Buffer.from(content.audio_b64, 'base64');
       return { content: { sticker }, audioSticker: { sticker, audio } };
     }
     const deserializer = ReplyDeserializer.deserializers()[content.type as string];
@@ -36,7 +36,7 @@ export default class ReplyDeserializer {
     const webp = ReplyDeserializer.buffer(content);
     const pack = (content.pack as string) ?? '';
     const author = (content.author as string) ?? '';
-    return pack || author ? injectStickerExif(webp, pack, author) : webp;
+    return pack || author ? await injectStickerExif(webp, pack, author) : webp;
   }
 
   // Quoting belongs to ReplyConsumer: it holds the original WAMessage in flight,
