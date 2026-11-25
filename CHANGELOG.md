@@ -2,6 +2,13 @@
 
 <!-- version list -->
 
+## v2.20.0 (2026-11-24)
+
+### Feat
+
+- **commands**: WhatsApp audio stickers on ,stic and ,extrair (#390)
+- **commands**: ,porno searches any term (#389)
+
 ## v2.19.1 (2026-11-20)
 
 ### Fix
