@@ -52,11 +52,58 @@ METAL_MEDALS: frozendict[str, str] = frozendict(
 
 ROBUX = 'Robux'
 
-ASSET_GROUPS: tuple[AssetGroup, ...] = (
-    AssetGroup(CURRENCY_FLAGS),
-    AssetGroup(CRYPTO_SYMBOLS),
-    AssetGroup(METAL_MEDALS, unit='oz '),
-    AssetGroup(frozendict({ROBUX: '🎮'}), note=' (preço da loja)'),
+FIAT = AssetGroup(CURRENCY_FLAGS)
+CRYPTO = AssetGroup(CRYPTO_SYMBOLS)
+METALS = AssetGroup(METAL_MEDALS, unit='oz ')
+ROBUX_GROUP = AssetGroup(frozendict({ROBUX: '🎮'}), note=' (preço da loja)')
+
+ASSET_GROUPS: tuple[AssetGroup, ...] = (FIAT, CRYPTO, METALS, ROBUX_GROUP)
+
+# Lowercase and accentless, matched against the casefolded, accentless filter.
+# Every code (usd, btc, robux) also answers to itself.
+GROUP_NAMES: frozendict[str, AssetGroup] = frozendict(
+    {
+        'moedas': FIAT,
+        'fiat': FIAT,
+        'cripto': CRYPTO,
+        'crypto': CRYPTO,
+        'criptomoedas': CRYPTO,
+        'metais': METALS,
+        'metal': METALS,
+    }
+)
+
+ASSET_NAMES: frozendict[str, str] = frozendict(
+    {
+        'dolar': 'USD',
+        'dolar americano': 'USD',
+        'euro': 'EUR',
+        'libra': 'GBP',
+        'libra esterlina': 'GBP',
+        'franco': 'CHF',
+        'franco suico': 'CHF',
+        'iene': 'JPY',
+        'yen': 'JPY',
+        'yuan': 'CNY',
+        'renminbi': 'CNY',
+        'dolar de hong kong': 'HKD',
+        'dolar hong kong': 'HKD',
+        'dolar canadense': 'CAD',
+        'dolar australiano': 'AUD',
+        'rupia': 'INR',
+        'rupia indiana': 'INR',
+        'kwanza': 'AOA',
+        'peso': 'ARS',
+        'peso argentino': 'ARS',
+        'bitcoin': 'BTC',
+        'ethereum': 'ETH',
+        'ether': 'ETH',
+        'solana': 'SOL',
+        'dogecoin': 'DOGE',
+        'ouro': 'XAU',
+        'prata': 'XAG',
+        'platina': 'XPT',
+    }
 )
 
 # moneyconvert has no Solana rate, so CoinGecko prices it.

@@ -134,7 +134,7 @@ class TestExecute:
         assert len(asset_lines) == FIAT_COUNT + CRYPTO_COUNT + METAL_COUNT + 1
 
     @pytest.mark.anyio
-    @pytest.mark.parametrize('amount', ['abc', '0', '-5', 'inf', 'nan'])
+    @pytest.mark.parametrize('amount', ['0', '-5', 'inf', 'nan', '0 dólar', 'euro -1'])
     async def test_rejects_non_positive_or_invalid_amount(self, command, amount):
         text = await _reply(command, f',moeda {amount}')
 
@@ -213,3 +213,66 @@ class TestAssets:
         assert [log['upstream'] for log in logs if log['event'] == 'upstream_failed'] == [
             'coingecko'
         ]
+
+
+def _quote_lines(text: str) -> list[str]:
+    return [line for line in text.splitlines() if ' = R$ ' in line]
+
+
+class TestFilter:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('name', ['dólar', 'dolar', 'DÓLAR', 'usd', 'USD'])
+    async def test_quotes_only_the_named_asset(self, command, rates, name):
+        text = await _reply(command, f',moeda {name}')
+
+        assert _quote_lines(text) == ['🇺🇸 1 USD = R$ 5,01']
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('name', 'line'),
+        [
+            ('dólar canadense', '🇨🇦 1 CAD = R$ 3,62'),
+            ('bitcoin', '₿ 1 BTC = R$ 302.938,36'),
+            ('solana', '◎ 1 SOL = R$ 408,87'),
+            ('ouro', '🥇 1 oz XAU = R$ 17.857,40'),
+            ('robux', '🎮 10 Robux = R$ 0,50 (preço da loja)'),
+        ],
+    )
+    async def test_answers_to_pt_br_names(self, command, rates, name, line):
+        text = await _reply(command, f',moeda {name}')
+
+        assert _quote_lines(text) == [line]
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ('name', 'count'),
+        [
+            ('moedas', FIAT_COUNT),
+            ('fiat', FIAT_COUNT),
+            ('cripto', CRYPTO_COUNT),
+            ('crypto', CRYPTO_COUNT),
+            ('metais', METAL_COUNT),
+            ('metal', METAL_COUNT),
+        ],
+    )
+    async def test_quotes_a_whole_group(self, command, rates, name, count):
+        text = await _reply(command, f',moeda {name}')
+
+        assert len(_quote_lines(text)) == count
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('text', [',moeda 10 euro', ',moeda euro 10', ',moeda euro 10,0'])
+    async def test_takes_the_amount_on_either_side(self, command, rates, text):
+        reply = await _reply(command, text)
+
+        assert _quote_lines(reply) == ['🇪🇺 10 EUR = R$ 58,69']
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('name', ['abc', 'dólar falso', 'peseta 10'])
+    async def test_lists_the_groups_for_an_unknown_name_without_calling_the_api(
+        self, command, rates, name
+    ):
+        text = await _reply(command, f',moeda {name}')
+
+        assert 'moedas, cripto, metais ou robux' in text
+        assert not rates.called
