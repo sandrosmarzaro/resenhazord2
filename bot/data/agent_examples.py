@@ -80,6 +80,9 @@ AGENT_EXAMPLES = [
     ('horóscopo', ',horóscopo'),
     ('jogador aleatório', ',jogador'),
     ('moeda conversão', ',moeda'),
+    ('quanto tá o dólar', ',moeda dólar'),
+    ('cotação do bitcoin', ',moeda bitcoin'),
+    ('preço das criptomoedas', ',moeda cripto'),
     # Sticker
     ('transformar em sticker', _STIC),
     ('fazer figurinha', _STIC),
