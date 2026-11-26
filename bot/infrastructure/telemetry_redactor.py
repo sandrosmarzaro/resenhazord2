@@ -8,10 +8,16 @@ from typing import ClassVar
 from bot.data.telemetry_privacy import PROVIDER_KEY_PREFIXES, SECRET_NAME_PARTS
 
 
-class _BoundedRepr(reprlib.Repr):
+class _RedactingRepr(reprlib.Repr):
     # reprlib cuts a bytes repr only after building it, and a video buffer is megabytes.
     def repr_bytes(self, value: bytes, _level: int) -> str:
         return f'<{len(value)} bytes>'
+
+    # reprlib keeps a long string's head and tail, which can split a name from its
+    # secret; each string is redacted whole before it is cut.
+    def repr_str(self, value: str, _level: int) -> str:
+        redacted = TelemetryRedactor.text(value[: TelemetryRedactor.MAX_INPUT_CHARS])
+        return repr(redacted)[: self.maxstring]
 
 
 class TelemetryRedactor:
@@ -36,17 +42,17 @@ class TelemetryRedactor:
     _KEY: ClassVar[bytes] = secrets.token_bytes(32)
     # Each element is capped and the nesting is shallow, so the whole repr is bounded
     # before it is cut to MAX_INPUT_CHARS.
-    _REPR: ClassVar[reprlib.Repr] = _BoundedRepr(maxstring=1024, maxother=1024, maxlevel=2)
+    _REPR: ClassVar[reprlib.Repr] = _RedactingRepr(maxstring=1024, maxother=1024, maxlevel=2)
     _URL: ClassVar[re.Pattern[str]] = re.compile(
         r'(?i)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+://)([^\s\'"<>]*+)'
     )
     _QUERY: ClassVar[re.Pattern[str]] = re.compile(r'\?[\w.-]++=[^\s\'"<>]*+')
     _SECRETS: ClassVar[tuple[tuple[re.Pattern[str], str], ...]] = (
         (re.compile(r'bot\d++:[\w-]++'), f'bot{REDACTED}'),
-        (re.compile(r'(?<![\d:])\d{6,}+:[\w-]{30,}+'), REDACTED),
+        (re.compile(r'(?<!\d)\d{6,}+:[\w-]{30,}+'), REDACTED),
         (re.compile(r'(?i)\b(bearer|basic)\s++[\w.~+/=-]{8,}+'), rf'\1 {REDACTED}'),
         (
-            re.compile(rf'(?<![\w-])(?:{"|".join(map(re.escape, PROVIDER_KEY_PREFIXES))})[\w-]++'),
+            re.compile(rf'(?<!\w)(?:{"|".join(map(re.escape, PROVIDER_KEY_PREFIXES))})[\w-]++'),
             REDACTED,
         ),
         (re.compile(r'\bAKIA[0-9A-Z]{16}\b'), REDACTED),

@@ -215,3 +215,22 @@ class TestMoreSecretNames:
         assert (
             TelemetryRedactor.text('GET /v1/latest?q=iene&x=abc123') == 'GET /v1/latest?<redacted>'
         )
+
+
+class TestPrefixedSecrets:
+    def test_hides_a_telegram_token_after_a_colon(self):
+        token = '123456789:' 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw'
+
+        assert token.split(':')[1] not in TelemetryRedactor.text(f'chat:{token}')
+
+    @pytest.mark.parametrize('leak', ['x-sk-abcdefghijklmnop1234', 'api-gsk_abcdefghijklmnop1234'])
+    def test_hides_a_provider_key_after_a_dash(self, leak):
+        assert 'abcdefghijklmnop1234' not in TelemetryRedactor.text(f'with {leak}')
+
+
+class TestElementRedactedBeforeItsCut:
+    def test_a_secret_straddling_an_element_cut_is_hidden(self, mocker):
+        mocker.patch.object(TelemetryRedactor, 'MAX_CHARS', 10_000)
+        element = 'a' * 509 + ' token=' + 'b' * 600 + 'abc123secret'
+
+        assert 'abc123secret' not in TelemetryRedactor.value([element])
