@@ -4,6 +4,7 @@ from structlog.testing import capture_logs
 
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
+from bot.domain.exceptions import DownloadError
 from bot.settings import Settings
 from tests.factories.command_data import GroupCommandDataFactory
 
@@ -15,6 +16,13 @@ pytestmark = pytest.mark.external
 # still fails, and the test still passes wherever the upstream answers.
 _BLOCKS_THE_RUNNER = pytest.mark.xfail(
     raises=httpx.HTTPStatusError, strict=False, reason='the upstream blocks GitHub runners'
+)
+# YouTube asks the runner's IP to sign in, and the secret's YouTube cookies get rotated
+# soon after export, so yt-dlp falls back to signed out. ,short passes from a home IP.
+_ASKS_THE_RUNNER_TO_SIGN_IN = pytest.mark.xfail(
+    raises=DownloadError,
+    strict=False,
+    reason='YouTube bot-checks GitHub runners (#385)',
 )
 
 
@@ -86,7 +94,7 @@ _CALLS = [
     _call(',dl https://x.com/captainamerica/status/719944021058060289', 'ytdlp_cookies'),
     _call(',dl https://www.instagram.com/reel/CDUMkliABpa/', 'ytdlp_cookies'),
     _call(',dl https://x.com/TheEllenShow/status/440322224407314432'),
-    _call(',short'),
+    _call(',short', '', _ASKS_THE_RUNNER_TO_SIGN_IN),
     _call(',reels', 'ytdlp_cookies'),
 ]
 
