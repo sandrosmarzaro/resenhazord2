@@ -48,6 +48,30 @@ describe('handleUnhandledRejection', () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
+  it('warns and ignores when the reason is the number 1006', () => {
+    handleUnhandledRejection(1006);
+    expect(logger.warn).toHaveBeenCalledWith({
+      event: 'websocket_abnormal_closure',
+      reason: '1006',
+    });
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('warns and ignores when the reason is the string "1006"', () => {
+    handleUnhandledRejection('1006');
+    expect(logger.warn).toHaveBeenCalledWith({
+      event: 'websocket_abnormal_closure',
+      reason: '1006',
+    });
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('sends other primitive rejections to Sentry', () => {
+    handleUnhandledRejection(1000);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(Sentry.captureException).toHaveBeenCalledWith(1000);
+  });
+
   it('sends other rejections to Sentry', () => {
     const error = new Error('boom');
     handleUnhandledRejection(error);
