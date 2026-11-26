@@ -73,7 +73,8 @@
     "vite": "^7.3.8",
     "form-data": "^4.0.6",
     "ws": "^8.21.0",
-    "@opentelemetry/core": "^2.8.0"
+    "@opentelemetry/core": "^2.8.0",
+    "source-map-js": "^1.2.2"
   },
   "patchedDependencies": {
     "@whiskeysockets/baileys@7.0.0-rc13": "patches/@whiskeysockets%2Fbaileys@7.0.0-rc13.patch"
