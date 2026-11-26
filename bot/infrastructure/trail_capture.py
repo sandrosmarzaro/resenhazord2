@@ -1,27 +1,29 @@
-"""Copies what a command emits into its open trail, redacted on the way in.
+"""Copies what a command emits into its open trail, through the field policy.
 
 Both processors return at once outside a command, so the cost elsewhere is one
 context-variable read per span or log line.
 """
 
+from collections.abc import Iterable
 from typing import Any, ClassVar
-from urllib.parse import urlsplit
 
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.trace import format_span_id
 from structlog.types import EventDict, WrappedLogger
 
-from bot.data.telemetry_privacy import (
-    IDENTITY_LOG_FIELDS,
-    KEPT_SPAN_ATTRIBUTES,
-    SAFE_LOG_FIELDS,
-)
 from bot.infrastructure.command_trail import CommandTrail
+from bot.infrastructure.telemetry_field_policy import TelemetryFieldPolicy
 from bot.infrastructure.telemetry_redactor import TelemetryRedactor
 
 
+def _shown_fields(fields: Iterable[tuple[str, object]], limit: int) -> dict[str, str]:
+    shown = ((key, TelemetryFieldPolicy.show(key, value)) for key, value in fields)
+    kept = [(key, value) for key, value in shown if value is not None]
+    return dict(kept[:limit])
+
+
 class TrailSpanProcessor(SpanProcessor):
-    _URL_ATTRIBUTES: ClassVar[frozenset[str]] = frozenset({'http.url', 'url.full'})
+    MAX_ATTRIBUTES: ClassVar[int] = 12
 
     def on_end(self, span: ReadableSpan) -> None:
         trail = CommandTrail.current()
@@ -37,23 +39,9 @@ class TrailSpanProcessor(SpanProcessor):
                 # Only the code: the description is free text, an exception message
                 # at worst. The error type rides in the error.type attribute.
                 'status': span.status.status_code.name,
-                'attributes': {
-                    key: self._attribute(key, value)
-                    for key, value in (span.attributes or {}).items()
-                    if key in KEPT_SPAN_ATTRIBUTES
-                },
+                'attributes': _shown_fields((span.attributes or {}).items(), self.MAX_ATTRIBUTES),
             }
         )
-
-    @classmethod
-    def _attribute(cls, key: str, value: object) -> str:
-        if key not in cls._URL_ATTRIBUTES:
-            return TelemetryRedactor.value(value)
-        # An allowlist, not a pattern: no userinfo, query string or fragment survives.
-        url = urlsplit(str(value))
-        host = url.hostname or ''
-        netloc = f'{host}:{url.port}' if url.port else host
-        return TelemetryRedactor.value(url._replace(netloc=netloc, query='', fragment='').geturl())
 
 
 class TrailLogProcessor:
@@ -61,6 +49,8 @@ class TrailLogProcessor:
 
     MAX_FIELDS: ClassVar[int] = 12
     _SKIPPED_LEVEL: ClassVar[str] = 'debug'
+    # Bound on every line of a WhatsApp command; the record already holds them once.
+    _RECORD_FIELDS: ClassVar[frozenset[str]] = frozenset({'correlation_id', 'jid', 'sender'})
 
     def __call__(
         self, _logger: WrappedLogger, method_name: str, event_dict: EventDict
@@ -68,30 +58,18 @@ class TrailLogProcessor:
         trail = CommandTrail.current()
         if trail is None or method_name == self._SKIPPED_LEVEL:
             return event_dict
-        trail.logs.append(
-            {
-                'timestamp': event_dict.get('timestamp'),
-                'level': event_dict.get('level', method_name),
-                'event': TelemetryRedactor.value(event_dict.get('event')),
-                'fields': self._fields(event_dict),
-            }
-        )
+        entry: dict[str, Any] = {
+            'timestamp': event_dict.get('timestamp'),
+            'level': event_dict.get('level', method_name),
+            'event': TelemetryRedactor.value(event_dict.get('event')),
+            'fields': _shown_fields(
+                [
+                    (key, value)
+                    for key, value in event_dict.items()
+                    if key not in self._RECORD_FIELDS
+                ],
+                self.MAX_FIELDS,
+            ),
+        }
+        trail.logs.append(entry)
         return event_dict
-
-    @classmethod
-    def _fields(cls, event_dict: EventDict) -> dict[str, Any]:
-        # An allowlist: a field nobody vetted never reaches a public issue.
-        kept = [
-            (key, value)
-            for key, value in event_dict.items()
-            if key in SAFE_LOG_FIELDS or key in IDENTITY_LOG_FIELDS
-        ]
-        return {key: cls._field(key, value) for key, value in kept[: cls.MAX_FIELDS]}
-
-    @staticmethod
-    def _field(key: str, value: object) -> str:
-        # An id is hashed whole by its field name: a Telegram or Discord id is too short
-        # for the text patterns to tell it from any other number.
-        if key in IDENTITY_LOG_FIELDS:
-            return TelemetryRedactor.identity(str(value))
-        return TelemetryRedactor.value(value)

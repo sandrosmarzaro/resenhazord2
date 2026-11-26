@@ -11,6 +11,7 @@ from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.command_trail import CommandTrail
 from bot.infrastructure.failure_snapshot import FailureSnapshot
+from bot.infrastructure.telemetry_redactor import TelemetryRedactor
 from tests.factories.command_data import GroupCommandDataFactory
 
 
@@ -29,15 +30,19 @@ class _Quote(Command):
 
     async def execute(self, data: CommandData, parsed: ParsedCommand) -> list[BotMessage]:
         if self._failure:
-            self._fetch(parsed.rest, api_key='abc123secret', data=data)
+            self._fetch(parsed.rest, 'abc123secret', data, data.jid, attempt=2)
         return []
 
-    def _fetch(self, currency: str, api_key: str, data: CommandData | None = None) -> None:
+    def _fetch(
+        self, currency: str, api_key: str, data: CommandData, chat_jid: str, *, attempt: int
+    ) -> None:
         raise self._failure
 
 
-async def _execution(failure: Exception | None = None, text: str = ',moeda dm iene') -> dict:
-    data = GroupCommandDataFactory(text=text, platform=Platform.WHATSAPP)
+async def _execution(
+    failure: Exception | None = None, text: str = ',moeda dm iene', data: CommandData | None = None
+) -> dict:
+    data = data or GroupCommandDataFactory(text=text, platform=Platform.WHATSAPP)
     async with CommandTrail.open(data) as trail:
         with contextlib.suppress(Exception):
             await _Quote(failure).run(data)
@@ -129,10 +134,42 @@ class TestFailure:
         assert (failure['type'], failure['message']) == ('RuntimeError', 'boom')
 
     @pytest.mark.anyio
-    async def test_keeps_the_stack_trace(self):
+    async def test_caps_a_long_message(self):
+        failure = (await _execution(RuntimeError('x' * 1000)))['failure']
+
+        assert len(failure['message']) == FailureSnapshot.MAX_MESSAGE_CHARS
+
+    @pytest.mark.anyio
+    async def test_a_bot_error_shows_its_reply_not_its_detail(self):
+        error = BotError('Moeda inválida', detail='ffmpeg said 5511999999999')
+
+        failure = (await _execution(error))['failure']
+
+        assert failure['message'] == 'Moeda inválida'
+
+    @pytest.mark.anyio
+    async def test_keeps_the_stack_frames(self):
         failure = (await _execution(RuntimeError('boom')))['failure']
 
         assert 'in _fetch' in failure['stack']
+
+    @pytest.mark.anyio
+    async def test_the_stack_holds_no_message_or_source_line(self):
+        failure = (await _execution(RuntimeError('boom words')))['failure']
+
+        assert ('boom words' not in failure['stack'], 'raise self' not in failure['stack']) == (
+            True,
+            True,
+        )
+
+    @pytest.mark.anyio
+    async def test_a_chained_cause_shows_only_its_type(self):
+        error = RuntimeError('outer')
+        error.__cause__ = ValueError('inner chat words')
+
+        stack = (await _execution(error))['failure']['stack']
+
+        assert ('ValueError' in stack, 'inner chat words' not in stack) == (True, True)
 
     @pytest.mark.anyio
     async def test_redacts_the_message(self):
@@ -147,13 +184,27 @@ class TestFailure:
         assert frame['function'] == '_Quote._fetch'
 
     @pytest.mark.anyio
-    async def test_shows_the_frame_arguments_redacted(self):
+    async def test_an_allowed_argument_shows_its_value(self):
         frame = (await _execution(RuntimeError('boom')))['failure']['frame']
 
-        assert (frame['arguments']['currency'], frame['arguments']['api_key']) == (
-            'iene',
-            '<redacted>',
+        assert (frame['arguments']['currency'], frame['arguments']['attempt']) == (
+            '<str len=4>',
+            '2',
         )
+
+    @pytest.mark.anyio
+    async def test_a_secret_argument_is_hidden(self):
+        frame = (await _execution(RuntimeError('boom')))['failure']['frame']
+
+        assert frame['arguments']['api_key'] == '<redacted>'
+
+    @pytest.mark.anyio
+    async def test_an_identity_argument_is_hashed(self):
+        data = GroupCommandDataFactory(text=',moeda iene', platform=Platform.WHATSAPP)
+
+        frame = (await _execution(RuntimeError('boom'), data=data))['failure']['frame']
+
+        assert frame['arguments']['chat_jid'] == TelemetryRedactor.identity(data.jid)
 
     @pytest.mark.anyio
     async def test_an_object_argument_shows_only_its_type(self):

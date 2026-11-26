@@ -33,9 +33,9 @@ PROVIDER_KEY_PREFIXES: tuple[str, ...] = (
     'xoxs-',
 )
 
-# Log fields that name a chat or a person: their whole value is hashed whatever it
+# Field names that name a chat or a person: their whole value is hashed whatever it
 # looks like, since a Telegram or Discord id is too short to be told from a number.
-IDENTITY_LOG_FIELDS: frozenset[str] = frozenset(
+IDENTITY_FIELDS: frozenset[str] = frozenset(
     {
         'author_id',
         'channel',
@@ -55,10 +55,11 @@ IDENTITY_LOG_FIELDS: frozenset[str] = frozenset(
     }
 )
 
-# Log fields a bug report may show: names, codes, counts and durations. Any other
-# field is dropped, free text above all (the message, the prompt, an error string),
-# since its content is the chat's. Identity fields are kept, hashed.
-SAFE_LOG_FIELDS: frozenset[str] = frozenset(
+# Field names a bug report may show, for log fields, span attributes and frame
+# arguments alike: names, codes, counts and durations. Any other name is dropped (or,
+# for a frame argument, shown as its type), free text above all, since its content
+# is the chat's.
+SAFE_FIELDS: frozenset[str] = frozenset(
     {
         'attempt',
         'attempts',
@@ -66,39 +67,42 @@ SAFE_LOG_FIELDS: frozenset[str] = frozenset(
         'bytes',
         'chat_type',
         'command',
+        'command.name',
+        'command.outcome',
         'content_type',
         'count',
         'duration_ms',
         'elapsed_ms',
-        'error_type',
-        'kind',
-        'model',
-        'outcome',
-        'platform',
-        'provider',
-        'repeat',
-        'retry_after',
-        'size',
-        'status',
-        'status_code',
-        'upstream',
-        'version',
-    }
-)
-
-# Span attributes worth reading in an issue. Everything else stays in Tempo.
-KEPT_SPAN_ATTRIBUTES: frozenset[str] = frozenset(
-    {
-        'command.name',
-        'command.outcome',
         'error.type',
+        'error_type',
+        'fps',
+        'height',
         'http.method',
         'http.request.method',
         'http.response.status_code',
         'http.status_code',
-        'http.url',
+        'index',
+        'kind',
+        'limit',
+        'model',
+        'outcome',
+        'page',
+        'platform',
+        'provider',
+        'quality',
+        'repeat',
+        'retry_after',
         'server.address',
-        'url.full',
+        'size',
+        'status',
+        'status_code',
+        'timeout',
+        'upstream',
+        'version',
+        'width',
         'work.kind',
     }
 )
+
+# URL-valued span attributes: shown as scheme, host and path only.
+URL_FIELDS: frozenset[str] = frozenset({'http.url', 'url.full'})
