@@ -3,13 +3,14 @@
 # Name fragments that mark the value next to them (`x_api_key=`, `"token": `,
 # `client_secret: `) as a credential. Matched case-insensitively, anywhere in the name.
 SECRET_NAME_PARTS: tuple[str, ...] = (
-    'authorization',
+    'auth',
+    'credential',
     'key',
-    'passwd',
-    'password',
+    'pass',
+    'pwd',
     'secret',
     'session',
-    'signature',
+    'sig',
     'token',
 )
 

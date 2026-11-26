@@ -1,6 +1,11 @@
+import time
+
 import pytest
 
 from bot.infrastructure.telemetry_redactor import TelemetryRedactor
+
+# Linear patterns take milliseconds here; a backtracking one takes seconds.
+LINEAR_BUDGET_SECONDS = 0.5
 
 
 class TestSecrets:
@@ -9,8 +14,8 @@ class TestSecrets:
 
         assert TelemetryRedactor.text(url) == 'https://api.telegram.org/bot<redacted>/getMe'
 
-    def test_query_keys_match_any_case(self):
-        assert TelemetryRedactor.text('/x?Token=s3cr3t') == '/x?Token=<redacted>'
+    def test_secret_names_match_any_case(self):
+        assert TelemetryRedactor.text('Token=s3cr3t') == 'Token=<redacted>'
 
     def test_hides_the_password_in_a_connection_url(self):
         url = 'redis://default:hunter2@redis.example.com:12837'
@@ -67,7 +72,7 @@ class TestIdentities:
 
 class TestValues:
     def test_a_string_is_redacted(self):
-        assert TelemetryRedactor.value('/x?token=abc') == '/x?token=<redacted>'
+        assert TelemetryRedactor.value('/x?token=abc') == '/x?<redacted>'
 
     def test_an_object_is_shown_by_its_repr(self):
         assert TelemetryRedactor.value({'page': 2}) == "{'page': 2}"
@@ -149,3 +154,64 @@ class TestRedactBeforeCut:
         value = 'a' * (TelemetryRedactor.MAX_CHARS - 10) + ' token=abc123secret'
 
         assert 'abc' not in TelemetryRedactor.value(value)
+
+
+class TestLinearTime:
+    @pytest.mark.parametrize(
+        'adversarial',
+        [
+            'a' * 50_000,
+            'a-' * 25_000,
+            'key' * 20_000,
+            'http' * 15_000,
+            'http://' * 8_000,
+            '1' * 50_000,
+            '1-' * 25_000,
+            '1' * 50_000 + '@',
+        ],
+        ids=['letters', 'dashes', 'names', 'schemes', 'urls', 'digits', 'digit-dashes', 'jid'],
+    )
+    def test_an_adversarial_input_finishes_fast(self, adversarial):
+        started = time.perf_counter()
+
+        TelemetryRedactor.text(adversarial)
+
+        assert time.perf_counter() - started < LINEAR_BUDGET_SECONDS
+
+    def test_a_deep_object_is_bounded_before_redaction(self):
+        deep = [['x' * 10_000] * 10] * 10
+
+        assert len(TelemetryRedactor.value(deep)) <= TelemetryRedactor.MAX_CHARS
+
+
+class TestUserinfoPunctuation:
+    @pytest.mark.parametrize('password', ['p?ss', 'p#ss', 'p?a#s@s'])
+    def test_hides_a_password_with_url_punctuation(self, password):
+        url = f'redis://default:{password}@redis.example.com:12837/0'
+
+        assert TelemetryRedactor.text(url) == 'redis://<redacted>@redis.example.com:12837/0'
+
+    def test_drops_a_fragment(self):
+        url = 'https://app.example.com/callback#access_token=abc123'
+
+        assert TelemetryRedactor.text(url) == 'https://app.example.com/callback#<redacted>'
+
+
+class TestMoreSecretNames:
+    @pytest.mark.parametrize(
+        'leak',
+        [
+            'auth=abc123secret',
+            'sig: abc123secret',
+            'db_pwd=abc123secret',
+            'pass: abc123secret',
+            '"credential": "abc123secret"',
+        ],
+    )
+    def test_hides_the_value_of_a_secret_name(self, leak):
+        assert 'abc123secret' not in TelemetryRedactor.text(leak)
+
+    def test_drops_a_scheme_less_query_string(self):
+        assert (
+            TelemetryRedactor.text('GET /v1/latest?q=iene&x=abc123') == 'GET /v1/latest?<redacted>'
+        )
