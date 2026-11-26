@@ -16,7 +16,7 @@ resenhazord2/
       command_handler.py         Dispatches a parsed command
       command_registry.py        Singleton list of registered Command instances
       register_commands.py       Wires every command into the registry at startup
-    data/                        Lookup tables, emoji maps, static datasets
+    data/                        Lookup tables, emoji maps, static datasets, broker topology
     domain/
       builders/reply.py          Fluent Reply.to(data).text(...) API
       commands/                  56 command implementations (base.py + subclasses)
@@ -81,6 +81,25 @@ through the app's own engine before any platform starts.
    `ReplyConsumer` deserializes them and pushes them to Baileys. WhatsApp side-effects
    mid-command ride `wa_actions` (fire-and-forget writes) and `wa_rpc` (on_whatsapp,
    group_metadata). See [prd-event-driven-gateway.md](./prd-event-driven-gateway.md).
+
+### Broker topology
+
+Both nodes declare the same topology when the broker connects, from
+`bot/data/broker_topology.py` and `gateway/src/data/BrokerTopology.json` (a unit test
+keeps them equal). Two durable topic exchanges are bound to the existing queues:
+
+| Exchange | Binding | Queue |
+|---|---|---|
+| `resenhazord.commands` | `command.#` | `commands` |
+| `resenhazord.commands` | `wa.action.#` | `wa_actions` |
+| `resenhazord.commands` | `wa.rpc.#` | `wa_rpc` |
+| `resenhazord.events` | `reply.whatsapp` | `replies` |
+| `resenhazord.events` | `group.#` | `group_events` |
+
+`commands.retry` (30 s TTL, dead-letters back to `commands`) and `commands.dlq` are
+declared too, still on the default exchange. Producers publish through the default
+exchange by queue name until the migrate step of
+[ADR 0017](./adr/0017-broker-exchanges-and-routing-keys.md) moves them to routing keys.
 
 ### Discord
 

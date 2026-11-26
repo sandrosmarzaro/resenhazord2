@@ -1,9 +1,81 @@
 import asyncio
 
+import aio_pika
 import pytest
 from testcontainers.rabbitmq import RabbitMqContainer
 
 from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
+from bot.infrastructure.broker_topology import BrokerTopology
+
+# What the nodes declared before the exchanges existed (ADR 0004): the topology must
+# redeclare each queue with exactly these arguments, or the broker answers
+# PRECONDITION_FAILED.
+LEGACY_RETRY_ARGUMENTS = {
+    'x-message-ttl': 30_000,
+    'x-dead-letter-exchange': '',
+    'x-dead-letter-routing-key': 'commands',
+}
+LEGACY_QUEUES = {
+    'commands': None,
+    'replies': None,
+    'wa_actions': None,
+    'wa_rpc': None,
+    'group_events': None,
+    'commands.dlq': None,
+    'commands.retry': LEGACY_RETRY_ARGUMENTS,
+}
+BINDINGS = [
+    ('resenhazord.commands', 'command.whatsapp', 'commands'),
+    ('resenhazord.commands', 'wa.action.send_message', 'wa_actions'),
+    ('resenhazord.commands', 'wa.rpc.group_metadata', 'wa_rpc'),
+    ('resenhazord.events', 'reply.whatsapp', 'replies'),
+    ('resenhazord.events', 'group.joined', 'group_events'),
+]
+
+
+class TestTopology:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(('exchange', 'routing_key', 'queue'), BINDINGS)
+    async def test_routes_a_routing_key_to_the_queue_an_old_node_reads(
+        self, rabbitmq_url, exchange, routing_key, queue
+    ):
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
+        async with await aio_pika.connect(rabbitmq_url) as connection:
+            channel = await connection.channel()
+            legacy = await channel.declare_queue(queue, durable=True)
+            await legacy.purge()
+            target = await channel.get_exchange(exchange)
+
+            await target.publish(aio_pika.Message(b'roteado'), routing_key=routing_key)
+
+            message = await legacy.get(no_ack=True, timeout=10)
+        await broker.close()
+
+        assert message.body == b'roteado'
+
+    @pytest.mark.anyio
+    async def test_redeclares_the_queues_an_old_node_declared(self):
+        with RabbitMqContainer('rabbitmq:3.13') as container:
+            url = _url(container)
+            async with await aio_pika.connect(url) as connection:
+                channel = await connection.channel()
+                for name, arguments in LEGACY_QUEUES.items():
+                    await channel.declare_queue(name, durable=True, arguments=arguments)
+
+            broker = RabbitBroker()
+            await broker.connect(url)
+
+            async with await aio_pika.connect(url) as connection:
+                channel = await connection.channel()
+                for name, arguments in LEGACY_QUEUES.items():
+                    await channel.declare_queue(name, durable=True, arguments=arguments)
+            await broker.close()
+
+
+def _url(container: RabbitMqContainer) -> str:
+    params = container.get_connection_params()
+    return f'amqp://{container.username}:{container.password}@{params.host}:{params.port}/'
 
 
 class TestRoundTrip:
@@ -35,9 +107,8 @@ class TestPublishInsideConsume:
         received = asyncio.Event()
         captured: list[bytes] = []
 
-        broker = RabbitBroker()
+        broker = RabbitBroker(BrokerTopology(queues={'replies_q': {}}, bindings=()))
         await broker.connect(rabbitmq_url)
-        await broker.declare('replies_q')
 
         async def relay(_: bytes) -> None:
             await broker.publish('replies_q', b'reply')
@@ -90,12 +161,14 @@ class TestRetryQueue:
         received = asyncio.Event()
         captured: list[bytes] = []
 
-        broker = RabbitBroker()
+        retry = {
+            'x-message-ttl': 300,
+            'x-dead-letter-exchange': '',
+            'x-dead-letter-routing-key': 'retry_target',
+        }
+        broker = RabbitBroker(BrokerTopology(queues={'retry_target.retry': retry}, bindings=()))
         await broker.connect(rabbitmq_url)
         await broker.consume('retry_target', _record(captured, received))
-        await broker.declare_retry_queue(
-            'retry_target.retry', ttl_ms=300, dead_letter_to='retry_target'
-        )
 
         await broker.publish('retry_target.retry', b'delayed')
 
@@ -175,10 +248,8 @@ class TestDrainWithBrokerGone:
             return None
 
         with RabbitMqContainer('rabbitmq:3.13') as container:
-            params = container.get_connection_params()
-            url = f'amqp://{container.username}:{container.password}@{params.host}:{params.port}/'
             broker = RabbitBroker()
-            await broker.connect(url)
+            await broker.connect(_url(container))
             await broker.consume('drain_gone_q', handler)
             container.exec(['rabbitmqctl', 'stop_app'])
 

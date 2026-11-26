@@ -5,6 +5,7 @@ from typing import ClassVar
 import aio_pika
 import structlog
 
+from bot.infrastructure.broker_topology import BrokerTopology
 from bot.ports.broker_port import MessageHandler, RpcHandler
 
 logger = structlog.get_logger()
@@ -24,7 +25,8 @@ class RabbitBroker:
         aio_pika.exceptions.ChannelInvalidStateError,
     )
 
-    def __init__(self) -> None:
+    def __init__(self, topology: BrokerTopology = BrokerTopology()) -> None:
+        self._topology = topology
         self._publish_connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._consume_connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._publish_channel: aio_pika.abc.AbstractChannel | None = None
@@ -46,29 +48,12 @@ class RabbitBroker:
             # Up to four commands run at once, so a slow ,dl no longer holds every chat's
             # reply; exclusive commands (CommandConfig.exclusive) still run one at a time.
             await self._consume_channel.set_qos(prefetch_count=self.PREFETCH_COUNT)
+            # Declare the topology once here, never on the publish hot path: a declare RPC
+            # issued from inside a consume callback wedges the channel's next
+            # publisher-confirm. Publishing assumes every target already exists.
+            await self._topology.declare(self._publish_channel)
         except (OSError, aio_pika.exceptions.AMQPError) as error:
             raise BrokerConnectionError(str(error)) from error
-
-    async def declare(self, queue: str) -> None:
-        # Declare topology once at startup, never on the publish hot path: a
-        # Queue.Declare RPC issued from inside a consume callback wedges the channel's
-        # next publisher-confirm. Publishing assumes the queue already exists.
-        channel = self._active(self._publish_channel)
-        await channel.declare_queue(queue, durable=True)
-
-    async def declare_retry_queue(self, queue: str, ttl_ms: int, dead_letter_to: str) -> None:
-        # A message parked here waits ttl_ms, then dead-letters (default exchange) to
-        # dead_letter_to — the backoff hop of the retry ladder (ADR 0004).
-        channel = self._active(self._publish_channel)
-        await channel.declare_queue(
-            queue,
-            durable=True,
-            arguments={
-                'x-message-ttl': ttl_ms,
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': dead_letter_to,
-            },
-        )
 
     async def publish(self, queue: str, body: bytes) -> None:
         channel = self._active(self._publish_channel)

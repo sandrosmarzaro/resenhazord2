@@ -799,15 +799,6 @@ class TestQueueContract:
         return 'asyncio'
 
     @pytest.mark.anyio
-    async def test_declares_the_publish_targets_and_consumes_commands(self, mocker):
-        broker = MockBrokerPort()
-
-        await CommandConsumer(broker, mocker.AsyncMock()).start()
-
-        assert broker.declared == ['replies', 'commands.dlq', 'commands.retry']
-        assert broker.retry_queues == [('commands.retry', 30_000, 'commands')]
-
-    @pytest.mark.anyio
     async def test_maps_every_payload_field_into_command_data(self, mocker):
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()

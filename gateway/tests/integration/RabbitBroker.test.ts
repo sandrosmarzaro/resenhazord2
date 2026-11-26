@@ -5,6 +5,31 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import logger from '../../src/infra/Logger.js';
 import RabbitBroker from '../../src/infra/RabbitBroker.js';
 
+// What the nodes declared before the exchanges existed (ADR 0004): the topology must
+// redeclare each queue with exactly these arguments, or the broker answers
+// PRECONDITION_FAILED.
+const LEGACY_QUEUES: Record<string, Record<string, number | string>> = {
+  commands: {},
+  replies: {},
+  wa_actions: {},
+  wa_rpc: {},
+  group_events: {},
+  'commands.dlq': {},
+  'commands.retry': {
+    'x-message-ttl': 30_000,
+    'x-dead-letter-exchange': '',
+    'x-dead-letter-routing-key': 'commands',
+  },
+};
+
+const BINDINGS = [
+  ['resenhazord.commands', 'command.whatsapp', 'commands'],
+  ['resenhazord.commands', 'wa.action.send_message', 'wa_actions'],
+  ['resenhazord.commands', 'wa.rpc.group_metadata', 'wa_rpc'],
+  ['resenhazord.events', 'reply.whatsapp', 'replies'],
+  ['resenhazord.events', 'group.joined', 'group_events'],
+];
+
 describe('RabbitBroker', () => {
   let container: StartedRabbitMQContainer;
   let url: string;
@@ -22,8 +47,33 @@ describe('RabbitBroker', () => {
     vi.clearAllMocks();
   });
 
-  it('publishes a durable message a consumer receives', async () => {
+  it('redeclares the queues an old node declared', async () => {
+    await declareLegacyQueues(url);
     const broker = new RabbitBroker();
+
+    await broker.connect(url);
+    await broker.close();
+
+    await expect(declareLegacyQueues(url)).resolves.toBeUndefined();
+  });
+
+  it.each(BINDINGS)(
+    'routes %s %s to the %s queue an old node reads',
+    async (exchange, routingKey, queue) => {
+      const broker = new RabbitBroker();
+      await broker.connect(url);
+      await purge(url, queue);
+
+      await publishTo(url, exchange, routingKey);
+      const received = await getOne(url, queue);
+
+      await broker.close();
+      expect(received).toBe('roteado');
+    },
+  );
+
+  it('publishes a durable message a consumer receives', async () => {
+    const broker = new RabbitBroker({ exchanges: [], queues: { round_trip: {} }, bindings: [] });
     await broker.connect(url);
 
     await broker.publish('round_trip', Buffer.from('ola mundo'));
@@ -135,6 +185,30 @@ async function rpcRequest(url: string, queue: string, payload: unknown): Promise
   const result = await reply;
   await connection.close();
   return result;
+}
+
+async function declareLegacyQueues(url: string): Promise<void> {
+  const connection = await connect(url);
+  const channel = await connection.createChannel();
+  for (const [queue, args] of Object.entries(LEGACY_QUEUES)) {
+    await channel.assertQueue(queue, { durable: true, arguments: args });
+  }
+  await connection.close();
+}
+
+async function publishTo(url: string, exchange: string, routingKey: string): Promise<void> {
+  const connection = await connect(url);
+  const channel = await connection.createConfirmChannel();
+  channel.publish(exchange, routingKey, Buffer.from('roteado'));
+  await channel.waitForConfirms();
+  await connection.close();
+}
+
+async function purge(url: string, queue: string): Promise<void> {
+  const connection = await connect(url);
+  const channel = await connection.createChannel();
+  await channel.purgeQueue(queue);
+  await connection.close();
 }
 
 async function getOne(url: string, queue: string): Promise<string> {
