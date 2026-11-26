@@ -1,7 +1,8 @@
 import { RabbitMQContainer, type StartedRabbitMQContainer } from '@testcontainers/rabbitmq';
 import { connect } from 'amqplib';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import logger from '../../src/infra/Logger.js';
 import RabbitBroker from '../../src/infra/RabbitBroker.js';
 
 describe('RabbitBroker', () => {
@@ -15,6 +16,10 @@ describe('RabbitBroker', () => {
 
   afterAll(async () => {
     await container.stop();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   it('publishes a durable message a consumer receives', async () => {
@@ -62,6 +67,45 @@ describe('RabbitBroker', () => {
 
     await broker.close();
     expect(reply).toEqual({ echo: 42 });
+  });
+
+  it('skips the ack when the channel closes while a consumer runs', async () => {
+    const broker = new RabbitBroker();
+    const publisher = new RabbitBroker();
+    await broker.connect(url);
+    await publisher.connect(url);
+    await broker.consume('closing_q', () => broker.close());
+
+    await publisher.publish('closing_q', Buffer.from('oi'));
+
+    await vi.waitFor(() =>
+      expect(logger.warn).toHaveBeenCalledWith({
+        event: 'consume_ack_skipped',
+        error: expect.stringContaining('Channel closed'),
+      }),
+    );
+    await publisher.close();
+  });
+
+  it('skips the ack when the channel closes while an RPC handler runs', async () => {
+    const broker = new RabbitBroker();
+    const publisher = new RabbitBroker();
+    await broker.connect(url);
+    await publisher.connect(url);
+    await broker.respondRpc('closing_rpc_q', async () => {
+      await broker.close();
+      return Buffer.from('tarde demais');
+    });
+
+    await publisher.publish('closing_rpc_q', Buffer.from('oi'));
+
+    await vi.waitFor(() =>
+      expect(logger.warn).toHaveBeenCalledWith({
+        event: 'consume_ack_skipped',
+        error: expect.stringContaining('Channel closed'),
+      }),
+    );
+    await publisher.close();
   });
 });
 

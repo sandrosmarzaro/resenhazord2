@@ -64,7 +64,7 @@ export default class RabbitBroker implements BrokerPort {
     } catch (error) {
       logger.error({ event: 'consume_handler_error', error: String(error) });
     } finally {
-      channel.ack(message);
+      this.ack(channel, message);
     }
   }
 
@@ -81,7 +81,16 @@ export default class RabbitBroker implements BrokerPort {
     } catch (error) {
       logger.error({ event: 'rpc_handler_error', error: String(error) });
     } finally {
+      this.ack(channel, message);
+    }
+  }
+
+  // A channel closed mid-handler can't ack; the broker redelivers the message after reconnect
+  private ack(channel: Channel, message: ConsumeMessage): void {
+    try {
       channel.ack(message);
+    } catch (error) {
+      logger.warn({ event: 'consume_ack_skipped', error: String(error) });
     }
   }
 
