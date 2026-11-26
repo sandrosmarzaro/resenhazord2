@@ -254,7 +254,7 @@ own Prometheus, and `Error` turned each blip into an email.
 | Node memory low | `100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10` | 5m | The documented OOM/host-freeze risk on the 1 GB nodes; fires per `instance` (core/edge) |
 | Swap thrashing | `100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes) > 80` | 10m | Sustained swap pressure precedes the freeze |
 | Swap thrash (iowait) | iowait `> 20%` and `rate(node_vmstat_pgmajfault[5m]) > 20`, per `instance` | 5m | The node is paging and its event loops stall. Both edge thrashes ([#393](https://github.com/sandrosmarzaro/resenhazord2/issues/393)) ran at 42-50% iowait and ~53 faults/s with 639 MB of swap used, under the 80% rule above |
-| Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after the retry ladder |
+| Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after their last retry |
 | Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 80` | 5m | The bot is falling behind / stalled consuming. The `commands` policy caps the queue at 100 and drops the oldest, so the alert has to fire before that |
 | Agent provider down | `sum(rate(agent_mappings_total{agent_outcome="unavailable"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001) > 0.5` | 10m | Most NL mappings hit no working LLM provider (e.g. GitHub Models retirement) — direct commands still work, but the agent is effectively down |
 | Scrape target down | `up < 1`, no data alerts | 5m | Fires per `instance` (core/edge/edge-rabbitmq) when a scrape fails, and with no labels when the core Alloy stops sending anything |

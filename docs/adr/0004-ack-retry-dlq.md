@@ -66,3 +66,49 @@ is the limit on the 640m core container: a `,dl` reply carries its video as base
 inside the JSON, roughly three copies of up to 50 MB. A command marked
 `CommandConfig.exclusive` (today only `,dl`) takes a lane of one from the moment it
 matches until its reply is published, so two downloads never overlap.
+
+## Amended 2026-11-26: one retry queue, attempts in the envelope
+
+The retry path shipped simpler than the decision above. This section records what the
+code does ([#388](https://github.com/sandrosmarzaro/resenhazord2/issues/388)).
+
+- A retryable failure is acked like any other handled command. Before the ack,
+  `RetryRouter` publishes the envelope to `commands.retry` through the default exchange,
+  with publisher confirms. Nothing nacks to a retry exchange.
+- `commands.retry` holds a message for 30 s (`CommandConsumer.RETRY_TTL_MS`, set as the
+  queue's `x-message-ttl`) and then dead-letters it back to `commands` through
+  `x-dead-letter-exchange: ''` and `x-dead-letter-routing-key: commands`. Every wait is
+  the same 30 s, so there is no 5 s, 30 s, 2 m ladder.
+- The attempt count is the `attempts` field of the JSON envelope, which `RetryRouter`
+  raises by one before each retry. The `x-death` header RabbitMQ adds on the way back
+  is never read.
+- `MAX_ATTEMPTS` is 3, so a command runs at most three times with two 30 s waits in
+  between. `DOWNLOAD_MAX_ATTEMPTS` is 1, so a `DownloadError` goes to the DLQ on its
+  first failure without any retry.
+- When the attempts run out, the user gets the error reply and `RetryRouter` publishes
+  the envelope to `commands.dlq`. The DLQ is a plain durable queue that only receives
+  direct publishes, and the `dlq-retention` policy above bounds it. `uv run task
+  dlq:replay` puts dead letters back on `commands` with `attempts` reset to 0.
+- Every queue is a classic durable queue, with no quorum queue and no
+  `x-delivery-limit`. The attempt cap covers failures the consumer catches. A command
+  that kills the process before its ack has no cap and comes back on every
+  redelivery.
+
+The simpler design was kept on purpose. Counting in the envelope avoids parsing
+`x-death`, a list of entries per queue and reason that the code would have to search
+for the retry queue's count. The whole decision lives in `RetryRouter` behind
+`BrokerPort`, so the unit tests cover it with the mocked port
+([ADR 0005](./0005-brokerport-two-layer-testing.md)) and the integration tests only
+shorten `RETRY_TTL_MS`. The delivery limit was dropped because
+both nodes already declare `commands` as a classic queue, and redeclaring it as quorum
+fails with `PRECONDITION_FAILED`. Moving to quorum needs a new queue and an
+expand/contract migration ([ADR 0006](./0006-two-node-cicd-deploy.md)).
+
+A growing backoff is still possible as one retry queue per step (`commands.retry.5s`,
+`commands.retry.30s`, `commands.retry.2m`), each with its own queue TTL and picked by
+`attempts`. A single queue with a per-message `expiration` would not work, because
+RabbitMQ only expires messages at the head and a 2 m message would hold a 5 s one behind
+it. A dedicated dead-letter exchange belongs with the exchange and routing-key work in
+[#383](https://github.com/sandrosmarzaro/resenhazord2/issues/383). Both are queue
+contract changes and ship expand/contract. The `command_retries_total` metric shows
+whether the fixed 30 s needs either.
