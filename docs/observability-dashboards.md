@@ -31,6 +31,7 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | `,dl` lane wait | `command_lane_wait_milliseconds_bucket` | none |
 | Event loop lag | `event_loop_lag_milliseconds_bucket` | none; one sample a second |
 | Bot process | `process_memory_rss_bytes`, `process_cpu_time_seconds_total` | `service_name` |
+| Gateway memory | `process_memory_rss_bytes`, `process_memory_heap_used_bytes`, `process_memory_external_bytes` | `service_name="whatsapp"`; exported OTLP-direct from the edge every 60s, see [Gateway memory](#gateway-memory) |
 | Gate refusals | `command_rejections_total` | `reason` (disabled/dev_only/off_here/nsfw_channel/blocked), `command_name`, `command_scope` (`agent` for agent text from a blocked member) |
 | Minors filter drops | `compliance_minors_dropped_total` | `source` (redgifs/rule34/hentai) |
 | Retries scheduled | `command_retries_total` | `service_name` |
@@ -132,6 +133,18 @@ histogram_quantile(0.99, sum by (le) (rate(event_loop_lag_milliseconds_bucket[5m
 sum(command_in_flight)
 histogram_quantile(0.95, sum by (le) (rate(command_lane_wait_milliseconds_bucket[1h])))
 process_memory_rss_bytes
+```
+
+### Gateway memory
+The edge swap climbs for about three days and thrashes ([#393](https://github.com/sandrosmarzaro/resenhazord2/issues/393)),
+and the gateway is the only process on that VM that grows
+([`gateway/src/infra/ProcessMemoryGauges.ts`](../gateway/src/infra/ProcessMemoryGauges.ts)).
+RSS climbing with the heap means JS objects are kept; RSS climbing with external means
+Buffers (media downloads) are; RSS climbing alone means the allocator keeps freed pages.
+```promql
+process_memory_rss_bytes{service_name="whatsapp"}
+process_memory_heap_used_bytes{service_name="whatsapp"}
+process_memory_external_bytes{service_name="whatsapp"}
 ```
 
 ### Flow state, compliance and product
@@ -240,6 +253,7 @@ own Prometheus, and `Error` turned each blip into an email.
 |---|---|---|---|
 | Node memory low | `100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10` | 5m | The documented OOM/host-freeze risk on the 1 GB nodes; fires per `instance` (core/edge) |
 | Swap thrashing | `100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes) > 80` | 10m | Sustained swap pressure precedes the freeze |
+| Swap thrash (iowait) | iowait `> 20%` and `rate(node_vmstat_pgmajfault[5m]) > 20`, per `instance` | 5m | The node is paging and its event loops stall. Both edge thrashes ([#393](https://github.com/sandrosmarzaro/resenhazord2/issues/393)) ran at 42-50% iowait and ~53 faults/s with 639 MB of swap used, under the 80% rule above |
 | Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after the retry ladder |
 | Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 80` | 5m | The bot is falling behind / stalled consuming. The `commands` policy caps the queue at 100 and drops the oldest, so the alert has to fire before that |
 | Agent provider down | `sum(rate(agent_mappings_total{agent_outcome="unavailable"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001) > 0.5` | 10m | Most NL mappings hit no working LLM provider (e.g. GitHub Models retirement) — direct commands still work, but the agent is effectively down |
@@ -250,6 +264,7 @@ own Prometheus, and `Error` turned each blip into an email.
 | SLO latency slow burn | 6h and 30m share over 10s > 0.3, 5+ runs | 15m | 3× burn |
 | Upstream failing | `sum by (upstream) (increase(upstream_failures_total[1h])) >= 5` | 0m | One third party keeps failing, even when a fallback hides it from users; fires per `upstream` |
 | Event loop lagging | p99 `event_loop_lag_milliseconds` > 500 | 10m | CPU on the loop is holding every command back |
+| Gateway memory high | `max(process_memory_rss_bytes{service_name="whatsapp"}) > 320 MiB` | 15m | The gateway nears its 384 MiB limit, past which it is OOM-killed and restarts. Time to take a heap snapshot |
 
 ### SLOs and burn rate
 

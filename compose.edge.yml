@@ -22,7 +22,10 @@ services:
     # Cap the gateway so a Baileys reconnect-storm or leak OOM-kills this container
     # (restart: unless-stopped then recovers) instead of starving the ~1 GB host into the
     # SSH-dead freeze. Pairs with the connection watchdog (mute-stall) and the host swap.
+    # No swap on top of the cap: with Docker's default of as much swap again, a leak paged
+    # the gateway out for 15 minutes of iowait instead of restarting it in seconds (#393).
     mem_limit: 384m
+    memswap_limit: 384m
     dns:
       - 1.1.1.1
       - 8.8.8.8
