@@ -1,3 +1,5 @@
+import pytest
+
 from bot.infrastructure.telemetry_redactor import TelemetryRedactor
 
 
@@ -6,14 +8,6 @@ class TestSecrets:
         url = 'https://api.telegram.org/bot123456789:' 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw/getMe'
 
         assert TelemetryRedactor.text(url) == 'https://api.telegram.org/bot<redacted>/getMe'
-
-    def test_hides_a_secret_query_parameter(self):
-        url = 'https://api.example.com/v1?q=iene&api_key=abc123&page=2'
-
-        assert (
-            TelemetryRedactor.text(url)
-            == 'https://api.example.com/v1?q=iene&api_key=<redacted>&page=2'
-        )
 
     def test_query_keys_match_any_case(self):
         assert TelemetryRedactor.text('/x?Token=s3cr3t') == '/x?Token=<redacted>'
@@ -83,3 +77,75 @@ class TestValues:
 
     def test_a_long_value_is_cut(self):
         assert len(TelemetryRedactor.value('a' * 10_000)) == TelemetryRedactor.MAX_CHARS
+
+
+class TestUrlCredentials:
+    def test_hides_username_only_userinfo(self):
+        assert TelemetryRedactor.text('amqp://guest@edge:5672/') == 'amqp://<redacted>@edge:5672/'
+
+    def test_hides_a_password_holding_an_at_sign(self):
+        url = 'mongodb+srv://bot:p@ss:w0rd@cluster.example.net/db'
+
+        assert TelemetryRedactor.text(url) == 'mongodb+srv://<redacted>@cluster.example.net/db'
+
+    def test_drops_the_query_string_of_a_url(self):
+        url = 'https://api.example.com/v1?q=iene&x_api_key=abc123'
+
+        assert TelemetryRedactor.text(url) == 'https://api.example.com/v1?<redacted>'
+
+
+class TestNamedSecrets:
+    @pytest.mark.parametrize(
+        'leak',
+        [
+            'x_api_key=abc123secret',
+            'access_token=abc123secret',
+            '"token": "abc123secret"',
+            'client_secret: abc123secret',
+            "{'password': 'abc123secret'}",
+        ],
+    )
+    def test_hides_the_value_of_a_secret_name(self, leak):
+        assert 'abc123secret' not in TelemetryRedactor.text(leak)
+
+
+class TestProviderKeys:
+    @pytest.mark.parametrize(
+        'key',
+        [
+            'gsk_abcdefghijklmnop1234',
+            'lsv2_pt_abcdefghijklmnop1234',
+            'sk-abcdefghijklmnop1234',
+            'xoxb-1234-abcdefghijklmnop',
+            'AKIA' 'ABCDEFGHIJKLMNOP',
+            '123456789:' 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw',
+        ],
+    )
+    def test_hides_a_provider_key_in_free_text(self, key):
+        assert key not in TelemetryRedactor.text(f'failed with {key} today')
+
+
+class TestShortIdentities:
+    @pytest.mark.parametrize(
+        'jid', ['12345678@lid', '1234567@s.whatsapp.net', '123456@c.us', '1234567890@g.us']
+    )
+    def test_hashes_a_short_jid(self, jid):
+        assert jid.split('@')[0] not in TelemetryRedactor.text(f'from {jid}')
+
+    def test_hashes_a_phone_written_with_separators(self):
+        assert '99999-9999' not in TelemetryRedactor.text('liga pra +55 (11) 99999-9999')
+
+    def test_keeps_a_date(self):
+        assert TelemetryRedactor.text('em 2026-11-26') == 'em 2026-11-26'
+
+
+class TestRedactBeforeCut:
+    def test_a_secret_past_the_cut_is_still_hidden(self):
+        value = {'padding': 'a' * (TelemetryRedactor.MAX_CHARS - 20), 'api_key': 'abc123secret'}
+
+        assert 'abc12' not in TelemetryRedactor.value(value)
+
+    def test_a_long_string_with_a_secret_at_the_cut_is_hidden(self):
+        value = 'a' * (TelemetryRedactor.MAX_CHARS - 10) + ' token=abc123secret'
+
+        assert 'abc' not in TelemetryRedactor.value(value)

@@ -5,7 +5,7 @@ import reprlib
 import secrets
 from typing import ClassVar
 
-from bot.data.telemetry_privacy import SECRET_QUERY_KEYS
+from bot.data.telemetry_privacy import PROVIDER_KEY_PREFIXES, SECRET_NAME_PARTS
 
 
 class _BoundedRepr(reprlib.Repr):
@@ -23,30 +23,50 @@ class TelemetryRedactor:
     """
 
     MAX_CHARS: ClassVar[int] = 300
+    # Redaction runs on this much of a value before the cut, so the cut never splits a
+    # secret the patterns would have caught.
+    MAX_INPUT_CHARS: ClassVar[int] = 4096
     HASH_CHARS: ClassVar[int] = 10
+    PHONE_MIN_DIGITS: ClassVar[int] = 10
     _KEY: ClassVar[bytes] = secrets.token_bytes(32)
-    _REPR: ClassVar[reprlib.Repr] = _BoundedRepr(maxstring=MAX_CHARS, maxother=MAX_CHARS)
+    _REPR: ClassVar[reprlib.Repr] = _BoundedRepr(
+        maxstring=MAX_INPUT_CHARS, maxother=MAX_INPUT_CHARS
+    )
     _SECRETS: ClassVar[tuple[tuple[re.Pattern[str], str], ...]] = (
+        # Userinfo runs to the last @ of the authority, so a password with @ or : in it,
+        # or a bare username, goes whole.
+        (re.compile(r'(?i)\b([a-z][a-z0-9+.-]*://)[^/\s?#]*@'), r'\1<redacted>@'),
+        # A query string is dropped whole: its credentials have too many names to list.
+        (re.compile(r'(?i)(\b[a-z][a-z0-9+.-]*://[^\s?#\'"]*)\?[^\s#\'"<>]*'), r'\1?<redacted>'),
         (re.compile(r'bot\d+:[\w-]+'), 'bot<redacted>'),
-        (re.compile(r'://[^/\s:@]+:[^/\s@]+@'), '://<redacted>@'),
+        (re.compile(r'\b\d{6,}:[\w-]{30,}'), '<redacted>'),
         (re.compile(r'(?i)\b(bearer|basic)\s+[\w.~+/=-]{8,}'), r'\1 <redacted>'),
-        (re.compile(r'\b(?:gh[pousr]_|github_pat_)\w+'), '<redacted>'),
         (
-            re.compile(rf'(?i)([?&;](?:{"|".join(SECRET_QUERY_KEYS)})=)[^&\s#"\']+'),
+            re.compile(rf'\b(?:{"|".join(map(re.escape, PROVIDER_KEY_PREFIXES))})[\w-]+'),
+            '<redacted>',
+        ),
+        (re.compile(r'\bAKIA[0-9A-Z]{16}\b'), '<redacted>'),
+        (
+            re.compile(
+                rf'(?i)(\b[\w-]*(?:{"|".join(SECRET_NAME_PARTS)})[\w-]*["\']?\s*[:=]\s*["\']?)'
+                r'[^"\'\s,&;}]+'
+            ),
             r'\1<redacted>',
         ),
     )
-    # A WhatsApp JID or LID, an old-style group id, or a bare number long enough to be a
-    # phone, a Discord snowflake or a Telegram chat.
+    # A WhatsApp JID or LID of any length, an old-style group id, or a run of digits
+    # and separators that reads as a phone number.
     _IDENTITY: ClassVar[re.Pattern[str]] = re.compile(
-        r'\d+-\d+@g\.us|\+?\b\d{10,}(?::\d+)?(?:@(?:s\.whatsapp\.net|lid|g\.us|c\.us))?'
+        r'\d+-\d+@g\.us'
+        r'|\d{6,}(?::\d+)?@(?:s\.whatsapp\.net|lid|g\.us|c\.us)'
+        r'|\+?\d[\d\s().-]{8,}\d'
     )
 
     @classmethod
     def text(cls, value: str) -> str:
         for pattern, replacement in cls._SECRETS:
             value = pattern.sub(replacement, value)
-        return cls._IDENTITY.sub(lambda match: f'<id:{cls.identity(match.group())}>', value)
+        return cls._IDENTITY.sub(cls._hash_identity, value)
 
     @classmethod
     def identity(cls, value: str) -> str:
@@ -55,5 +75,13 @@ class TelemetryRedactor:
 
     @classmethod
     def value(cls, value: object) -> str:
-        shown = value if isinstance(value, str) else cls._REPR.repr(value)
+        shown = value[: cls.MAX_INPUT_CHARS] if isinstance(value, str) else cls._REPR.repr(value)
         return cls.text(shown)[: cls.MAX_CHARS]
+
+    @classmethod
+    def _hash_identity(cls, match: re.Match[str]) -> str:
+        found = match.group()
+        # A date or a short count matches the phone shape with too few digits to dial.
+        if '@' not in found and sum(char.isdigit() for char in found) < cls.PHONE_MIN_DIGITS:
+            return found
+        return f'<id:{cls.identity(found)}>'
