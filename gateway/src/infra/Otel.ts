@@ -1,9 +1,12 @@
 import { context, defaultTextMapSetter, trace, type Tracer } from '@opentelemetry/api';
 import { W3CTraceContextPropagator } from '@opentelemetry/core';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { BasicTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+import ProcessMemoryGauges from './ProcessMemoryGauges.js';
 
 // Own provider + own propagator instances, never the global ones, so @sentry/bun's
 // OpenTelemetry setup stays untouched. The edge node exports OTLP straight to Grafana
@@ -23,15 +26,21 @@ export function initOtel(): void {
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
   if (!endpoint) return;
 
-  const exporter = new OTLPTraceExporter({
-    url: `${endpoint}/v1/traces`,
-    headers: authHeaders(),
-  });
+  const headers = authHeaders();
+  const resource = resourceFromAttributes({ [ATTR_SERVICE_NAME]: 'whatsapp' });
+  const exporter = new OTLPTraceExporter({ url: `${endpoint}/v1/traces`, headers });
   const provider = new BasicTracerProvider({
-    resource: resourceFromAttributes({ [ATTR_SERVICE_NAME]: 'whatsapp' }),
+    resource,
     spanProcessors: [new BatchSpanProcessor(exporter)],
   });
   tracer = provider.getTracer('gateway');
+
+  const metricExporter = new OTLPMetricExporter({ url: `${endpoint}/v1/metrics`, headers });
+  const meterProvider = new MeterProvider({
+    resource,
+    readers: [new PeriodicExportingMetricReader({ exporter: metricExporter })],
+  });
+  ProcessMemoryGauges.register(meterProvider.getMeter('gateway'));
 }
 
 // Start a publish span and write its W3C context into the envelope, so the core bot

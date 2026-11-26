@@ -31,6 +31,7 @@ names captured from Alloy (see the table below). The alerts are versioned too (b
 | `,dl` lane wait | `command_lane_wait_milliseconds_bucket` | none |
 | Event loop lag | `event_loop_lag_milliseconds_bucket` | none; one sample a second |
 | Bot process | `process_memory_rss_bytes`, `process_cpu_time_seconds_total` | `service_name` |
+| Gateway memory | `process_memory_rss_bytes`, `process_memory_heap_used_bytes`, `process_memory_external_bytes` | `service_name="whatsapp"`; exported OTLP-direct from the edge every 60s, see [Gateway memory](#gateway-memory) |
 | Gate refusals | `command_rejections_total` | `reason` (disabled/dev_only/off_here/nsfw_channel/blocked), `command_name`, `command_scope` (`agent` for agent text from a blocked member) |
 | Minors filter drops | `compliance_minors_dropped_total` | `source` (redgifs/rule34/hentai) |
 | Retries scheduled | `command_retries_total` | `service_name` |
@@ -132,6 +133,18 @@ histogram_quantile(0.99, sum by (le) (rate(event_loop_lag_milliseconds_bucket[5m
 sum(command_in_flight)
 histogram_quantile(0.95, sum by (le) (rate(command_lane_wait_milliseconds_bucket[1h])))
 process_memory_rss_bytes
+```
+
+### Gateway memory
+The edge swap climbs for about three days and thrashes ([#393](https://github.com/sandrosmarzaro/resenhazord2/issues/393)),
+and the gateway is the only process on that VM that grows
+([`gateway/src/infra/ProcessMemoryGauges.ts`](../gateway/src/infra/ProcessMemoryGauges.ts)).
+RSS climbing with the heap means JS objects are kept; RSS climbing with external means
+Buffers (media downloads) are; RSS climbing alone means the allocator keeps freed pages.
+```promql
+process_memory_rss_bytes{service_name="whatsapp"}
+process_memory_heap_used_bytes{service_name="whatsapp"}
+process_memory_external_bytes{service_name="whatsapp"}
 ```
 
 ### Flow state, compliance and product
