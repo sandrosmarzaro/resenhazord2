@@ -39,7 +39,10 @@ accounts are exempt.
 ## Memory budget
 
 Every container has a `mem_limit`. Docker leaves `memswap_limit` unset, which lets each
-container use as much swap again as its RAM cap, so the caps bound RAM only.
+container use as much swap again as its RAM cap, so the caps bound RAM only. The `whatsapp`
+container is the exception: its `memswap_limit` equals its cap, so a leak ends in an OOM kill
+and a restart instead of the edge swap-thrashing for minutes
+([#393](https://github.com/sandrosmarzaro/resenhazord2/issues/393)).
 
 | Node | Container | Cap | Measured 2026-10-21 |
 |---|---|---|---|
