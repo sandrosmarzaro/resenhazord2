@@ -10,15 +10,16 @@ BYTES_PER_QUALITY_POINT = 100
 
 class FrameSizes:
     def __init__(
-        self, bytes_per_quality_point: int = BYTES_PER_QUALITY_POINT, base: int = 0
+        self, bytes_per_quality_point: int = BYTES_PER_QUALITY_POINT, base: int = 0, power: int = 1
     ) -> None:
         self.bytes_per_quality_point = bytes_per_quality_point
         self.base = base
+        self.power = power
         self.measured: list[int] = []
 
     async def __call__(self, quality: int) -> int:
         self.measured.append(quality)
-        return self.base + quality * self.bytes_per_quality_point
+        return self.base + quality**self.power * self.bytes_per_quality_point
 
 
 def _assert_close_below(quality: int, best: int) -> None:
@@ -95,7 +96,8 @@ class TestMeasurements:
     async def test_a_clip_that_fits_at_the_highest_quality_takes_two_measurements(self) -> None:
         frame_sizes = FrameSizes()
 
-        await _ladder(fps=30, seconds=1, frame_sizes=frame_sizes).plan(
+        # 3 frames fit up to q55: the first step's q50 floor fits, q95 doesn't.
+        await _ladder(fps=30, seconds=0.1, frame_sizes=frame_sizes).plan(
             max_quality=95, budget=BUDGET
         )
 
@@ -135,7 +137,32 @@ class Encodes:
         return b'x' * size
 
 
+class TestSearchCost:
+    @pytest.mark.anyio
+    async def test_tries_at_most_a_few_qualities_between_the_floor_and_the_cap(self) -> None:
+        # Real sizes grow faster at high qualities, which slows an interpolation down.
+        frame_sizes = FrameSizes(bytes_per_quality_point=1, power=3)
+
+        # 3 frames fit up to q55: the first step's q50 floor fits, q95 doesn't.
+        await _ladder(fps=30, seconds=0.1, frame_sizes=frame_sizes).plan(
+            max_quality=95, budget=BUDGET
+        )
+
+        lowest_cap_and_floor = 3
+        assert len(frame_sizes.measured) <= lowest_cap_and_floor + FrameRateLadder.MAX_PROBES
+
+
 class TestFit:
+    @pytest.mark.anyio
+    async def test_aims_under_the_limit_at_first(self) -> None:
+        # 300 frames of 1.65 kB are 495 kB: under the limit, not under its margin.
+        encodes = Encodes(BUDGET - 1_000)
+        ladder = _ladder(fps=30, seconds=10, frame_sizes=FrameSizes(0, base=1_650))
+
+        await ladder.fit(max_quality=95, encode=encodes)
+
+        assert [plan.fps for plan in encodes.plans] == [24]
+
     @pytest.mark.anyio
     async def test_keeps_an_encode_that_fills_the_budget(self) -> None:
         encodes = Encodes(BUDGET - 1_000)
