@@ -9,11 +9,15 @@ class TelemetryFieldPolicy:
     """The one rule for a named value leaving the process: hide, hash, show or drop.
 
     Log fields, span attributes and frame arguments all go through it. A secret name
-    wins over everything, then an identity, then the allowlist; any other name is
-    dropped, so a field nobody vetted never reaches a public issue.
+    wins over everything, then an identity, then the allowlist, which shows only plain
+    values; any other name is dropped, so a field nobody vetted never reaches a public
+    issue.
     """
 
     _IDENTITY_SUFFIXES: ClassVar[tuple[str, ...]] = ('_id', 'jid')
+    # An allowed name shows its value only when the value is plain: an object's repr
+    # can hold anything, a JID or a token among them.
+    _PLAIN_TYPES: ClassVar[tuple[type, ...]] = (str, int, float, bool, type(None))
 
     @classmethod
     def show(cls, name: str, value: object) -> str | None:
@@ -26,9 +30,11 @@ class TelemetryFieldPolicy:
             return TelemetryRedactor.identity(str(value))
         if lowered in URL_FIELDS:
             return cls._url(str(value))
-        if lowered in SAFE_FIELDS:
+        if lowered not in SAFE_FIELDS:
+            return None
+        if isinstance(value, cls._PLAIN_TYPES):
             return TelemetryRedactor.value(value)
-        return None
+        return f'<{type(value).__name__}>'
 
     @staticmethod
     def _url(value: str) -> str:

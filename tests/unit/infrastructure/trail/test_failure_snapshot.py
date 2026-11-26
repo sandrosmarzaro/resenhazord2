@@ -60,3 +60,21 @@ class TestChain:
         stack = FailureSnapshot.of(_caught(_wrapped))['stack']
 
         assert 'JSONDecodeError' not in stack
+
+
+class _Leaky:
+    def __repr__(self) -> str:
+        return '<Leaky 5511999999999@s.whatsapp.net token=abc123secret>'
+
+
+def _fails_with(status: object) -> None:
+    raise RuntimeError
+
+
+class TestRichArguments:
+    def test_an_allowed_argument_holding_an_object_shows_only_its_type(self, mocker):
+        mocker.patch.object(FailureSnapshot, '_BOT_ROOT', __file__)
+
+        frame = FailureSnapshot.of(_caught(lambda: _fails_with(_Leaky())))['frame']
+
+        assert frame['arguments'] == {'status': '<_Leaky>'}

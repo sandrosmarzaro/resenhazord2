@@ -48,3 +48,20 @@ class TestUrls:
         assert TelemetryFieldPolicy.show('url.full', url) == (
             'https://api.telegram.org/bot<redacted>/getMe'
         )
+
+
+class _Leaky:
+    def __repr__(self) -> str:
+        return '<Leaky 5511999999999@s.whatsapp.net token=abc123secret>'
+
+
+class TestRichValues:
+    def test_an_allowed_name_holding_an_object_shows_only_its_type(self):
+        assert TelemetryFieldPolicy.show('status', _Leaky()) == '<_Leaky>'
+
+    def test_an_allowed_name_holding_a_dict_shows_only_its_type(self):
+        assert TelemetryFieldPolicy.show('status', {'chat': '5511999999999'}) == '<dict>'
+
+    @pytest.mark.parametrize('value', [2, 1.5, True, None, 'ok'])
+    def test_an_allowed_name_holding_a_plain_value_shows_it(self, value):
+        assert TelemetryFieldPolicy.show('status', value) == TelemetryRedactor.value(value)
