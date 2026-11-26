@@ -28,8 +28,8 @@ publish/consume goes through the port; no command or service touches `aio-pika` 
   mirrors its `MockWhatsAppPort` with a `MockBrokerPort` factory.
 - **Integration — the thin adapter + reliability semantics against a real ephemeral
   RabbitMQ** (testcontainers, or a single compose service). The behaviors that only a
-  real broker can prove RED-then-GREEN live here: retry-queue TTL → DLX → DLQ routing,
-  `x-death` attempt counting ([ADR 0004](./0004-ack-retry-dlq.md)), publisher confirms
+  real broker can prove RED-then-GREEN live here: retry-queue TTL dead-lettering back to
+  `commands`, the DLQ after the last attempt ([ADR 0004](./0004-ack-retry-dlq.md)), publisher confirms
   rejecting on `vm_memory_high_watermark` (§7), `wa_rpc` timeout → retry
   ([ADR 0003](./0003-wa-rpc-queue.md)). A mocked channel "confirms" routing without
   routing — the RED would be theatre exactly where correctness matters most.
@@ -43,7 +43,7 @@ publish/consume goes through the port; no command or service touches `aio-pika` 
   inconsistency, not the abstraction.
 - **Mock `aio-pika` / `amqplib` directly in test setup** (as `gateway/tests/setup.ts`
   already does for `mongodb`). Cheapest, but violates *don't mock what you don't own*
-  for the reliability semantics: a mocked channel can't prove TTL/DLX/`x-death` actually
+  for the reliability semantics: a mocked channel can't prove TTL and dead-lettering actually
   route. Acceptable only for incidental infra stubbing, never for the semantics under
   test. Rejected as the primary strategy.
 
