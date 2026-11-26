@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import discord
 import httpx
 import pytest
+from fakeredis.aioredis import FakeRedis
 
 from bot.adapters.discord.handler import DiscordInteractionHandler
 from bot.application.message_preprocess import preprocess_messages
@@ -14,6 +15,7 @@ from bot.domain.models.contents.image_content import ImageBufferContent, ImageCo
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from bot.domain.services.dev_list import DevListService
+from bot.infrastructure.execution_store import ExecutionStore
 
 if TYPE_CHECKING:
     from bot.domain.models.command_data import CommandData
@@ -53,7 +55,7 @@ def handler(mock_config_service):
 def port(mocker):
     port = mocker.AsyncMock()
     port.send_message = mocker.AsyncMock()
-    port.send_followup = mocker.AsyncMock()
+    port.send_followup = mocker.AsyncMock(side_effect=['901', '902', '903'])
     port.defer = mocker.AsyncMock()
     port.is_deferred = False
     return port
@@ -153,7 +155,7 @@ class TestHandle:
 
         await handler.handle(port, interaction)
 
-        port.send_followup.assert_called_once_with('Erro amigavel')
+        port.send_followup.assert_called_once_with('Erro amigavel', embed=None, file=None)
 
     @pytest.mark.anyio
     async def test_generic_error_sends_fallback(self, handler, port, mocker):
@@ -687,3 +689,53 @@ class TestScopeGating:
         await handler.handle(port, make_interaction(mocker, command_name='dev'))
 
         strategy.run.assert_awaited_once()
+
+
+class TestExecutionRecord:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def store(self):
+        store = ExecutionStore(FakeRedis())
+        ExecutionStore.reset(store)
+        return store
+
+    @staticmethod
+    def _route(mocker, strategy):
+        mocker.patch(
+            'bot.adapters.discord.handler.CommandRegistry.instance',
+            return_value=mocker.MagicMock(get_strategy=mocker.MagicMock(return_value=strategy)),
+        )
+
+    @pytest.mark.anyio
+    async def test_a_reply_is_recorded_under_its_message_id(self, handler, port, mocker, store):
+        message = BotMessage(jid='111', content=TextContent(text='roll: 7'))
+        self._route(mocker, make_strategy(mocker, [message]))
+
+        await handler.handle(port, make_interaction(mocker))
+
+        record = await store.find('discord', '111222333', '901')
+        assert (record['platform'], record['replies']) == ('discord', {'901': 'roll: 7'})
+
+    @pytest.mark.anyio
+    async def test_an_error_reply_is_recorded_too(self, handler, port, mocker, store):
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(side_effect=BotError('Moeda inválida'))
+        self._route(mocker, strategy)
+
+        await handler.handle(port, make_interaction(mocker))
+
+        record = await store.find('discord', '111222333', '901')
+        assert record['replies'] == {'901': 'Moeda inválida'}
+
+    @pytest.mark.anyio
+    async def test_a_file_reply_is_remembered_by_its_kind(self, handler, port, mocker, store):
+        message = BotMessage(jid='111', content=AudioBufferContent(data=b'\x01'))
+        self._route(mocker, make_strategy(mocker, [message]))
+
+        await handler.handle(port, make_interaction(mocker))
+
+        record = await store.find('discord', '111222333', '901')
+        assert record['replies'] == {'901': 'file'}
