@@ -75,8 +75,8 @@ code does ([#388](https://github.com/sandrosmarzaro/resenhazord2/issues/388)).
 - A retryable failure is acked like any other handled command. Before the ack,
   `RetryRouter` publishes the envelope to `commands.retry` through the default exchange,
   with publisher confirms. Nothing nacks to a retry exchange.
-- `commands.retry` holds a message for 30 s (`CommandConsumer.RETRY_TTL_MS`, set as the
-  queue's `x-message-ttl`) and then dead-letters it back to `commands` through
+- `commands.retry` holds a message for 30 s (its `x-message-ttl` in
+  `bot/data/broker_topology.py`, [ADR 0017](./0017-broker-exchanges-and-routing-keys.md)) and then dead-letters it back to `commands` through
   `x-dead-letter-exchange: ''` and `x-dead-letter-routing-key: commands`. Every wait is
   the same 30 s, so there is no 5 s, 30 s, 2 m ladder.
 - The attempt count is the `attempts` field of the JSON envelope, which `RetryRouter`
@@ -99,7 +99,7 @@ The simpler design was kept on purpose. Counting in the envelope avoids parsing
 for the retry queue's count. The whole decision lives in `RetryRouter` behind
 `BrokerPort`, so the unit tests cover it with the mocked port
 ([ADR 0005](./0005-brokerport-two-layer-testing.md)) and the integration tests only
-shorten `RETRY_TTL_MS`. The delivery limit was dropped because
+shorten the retry queue's TTL. The delivery limit was dropped because
 both nodes already declare `commands` as a classic queue, and redeclaring it as quorum
 fails with `PRECONDITION_FAILED`. Moving to quorum needs a new queue and an
 expand/contract migration ([ADR 0006](./0006-two-node-cicd-deploy.md)).
