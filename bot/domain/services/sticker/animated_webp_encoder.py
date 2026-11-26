@@ -1,45 +1,45 @@
 import io
+from functools import partial
+from typing import ClassVar
 
 from PIL import Image
 
-from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, MAX_FRAME_STRIDE
-from bot.domain.exceptions import StickerTooLargeError
-from bot.domain.services.sticker.frame_shaper import FrameShaper
-from bot.domain.services.sticker.media_format import MediaFormat
+from bot.domain.services.sticker.animation import Animation
+from bot.domain.services.sticker.frame_rate_ladder import EncodePlan, FrameRateLadder
+from bot.domain.services.sticker.video_sticker_encoder import VideoStickerEncoder
+from bot.infrastructure.work import Work
 
 
 class AnimatedWebpEncoder:
+    # libwebp's default effort, as ffmpeg and Pillow's still images use. Pillow saves
+    # animations with method 0: ~40% bigger, and its size dips at some qualities (q89
+    # halves the detail), which breaks the quality search.
+    _METHOD: ClassVar[int] = 4
+
+    # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
+    # keep running.
     @classmethod
-    def encode(cls, buffer: bytes, sticker_type: str, quality: int, working_size: int) -> bytes:
-        src = Image.open(io.BytesIO(buffer))
-        n_frames = getattr(src, 'n_frames', 1)
-        per_frame_ms = MediaFormat.frame_durations(buffer, n_frames)
-
-        all_frames: list[Image.Image] = []
-        for i in range(n_frames):
-            src.seek(i)
-            all_frames.append(FrameShaper.shape(src.convert('RGBA'), sticker_type, working_size))
-
-        # Reduction degrades quality + pixelation; only drop frames as a last
-        # resort when pixelation breaks inter-frame compression and the file
-        # exceeds the animated-sticker limit.
-        max_stride = min(MAX_FRAME_STRIDE, max(1, n_frames // 2))
-        for stride in range(1, max_stride + 1):
-            output = cls._encode(all_frames, per_frame_ms, stride, quality)
-            if len(output) <= MAX_ANIMATED_STICKER_BYTES:
-                return output
-        raise StickerTooLargeError
-
-    @classmethod
-    def _encode(
-        cls,
-        all_frames: list[Image.Image],
-        per_frame_ms: list[int],
-        stride: int,
-        quality: int,
+    async def encode(
+        cls, buffer: bytes, sticker_type: str, max_quality: int, working_size: int
     ) -> bytes:
-        frames = all_frames[::stride]
-        durations = [sum(per_frame_ms[i : i + stride]) for i in range(0, len(all_frames), stride)]
+        animation = await Work.cpu(Animation.decode, buffer, sticker_type, working_size)
+        ladder = FrameRateLadder(animation.clip(), partial(cls._frame_bytes, animation))
+        return await ladder.fit(max_quality, partial(cls._encode, animation))
+
+    @classmethod
+    async def _frame_bytes(cls, animation: Animation, quality: int) -> int:
+        sample = animation.sample(VideoStickerEncoder.SAMPLE_FRAMES)
+        durations = animation.durations[: len(sample)]
+        webp = await Work.cpu(cls._save, sample, durations, quality)
+        return len(webp) // len(sample)
+
+    @classmethod
+    async def _encode(cls, animation: Animation, plan: EncodePlan) -> bytes:
+        frames, durations = animation.at(plan.fps)
+        return await Work.cpu(cls._save, frames, durations, plan.quality)
+
+    @staticmethod
+    def _save(frames: list[Image.Image], durations: list[int], quality: int) -> bytes:
         output = io.BytesIO()
         frames[0].save(
             output,
@@ -49,5 +49,6 @@ class AnimatedWebpEncoder:
             duration=durations,
             loop=0,
             quality=quality,
+            method=AnimatedWebpEncoder._METHOD,
         )
         return output.getvalue()

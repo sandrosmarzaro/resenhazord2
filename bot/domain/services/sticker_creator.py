@@ -25,20 +25,17 @@ class StickerCreator:
         quality_reduction: int = 0,
     ) -> bytes:
         working_size = cls._effective_working_size(quality_reduction)
+        # Animations search the highest quality that fits; the reduction only lowers how
+        # high they may go.
+        max_quality = cls._effective_quality(quality_reduction, MAX_STICKER_QUALITY)
         if MediaFormat.is_video(buffer):
-            # The video encoder searches the highest quality that fits; the reduction
-            # only lowers how high it may go.
-            max_quality = cls._effective_quality(quality_reduction, MAX_STICKER_QUALITY)
             return await VideoStickerEncoder.encode(buffer, sticker_type, max_quality, working_size)
+        if MediaFormat.is_animated_webp(buffer):
+            return await AnimatedWebpEncoder.encode(buffer, sticker_type, max_quality, working_size)
         quality = cls._effective_quality(quality_reduction)
         # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
         # keep running.
-        encode = (
-            AnimatedWebpEncoder.encode
-            if MediaFormat.is_animated_webp(buffer)
-            else cls._create_from_image
-        )
-        return await Work.cpu(encode, buffer, sticker_type, quality, working_size)
+        return await Work.cpu(cls._create_from_image, buffer, sticker_type, quality, working_size)
 
     @classmethod
     def _effective_quality(cls, quality_reduction: int, quality: int = WEBP_QUALITY) -> int:

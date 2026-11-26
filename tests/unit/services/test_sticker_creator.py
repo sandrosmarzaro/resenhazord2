@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, STICKER_SIZE
+from bot.data.sticker import MAX_ANIMATED_STICKER_BYTES, MAX_STICKER_QUALITY, STICKER_SIZE
 from bot.domain.exceptions import StickerTooLargeError
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
@@ -551,7 +551,26 @@ class TestStickerCreatorAnimatedWebp:
 
         await StickerCreator.create(_create_animated_webp(), 'full', quality_reduction=50)
 
-        assert save_spy.call_args.kwargs['quality'] == 25
+        assert save_spy.call_args.kwargs['quality'] == 48
+
+    # Pillow saves animations with method 0, whose sizes jump down at some qualities
+    # (q89 halves the detail) and break the quality search.
+    @pytest.mark.anyio
+    async def test_animation_is_encoded_with_the_default_libwebp_effort(self, mocker) -> None:
+        animated = _create_animated_webp()
+        save_spy = mocker.spy(Image.Image, 'save')
+
+        await StickerCreator.create(animated, 'full')
+
+        assert {call.kwargs['method'] for call in save_spy.call_args_list} == {4}
+
+    @pytest.mark.anyio
+    async def test_short_animation_keeps_the_highest_quality(self, mocker) -> None:
+        save_spy = mocker.spy(Image.Image, 'save')
+
+        await StickerCreator.create(_create_animated_webp(), 'full')
+
+        assert save_spy.call_args.kwargs['quality'] == MAX_STICKER_QUALITY
 
     @pytest.mark.anyio
     async def test_animated_webp_quality_reduction_pixelates_frames(self) -> None:
@@ -612,7 +631,25 @@ class TestStickerCreatorAnimatedWebp:
         assert len(heavy) <= MAX_ANIMATED_STICKER_BYTES
 
     @pytest.mark.anyio
-    async def test_output_over_the_limit_at_every_stride_is_refused(self) -> None:
+    async def test_heavy_animation_drops_frames_and_keeps_its_length(self) -> None:
+        frames = [
+            Image.frombytes('RGB', (96, 96), os.urandom(96 * 96 * 3)).convert('RGBA')
+            for _ in range(30)
+        ]
+        buf = io.BytesIO()
+        frames[0].save(
+            buf, format='WEBP', save_all=True, append_images=frames[1:], duration=50, quality=90
+        )
+
+        result = await StickerCreator.create(buf.getvalue(), 'full')
+
+        n_frames = Image.open(io.BytesIO(result)).n_frames
+        assert len(result) <= MAX_ANIMATED_STICKER_BYTES
+        assert n_frames < len(frames)
+        assert sum(MediaFormat.frame_durations(result, n_frames)) == 50 * len(frames)
+
+    @pytest.mark.anyio
+    async def test_output_over_the_limit_at_every_frame_rate_is_refused(self) -> None:
         noisy = _create_noise_webp(n_frames=4)
 
         with pytest.raises(StickerTooLargeError, match='500 KB'):
