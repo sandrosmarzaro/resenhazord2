@@ -9,13 +9,20 @@ BYTES_PER_QUALITY_POINT = 100
 
 
 class FrameSizes:
-    def __init__(self, bytes_per_quality_point: int = BYTES_PER_QUALITY_POINT) -> None:
+    def __init__(
+        self, bytes_per_quality_point: int = BYTES_PER_QUALITY_POINT, base: int = 0
+    ) -> None:
         self.bytes_per_quality_point = bytes_per_quality_point
+        self.base = base
         self.measured: list[int] = []
 
     async def __call__(self, quality: int) -> int:
         self.measured.append(quality)
-        return quality * self.bytes_per_quality_point
+        return self.base + quality * self.bytes_per_quality_point
+
+
+def _assert_close_below(quality: int, best: int) -> None:
+    assert best - FrameRateLadder.QUALITY_TOLERANCE <= quality <= best
 
 
 def _ladder(fps: float, seconds: float, frame_sizes: FrameSizes | None = None) -> FrameRateLadder:
@@ -34,7 +41,8 @@ class TestFullFrameRate:
         # 60 frames x q x 100 bytes fits 500 kB up to q83.
         plan = await _ladder(fps=30, seconds=2).plan(max_quality=95, budget=BUDGET)
 
-        assert plan == EncodePlan(fps=30, quality=83)
+        assert plan.fps == 30
+        _assert_close_below(plan.quality, best=83)
 
     @pytest.mark.anyio
     async def test_never_goes_above_the_source_frame_rate(self) -> None:
@@ -57,7 +65,8 @@ class TestTradingFramesForQuality:
         # next, lower floors accept it.
         plan = await _ladder(fps=12, seconds=10).plan(max_quality=95, budget=BUDGET)
 
-        assert plan == EncodePlan(fps=12, quality=41)
+        assert plan.fps == 12
+        _assert_close_below(plan.quality, best=41)
 
     @pytest.mark.anyio
     async def test_refuses_a_clip_that_fits_no_step(self) -> None:
@@ -82,6 +91,28 @@ class TestUserQualityReduction:
 
 
 class TestMeasurements:
+    @pytest.mark.anyio
+    async def test_a_clip_that_fits_at_the_highest_quality_takes_two_measurements(self) -> None:
+        frame_sizes = FrameSizes()
+
+        await _ladder(fps=30, seconds=1, frame_sizes=frame_sizes).plan(
+            max_quality=95, budget=BUDGET
+        )
+
+        assert frame_sizes.measured == [10, 95]
+
+    @pytest.mark.anyio
+    async def test_skips_the_floor_of_a_frame_rate_the_lowest_quality_misses(self) -> None:
+        # Every frame weighs 2 kB: 300 of them miss the budget, 240 fit.
+        frame_sizes = FrameSizes(bytes_per_quality_point=0, base=2_000)
+
+        plan = await _ladder(fps=30, seconds=10, frame_sizes=frame_sizes).plan(
+            max_quality=95, budget=BUDGET
+        )
+
+        assert plan == EncodePlan(fps=24, quality=95)
+        assert frame_sizes.measured == [10, 95]
+
     @pytest.mark.anyio
     async def test_measures_each_quality_once_across_plans(self) -> None:
         frame_sizes = FrameSizes()
