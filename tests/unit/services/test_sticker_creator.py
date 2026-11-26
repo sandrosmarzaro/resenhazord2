@@ -338,6 +338,17 @@ class TestVideoFfmpegCommand:
             VideoStickerEncoder.INPUT_ARGS
         }
 
+    # A second full encode writes over the first: without -y ffmpeg asks on stdin and
+    # waits forever.
+    @pytest.mark.anyio
+    async def test_ffmpeg_never_asks_on_stdin(self, fake_ffmpeg) -> None:
+        calls = fake_ffmpeg(b'x' * 300_000, b'fits', seconds=10, frame_bytes=2_000)
+
+        await StickerCreator.create(VIDEO_BUFFER, 'full')
+
+        ffmpeg_calls = [argv for argv in calls if argv[0] == 'ffmpeg']
+        assert {argv[1:3] for argv in ffmpeg_calls} == {('-nostdin', '-y')}
+
     @pytest.mark.anyio
     async def test_full_video_runs_the_expected_ffmpeg_command(self, fake_ffmpeg) -> None:
         calls = fake_ffmpeg()

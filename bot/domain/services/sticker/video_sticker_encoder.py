@@ -32,6 +32,8 @@ class VideoStickerEncoder:
         '-of',
         'json',
     )
+    # A second full encode writes over the first, and ffmpeg would ask on stdin first.
+    _FFMPEG: ClassVar[tuple[str, ...]] = ('ffmpeg', '-nostdin', '-y')
     _WEBP_ARGS: ClassVar[tuple[str, ...]] = ('-preset', 'default', '-an', '-vsync', '0')
 
     @classmethod
@@ -60,7 +62,7 @@ class VideoStickerEncoder:
     async def _sample(cls, source: Path, filter_graph: str) -> Path:
         sample = source.with_name('sample.mkv')
         await cls._run(
-            'ffmpeg',
+            *cls._FFMPEG,
             *cls._read(source),
             '-vf',
             filter_graph,
@@ -77,7 +79,7 @@ class VideoStickerEncoder:
     async def _frame_bytes(cls, sample: Path, quality: int) -> int:
         output = sample.with_name(f'sample-{quality}.webp')
         await cls._run(
-            'ffmpeg',
+            *cls._FFMPEG,
             '-i',
             str(sample),
             '-vcodec',
@@ -95,7 +97,7 @@ class VideoStickerEncoder:
     ) -> bytes:
         output = source.with_name('output.webp')
         await cls._run(
-            'ffmpeg',
+            *cls._FFMPEG,
             *cls._read(source),
             '-vcodec',
             'libwebp',
