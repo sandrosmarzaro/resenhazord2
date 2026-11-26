@@ -1,0 +1,23 @@
+{
+  "exchanges": ["resenhazord.commands", "resenhazord.events"],
+  "queues": {
+    "commands": {},
+    "replies": {},
+    "wa_actions": {},
+    "wa_rpc": {},
+    "group_events": {},
+    "commands.dlq": {},
+    "commands.retry": {
+      "x-message-ttl": 30000,
+      "x-dead-letter-exchange": "",
+      "x-dead-letter-routing-key": "commands"
+    }
+  },
+  "bindings": [
+    { "exchange": "resenhazord.commands", "pattern": "command.#", "queue": "commands" },
+    { "exchange": "resenhazord.commands", "pattern": "wa.action.#", "queue": "wa_actions" },
+    { "exchange": "resenhazord.commands", "pattern": "wa.rpc.#", "queue": "wa_rpc" },
+    { "exchange": "resenhazord.events", "pattern": "reply.whatsapp", "queue": "replies" },
+    { "exchange": "resenhazord.events", "pattern": "group.#", "queue": "group_events" }
+  ]
+}
