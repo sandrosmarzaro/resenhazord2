@@ -110,6 +110,14 @@ def _create_static_webp(width: int = 100, height: int = 80, color: str = 'red') 
     return buf.getvalue()
 
 
+# Flat colours encode to the same bytes at any quality; detail doesn't.
+def _create_detailed_static_webp() -> bytes:
+    img = Image.effect_mandelbrot(STICKER_SIZE, (-2, -1.5, 1, 1.5), 100).convert('RGBA')
+    buf = io.BytesIO()
+    img.save(buf, format='WEBP', quality=90)
+    return buf.getvalue()
+
+
 class TestStickerCreatorImage:
     @staticmethod
     def _webp_to_image(webp_bytes: bytes) -> Image.Image:
@@ -695,6 +703,55 @@ class TestStickerCreatorAnimatedWebp:
         durations = MediaFormat.frame_durations(buf.getvalue(), n_frames=2)
 
         assert all(d == MediaFormat.DEFAULT_FRAME_DURATION_MS for d in durations)
+
+
+class TestWholeStickerReuse:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        'sticker',
+        [_create_animated_webp(512, 512), _create_detailed_static_webp()],
+        ids=['animated', 'static'],
+    )
+    async def test_full_keeps_the_bytes_of_a_whole_sticker(self, sticker) -> None:
+        result = await StickerCreator.create(sticker, 'full')
+
+        assert result == sticker
+
+    @pytest.mark.anyio
+    async def test_a_shape_encodes_the_sticker_again(self) -> None:
+        sticker = _create_animated_webp(512, 512)
+
+        result = await StickerCreator.create(sticker, 'circle')
+
+        assert result != sticker
+
+    @pytest.mark.anyio
+    async def test_a_quality_reduction_encodes_the_sticker_again(self) -> None:
+        sticker = _create_animated_webp(512, 512)
+
+        result = await StickerCreator.create(sticker, 'full', quality_reduction=50)
+
+        assert result != sticker
+
+    @pytest.mark.anyio
+    async def test_a_sticker_over_the_limit_is_encoded_again(self) -> None:
+        noise = Image.frombytes('RGBA', STICKER_SIZE, os.urandom(512 * 512 * 4))
+        buf = io.BytesIO()
+        noise.save(buf, format='WEBP', lossless=True)
+        sticker = buf.getvalue()
+
+        result = await StickerCreator.create(sticker, 'full')
+
+        assert len(sticker) > MAX_ANIMATED_STICKER_BYTES
+        assert result != sticker
+
+    @pytest.mark.anyio
+    async def test_a_whole_sized_image_that_is_not_webp_is_encoded(self) -> None:
+        image = _create_test_image(512, 512)
+
+        result = await StickerCreator.create(image, 'full')
+
+        assert Image.open(io.BytesIO(result)).format == 'WEBP'
 
 
 class TestOffTheEventLoop:
