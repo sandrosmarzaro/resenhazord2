@@ -1,21 +1,27 @@
 import asyncio
-import math
+import json
 import tempfile
+from functools import partial
 from pathlib import Path
 from typing import ClassVar
 
 from bot.data.sticker import (
     COVER_STICKER_TYPES,
     MAX_ANIMATED_STICKER_BYTES,
-    MAX_FRAME_STRIDE,
     VIDEO_ALPHA_MASKS,
 )
 from bot.domain.exceptions import StickerTooLargeError
+from bot.domain.services.sticker.frame_rate_ladder import EncodePlan, FrameRateLadder
+from bot.domain.services.sticker.video_clip import VideoClip
 
 
 class VideoStickerEncoder:
     MAX_VIDEO_DURATION: ClassVar[int] = 10
-    VIDEO_FPS: ClassVar[int] = 15
+    # Frames spread over the clip that a sticker's size is measured on: libwebp encodes
+    # each frame whole, so 20 of them predict the full encode within about 1%.
+    SAMPLE_FRAMES: ClassVar[int] = 20
+    # One more encode when the sample misjudged the clip.
+    MAX_ENCODES: ClassVar[int] = 2
     # Any member can hand over the video: a crafted one can be an hls or concat
     # playlist that makes ffmpeg fetch URLs or read local files.
     INPUT_ARGS: ClassVar[tuple[str, ...]] = (
@@ -24,77 +30,132 @@ class VideoStickerEncoder:
         '-format_whitelist',
         'mov,avi,matroska',
     )
+    _PROBE_ARGS: ClassVar[tuple[str, ...]] = (
+        '-select_streams',
+        'v:0',
+        '-show_entries',
+        'stream=avg_frame_rate:format=duration',
+        '-of',
+        'json',
+    )
+    _WEBP_ARGS: ClassVar[tuple[str, ...]] = ('-preset', 'default', '-an', '-vsync', '0')
 
     @classmethod
     async def encode(
-        cls, buffer: bytes, sticker_type: str, quality: int, working_size: int
+        cls, buffer: bytes, sticker_type: str, max_quality: int, working_size: int
     ) -> bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = Path(tmpdir) / 'input'
-            input_path.write_bytes(buffer)
-            # Like the animated webp path: drop frames only as a last resort, when the
-            # sticker is over the limit at full frame rate.
-            stride = 1
-            while stride <= MAX_FRAME_STRIDE:
-                output_path = Path(tmpdir) / f'output-{stride}.webp'
-                graph = cls._filter_graph(sticker_type, working_size, stride)
-                await cls._run_ffmpeg(input_path, output_path, graph, quality)
-                output = output_path.read_bytes()
+            source = Path(tmpdir) / 'input'
+            source.write_bytes(buffer)
+            clip = await cls._probe(source)
+            graph = partial(cls._filter_graph, sticker_type, working_size)
+            sample = await cls._sample(source, graph(cls.SAMPLE_FRAMES / clip.seconds))
+            ladder = FrameRateLadder(clip, partial(cls._frame_bytes, sample))
+            budget = MAX_ANIMATED_STICKER_BYTES
+            for _ in range(cls.MAX_ENCODES):
+                plan = await ladder.plan(max_quality, budget)
+                output = await cls._encode_clip(source, graph(plan.fps), plan)
                 if len(output) <= MAX_ANIMATED_STICKER_BYTES:
                     return output
-                # Real footage shrinks about in proportion to the frames kept, so skip
-                # the strides that can't fit instead of paying an ffmpeg run for each.
-                stride = max(stride + 1, math.ceil(len(output) / MAX_ANIMATED_STICKER_BYTES))
+                # Aim lower by as much as the sample missed.
+                budget = budget * MAX_ANIMATED_STICKER_BYTES // len(output)
         raise StickerTooLargeError
 
     @classmethod
-    async def _run_ffmpeg(
-        cls, input_path: Path, output_path: Path, filter_graph: str, quality: int
-    ) -> None:
-        proc = await asyncio.create_subprocess_exec(
+    async def _probe(cls, source: Path) -> VideoClip:
+        stdout = await cls._run(
+            'ffprobe', '-v', 'error', *cls.INPUT_ARGS, '-i', str(source), *cls._PROBE_ARGS
+        )
+        return VideoClip.from_probe(json.loads(stdout), cls.MAX_VIDEO_DURATION)
+
+    # Shaped once into a lossless file, so each quality the ladder tries encodes only
+    # the sample instead of decoding the whole video again.
+    @classmethod
+    async def _sample(cls, source: Path, filter_graph: str) -> Path:
+        sample = source.with_name('sample.mkv')
+        await cls._run(
             'ffmpeg',
-            *cls.INPUT_ARGS,
+            *cls._read(source),
+            '-vf',
+            filter_graph,
+            '-frames:v',
+            str(cls.SAMPLE_FRAMES),
+            '-an',
+            '-c:v',
+            'ffv1',
+            str(sample),
+        )
+        return sample
+
+    @classmethod
+    async def _frame_bytes(cls, sample: Path, quality: int) -> int:
+        output = sample.with_name(f'sample-{quality}.webp')
+        await cls._run(
+            'ffmpeg',
             '-i',
-            str(input_path),
+            str(sample),
+            '-vcodec',
+            'libwebp',
+            '-quality',
+            str(quality),
+            *cls._WEBP_ARGS,
+            str(output),
+        )
+        return len(output.read_bytes()) // cls.SAMPLE_FRAMES
+
+    @classmethod
+    async def _encode_clip(cls, source: Path, filter_graph: str, plan: EncodePlan) -> bytes:
+        output = source.with_name('output.webp')
+        await cls._run(
+            'ffmpeg',
+            *cls._read(source),
             '-vcodec',
             'libwebp',
             '-vf',
             filter_graph,
             '-quality',
-            str(quality),
+            str(plan.quality),
             '-loop',
             '0',
             '-t',
             str(cls.MAX_VIDEO_DURATION),
-            '-preset',
-            'default',
-            '-an',
-            '-vsync',
-            '0',
-            str(output_path),
+            *cls._WEBP_ARGS,
+            str(output),
+        )
+        return output.read_bytes()
+
+    @classmethod
+    def _read(cls, source: Path) -> tuple[str, ...]:
+        return (*cls.INPUT_ARGS, '-i', str(source))
+
+    @staticmethod
+    async def _run(program: str, *args: str) -> bytes:
+        proc = await asyncio.create_subprocess_exec(
+            program,
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        _, stderr = await proc.communicate()
-
+        stdout, stderr = await proc.communicate()
         if proc.returncode != 0:
-            msg = f'ffmpeg failed: {stderr.decode().strip()}'
+            msg = f'{program} failed: {stderr.decode().strip()}'
             raise RuntimeError(msg)
+        return stdout
 
     @classmethod
-    def _filter_graph(cls, sticker_type: str, working_size: int, stride: int) -> str:
+    def _filter_graph(cls, sticker_type: str, working_size: int, fps: float) -> str:
         size = f'{working_size}:{working_size}'
-        fps = f'fps={cls.VIDEO_FPS}/{stride}'
+        frame_rate = f'fps={fps:g}'
         # Without an alpha channel the transparent pad and the masks come out black.
         if sticker_type in COVER_STICKER_TYPES:
             fit = (
-                f'scale={size}:force_original_aspect_ratio=increase:flags=bilinear,{fps},'
-                f'crop={size}'
+                f'scale={size}:force_original_aspect_ratio=increase:flags=bilinear,'
+                f'{frame_rate},crop={size}'
             )
         else:
             fit = (
-                f'scale={size}:force_original_aspect_ratio=decrease:flags=bilinear,{fps},'
-                f'pad={size}:-1:-1:color=0x00000000'
+                f'scale={size}:force_original_aspect_ratio=decrease:flags=bilinear,'
+                f'{frame_rate},pad={size}:-1:-1:color=0x00000000'
             )
         mask = VIDEO_ALPHA_MASKS.get(sticker_type)
         shape = f",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{mask}'" if mask else ''

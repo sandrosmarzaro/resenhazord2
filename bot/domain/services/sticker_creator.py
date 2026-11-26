@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from bot.data.sticker import STICKER_SIZE
+from bot.data.sticker import MAX_STICKER_QUALITY, STICKER_SIZE
 from bot.domain.services.sticker.animated_webp_encoder import AnimatedWebpEncoder
 from bot.domain.services.sticker.frame_shaper import FrameShaper
 from bot.domain.services.sticker.media_format import MediaFormat
@@ -24,10 +24,13 @@ class StickerCreator:
         sticker_type: str = 'full',
         quality_reduction: int = 0,
     ) -> bytes:
-        quality = cls._effective_quality(quality_reduction)
         working_size = cls._effective_working_size(quality_reduction)
         if MediaFormat.is_video(buffer):
-            return await VideoStickerEncoder.encode(buffer, sticker_type, quality, working_size)
+            # The video encoder searches the highest quality that fits; the reduction
+            # only lowers how high it may go.
+            max_quality = cls._effective_quality(quality_reduction, MAX_STICKER_QUALITY)
+            return await VideoStickerEncoder.encode(buffer, sticker_type, max_quality, working_size)
+        quality = cls._effective_quality(quality_reduction)
         # Pillow encoding is CPU-bound: off the event loop, the other in-flight commands
         # keep running.
         encode = (
@@ -38,8 +41,8 @@ class StickerCreator:
         return await Work.cpu(encode, buffer, sticker_type, quality, working_size)
 
     @classmethod
-    def _effective_quality(cls, quality_reduction: int) -> int:
-        reduced = round(cls.WEBP_QUALITY * (100 - quality_reduction) / 100)
+    def _effective_quality(cls, quality_reduction: int, quality: int = WEBP_QUALITY) -> int:
+        reduced = round(quality * (100 - quality_reduction) / 100)
         return max(cls.MIN_WEBP_QUALITY, reduced)
 
     @classmethod
