@@ -1,3 +1,5 @@
+import re
+
 import httpx
 import pytest
 
@@ -71,11 +73,27 @@ class TestExecute:
         assert '🇪🇺 1 EUR = R$ 5,87' in text
 
     @pytest.mark.anyio
-    async def test_small_rates_keep_two_significant_digits(self, command, rates):
+    async def test_scales_cheap_currencies_up_until_they_cost_ten_cents(self, command, rates):
         text = await _reply(command, ',moeda')
 
-        assert '🇯🇵 1 JPY = R$ 0,031' in text
-        assert '🇦🇷 1 ARS = R$ 0,0037' in text
+        assert '🇯🇵 10 JPY = R$ 0,31' in text
+        assert '🇦🇷 100 ARS = R$ 0,37' in text
+
+    @pytest.mark.anyio
+    async def test_never_shows_more_than_two_decimals(self, command, rates):
+        text = await _reply(command, ',moeda')
+
+        prices = [line.split('R$ ')[1] for line in text.splitlines() if ' = R$ ' in line]
+        assert all(re.fullmatch(r'[\d.]+,\d{2}', price) for price in prices)
+
+    @pytest.mark.anyio
+    async def test_scales_a_fractional_amount_only_where_it_costs_under_ten_cents(
+        self, command, rates
+    ):
+        text = await _reply(command, ',moeda 0,07')
+
+        assert '🇺🇸 0,07 USD = R$ 0,35' in text
+        assert '🇯🇵 7 JPY = R$ 0,22' in text
 
     @pytest.mark.anyio
     async def test_prices_the_given_amount(self, command, rates):
