@@ -78,6 +78,51 @@
     ]
   },
   {
+    "uid": "rz2-swap-thrash-iowait",
+    "title": "Swap thrash (iowait)",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "5m",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "{{ $labels.instance }} is waiting on swap",
+      "description": "iowait over 20% with 20+ major page faults/s for 5 minutes: the node is paging, its event loops stall and WhatsApp and RabbitMQ drop (#393). Swap percent stayed under the 80% rule through both edge thrashes."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 300, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "100 * avg by (instance) (rate(node_cpu_seconds_total{mode=\"iowait\"}[5m]))"
+        }
+      },
+      {
+        "refId": "B",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 300, "to": 0 },
+        "model": {
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (instance) (rate(node_vmstat_pgmajfault[5m]))"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A > 20 && $B > 20" }
+      }
+    ]
+  },
+  {
     "uid": "rz2-dead-letters-rising",
     "title": "Dead-letters rising",
     "ruleGroup": "resenhazord2",
@@ -522,6 +567,40 @@
         "datasourceUid": "__expr__",
         "relativeTimeRange": { "from": 0, "to": 0 },
         "model": { "refId": "C", "type": "math", "expression": "$A > 500" }
+      }
+    ]
+  },
+  {
+    "uid": "rz2-gateway-memory-high",
+    "title": "Gateway memory high",
+    "ruleGroup": "resenhazord2",
+    "folderUID": "resenhazord2",
+    "condition": "C",
+    "for": "15m",
+    "noDataState": "OK",
+    "execErrState": "KeepLast",
+    "annotations": {
+      "summary": "The gateway's RSS is near its 384 MiB limit",
+      "description": "Gateway RSS over 320 MiB for 15 minutes. Past 384 MiB the container is OOM-killed and restarts (#393). Take a heap snapshot before it does."
+    },
+    "notification_settings": { "receiver": "resenhazord2-email" },
+    "data": [
+      {
+        "refId": "A",
+        "datasourceUid": "grafanacloud-prom",
+        "relativeTimeRange": { "from": 300, "to": 0 },
+        "model": {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "expr": "max(process_memory_rss_bytes{service_name=\"whatsapp\"})"
+        }
+      },
+      {
+        "refId": "C",
+        "datasourceUid": "__expr__",
+        "relativeTimeRange": { "from": 0, "to": 0 },
+        "model": { "refId": "C", "type": "math", "expression": "$A > 335544320" }
       }
     ]
   }
