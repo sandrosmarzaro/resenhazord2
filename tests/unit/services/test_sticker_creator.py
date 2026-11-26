@@ -437,12 +437,10 @@ class TestVideoFfmpegCommand:
     async def test_video_still_over_the_limit_after_planning_again_is_refused(
         self, fake_ffmpeg
     ) -> None:
-        calls = fake_ffmpeg(b'x' * (MAX_ANIMATED_STICKER_BYTES + 1))
+        fake_ffmpeg(b'x' * MAX_ANIMATED_STICKER_BYTES * 2, seconds=10, frame_bytes=1_600)
 
         with pytest.raises(StickerTooLargeError):
             await StickerCreator.create(VIDEO_BUFFER, 'full')
-
-        assert len(_encodes(calls)) == VideoStickerEncoder.MAX_ENCODES
 
     @pytest.mark.anyio
     async def test_video_that_fits_no_step_is_refused_before_a_full_encode(

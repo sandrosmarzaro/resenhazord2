@@ -122,3 +122,73 @@ class TestMeasurements:
         await ladder.plan(max_quality=95, budget=BUDGET // 2)
 
         assert len(frame_sizes.measured) == len(set(frame_sizes.measured))
+
+
+class Encodes:
+    def __init__(self, *sizes: int) -> None:
+        self.sizes = list(sizes)
+        self.plans: list[EncodePlan] = []
+
+    async def __call__(self, plan: EncodePlan) -> bytes:
+        self.plans.append(plan)
+        size = self.sizes.pop(0) if len(self.sizes) > 1 else self.sizes[0]
+        return b'x' * size
+
+
+class TestFit:
+    @pytest.mark.anyio
+    async def test_keeps_an_encode_that_fills_the_budget(self) -> None:
+        encodes = Encodes(BUDGET - 1_000)
+
+        sticker = await _ladder(fps=30, seconds=10).fit(max_quality=95, encode=encodes)
+
+        assert len(sticker) == BUDGET - 1_000
+        assert len(encodes.plans) == 1
+
+    @pytest.mark.anyio
+    async def test_aims_lower_when_the_encode_is_over_the_limit(self) -> None:
+        encodes = Encodes(BUDGET * 6 // 5, BUDGET - 1_000)
+        ladder = _ladder(fps=30, seconds=10, frame_sizes=FrameSizes(0, base=1_600))
+
+        sticker = await ladder.fit(max_quality=95, encode=encodes)
+
+        assert len(sticker) == BUDGET - 1_000
+        assert [plan.fps for plan in encodes.plans] == [30, 24]
+
+    @pytest.mark.anyio
+    async def test_aims_higher_when_the_encode_leaves_room(self) -> None:
+        # Frames weigh less once the encoder reuses what didn't change between them.
+        encodes = Encodes(BUDGET * 3 // 5, BUDGET - 1_000)
+        ladder = _ladder(fps=30, seconds=10, frame_sizes=FrameSizes(0, base=2_000))
+
+        sticker = await ladder.fit(max_quality=95, encode=encodes)
+
+        assert len(sticker) == BUDGET - 1_000
+        assert [plan.fps for plan in encodes.plans] == [24, 30]
+
+    @pytest.mark.anyio
+    async def test_keeps_the_encode_that_fit_when_aiming_higher_overflows(self) -> None:
+        encodes = Encodes(BUDGET * 3 // 5, BUDGET + 1)
+        ladder = _ladder(fps=30, seconds=10, frame_sizes=FrameSizes(0, base=2_000))
+
+        sticker = await ladder.fit(max_quality=95, encode=encodes)
+
+        assert len(sticker) == BUDGET * 3 // 5
+
+    @pytest.mark.anyio
+    async def test_does_not_encode_again_at_the_best_plan(self) -> None:
+        encodes = Encodes(BUDGET // 10)
+
+        await _ladder(fps=30, seconds=1).fit(max_quality=95, encode=encodes)
+
+        assert encodes.plans == [EncodePlan(fps=30, quality=95)]
+
+    @pytest.mark.anyio
+    async def test_refuses_when_every_encode_is_over_the_limit(self) -> None:
+        encodes = Encodes(BUDGET * 2)
+        ladder = _ladder(fps=30, seconds=10, frame_sizes=FrameSizes(0, base=1_600))
+
+        with pytest.raises(StickerTooLargeError):
+            await ladder.fit(max_quality=95, encode=encodes)
+
+        assert len(encodes.plans) == FrameRateLadder.MAX_ENCODES

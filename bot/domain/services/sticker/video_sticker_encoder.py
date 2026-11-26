@@ -1,16 +1,12 @@
 import asyncio
 import json
 import tempfile
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from typing import ClassVar
 
-from bot.data.sticker import (
-    COVER_STICKER_TYPES,
-    MAX_ANIMATED_STICKER_BYTES,
-    VIDEO_ALPHA_MASKS,
-)
-from bot.domain.exceptions import StickerTooLargeError
+from bot.data.sticker import COVER_STICKER_TYPES, VIDEO_ALPHA_MASKS
 from bot.domain.services.sticker.frame_rate_ladder import EncodePlan, FrameRateLadder
 from bot.domain.services.sticker.video_clip import VideoClip
 
@@ -20,8 +16,6 @@ class VideoStickerEncoder:
     # Frames spread over the clip that a sticker's size is measured on: libwebp encodes
     # each frame whole, so 20 of them predict the full encode within about 1%.
     SAMPLE_FRAMES: ClassVar[int] = 20
-    # One more encode when the sample misjudged the clip.
-    MAX_ENCODES: ClassVar[int] = 2
     # Any member can hand over the video: a crafted one can be an hls or concat
     # playlist that makes ffmpeg fetch URLs or read local files.
     INPUT_ARGS: ClassVar[tuple[str, ...]] = (
@@ -51,15 +45,7 @@ class VideoStickerEncoder:
             graph = partial(cls._filter_graph, sticker_type, working_size)
             sample = await cls._sample(source, graph(cls.SAMPLE_FRAMES / clip.seconds))
             ladder = FrameRateLadder(clip, partial(cls._frame_bytes, sample))
-            budget = MAX_ANIMATED_STICKER_BYTES
-            for _ in range(cls.MAX_ENCODES):
-                plan = await ladder.plan(max_quality, budget)
-                output = await cls._encode_clip(source, graph(plan.fps), plan)
-                if len(output) <= MAX_ANIMATED_STICKER_BYTES:
-                    return output
-                # Aim lower by as much as the sample missed.
-                budget = budget * MAX_ANIMATED_STICKER_BYTES // len(output)
-        raise StickerTooLargeError
+            return await ladder.fit(max_quality, partial(cls._encode_clip, source, graph))
 
     @classmethod
     async def _probe(cls, source: Path) -> VideoClip:
@@ -104,7 +90,9 @@ class VideoStickerEncoder:
         return len(output.read_bytes()) // cls.SAMPLE_FRAMES
 
     @classmethod
-    async def _encode_clip(cls, source: Path, filter_graph: str, plan: EncodePlan) -> bytes:
+    async def _encode_clip(
+        cls, source: Path, filter_graph: Callable[[float], str], plan: EncodePlan
+    ) -> bytes:
         output = source.with_name('output.webp')
         await cls._run(
             'ffmpeg',
@@ -112,7 +100,7 @@ class VideoStickerEncoder:
             '-vcodec',
             'libwebp',
             '-vf',
-            filter_graph,
+            filter_graph(plan.fps),
             '-quality',
             str(plan.quality),
             '-loop',
