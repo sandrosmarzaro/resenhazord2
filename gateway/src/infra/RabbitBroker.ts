@@ -6,8 +6,10 @@ import {
   type RecoveringChannelModel,
 } from 'amqplib';
 
+import defaultTopology from '../data/BrokerTopology.json' with { type: 'json' };
 import type BrokerPort from '../ports/BrokerPort.js';
 import type { MessageHandler, RpcHandler } from '../ports/BrokerPort.js';
+import type { BrokerTopology } from '../types/brokerTopology.js';
 import logger from './Logger.js';
 
 export default class RabbitBroker implements BrokerPort {
@@ -15,15 +17,17 @@ export default class RabbitBroker implements BrokerPort {
   private channel: ConfirmChannel | null = null;
   private consumeChannel: Channel | null = null;
 
+  constructor(private readonly topology: BrokerTopology = defaultTopology) {}
+
   async connect(url: string): Promise<void> {
     this.connection = await amqpConnect(url, { recovery: true });
     this.channel = await this.connection.createConfirmChannel();
     this.consumeChannel = await this.connection.createChannel();
+    await this.declareTopology(this.channel);
   }
 
   async publish(queue: string, body: Buffer): Promise<void> {
     const channel = this.activeChannel();
-    await channel.assertQueue(queue, { durable: true });
     channel.sendToQueue(queue, body, { persistent: true });
     await channel.waitForConfirms();
   }
@@ -50,6 +54,21 @@ export default class RabbitBroker implements BrokerPort {
       this.connection = null;
       this.channel = null;
       this.consumeChannel = null;
+    }
+  }
+
+  // The core declares the same topology (ADR 0017), so whichever node starts first, a
+  // publish never targets an exchange or queue that doesn't exist yet. Every declare is
+  // idempotent; connect runs again on each WhatsApp reconnect.
+  private async declareTopology(channel: Channel): Promise<void> {
+    for (const exchange of this.topology.exchanges) {
+      await channel.assertExchange(exchange, 'topic', { durable: true });
+    }
+    for (const [queue, args] of Object.entries(this.topology.queues)) {
+      await channel.assertQueue(queue, { durable: true, arguments: args });
+    }
+    for (const { exchange, pattern, queue } of this.topology.bindings) {
+      await channel.bindQueue(queue, exchange, pattern);
     }
   }
 

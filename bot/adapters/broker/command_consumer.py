@@ -37,7 +37,6 @@ class CommandConsumer:
     DLQ_QUEUE = 'commands.dlq'
     MAX_ATTEMPTS: ClassVar[int] = RetryRouter.MAX_ATTEMPTS
     DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = RetryRouter.DOWNLOAD_MAX_ATTEMPTS
-    RETRY_TTL_MS: ClassVar[int] = 30_000
     MS_PER_SECOND: ClassVar[int] = 1000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
@@ -54,15 +53,9 @@ class CommandConsumer:
         self._exclusive_lane = asyncio.Lock()
 
     async def start(self) -> None:
-        # Declare the publish targets up front so the publishes from inside the consume
-        # callback never issue a queue-declare RPC (which would wedge the confirm). The
+        # The broker declared the replies, retry and DLQ queues at connect (ADR 0017). The
         # retry queue parks a failed command for a backoff then dead-letters it back to
         # commands; the DLQ is terminal (ADR 0004).
-        await self._broker.declare(self.REPLIES_QUEUE)
-        await self._broker.declare(self.DLQ_QUEUE)
-        await self._broker.declare_retry_queue(
-            self.RETRY_QUEUE, self.RETRY_TTL_MS, self.COMMANDS_QUEUE
-        )
         await self._broker.consume(self.COMMANDS_QUEUE, self._handle)
 
     async def _handle(self, body: bytes) -> None:

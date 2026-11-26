@@ -13,12 +13,14 @@ from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
 from bot.application.throttled_agent import ThrottledAgent
+from bot.data.broker_topology import DURABLE_QUEUES, RETRY_QUEUE_ARGUMENTS
 from bot.data.fifa_ratings import FIFA_RATINGS_URL
 from bot.domain.commands.add import AddCommand
 from bot.domain.commands.ban import BanCommand
 from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.services.ytdlp import YtDlpService
 from bot.infrastructure.broker import RabbitBroker
+from bot.infrastructure.broker_topology import BrokerTopology
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.infrastructure.command_inbox import RedisCommandInbox
 from bot.infrastructure.database import Database
@@ -113,7 +115,6 @@ def registry(settings, mock_whatsapp, mocker) -> CommandRegistry:
 
 @pytest.fixture
 def handler(registry, mocker) -> CommandHandler:
-    mocker.patch.object(CommandConsumer, 'RETRY_TTL_MS', RETRY_TTL_MS)
     agent = mocker.AsyncMock()
     agent.run.return_value = None
     return CommandHandler(registry, ThrottledAgent(agent, None))
@@ -121,7 +122,10 @@ def handler(registry, mocker) -> CommandHandler:
 
 @pytest.fixture
 async def bot(stores, handler, flows_rabbitmq_url, redis_url, respx_mock):
-    broker = RabbitBroker()
+    retry = RETRY_QUEUE_ARGUMENTS | {'x-message-ttl': RETRY_TTL_MS}
+    broker = RabbitBroker(
+        BrokerTopology(queues=DURABLE_QUEUES | {CommandConsumer.RETRY_QUEUE: retry})
+    )
     await broker.connect(flows_rabbitmq_url)
     under_test = BotUnderTest(broker)
     previous = structlog.get_config()['processors']
