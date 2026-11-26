@@ -31,6 +31,7 @@ from opentelemetry.trace import Span
 
 from bot.infrastructure.runtime_metrics import register_process_gauges
 from bot.infrastructure.self_time import SelfTimeProcessor
+from bot.infrastructure.trail_capture import TrailSpanProcessor
 from bot.settings import Settings
 
 if TYPE_CHECKING:
@@ -97,6 +98,7 @@ def _init_traces(
     provider = TracerProvider(resource=resource)
     exporter = OTLPSpanExporter(endpoint=f'{endpoint}/v1/traces', headers=headers)
     provider.add_span_processor(SelfTimeProcessor(meter_provider.get_meter(__name__)))
+    provider.add_span_processor(TrailSpanProcessor())
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
 
