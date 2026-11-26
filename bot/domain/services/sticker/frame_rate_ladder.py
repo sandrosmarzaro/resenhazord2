@@ -49,7 +49,8 @@ class FrameRateLadder:
                 fitting = sticker
             if self._close_to_the_limit(sticker):
                 break
-            budget = budget * MAX_ANIMATED_STICKER_BYTES // len(sticker)
+            # Aim again by how far this plan's estimate missed its encode.
+            budget = MAX_ANIMATED_STICKER_BYTES * self._estimate(plan) // len(sticker)
         if fitting is None:
             raise StickerTooLargeError
         return fitting
@@ -88,4 +89,7 @@ class FrameRateLadder:
     async def _fits(self, fps: float, quality: int, budget: int) -> bool:
         if quality not in self._measured:
             self._measured[quality] = await self._frame_bytes(quality)
-        return self._measured[quality] * self._clip.frames_at(fps) <= budget
+        return self._estimate(EncodePlan(fps, quality)) <= budget
+
+    def _estimate(self, plan: EncodePlan) -> int:
+        return self._measured[plan.quality] * self._clip.frames_at(plan.fps)

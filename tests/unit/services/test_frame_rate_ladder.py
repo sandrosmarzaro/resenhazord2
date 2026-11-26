@@ -156,6 +156,18 @@ class TestFit:
         assert [plan.fps for plan in encodes.plans] == [30, 24]
 
     @pytest.mark.anyio
+    async def test_aims_lower_by_how_far_the_estimate_missed(self) -> None:
+        # The plan was estimated at 480 kB and weighs 501 kB: 4% off, not the 0.2% it
+        # went over the limit by.
+        encodes = Encodes(501_000, BUDGET - 1_000)
+        ladder = _ladder(fps=30, seconds=10, frame_sizes=FrameSizes(0, base=1_600))
+
+        sticker = await ladder.fit(max_quality=95, encode=encodes)
+
+        assert len(sticker) == BUDGET - 1_000
+        assert [plan.fps for plan in encodes.plans] == [30, 24]
+
+    @pytest.mark.anyio
     async def test_aims_higher_when_the_encode_leaves_room(self) -> None:
         # Frames weigh less once the encoder reuses what didn't change between them.
         encodes = Encodes(BUDGET * 3 // 5, BUDGET - 1_000)
