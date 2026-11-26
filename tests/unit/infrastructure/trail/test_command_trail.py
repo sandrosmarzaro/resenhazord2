@@ -71,6 +71,11 @@ class TestRecord:
 
         assert await store.find(Platform.WHATSAPP, data.jid, 'None') is None
 
+    def test_remembering_outside_a_command_does_nothing(self):
+        CommandTrail.remember('3EB0A', 'ok')
+
+        assert CommandTrail.current() is None
+
     @pytest.mark.anyio
     async def test_carries_where_the_command_came_from(self, store, data):
         async with CommandTrail.open(data, correlation_id='corr-1', attempt=2) as trail:
