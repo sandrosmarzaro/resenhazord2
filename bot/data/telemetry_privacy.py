@@ -55,16 +55,34 @@ IDENTITY_LOG_FIELDS: frozenset[str] = frozenset(
     }
 )
 
-# Log fields the record already carries elsewhere, or that only add noise to an issue.
-OMITTED_LOG_FIELDS: frozenset[str] = frozenset(
+# Log fields a bug report may show: names, codes, counts and durations. Any other
+# field is dropped, free text above all (the message, the prompt, an error string),
+# since its content is the chat's. Identity fields are kept, hashed.
+SAFE_LOG_FIELDS: frozenset[str] = frozenset(
     {
-        'correlation_id',
-        'event',
-        'exc_info',
-        'level',
-        'logger',
-        'stack_info',
-        'timestamp',
+        'attempt',
+        'attempts',
+        'batch',
+        'bytes',
+        'chat_type',
+        'command',
+        'content_type',
+        'count',
+        'duration_ms',
+        'elapsed_ms',
+        'error_type',
+        'kind',
+        'model',
+        'outcome',
+        'platform',
+        'provider',
+        'repeat',
+        'retry_after',
+        'size',
+        'status',
+        'status_code',
+        'upstream',
+        'version',
     }
 )
 
@@ -73,6 +91,7 @@ KEPT_SPAN_ATTRIBUTES: frozenset[str] = frozenset(
     {
         'command.name',
         'command.outcome',
+        'error.type',
         'http.method',
         'http.request.method',
         'http.response.status_code',

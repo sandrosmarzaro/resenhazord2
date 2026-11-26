@@ -77,14 +77,36 @@ class TestSpans:
         assert span['end_ns'] >= span['start_ns'] > 0
 
     @pytest.mark.anyio
-    async def test_names_an_error_status(self, tracer, data):
+    async def test_keeps_only_the_status_code(self, tracer, data):
+        description = 'GET https://a.io/x?token=abc123 for 5511999999999@s.whatsapp.net'
+
         def emit(tracer):
             with tracer.start_as_current_span('command.run') as span:
-                span.set_status(StatusCode.ERROR, 'HTTPStatusError')
+                span.set_status(StatusCode.ERROR, description)
 
         [span] = await _spans(tracer, data, emit)
 
-        assert span['status'] == 'ERROR HTTPStatusError'
+        assert span['status'] == 'ERROR'
+
+    @pytest.mark.anyio
+    async def test_keeps_the_error_type_attribute(self, tracer, data):
+        def emit(tracer):
+            with tracer.start_as_current_span('GET', attributes={'error.type': 'TimeoutError'}):
+                pass
+
+        [span] = await _spans(tracer, data, emit)
+
+        assert span['attributes'] == {'error.type': 'TimeoutError'}
+
+    @pytest.mark.anyio
+    async def test_redacts_the_span_name(self, tracer, data):
+        def emit(tracer):
+            with tracer.start_as_current_span('GET /bot123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PA/x'):
+                pass
+
+        [span] = await _spans(tracer, data, emit)
+
+        assert span['name'] == 'GET /bot<redacted>/x'
 
     @pytest.mark.anyio
     async def test_keeps_the_upstream_call_attributes(self, tracer, data):
@@ -164,16 +186,21 @@ class TestLogs:
         assert line['fields'] == {'chat_id': TelemetryRedactor.identity('-42')}
 
     @pytest.mark.anyio
-    async def test_redacts_a_field_value(self, data):
-        [line] = await _logs(data, lambda: _log('info', event='x', url='https://a.io/x?key=1'))
+    async def test_redacts_an_allowed_field_value(self, data):
+        [line] = await _logs(data, lambda: _log('info', event='x', upstream='https://a.io/x?key=1'))
 
-        assert line['fields'] == {'url': 'https://a.io/x?<redacted>'}
+        assert line['fields'] == {'upstream': 'https://a.io/x?<redacted>'}
 
     @pytest.mark.anyio
-    async def test_leaves_out_what_the_record_already_has(self, data):
-        [line] = await _logs(
-            data, lambda: _log('info', event='x', correlation_id='c', logger='bot')
-        )
+    async def test_drops_a_field_off_the_allowlist(self, data):
+        [line] = await _logs(data, lambda: _log('info', event='x', correlation_id='c', cache='hit'))
+
+        assert line['fields'] == {}
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize('field', ['text', 'message', 'quoted_text', 'prompt', 'error'])
+    async def test_drops_free_text(self, data, field):
+        [line] = await _logs(data, lambda: _log('info', event='x', **{field: 'oi, tudo bem?'}))
 
         assert line['fields'] == {}
 
