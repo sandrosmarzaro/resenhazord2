@@ -151,6 +151,18 @@ class TestSearchCost:
         lowest_cap_and_floor = 3
         assert len(frame_sizes.measured) <= lowest_cap_and_floor + FrameRateLadder.MAX_PROBES
 
+    @pytest.mark.anyio
+    async def test_finds_the_best_quality_when_sizes_soar_near_the_cap(self) -> None:
+        # Real webp sizes double from q85 to q95: interpolating against the cap alone
+        # creeps up from the floor and runs out of tries.
+        frame_sizes = FrameSizes(bytes_per_quality_point=1, power=8)
+
+        plan = await _ladder(fps=30, seconds=0.1, frame_sizes=frame_sizes).plan(
+            max_quality=95, budget=3 * 60**8
+        )
+
+        _assert_close_below(plan.quality, best=60)
+
 
 class TestFit:
     @pytest.mark.anyio

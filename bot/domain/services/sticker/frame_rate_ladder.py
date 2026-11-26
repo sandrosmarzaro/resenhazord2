@@ -81,20 +81,22 @@ class FrameRateLadder:
         for fps, floor in STICKER_FPS_LADDER:
             yield min(fps, self._clip.fps), min(floor, max_quality)
 
-    # The floor fits and the ceiling misses: guess where the sizes between them cross the
-    # budget, as if they grew in a straight line.
+    # The floor fits and the ceiling misses. Sizes soar near the top (q85 to q95 doubles
+    # them), so the first try halves the range; past it they grow almost in a straight
+    # line, and each next try guesses where they cross the budget.
     async def _highest_quality(self, fps: float, floor: int, ceiling: int, budget: int) -> int:
         target = budget / self._clip.frames_at(fps)
+        guess = (floor + ceiling) // 2
         for _ in range(self.MAX_PROBES):
             if ceiling - floor <= self.QUALITY_TOLERANCE:
                 break
-            low, high = self._measured[floor], self._measured[ceiling]
-            guess = floor + round((ceiling - floor) * (target - low) / (high - low))
             guess = min(max(guess, floor + 1), ceiling - 1)
             if await self._fits(fps, guess, budget):
                 floor = guess
             else:
                 ceiling = guess
+            low, high = self._measured[floor], self._measured[ceiling]
+            guess = floor + round((ceiling - floor) * (target - low) / (high - low))
         return floor
 
     async def _fits(self, fps: float, quality: int, budget: int) -> bool:
