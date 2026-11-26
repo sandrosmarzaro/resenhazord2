@@ -66,7 +66,7 @@ def _arg(argv: tuple[str, ...], flag: str) -> str:
 
 
 def _fps(argv: tuple[str, ...]) -> str:
-    return _arg(argv, '-vf').split(',')[2]
+    return _arg(argv, '-vf').split(',')[0]
 
 
 def _create_noise_webp(n_frames: int) -> bytes:
@@ -327,9 +327,10 @@ class TestVideoShapesOnFfmpeg:
 
 
 class TestVideoFfmpegCommand:
+    # fps first: the frames it drops are never converted or scaled.
     FULL_FILTER = (
-        'format=rgba,scale=512:512:force_original_aspect_ratio=decrease:flags=bilinear,'
-        'fps=30,pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
+        'fps=30,format=rgba,scale=512:512:force_original_aspect_ratio=decrease:flags=bilinear,'
+        'pad=512:512:-1:-1:color=0x00000000,scale=512:512:flags=neighbor'
     )
 
     # Any member can hand over the video: a crafted one can be an hls or concat playlist
@@ -409,8 +410,8 @@ class TestVideoFfmpegCommand:
         await StickerCreator.create(VIDEO_BUFFER, sticker_type)
 
         assert _arg(_encodes(calls)[0], '-vf') == (
-            'format=rgba,scale=512:512:force_original_aspect_ratio=increase:flags=bilinear,'
-            f'fps=30,crop=512:512{shape},scale=512:512:flags=neighbor'
+            'fps=30,format=rgba,scale=512:512:force_original_aspect_ratio=increase:flags=bilinear,'
+            f'crop=512:512{shape},scale=512:512:flags=neighbor'
         )
 
     @pytest.mark.anyio

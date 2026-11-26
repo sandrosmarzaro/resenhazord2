@@ -135,18 +135,16 @@ class VideoStickerEncoder:
     @classmethod
     def _filter_graph(cls, sticker_type: str, working_size: int, fps: float) -> str:
         size = f'{working_size}:{working_size}'
-        frame_rate = f'fps={fps:g}'
         # Without an alpha channel the transparent pad and the masks come out black.
         if sticker_type in COVER_STICKER_TYPES:
-            fit = (
-                f'scale={size}:force_original_aspect_ratio=increase:flags=bilinear,'
-                f'{frame_rate},crop={size}'
-            )
+            fit = f'scale={size}:force_original_aspect_ratio=increase:flags=bilinear,crop={size}'
         else:
             fit = (
                 f'scale={size}:force_original_aspect_ratio=decrease:flags=bilinear,'
-                f'{frame_rate},pad={size}:-1:-1:color=0x00000000'
+                f'pad={size}:-1:-1:color=0x00000000'
             )
         mask = VIDEO_ALPHA_MASKS.get(sticker_type)
         shape = f",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{mask}'" if mask else ''
-        return f'format=rgba,{fit}{shape},scale=512:512:flags=neighbor'
+        # fps first: the frames it drops are never converted or scaled, which halves the
+        # sample's time on the core node.
+        return f'fps={fps:g},format=rgba,{fit}{shape},scale=512:512:flags=neighbor'
