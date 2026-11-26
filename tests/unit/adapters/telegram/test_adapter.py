@@ -18,6 +18,24 @@ def adapter(bot):
 
 class TestSend:
     @pytest.mark.anyio
+    async def test_returns_the_id_of_the_text_it_sent(self, adapter, bot, mocker):
+        bot.send_message.return_value = mocker.MagicMock(message_id=42)
+
+        sent = await adapter.send(TelegramOutbound(kind=TelegramKind.TEXT, chat_id=1, text='hi'))
+
+        assert sent == '42'
+
+    @pytest.mark.anyio
+    async def test_returns_the_id_of_the_media_it_sent(self, adapter, bot, mocker):
+        bot.send_photo.return_value = mocker.MagicMock(message_id=43)
+
+        sent = await adapter.send(
+            TelegramOutbound(kind=TelegramKind.PHOTO, chat_id=1, url='https://x/y.png')
+        )
+
+        assert sent == '43'
+
+    @pytest.mark.anyio
     async def test_text_routes_to_send_message(self, adapter, bot):
         await adapter.send(TelegramOutbound(kind=TelegramKind.TEXT, chat_id=1, text='hi'))
 

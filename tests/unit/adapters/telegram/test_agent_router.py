@@ -1,10 +1,16 @@
 import pytest
+from fakeredis.aioredis import FakeRedis
 from telegram.constants import ChatType
 
 from bot.adapters.telegram.agent_router import TelegramAgentRouter
+from bot.adapters.telegram.renderer import TelegramResponseRenderer
+from bot.domain.commands.base import Platform
 from bot.domain.exceptions import BotError
+from bot.domain.models.contents.image_content import ImageContent
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
+from bot.infrastructure.execution_store import ExecutionStore
+from tests.factories.command_data import PrivateCommandDataFactory
 from tests.unit.adapters.telegram.conftest import (
     make_mention_update,
     make_strategy,
@@ -12,6 +18,10 @@ from tests.unit.adapters.telegram.conftest import (
     patch_registry,
     stub_agent,
 )
+
+
+def _data():
+    return PrivateCommandDataFactory(text=',d20', jid='123', platform=Platform.TELEGRAM)
 
 
 def _ok_message() -> BotMessage:
@@ -137,7 +147,7 @@ class TestRunAndReply:
         strategy = mocker.MagicMock()
         strategy.run = mocker.AsyncMock(side_effect=BotError('custom error'))
 
-        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+        await router.run_and_reply(port, strategy, _data(), 123, 'cmd')
 
         sent = port.send.call_args.args[0]
         assert sent.text == 'custom error'
@@ -149,7 +159,7 @@ class TestRunAndReply:
         strategy = mocker.MagicMock()
         strategy.run = mocker.AsyncMock(side_effect=RuntimeError('boom'))
 
-        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+        await router.run_and_reply(port, strategy, _data(), 123, 'cmd')
 
         sent = port.send.call_args.args[0]
         assert sent.text == TelegramAgentRouter.GENERIC_ERROR_MESSAGE
@@ -161,7 +171,7 @@ class TestRunAndReply:
         strategy = mocker.MagicMock()
         strategy.run = mocker.AsyncMock(return_value=[])
 
-        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+        await router.run_and_reply(port, strategy, _data(), 123, 'cmd')
 
         sent = port.send.call_args.args[0]
         assert sent.text == TelegramAgentRouter.EMPTY_REPLY_MESSAGE
@@ -179,7 +189,7 @@ class TestRunAndReply:
             mocker.AsyncMock(return_value=[_ok_message()]),
         )
 
-        await router.run_and_reply(port, strategy, mocker.MagicMock(), 123, 'cmd')
+        await router.run_and_reply(port, strategy, _data(), 123, 'cmd')
 
         port.send.assert_called()
 
@@ -213,3 +223,56 @@ class TestSendMessages:
         await router._send_messages(port, [mocker.MagicMock()], 123, 'cmd')
 
         assert call_count == 2
+
+
+class TestExecutionRecord:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def store(self):
+        store = ExecutionStore(FakeRedis())
+        ExecutionStore.reset(store)
+        return store
+
+    @pytest.mark.anyio
+    async def test_a_reply_is_recorded_under_its_message_id(self, mocker, port, store):
+        port.send.side_effect = ['501', '502']
+        router = TelegramAgentRouter(TelegramResponseRenderer(), mocker.Mock())
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(return_value=[_ok_message()])
+
+        await router.run_and_reply(port, strategy, _data(), 123, 'd20')
+
+        record = await store.find(Platform.TELEGRAM, '123', '501')
+        assert record['replies'] == {'501': 'pong'}
+
+    @pytest.mark.anyio
+    async def test_an_error_reply_is_recorded_too(self, mocker, port, store):
+        port.send.side_effect = ['501']
+        router = TelegramAgentRouter(TelegramResponseRenderer(), mocker.Mock())
+        strategy = mocker.MagicMock()
+        strategy.run = mocker.AsyncMock(side_effect=BotError('Moeda inválida'))
+
+        await router.run_and_reply(port, strategy, _data(), 123, 'moeda')
+
+        record = await store.find(Platform.TELEGRAM, '123', '501')
+        assert record['replies'] == {'501': 'Moeda inválida'}
+
+    @pytest.mark.anyio
+    async def test_a_media_reply_is_remembered_by_its_kind(self, mocker, port, store):
+        port.send.side_effect = ['501']
+        router = TelegramAgentRouter(TelegramResponseRenderer(), mocker.Mock())
+        strategy = mocker.MagicMock()
+        image = BotMessage(jid='1', content=ImageContent(url='https://x/y.png'))
+        strategy.run = mocker.AsyncMock(return_value=[image])
+        mocker.patch(
+            'bot.adapters.telegram.agent_router.preprocess_for_telegram',
+            mocker.AsyncMock(return_value=[image]),
+        )
+
+        await router.run_and_reply(port, strategy, _data(), 123, 'animal')
+
+        record = await store.find(Platform.TELEGRAM, '123', '501')
+        assert record['replies'] == {'501': 'photo'}

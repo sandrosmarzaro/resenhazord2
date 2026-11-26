@@ -11,6 +11,7 @@ from bot.domain.commands.base import Command
 from bot.domain.constants import CLARIFY_PREFIX, SUGGEST_PREFIX
 from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
+from bot.infrastructure.command_trail import CommandTrail
 from bot.ports.agent_orchestrator_port import AgentOrchestratorPort
 from bot.ports.telegram_port import TelegramKind, TelegramOutbound, TelegramPort
 
@@ -63,21 +64,24 @@ class TelegramAgentRouter:
         chat_id: int,
         command_name: str,
     ) -> None:
-        try:
-            messages = await strategy.run(data)
-        except BotError as error:
-            await self._reply_text(port, chat_id, error.user_message)
-            return
-        except Exception:
-            logger.exception('telegram_command_error', command=command_name)
-            await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)
-            return
+        # The trail spans the run and every reply, so the record is stored under the
+        # ids of the messages a dev can later answer with /bug.
+        async with CommandTrail.open(data):
+            try:
+                messages = await strategy.run(data)
+            except BotError as error:
+                await self._reply_text(port, chat_id, error.user_message)
+                return
+            except Exception:
+                logger.exception('telegram_command_error', command=command_name)
+                await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)
+                return
 
-        if not messages:
-            await self._reply_text(port, chat_id, self.EMPTY_REPLY_MESSAGE)
-            return
+            if not messages:
+                await self._reply_text(port, chat_id, self.EMPTY_REPLY_MESSAGE)
+                return
 
-        await self._send_messages(port, messages, chat_id, command_name)
+            await self._send_messages(port, messages, chat_id, command_name)
 
     @classmethod
     async def safe_react(cls, port: TelegramPort, chat_id: int, message_id: int) -> None:
@@ -106,15 +110,19 @@ class TelegramAgentRouter:
         prepared = await preprocess_for_telegram(messages)
         for outbound in self._renderer.render_many(prepared, chat_id):
             try:
-                await port.send(outbound)
+                message_id = await port.send(outbound)
             except Exception:
                 logger.exception('telegram_send_failed', command=command_name)
                 await self._reply_text(port, chat_id, self.GENERIC_ERROR_MESSAGE)
                 return
+            CommandTrail.remember(message_id, outbound.text or outbound.kind)
 
     @staticmethod
     async def _reply_text(port: TelegramPort, chat_id: int, text: str) -> None:
-        await port.send(TelegramOutbound(kind=TelegramKind.TEXT, chat_id=chat_id, text=text))
+        message_id = await port.send(
+            TelegramOutbound(kind=TelegramKind.TEXT, chat_id=chat_id, text=text)
+        )
+        CommandTrail.remember(message_id, text)
 
     @staticmethod
     def is_agent_mention(message: Message, bot_username: str) -> bool:
