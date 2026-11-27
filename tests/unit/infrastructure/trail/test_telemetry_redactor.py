@@ -278,3 +278,19 @@ class TestDiscordBotToken:
         TelemetryRedactor.text(adversarial)
 
         assert time.perf_counter() - started < LINEAR_BUDGET_SECONDS
+
+
+class TestDigitFreeSchemes:
+    @pytest.mark.parametrize(
+        'leak', ['Basic YWxhZGRpbjpvcGVuc2VzYW1l', 'Bearer abcdefghijklmnopqrstu']
+    )
+    def test_hides_a_credential_without_digits(self, leak):
+        assert leak.split()[1] not in TelemetryRedactor.text(f'sent {leak} upstream')
+
+
+class TestSecretInsideAQuotedValue:
+    def test_hides_a_secret_inside_another_names_quoted_value(self):
+        assert 'hunter2' not in TelemetryRedactor.text('msg="x password=hunter2"')
+
+    def test_keeps_the_rest_of_that_value(self):
+        assert TelemetryRedactor.text('msg="x password=hunter2"') == 'msg="x password=<redacted>"'
