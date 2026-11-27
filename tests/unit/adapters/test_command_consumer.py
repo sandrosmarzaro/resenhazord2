@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import re
 
 import pytest
 import sentry_sdk
@@ -20,6 +21,7 @@ from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.contents.video_content import VideoBufferContent
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.command_inbox import RedisCommandInbox
+from bot.infrastructure.execution_store import ExecutionStore
 from tests.fixtures.mock_broker import MockBrokerPort
 
 COMMANDS = CommandConsumer.COMMANDS_QUEUE
@@ -86,6 +88,7 @@ class TestDispatch:
 
         queue, body = broker.published[0]
         reply = json.loads(body)
+        reply['messages'][0].pop('message_id')
         assert queue == 'replies'
         assert reply == {'id': 'corr-1', 'messages': [message.to_dict()]}
 
@@ -768,6 +771,8 @@ class TestExclusiveLane:
 
 
 _TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
+# The shape Baileys gives its own outgoing ids, so a Python-made one looks the same.
+_WHATSAPP_MESSAGE_ID = re.compile(r'3EB0[0-9A-F]{18}')
 _TRACEPARENT = f'00-{_TRACE_ID}-b7ad6b7169203331-01'
 _FULL_PAYLOAD = {
     'text': ',sticker',
@@ -859,6 +864,8 @@ class TestQueueContract:
         reply = json.loads(body)
         assert queue == 'replies'
         assert reply.pop('traceparent').split('-')[1] == _TRACE_ID
+        for message in reply['messages']:
+            assert _WHATSAPP_MESSAGE_ID.fullmatch(message.pop('message_id'))
         assert reply == {
             'id': 'corr-1',
             'messages': [
@@ -914,3 +921,89 @@ class TestQueueContract:
         await broker.deliver(COMMANDS, json.dumps(_full_envelope()).encode())
 
         assert inbox.marked == [('g@g.us:MSG-1', ['replies'])]
+
+
+class TestReplyIds:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.fixture
+    def store(self):
+        store = ExecutionStore(FakeRedis())
+        ExecutionStore.reset(store)
+        return store
+
+    @staticmethod
+    async def _replies(
+        mocker, messages=None, error=None, attempts=2
+    ) -> tuple[MockBrokerPort, list[dict]]:
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.return_value = messages
+        handler.handle.side_effect = error
+        await CommandConsumer(broker, handler).start()
+        await broker.deliver('commands', _envelope('ping', attempts=attempts))
+        bodies = [json.loads(body) for queue, body in broker.published if queue == 'replies']
+        return broker, [message for body in bodies for message in body['messages']]
+
+    @pytest.mark.anyio
+    async def test_every_reply_gets_its_own_id(self, mocker):
+        messages = [BotMessage(jid='g@g.us', content=TextContent(text)) for text in ('a', 'b')]
+
+        _, replies = await self._replies(mocker, messages)
+
+        assert len({reply['message_id'] for reply in replies}) == 2
+
+    @pytest.mark.anyio
+    async def test_a_group_status_gets_none(self, mocker):
+        status = BotMessage(jid='g@g.us', content=TextContent('bom dia'), group_status=True)
+
+        _, [reply] = await self._replies(mocker, [status])
+
+        assert 'message_id' not in reply
+
+    @pytest.mark.anyio
+    async def test_the_record_is_found_by_the_reply_id(self, mocker, store):
+        _, [reply] = await self._replies(
+            mocker, [BotMessage(jid='g@g.us', content=TextContent('pong'))]
+        )
+
+        record = await store.find(Platform.WHATSAPP, 'g@g.us', reply['message_id'])
+
+        assert (record['correlation_id'], record['attempt'], record['replies']) == (
+            'corr-1',
+            3,
+            {reply['message_id']: 'pong'},
+        )
+
+    @pytest.mark.anyio
+    async def test_a_media_reply_is_remembered_by_its_caption(self, mocker, store):
+        image = BotMessage(jid='g@g.us', content=ImageBufferContent(b'\x01', caption='oi'))
+
+        _, [reply] = await self._replies(mocker, [image])
+
+        record = await store.find(Platform.WHATSAPP, 'g@g.us', reply['message_id'])
+        assert record['replies'] == {reply['message_id']: 'oi'}
+
+    @pytest.mark.anyio
+    async def test_a_media_reply_without_caption_is_remembered_by_its_type(self, mocker, store):
+        image = BotMessage(jid='g@g.us', content=ImageBufferContent(b'\x01'))
+
+        _, [reply] = await self._replies(mocker, [image])
+
+        record = await store.find(Platform.WHATSAPP, 'g@g.us', reply['message_id'])
+        assert record['replies'] == {reply['message_id']: 'image_buffer'}
+
+    @pytest.mark.anyio
+    async def test_an_error_reply_is_recorded_too(self, mocker, store):
+        _, [reply] = await self._replies(mocker, error=BotError('Moeda inválida'))
+
+        record = await store.find(Platform.WHATSAPP, 'g@g.us', reply['message_id'])
+        assert record['replies'] == {reply['message_id']: 'Moeda inválida'}
+
+    @pytest.mark.anyio
+    async def test_a_scheduled_retry_stores_nothing(self, mocker, store):
+        await self._replies(mocker, error=ExternalServiceError('api down'), attempts=0)
+
+        assert await store._redis.keys('*') == []

@@ -288,3 +288,30 @@ class TestScopeGating:
 
         strategy.run.assert_not_called()
         assert port.send.call_args.args[0].text == self.DEV_ONLY
+
+
+class TestQuotedReply:
+    @pytest.mark.anyio
+    async def test_a_command_replying_to_a_message_carries_its_id_and_text(
+        self, handler, port, mocker
+    ):
+        strategy = make_strategy(mocker, messages=[_ok_message()])
+        patch_registry(mocker, strategy=strategy)
+        quoted = make_update('¥1 = R$0,03').message
+        quoted._unfreeze()
+        quoted.message_id = 77
+        quoted._freeze()
+
+        await handler.handle(port, make_update('/bug veio errado', reply_to=quoted))
+
+        data = strategy.run.call_args.args[0]
+        assert (data.quoted_message_id, data.quoted_text) == ('77', '¥1 = R$0,03')
+
+    @pytest.mark.anyio
+    async def test_a_command_without_a_reply_has_no_quote(self, handler, port, mocker):
+        strategy = make_strategy(mocker, messages=[_ok_message()])
+        patch_registry(mocker, strategy=strategy)
+
+        await handler.handle(port, make_update('/bug'))
+
+        assert strategy.run.call_args.args[0].quoted_message_id is None

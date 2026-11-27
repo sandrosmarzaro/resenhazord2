@@ -3,9 +3,12 @@ import pytest
 from bot.application import register_commands
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import build_agent_graph, register_all_commands
+from bot.domain.commands.base import Platform
+from bot.domain.commands.bug_report import BugReportCommand
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.token_budget import TokenBudgetPolicy
 from bot.settings import Settings
+from tests.factories.command_data import GroupCommandDataFactory
 
 
 @pytest.fixture
@@ -88,3 +91,35 @@ class TestTokenBudgetWiring:
         build_agent_graph(CommandRegistry.instance(), Settings(), None)
 
         from_url.assert_not_called()
+
+
+class TestBugReportWiring:
+    @staticmethod
+    async def _bug_reply(monkeypatch, token: str, redis_url: str) -> str:
+        monkeypatch.setenv('GITHUB_ISSUES_TOKEN', token)
+        monkeypatch.setenv('REDIS_URL', redis_url)
+        register_all_commands(Settings())
+        command = CommandRegistry.instance().get_by_name('bug')
+        data = GroupCommandDataFactory.build(text=',bug', platform=Platform.WHATSAPP)
+        [message] = await command.run(data)
+        return message.content.text
+
+    @pytest.mark.anyio
+    async def test_without_a_token_bug_is_not_configured(self, monkeypatch, factories):
+        reply = await self._bug_reply(monkeypatch, '', '')
+
+        assert reply == BugReportCommand.NOT_CONFIGURED
+
+    @pytest.mark.anyio
+    async def test_a_runner_github_token_alone_leaves_bug_off(self, monkeypatch, factories):
+        monkeypatch.setenv('GITHUB_TOKEN', 'runner-token')
+
+        reply = await self._bug_reply(monkeypatch, '', '')
+
+        assert reply == BugReportCommand.NOT_CONFIGURED
+
+    @pytest.mark.anyio
+    async def test_with_a_token_bug_is_ready(self, monkeypatch, factories):
+        reply = await self._bug_reply(monkeypatch, 'test-token', 'redis://127.0.0.1:1')
+
+        assert reply == BugReportCommand.USAGE

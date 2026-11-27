@@ -18,6 +18,7 @@ from bot.domain.models.contents.video_content import VideoBufferContent, VideoCo
 from bot.domain.models.message import BotMessage
 from bot.domain.parsers.command_parser import CommandParser
 from bot.domain.services.voice_note import VoiceNote
+from bot.infrastructure.command_run import CommandRun
 
 logger = structlog.get_logger()
 
@@ -151,7 +152,8 @@ class Command(ABC):
             'chat_type': 'group' if data.is_group else 'private',
         }
         started = time.monotonic()
-        outcome, error_type = 'success', None
+        run = CommandRun(self.config.name, data.text)
+        outcome, error_type, failure = 'success', None, None
         # Exceptions are classified by hand: the automatic record would put the
         # message, URL and query secrets included, on a span Tempo keeps unscrubbed.
         with self._TRACER.start_as_current_span(
@@ -163,13 +165,13 @@ class Command(ABC):
             try:
                 return await self._run(data)
             except ExternalServiceError as error:
-                outcome, error_type = 'external_error', type(error).__name__
+                outcome, error_type, failure = 'external_error', type(error).__name__, error
                 raise
-            except BotError:
-                outcome = 'bot_error'
+            except BotError as error:
+                outcome, failure = 'bot_error', error
                 raise
             except Exception as error:
-                outcome, error_type = 'unexpected_error', type(error).__name__
+                outcome, error_type, failure = 'unexpected_error', type(error).__name__, error
                 raise
             finally:
                 span.set_attribute(self._OUTCOME, outcome)
@@ -187,6 +189,7 @@ class Command(ABC):
                     error_type=error_type,
                     duration_ms=round((time.monotonic() - started) * self._MS_PER_SECOND),
                 )
+                run.end(span, outcome, failure, self.parser)
 
     async def _run(self, data: CommandData) -> list[BotMessage]:
         if self.config.group_only and not data.is_group:

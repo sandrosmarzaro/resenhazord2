@@ -6,8 +6,10 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from bot.infrastructure.command_trail import CommandTrail
 from bot.infrastructure.otel import _parse_headers, init_otel
 from bot.settings import Settings
+from tests.factories.command_data import GroupCommandDataFactory
 
 
 def _metric_names(reader: InMemoryMetricReader) -> set[str]:
@@ -103,6 +105,17 @@ class TestInitOtel:
         provider.get_tracer('test').start_span('command.run').end()
 
         assert 'span.self_time' in _metric_names(reader)
+
+    @pytest.mark.anyio
+    async def test_spans_of_a_command_reach_its_trail(self, mocker, otel_globals, otel_settings):
+        init_otel(otel_settings, mocker.Mock())
+        provider = otel_globals['trace.set_tracer_provider'].call_args.args[0]
+
+        async with CommandTrail.open(GroupCommandDataFactory(platform='whatsapp')) as trail:
+            provider.get_tracer('test').start_span('command.run').end()
+            spans, _ = trail.spans.drain()
+
+        assert [span['name'] for span in spans] == ['command.run']
 
     def test_reports_the_process_gauges(self, mocker, otel_globals, otel_settings):
         reader = InMemoryMetricReader()

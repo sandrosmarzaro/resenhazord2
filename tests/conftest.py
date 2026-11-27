@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from bot.application.command_registry import CommandRegistry
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.infrastructure.database import Database
+from bot.infrastructure.execution_store import ExecutionStore
 from bot.infrastructure.http_client import HttpClient
 from bot.infrastructure.mongodb import MongoDBConnection
 
@@ -40,12 +41,15 @@ def _reset_singletons():
     MongoDBConnection.reset()
     Database.reset()
     CachedConfigStore.reset()
+    # Off by default: a test never writes execution records to the Redis in .env.
+    ExecutionStore.reset(ExecutionStore(None))
     yield
     CommandRegistry.reset()
     HttpClient.reset()
     MongoDBConnection.reset()
     Database.reset()
     CachedConfigStore.reset()
+    ExecutionStore.reset()
 
 
 @pytest.fixture

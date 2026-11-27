@@ -189,5 +189,27 @@ describe('ReplyDeserializer', () => {
       });
       expect(message.options).toEqual({ ephemeralExpiration: 60 });
     });
+
+    it('sends under the id the core named the reply with', async () => {
+      const message = await ReplyDeserializer.toMessage({
+        jid: 'g@g.us',
+        content: { type: 'text', text: 'x' },
+        message_id: '3EB0ABCDEF0123456789AB',
+      });
+      expect(message.options).toEqual({ messageId: '3EB0ABCDEF0123456789AB' });
+    });
+
+    it('keeps the id beside the expiration', async () => {
+      const message = await ReplyDeserializer.toMessage({
+        jid: 'g@g.us',
+        content: { type: 'text', text: 'x' },
+        message_id: '3EB0ABCDEF0123456789AB',
+        expiration: 60,
+      });
+      expect(message.options).toEqual({
+        ephemeralExpiration: 60,
+        messageId: '3EB0ABCDEF0123456789AB',
+      });
+    });
   });
 });
