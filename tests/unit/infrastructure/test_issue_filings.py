@@ -48,3 +48,21 @@ class TestClaim:
         await IssueFilings(redis).claim(KEY)
 
         assert await redis.ttl(f'bug_issue:{KEY}') == IssueFilings.RETENTION_SECONDS
+
+
+class TestWithoutRedis:
+    @pytest.mark.anyio
+    async def test_every_claim_wins(self):
+        filings = IssueFilings(None)
+        await filings.claim(KEY)
+
+        assert await filings.claim(KEY) is None
+
+    @pytest.mark.anyio
+    async def test_settling_and_releasing_do_nothing(self):
+        filings = IssueFilings(None)
+
+        await filings.settle(KEY, URL)
+        await filings.release(KEY)
+
+        assert await filings.claim(KEY) is None

@@ -15,10 +15,13 @@ class IssueFilings:
     IN_PROGRESS: ClassVar[str] = 'in_progress'
     _KEY_PREFIX: ClassVar[str] = 'bug_issue'
 
-    def __init__(self, redis: Redis) -> None:
+    def __init__(self, redis: Redis | None) -> None:
+        # Without Redis there is no execution record to file from, so no guard is lost.
         self._redis = redis
 
     async def claim(self, key: str) -> str | None:
+        if self._redis is None:
+            return None
         name = f'{self._KEY_PREFIX}:{key}'
         if await self._redis.set(name, self.IN_PROGRESS, nx=True, ex=self.RETENTION_SECONDS):
             return None
@@ -27,7 +30,11 @@ class IssueFilings:
         return existing.decode()
 
     async def settle(self, key: str, url: str) -> None:
+        if self._redis is None:
+            return
         await self._redis.set(f'{self._KEY_PREFIX}:{key}', url, ex=self.RETENTION_SECONDS)
 
     async def release(self, key: str) -> None:
+        if self._redis is None:
+            return
         await self._redis.delete(f'{self._KEY_PREFIX}:{key}')
