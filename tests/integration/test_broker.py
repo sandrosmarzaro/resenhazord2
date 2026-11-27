@@ -4,6 +4,7 @@ import aio_pika
 import pytest
 from testcontainers.rabbitmq import RabbitMqContainer
 
+from bot.data.broker_topology import COMMANDS_QUEUE, COMMANDS_QUEUE_ARGUMENTS, DEAD_LETTER_QUEUE
 from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 from bot.infrastructure.broker_topology import BrokerTopology
 
@@ -107,7 +108,9 @@ class TestPublishInsideConsume:
         received = asyncio.Event()
         captured: list[bytes] = []
 
-        broker = RabbitBroker(BrokerTopology(queues={'replies_q': {}}, bindings=()))
+        broker = RabbitBroker(
+            BrokerTopology(queues={'replies_q': {}}, bindings=(), dead_letter_routes={})
+        )
         await broker.connect(rabbitmq_url)
 
         async def relay(_: bytes) -> None:
@@ -166,7 +169,9 @@ class TestRetryQueue:
             'x-dead-letter-exchange': '',
             'x-dead-letter-routing-key': 'retry_target',
         }
-        broker = RabbitBroker(BrokerTopology(queues={'retry_target.retry': retry}, bindings=()))
+        broker = RabbitBroker(
+            BrokerTopology(queues={'retry_target.retry': retry}, bindings=(), dead_letter_routes={})
+        )
         await broker.connect(rabbitmq_url)
         await broker.consume('retry_target', _record(captured, received))
 
@@ -185,6 +190,65 @@ def _record(captured: list[bytes], event: asyncio.Event):
         event.set()
 
     return handler
+
+
+class TestDeliveryLimit:
+    @pytest.mark.anyio
+    async def test_a_command_past_the_delivery_limit_goes_to_the_dlq(self, rabbitmq_url):
+        dead = asyncio.Event()
+        dead_letters: list[bytes] = []
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
+        await broker.consume(DEAD_LETTER_QUEUE, _record(dead_letters, dead))
+
+        async with await aio_pika.connect(rabbitmq_url) as connection:
+            channel = await connection.channel()
+            commands = await channel.get_queue(COMMANDS_QUEUE)
+            await commands.consume(_crash_before_the_ack)
+            await channel.default_exchange.publish(
+                aio_pika.Message(b'poison'), routing_key=COMMANDS_QUEUE
+            )
+
+            async with asyncio.timeout(10):
+                await dead.wait()
+        await broker.close()
+
+        assert dead_letters == [b'poison']
+
+    @pytest.mark.anyio
+    async def test_a_command_redelivered_up_to_the_limit_stays_queued(self, rabbitmq_url):
+        limit = COMMANDS_QUEUE_ARGUMENTS['x-delivery-limit']
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
+        delivered = asyncio.Event()
+        deliveries: list[bytes] = []
+
+        async def crash_until_the_last_delivery(message: aio_pika.abc.AbstractIncomingMessage):
+            deliveries.append(message.body)
+            if len(deliveries) <= limit:
+                await message.nack(requeue=True)
+                return
+            await message.ack()
+            delivered.set()
+
+        async with await aio_pika.connect(rabbitmq_url) as connection:
+            channel = await connection.channel()
+            commands = await channel.get_queue(COMMANDS_QUEUE)
+            await commands.consume(crash_until_the_last_delivery)
+            await channel.default_exchange.publish(
+                aio_pika.Message(b'flaky'), routing_key=COMMANDS_QUEUE
+            )
+
+            async with asyncio.timeout(10):
+                await delivered.wait()
+        await broker.close()
+
+        assert deliveries == [b'flaky'] * (limit + 1)
+
+
+async def _crash_before_the_ack(message: aio_pika.abc.AbstractIncomingMessage) -> None:
+    # A core that dies before its ack hands the command back the same way.
+    await message.nack(requeue=True)
 
 
 class TestConcurrency:

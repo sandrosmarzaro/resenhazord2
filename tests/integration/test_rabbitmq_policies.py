@@ -5,7 +5,11 @@ import aio_pika
 import pytest
 from testcontainers.rabbitmq import RabbitMqContainer
 
-from bot.adapters.broker.command_consumer import CommandConsumer
+from bot.data.broker_topology import (
+    COMMANDS_QUEUE,
+    COMMANDS_QUEUE_ARGUMENTS,
+    LEGACY_COMMANDS_QUEUE,
+)
 
 POLICIES_SCRIPT = Path(__file__).parents[2] / 'observability' / 'rabbitmq' / 'policies.sh'
 COMMANDS_MAX_LENGTH = 100
@@ -31,8 +35,12 @@ async def channel(container):
 
 class TestCommandsQueue:
     @pytest.mark.anyio
-    async def test_a_full_queue_drops_the_oldest_command(self, channel):
-        queue = await channel.declare_queue(CommandConsumer.COMMANDS_QUEUE, durable=True)
+    @pytest.mark.parametrize(
+        ('name', 'arguments'),
+        [(COMMANDS_QUEUE, COMMANDS_QUEUE_ARGUMENTS), (LEGACY_COMMANDS_QUEUE, {})],
+    )
+    async def test_a_full_queue_drops_the_oldest_command(self, channel, name, arguments):
+        queue = await channel.declare_queue(name, durable=True, arguments=dict(arguments))
         for number in range(COMMANDS_MAX_LENGTH + 1):
             message = aio_pika.Message(str(number).encode())
             await channel.default_exchange.publish(message, routing_key=queue.name)
