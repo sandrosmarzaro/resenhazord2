@@ -255,7 +255,7 @@ own Prometheus, and `Error` turned each blip into an email.
 | Swap thrashing | `100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes) > 80` | 10m | Sustained swap pressure precedes the freeze |
 | Swap thrash (iowait) | iowait `> 20%` and `rate(node_vmstat_pgmajfault[5m]) > 20`, per `instance` | 5m | The node is paging and its event loops stall. Both edge thrashes ([#393](https://github.com/sandrosmarzaro/resenhazord2/issues/393)) ran at 42-50% iowait and ~53 faults/s with 639 MB of swap used, under the 80% rule above |
 | Dead-letters rising | `sum(increase(command_dlq_total[15m])) > 5` | 0m | Commands giving up after their last retry |
-| Commands backlog | `sum(rabbitmq_queue_messages_ready{queue="commands"}) > 80` | 5m | The bot is falling behind / stalled consuming. The `commands` policy caps the queue at 100 and drops the oldest, so the alert has to fire before that |
+| Commands backlog | `sum(rabbitmq_queue_messages_ready{queue=~"commands\|commands.quorum"}) > 80` | 5m | The bot is falling behind / stalled consuming. The `commands-bounded` policy caps each queue at 100 and drops the oldest, so the alert has to fire before that. The classic `commands` only holds what the core has not drained into `commands.quorum` yet |
 | Agent provider down | `sum(rate(agent_mappings_total{agent_outcome="unavailable"}[10m])) / clamp_min(sum(rate(agent_mappings_total[10m])), 0.0001) > 0.5` | 10m | Most NL mappings hit no working LLM provider (e.g. GitHub Models retirement) — direct commands still work, but the agent is effectively down |
 | Scrape target down | `up < 1`, no data alerts | 5m | Fires per `instance` (core/edge/edge-rabbitmq) when a scrape fails, and with no labels when the core Alloy stops sending anything |
 | SLO availability fast burn | 1h and 5m error ratio of `command.run` > 0.72, 3+ runs in the hour | 2m | 14.4× the 95% SLO's burn: the 30-day budget gone in about two days |
@@ -328,8 +328,10 @@ Useful metrics: **per-queue** (label `queue`) `rabbitmq_queue_messages_ready` (b
 `rabbitmq_queue_messages_unacked`; **global** (broker-wide, no per-queue publish/deliver
 counters exist) `rabbitmq_global_messages_received_total` (published in),
 `rabbitmq_global_messages_delivered_total` (out to consumers),
-`rabbitmq_global_messages_redelivered_total`. Our queues: `commands`, `commands.retry`,
-`commands.dlq`, `replies`, `group_events`, `wa_actions`, `wa_rpc`.
+`rabbitmq_global_messages_redelivered_total`. Our queues: `commands.quorum`, `commands`
+(classic, drained into `commands.quorum`), `commands.retry`, `commands.dlq`, `replies`,
+`group_events`, `wa_actions`, `wa_rpc`. A poison command shows up in
+`rabbitmq_global_messages_dead_lettered_delivery_limit_total`.
 
 ### Queue depth (ready) by queue
 ```promql

@@ -1,7 +1,13 @@
 {
   "exchanges": ["resenhazord.commands", "resenhazord.events"],
+  "deadLetterExchange": "resenhazord.dlx",
   "queues": {
     "commands": {},
+    "commands.quorum": {
+      "x-queue-type": "quorum",
+      "x-delivery-limit": 3,
+      "x-dead-letter-exchange": "resenhazord.dlx"
+    },
     "replies": {},
     "wa_actions": {},
     "wa_rpc": {},
@@ -19,5 +25,6 @@
     { "exchange": "resenhazord.commands", "pattern": "wa.rpc.#", "queue": "wa_rpc" },
     { "exchange": "resenhazord.events", "pattern": "reply.whatsapp", "queue": "replies" },
     { "exchange": "resenhazord.events", "pattern": "group.#", "queue": "group_events" }
-  ]
+  ],
+  "deadLetterRoutes": { "delivery_limit": "commands.dlq" }
 }

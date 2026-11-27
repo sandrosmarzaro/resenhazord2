@@ -11,7 +11,11 @@ from bot.infrastructure.broker import RabbitBroker
 
 class TestCommandPathOverBroker:
     @pytest.mark.anyio
-    async def test_command_round_trips_to_a_published_reply(self, rabbitmq_url, mocker):
+    # The gateway still publishes to the classic queue, which the core drains.
+    @pytest.mark.parametrize(
+        'queue', [CommandConsumer.COMMANDS_QUEUE, CommandConsumer.LEGACY_COMMANDS_QUEUE]
+    )
+    async def test_command_round_trips_to_a_published_reply(self, rabbitmq_url, mocker, queue):
         handler = mocker.AsyncMock()
         handler.handle.return_value = [BotMessage(jid='g@g.us', content=TextContent('pong'))]
 
@@ -29,7 +33,7 @@ class TestCommandPathOverBroker:
         await broker.consume(CommandConsumer.REPLIES_QUEUE, capture)
 
         envelope = {'id': 'corr-1', 'data': {'text': 'ping', 'jid': 'g@g.us', 'sender_jid': 'u@s'}}
-        await broker.publish(CommandConsumer.COMMANDS_QUEUE, json.dumps(envelope).encode())
+        await broker.publish(queue, json.dumps(envelope).encode())
 
         async with asyncio.timeout(10):
             await replied.wait()

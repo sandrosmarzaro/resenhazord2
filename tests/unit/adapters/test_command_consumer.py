@@ -24,6 +24,8 @@ from bot.infrastructure.command_inbox import RedisCommandInbox
 from bot.infrastructure.execution_store import ExecutionStore
 from tests.fixtures.mock_broker import MockBrokerPort
 
+COMMANDS = CommandConsumer.COMMANDS_QUEUE
+
 
 def _envelope(
     text: str, jid: str = 'g@g.us', attempts: int | None = None, message_id: str | None = None
@@ -67,7 +69,7 @@ class TestDispatch:
         consumer = CommandConsumer(broker, handler)
         await consumer.start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         passed = handler.handle.await_args.args[0]
         assert passed.text == 'ping'
@@ -82,13 +84,30 @@ class TestDispatch:
         consumer = CommandConsumer(broker, handler)
         await consumer.start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         queue, body = broker.published[0]
         reply = json.loads(body)
         reply['messages'][0].pop('message_id')
         assert queue == 'replies'
         assert reply == {'id': 'corr-1', 'messages': [message.to_dict()]}
+
+
+class TestLegacyQueue:
+    @pytest.fixture
+    def anyio_backend(self):
+        return 'asyncio'
+
+    @pytest.mark.anyio
+    async def test_forwards_a_command_from_the_classic_queue_to_the_quorum_one(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        await CommandConsumer(broker, handler).start()
+
+        await broker.deliver('commands', _envelope('ping'))
+
+        assert broker.published == [('commands.quorum', _envelope('ping'))]
+        handler.handle.assert_not_awaited()
 
 
 class TestMediaReply:
@@ -105,7 +124,7 @@ class TestMediaReply:
         consumer = CommandConsumer(broker, handler)
         await consumer.start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         _, body = broker.published[0]
         content = json.loads(body)['messages'][0]['content']
@@ -126,7 +145,7 @@ class TestMediaReply:
         consumer = CommandConsumer(broker, handler)
         await consumer.start()
 
-        await broker.deliver('commands', _envelope(',dl'))
+        await broker.deliver(COMMANDS, _envelope(',dl'))
 
         _, body = broker.published[0]
         content = json.loads(body)['messages'][0]['content']
@@ -145,7 +164,7 @@ class TestRetry:
         handler.handle.side_effect = ExternalServiceError('api down')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         queue, body = broker.published[0]
         assert queue == 'commands.retry'
@@ -159,9 +178,7 @@ class TestRetry:
         handler.handle.side_effect = ExternalServiceError('still down')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver(
-            'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
-        )
+        await broker.deliver(COMMANDS, _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1))
 
         queues = _queues(broker)
         assert 'commands.dlq' in queues
@@ -175,7 +192,7 @@ class TestRetry:
         handler.handle.side_effect = DownloadError('video gone')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         queues = _queues(broker)
         assert 'commands.dlq' in queues
@@ -189,7 +206,7 @@ class TestRetry:
         await CommandConsumer(broker, handler).start()
 
         with capture_logs() as logs:
-            await broker.deliver('commands', _envelope('ping'))
+            await broker.deliver(COMMANDS, _envelope('ping'))
 
         assert _exhausted_logs(logs) == [
             {'log_level': 'warning', 'attempts': 1, 'error': 'video gone'}
@@ -205,7 +222,7 @@ class TestRetry:
 
         with capture_logs() as logs:
             await broker.deliver(
-                'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+                COMMANDS, _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
             )
 
         assert _exhausted_logs(logs) == [
@@ -219,7 +236,7 @@ class TestRetry:
         handler.handle.side_effect = ValidationError('bad input')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         assert _queues(broker) == ['replies']
 
@@ -237,7 +254,7 @@ class TestErrors:
         consumer = CommandConsumer(broker, handler)
         await consumer.start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         _, body = broker.published[0]
         reply = json.loads(body)
@@ -251,7 +268,7 @@ class TestErrors:
         consumer = CommandConsumer(broker, handler)
         await consumer.start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         _, body = broker.published[0]
         reply = json.loads(body)
@@ -265,7 +282,7 @@ class TestErrors:
         consumer = CommandConsumer(broker, handler)
         await consumer.start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         _, body = broker.published[0]
         assert json.loads(body) == {'id': 'corr-1', 'messages': []}
@@ -293,7 +310,7 @@ class TestSentryScope:
         handler.handle.side_effect = handle
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         assert seen[0]['correlation_id'] == 'corr-1'
 
@@ -304,7 +321,7 @@ class TestSentryScope:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         assert 'correlation_id' not in _event_tags()
 
@@ -322,7 +339,7 @@ class TestTracePropagation:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         extract.assert_called_once()
         assert extract.call_args.args[0]['id'] == 'corr-1'
@@ -335,7 +352,7 @@ class TestTracePropagation:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         inject.assert_called_once()
         assert 'messages' in inject.call_args.args[0]
@@ -360,7 +377,7 @@ class TestSpanStatus:
         handler = mocker.AsyncMock()
         handler.handle.side_effect = outcome
         await CommandConsumer(broker, handler).start()
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
     @pytest.mark.anyio
     async def test_unexpected_error_marks_span_as_error(self, mocker, spans):
@@ -417,7 +434,7 @@ class TestMetrics:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         span.set_attribute.assert_called_once_with('command.outcome', 'success')
 
@@ -429,7 +446,7 @@ class TestMetrics:
         handler.handle.side_effect = BotError('nope')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         span.set_attribute.assert_called_once_with('command.outcome', 'bot_error')
 
@@ -441,7 +458,7 @@ class TestMetrics:
         handler.handle.side_effect = NotImplementedError('download_media unsupported')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         span.set_attribute.assert_called_once_with('command.outcome', 'unexpected_error')
 
@@ -454,7 +471,7 @@ class TestMetrics:
         handler.handle.side_effect = ExternalServiceError('api down')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         span.set_attribute.assert_called_once_with('command.outcome', 'external_error')
         retries.add.assert_called_once_with(1)
@@ -468,7 +485,7 @@ class TestMetrics:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', _envelope('ping'))
+        await broker.deliver(COMMANDS, _envelope('ping'))
 
         assert [call.args for call in in_flight.add.call_args_list] == [(1,), (-1,)]
 
@@ -481,9 +498,7 @@ class TestMetrics:
         handler.handle.side_effect = ExternalServiceError('still down')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver(
-            'commands', _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
-        )
+        await broker.deliver(COMMANDS, _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1))
 
         dlq.add.assert_called_once_with(1)
 
@@ -505,8 +520,8 @@ class TestRedelivery:
         await CommandConsumer(broker, handler, inbox).start()
         body = _envelope('ping', message_id='MSG-1')
 
-        await broker.deliver('commands', body)
-        await broker.deliver('commands', body)
+        await broker.deliver(COMMANDS, body)
+        await broker.deliver(COMMANDS, body)
 
         assert handler.handle.await_count == 1
         assert _queues(broker) == ['replies']
@@ -517,10 +532,10 @@ class TestRedelivery:
         handler = mocker.AsyncMock()
         handler.handle.side_effect = [ExternalServiceError('api down'), []]
         await CommandConsumer(broker, handler, inbox).start()
-        await broker.deliver('commands', _envelope('ping', message_id='MSG-1'))
+        await broker.deliver(COMMANDS, _envelope('ping', message_id='MSG-1'))
         _, retry_body = broker.published[0]
 
-        await broker.deliver('commands', retry_body)
+        await broker.deliver(COMMANDS, retry_body)
 
         assert handler.handle.await_count == 2
 
@@ -532,8 +547,8 @@ class TestRedelivery:
         await CommandConsumer(broker, handler, inbox).start()
         body = _envelope('ping')
 
-        await broker.deliver('commands', body)
-        await broker.deliver('commands', body)
+        await broker.deliver(COMMANDS, body)
+        await broker.deliver(COMMANDS, body)
 
         assert handler.handle.await_count == 2
 
@@ -544,8 +559,8 @@ class TestRedelivery:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler, inbox).start()
 
-        await broker.deliver('commands', _envelope('ping', jid='a@g.us', message_id='MSG-1'))
-        await broker.deliver('commands', _envelope('ping', jid='b@g.us', message_id='MSG-1'))
+        await broker.deliver(COMMANDS, _envelope('ping', jid='a@g.us', message_id='MSG-1'))
+        await broker.deliver(COMMANDS, _envelope('ping', jid='b@g.us', message_id='MSG-1'))
 
         assert handler.handle.await_count == 2
 
@@ -556,10 +571,10 @@ class TestRedelivery:
         handler.handle.side_effect = [ExternalServiceError('still down'), []]
         await CommandConsumer(broker, handler, inbox).start()
         body = _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1, message_id='MSG-1')
-        await broker.deliver('commands', body)
+        await broker.deliver(COMMANDS, body)
         replayed = {**json.loads(body), 'attempts': 0, 'replayed': True}
 
-        await broker.deliver('commands', json.dumps(replayed).encode())
+        await broker.deliver(COMMANDS, json.dumps(replayed).encode())
 
         assert handler.handle.await_count == 2
 
@@ -595,9 +610,9 @@ class TestConcurrentDelivery:
     async def _deliver_while_running(
         self, broker: MockBrokerPort, handler: _HeldHandler, first: bytes, second: bytes
     ) -> None:
-        running = asyncio.create_task(broker.deliver('commands', first))
+        running = asyncio.create_task(broker.deliver(COMMANDS, first))
         await handler.started.wait()
-        duplicate = asyncio.create_task(broker.deliver('commands', second))
+        duplicate = asyncio.create_task(broker.deliver(COMMANDS, second))
         await asyncio.wait({duplicate}, timeout=self.SKIP_DEADLINE_SECONDS)
         handler.release.set()
         await asyncio.gather(running, duplicate)
@@ -643,7 +658,7 @@ class TestConcurrentDelivery:
         crashed_handler = _HeldHandler()
         await CommandConsumer(crashed_broker, crashed_handler, inbox).start()
         body = _envelope('ping', message_id='MSG-1')
-        running = asyncio.create_task(crashed_broker.deliver('commands', body))
+        running = asyncio.create_task(crashed_broker.deliver(COMMANDS, body))
         await crashed_handler.started.wait()
         running.cancel()
         await asyncio.wait({running})
@@ -652,7 +667,7 @@ class TestConcurrentDelivery:
         handler.release.set()
         await CommandConsumer(broker, handler, inbox).start()
 
-        await broker.deliver('commands', body)
+        await broker.deliver(COMMANDS, body)
 
         assert handler.runs == 1
         assert _queues(broker) == ['replies']
@@ -663,13 +678,13 @@ class TestConcurrentDelivery:
         handler = _HeldHandler()
         await CommandConsumer(broker, handler, inbox).start()
         body = _envelope('ping', message_id='MSG-1')
-        running = asyncio.create_task(broker.deliver('commands', body))
+        running = asyncio.create_task(broker.deliver(COMMANDS, body))
         await handler.started.wait()
         running.cancel()
         await asyncio.wait({running})
         handler.release.set()
 
-        await broker.deliver('commands', body)
+        await broker.deliver(COMMANDS, body)
 
         assert handler.runs == self.BOTH_RAN
 
@@ -698,7 +713,7 @@ class TestExclusiveLane:
         return 'asyncio'
 
     async def _deliver_together(self, broker: MockBrokerPort, *texts: str) -> None:
-        await asyncio.gather(*(broker.deliver('commands', _envelope(text)) for text in texts))
+        await asyncio.gather(*(broker.deliver(COMMANDS, _envelope(text)) for text in texts))
 
     @pytest.mark.anyio
     async def test_exclusive_commands_run_one_at_a_time_until_replied(self, mocker):
@@ -810,7 +825,7 @@ class TestQueueContract:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', json.dumps(_full_envelope()).encode())
+        await broker.deliver(COMMANDS, json.dumps(_full_envelope()).encode())
 
         assert handler.handle.await_args.args[0] == CommandData(
             text=',sticker',
@@ -843,7 +858,7 @@ class TestQueueContract:
         ]
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', json.dumps(_full_envelope()).encode())
+        await broker.deliver(COMMANDS, json.dumps(_full_envelope()).encode())
 
         queue, body = broker.published[0]
         reply = json.loads(body)
@@ -874,7 +889,7 @@ class TestQueueContract:
         handler.handle.side_effect = ExternalServiceError('api down')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver('commands', json.dumps(_full_envelope(attempts=1)).encode())
+        await broker.deliver(COMMANDS, json.dumps(_full_envelope(attempts=1)).encode())
 
         queue, body = broker.published[0]
         assert queue == 'commands.retry'
@@ -888,7 +903,7 @@ class TestQueueContract:
         await CommandConsumer(broker, handler).start()
         envelope = _full_envelope(attempts=CommandConsumer.MAX_ATTEMPTS - 1)
 
-        await broker.deliver('commands', json.dumps(envelope).encode())
+        await broker.deliver(COMMANDS, json.dumps(envelope).encode())
 
         (dlq_queue, dlq_body), (reply_queue, reply_body) = broker.published
         assert (dlq_queue, json.loads(dlq_body)) == ('commands.dlq', envelope)
@@ -903,7 +918,7 @@ class TestQueueContract:
         handler.handle.return_value = []
         await CommandConsumer(broker, handler, inbox).start()
 
-        await broker.deliver('commands', json.dumps(_full_envelope()).encode())
+        await broker.deliver(COMMANDS, json.dumps(_full_envelope()).encode())
 
         assert inbox.marked == [('g@g.us:MSG-1', ['replies'])]
 
@@ -928,7 +943,7 @@ class TestReplyIds:
         handler.handle.return_value = messages
         handler.handle.side_effect = error
         await CommandConsumer(broker, handler).start()
-        await broker.deliver('commands', _envelope('ping', attempts=attempts))
+        await broker.deliver(COMMANDS, _envelope('ping', attempts=attempts))
         bodies = [json.loads(body) for queue, body in broker.published if queue == 'replies']
         return broker, [message for body in bodies for message in body['messages']]
 

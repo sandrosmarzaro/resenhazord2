@@ -13,6 +13,9 @@ import type { BrokerTopology } from '../types/brokerTopology.js';
 import logger from './Logger.js';
 
 export default class RabbitBroker implements BrokerPort {
+  // all-with-x: a plain headers match skips every header that starts with x-.
+  private static readonly DEATH_MATCH = 'all-with-x';
+
   private connection: RecoveringChannelModel | null = null;
   private channel: ConfirmChannel | null = null;
   private consumeChannel: Channel | null = null;
@@ -69,6 +72,12 @@ export default class RabbitBroker implements BrokerPort {
     }
     for (const { exchange, pattern, queue } of this.topology.bindings) {
       await channel.bindQueue(queue, exchange, pattern);
+    }
+    const { deadLetterExchange, deadLetterRoutes } = this.topology;
+    await channel.assertExchange(deadLetterExchange, 'headers', { durable: true });
+    for (const [reason, queue] of Object.entries(deadLetterRoutes)) {
+      const death = { 'x-match': RabbitBroker.DEATH_MATCH, 'x-last-death-reason': reason };
+      await channel.bindQueue(queue, deadLetterExchange, '', death);
     }
   }
 

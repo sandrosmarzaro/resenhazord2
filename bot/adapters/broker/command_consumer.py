@@ -15,6 +15,12 @@ from bot.adapters.broker.command_envelope import CommandEnvelope
 from bot.adapters.broker.delivery_guard import DeliveryGuard
 from bot.adapters.broker.retry_router import RetryRouter
 from bot.application.command_handler import CommandHandler
+from bot.data.broker_topology import (
+    COMMANDS_QUEUE,
+    DEAD_LETTER_QUEUE,
+    LEGACY_COMMANDS_QUEUE,
+    LEGACY_RETRY_QUEUE,
+)
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command
 from bot.domain.exceptions import BotError, ExternalServiceError
@@ -32,10 +38,11 @@ _tracer = trace.get_tracer(__name__)
 
 
 class CommandConsumer:
-    COMMANDS_QUEUE = 'commands'
+    COMMANDS_QUEUE = COMMANDS_QUEUE
+    LEGACY_COMMANDS_QUEUE = LEGACY_COMMANDS_QUEUE
     REPLIES_QUEUE = 'replies'
-    RETRY_QUEUE = 'commands.retry'
-    DLQ_QUEUE = 'commands.dlq'
+    RETRY_QUEUE = LEGACY_RETRY_QUEUE
+    DLQ_QUEUE = DEAD_LETTER_QUEUE
     MAX_ATTEMPTS: ClassVar[int] = RetryRouter.MAX_ATTEMPTS
     DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = RetryRouter.DOWNLOAD_MAX_ATTEMPTS
     MS_PER_SECOND: ClassVar[int] = 1000
@@ -56,8 +63,13 @@ class CommandConsumer:
     async def start(self) -> None:
         # The broker declared the replies, retry and DLQ queues at connect (ADR 0017). The
         # retry queue parks a failed command for a backoff then dead-letters it back to
-        # commands; the DLQ is terminal (ADR 0004).
+        # commands; the DLQ is terminal (ADR 0004). The classic commands queue is drained
+        # into the quorum one, so every command runs under the delivery limit.
+        await self._broker.consume(self.LEGACY_COMMANDS_QUEUE, self._forward)
         await self._broker.consume(self.COMMANDS_QUEUE, self._handle)
+
+    async def _forward(self, body: bytes) -> None:
+        await self._broker.publish(self.COMMANDS_QUEUE, body)
 
     async def _handle(self, body: bytes) -> None:
         # A fresh Sentry isolation scope per message: set_tag mutates the scope object,

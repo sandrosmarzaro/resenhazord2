@@ -9,8 +9,9 @@ set -e
 rabbitmqctl -q await_startup
 
 # Past 100 commands or 64 MiB the oldest is dropped: in a backlog an old command has
-# lost its moment, and the cap stays under the 256 MiB memory watermark.
-rabbitmqctl -q set_policy --apply-to queues commands-bounded '^commands$' \
+# lost its moment, and the cap stays under the 256 MiB memory watermark. It bounds the
+# quorum commands queue and the classic one it replaces while that one drains.
+rabbitmqctl -q set_policy --apply-to queues commands-bounded '^commands(\.quorum)?$' \
   '{"max-length":100,"max-length-bytes":67108864,"overflow":"drop-head"}'
 
 # Dead letters keep a week, 500 messages or 32 MiB, oldest dropped first.

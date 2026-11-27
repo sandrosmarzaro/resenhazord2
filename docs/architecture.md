@@ -96,8 +96,12 @@ keeps them equal). Two durable topic exchanges are bound to the existing queues:
 | `resenhazord.events` | `reply.whatsapp` | `replies` |
 | `resenhazord.events` | `group.#` | `group_events` |
 
-`commands.retry` (30 s TTL, dead-letters back to `commands`) and `commands.dlq` are
-declared too, still on the default exchange. Producers publish through the default
+The core runs commands from `commands.quorum`, a quorum queue with a delivery limit of 3
+whose dead letters go to `resenhazord.dlx`, a headers exchange that sends a
+`delivery_limit` death to `commands.dlq` ([ADR 0004](./adr/0004-ack-retry-dlq.md)). The
+gateway still publishes to the classic `commands`, which the core drains into
+`commands.quorum`. `commands.retry` (30 s TTL, dead-letters back to `commands`) and
+`commands.dlq` are declared too, still on the default exchange. Producers publish through the default
 exchange by queue name until the migrate step of
 [ADR 0017](./adr/0017-broker-exchanges-and-routing-keys.md) moves them to routing keys.
 

@@ -63,7 +63,8 @@ class RabbitBroker:
 
     async def consume(self, queue: str, handler: MessageHandler) -> None:
         channel = self._active(self._consume_channel)
-        declared = await channel.declare_queue(queue, durable=True)
+        arguments = self._topology.arguments(queue)
+        declared = await channel.declare_queue(queue, durable=True, arguments=arguments)
         tag = await declared.consume(self._make_callback(handler))
         self._consumers.append((declared, tag))
 

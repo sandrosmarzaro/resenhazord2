@@ -72,8 +72,28 @@ describe('RabbitBroker', () => {
     },
   );
 
+  it('dead-letters a command past the delivery limit to the DLQ', async () => {
+    const broker = new RabbitBroker();
+    await broker.connect(url);
+    await purge(url, 'commands.dlq');
+    const crashes = await crashBeforeTheAck(url, 'commands.quorum');
+
+    await publishTo(url, '', 'commands.quorum');
+    const deadLetter = await waitForOne(url, 'commands.dlq');
+
+    await crashes.close();
+    await broker.close();
+    expect(deadLetter).toBe('roteado');
+  });
+
   it('publishes a durable message a consumer receives', async () => {
-    const broker = new RabbitBroker({ exchanges: [], queues: { round_trip: {} }, bindings: [] });
+    const broker = new RabbitBroker({
+      exchanges: [],
+      deadLetterExchange: 'round_trip.dlx',
+      queues: { round_trip: {} },
+      bindings: [],
+      deadLetterRoutes: {},
+    });
     await broker.connect(url);
 
     await broker.publish('round_trip', Buffer.from('ola mundo'));
@@ -202,6 +222,32 @@ async function publishTo(url: string, exchange: string, routingKey: string): Pro
   channel.publish(exchange, routingKey, Buffer.from('roteado'));
   await channel.waitForConfirms();
   await connection.close();
+}
+
+// A core that dies before its ack hands the command back the same way.
+async function crashBeforeTheAck(url: string, queue: string): Promise<{ close(): Promise<void> }> {
+  const connection = await connect(url);
+  const channel = await connection.createChannel();
+  await channel.consume(queue, (message) => {
+    if (message) channel.nack(message, false, true);
+  });
+  return connection;
+}
+
+async function waitForOne(url: string, queue: string): Promise<string> {
+  const connection = await connect(url);
+  const channel = await connection.createChannel();
+  const body = await new Promise<string>((resolve) => {
+    void channel.consume(
+      queue,
+      (message) => {
+        if (message) resolve(message.content.toString());
+      },
+      { noAck: true },
+    );
+  });
+  await connection.close();
+  return body;
 }
 
 async function purge(url: string, queue: string): Promise<void> {

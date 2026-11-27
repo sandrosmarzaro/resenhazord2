@@ -1,7 +1,13 @@
 import json
 from pathlib import Path
 
-from bot.data.broker_topology import BINDINGS, DURABLE_QUEUES, TOPIC_EXCHANGES
+from bot.data.broker_topology import (
+    BINDINGS,
+    DEAD_LETTER_EXCHANGE,
+    DEAD_LETTER_ROUTES,
+    DURABLE_QUEUES,
+    TOPIC_EXCHANGES,
+)
 
 GATEWAY_TOPOLOGY = Path(__file__).parents[3] / 'gateway' / 'src' / 'data' / 'BrokerTopology.json'
 
@@ -11,9 +17,11 @@ def test_matches_the_topology_the_gateway_declares():
 
     assert gateway == {
         'exchanges': list(TOPIC_EXCHANGES),
+        'deadLetterExchange': DEAD_LETTER_EXCHANGE,
         'queues': DURABLE_QUEUES,
         'bindings': [
             {'exchange': exchange, 'pattern': pattern, 'queue': queue}
             for exchange, pattern, queue in BINDINGS
         ],
+        'deadLetterRoutes': DEAD_LETTER_ROUTES,
     }

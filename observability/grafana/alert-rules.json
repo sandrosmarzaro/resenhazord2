@@ -184,7 +184,7 @@
           "refId": "A",
           "instant": true,
           "range": false,
-          "expr": "sum(rabbitmq_queue_messages_ready{queue=\"commands\"})"
+          "expr": "sum(rabbitmq_queue_messages_ready{queue=~\"commands|commands.quorum\"})"
         }
       },
       {
