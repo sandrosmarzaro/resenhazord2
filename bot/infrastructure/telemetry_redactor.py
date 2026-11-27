@@ -50,16 +50,27 @@ class TelemetryRedactor:
     _SECRETS: ClassVar[tuple[tuple[re.Pattern[str], str], ...]] = (
         (re.compile(r'bot\d++:[\w-]++'), f'bot{REDACTED}'),
         (re.compile(r'(?<!\d)\d{6,}+:[\w-]{30,}+'), REDACTED),
-        (re.compile(r'(?i)\b(bearer|basic)\s++[\w.~+/=-]{8,}+'), rf'\1 {REDACTED}'),
+        # A credential after its scheme word. It must hold a digit, so a plain word
+        # after "bot" or "token" in a sentence stays readable.
+        (
+            re.compile(r'(?i)\b(bearer|basic|bot|token)\s++(?=[\w.~+/=-]*\d)[\w.~+/=-]{8,}+'),
+            rf'\1 {REDACTED}',
+        ),
+        # A Discord bot token: three dot-separated base64url parts.
+        (re.compile(r'(?<![\w-])[\w-]{23,28}+\.[\w-]{6,7}+\.[\w-]{27,}+'), REDACTED),
         (
             re.compile(rf'(?<!\w)(?:{"|".join(map(re.escape, PROVIDER_KEY_PREFIXES))})[\w-]++'),
             REDACTED,
         ),
         (re.compile(r'\bAKIA[0-9A-Z]{16}\b'), REDACTED),
     )
-    # A name, its separator and its value; the name is checked in Python.
+    # A name, its separator and its value; the name is checked in Python. A quoted
+    # value runs to its closing quote (or the line's end), an unquoted one takes an
+    # auth scheme word along with the credential after it.
     _NAMED_VALUE: ClassVar[re.Pattern[str]] = re.compile(
-        r'(?<![\w-])([\w-]++)(["\']?\s*+[:=]\s*+["\']?)([^"\'\s,&;}]++)'
+        r'(?<![\w-])([\w-]++)(["\']?\s*+[:=]\s*+)'
+        r'(?:"[^"\n]*+"?|\'[^\'\n]*+\'?'
+        r'|(?i:(?:bot|token|bearer|basic|digest)\s++)?[^"\'\s,&;}]++)'
     )
     # A WhatsApp JID or LID of any length, an old-style group id, or a run of digits
     # and separators that reads as a phone number.
@@ -104,10 +115,12 @@ class TelemetryRedactor:
 
     @classmethod
     def _hide_named_value(cls, match: re.Match[str]) -> str:
-        name, separator, _ = match.groups()
+        name, separator = match.groups()
         if not any(part in name.lower() for part in SECRET_NAME_PARTS):
             return match.group()
-        return f'{name}{separator}{cls.REDACTED}'
+        value = match.group()[match.end(2) - match.start() :]
+        quote = value[0] if value[0] in '"\'' else ''
+        return f'{name}{separator}{quote}{cls.REDACTED}{quote}'
 
     @classmethod
     def _hash_identity(cls, match: re.Match[str]) -> str:
