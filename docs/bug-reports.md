@@ -68,6 +68,13 @@ The user's command text and args are kept on purpose, redacted, because a dev ch
 file the issue and they reproduce the bug. The dev's description goes through the same
 redaction. An `@name` in any text gets a zero-width space so it notifies nobody.
 
+Only four kinds of free text reach an issue: the command text and args, the marked
+reply, the dev's description and the 120-character exception message. Everything else
+is a code, a count, a duration, an allowlisted name's plain value, or a type and
+length. The free-text redaction is best effort: patterns can't know every credential
+format. The dev who files a report reads the issue right after, and edits or deletes it
+if something slipped through.
+
 ## What the issue holds
 
 - **Report**: the dev's description and the marked reply.
