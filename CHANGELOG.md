@@ -2,6 +2,57 @@
 
 <!-- version list -->
 
+## v2.21.0 (2026-11-27)
+
+### Feat
+
+- **broker**: retry through a 5s, 30s, 2m ladder counted by x-death (#430)
+- **broker**: run commands from a quorum queue with a delivery limit (#429)
+- **broker**: run commands from a quorum queue with a delivery limit
+- **commands**: add ,bug to file a github issue from a bot reply (#427)
+- **broker**: name each reply so its execution record is found (#426)
+- **broker**: name each reply so its execution record is found
+- **telegram**: record each command under its reply ids and carry quotes
+- **discord**: record each command under the ids of its followups
+- **gateway**: send each reply under the message id the core named
+- **broker**: name each whatsapp reply and record the command under it
+- **telemetry**: record each command's execution trail for bug reports (#425)
+- **telemetry**: record each command's execution trail for bug reports
+- **commands**: note each command run on its trail for bug reports
+- **telemetry**: capture a command's spans and log lines into its trail
+- **telemetry**: open a command trail around a command and its reply
+- **telemetry**: store execution records in redis by reply message id
+- **telemetry**: keep the last host readings for a bug report
+- **telemetry**: add a bounded per-command telemetry buffer
+- **telemetry**: redact credentials and hash chat ids for bug reports
+- **broker**: run commands from the quorum queue
+- **broker**: declare a quorum commands queue with a delivery limit
+- **commands**: filter ,moeda by asset or group (#423)
+- **commands**: quote crypto, metals and robux in ,moeda (#422)
+- **commands**: quote crypto, metals and robux in ,moeda
+- **commands**: quote crypto, metals and robux in ,moeda
+- **commands**: encode animated stickers at the highest fps and quality that fit (#419)
+
+### Fix
+
+- **telemetry**: hide digit-free bearer credentials and nested secrets
+- **telemetry**: redact the whole credential after a secret name
+- **telemetry**: show only plain values under an allowlisted name
+- **telemetry**: route every captured field through one field policy
+- **telemetry**: close redaction regressions left by the linear rewrite
+- **telemetry**: capture only allowlisted log fields and span status codes
+- **telemetry**: make redaction linear and cover more secret shapes
+- **telemetry**: close the redaction gaps a security review found
+- **deps**: upgrade gateway dependencies for security advisories (#413)
+- **deps**: upgrade core dependencies for security advisories (#415)
+- **commands**: quote cheap currencies per 10, 100, 1.000 units (#418)
+- **gateway**: see and bound the gateway's memory growth (#416)
+- **gateway**: stop unhandled rejections on socket and channel close (#414)
+
+### Refactor
+
+- **broker**: declare exchanges and bindings on both nodes (#424)
+
 ## v2.20.0 (2026-11-24)
 
 ### Feat
