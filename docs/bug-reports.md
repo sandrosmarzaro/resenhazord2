@@ -88,7 +88,7 @@ broker redelivery (ADR 0001) files one issue.
 
 | Setting | Use |
 |---|---|
-| `GITHUB_TOKEN` | fine-grained token with Issues: write on this repo only. Empty disables `,bug` |
+| `GITHUB_ISSUES_TOKEN` | fine-grained token with Issues: write on this repo only. Empty disables `,bug`. A runner's own `GITHUB_TOKEN` never enables it |
 | `GITHUB_REPOSITORY` | `owner/repo` the issues go to, `sandrosmarzaro/resenhazord2` by default |
 | `GRAFANA_URL` | Grafana stack URL for the Tempo and Loki links. Empty leaves them out |
 | `SENTRY_ORG` | Sentry org slug for the event search link. Empty leaves it out |

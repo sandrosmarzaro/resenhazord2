@@ -96,7 +96,7 @@ class TestTokenBudgetWiring:
 class TestBugReportWiring:
     @staticmethod
     async def _bug_reply(monkeypatch, token: str, redis_url: str) -> str:
-        monkeypatch.setenv('GITHUB_TOKEN', token)
+        monkeypatch.setenv('GITHUB_ISSUES_TOKEN', token)
         monkeypatch.setenv('REDIS_URL', redis_url)
         register_all_commands(Settings())
         command = CommandRegistry.instance().get_by_name('bug')
@@ -106,6 +106,14 @@ class TestBugReportWiring:
 
     @pytest.mark.anyio
     async def test_without_a_token_bug_is_not_configured(self, monkeypatch, factories):
+        reply = await self._bug_reply(monkeypatch, '', '')
+
+        assert reply == BugReportCommand.NOT_CONFIGURED
+
+    @pytest.mark.anyio
+    async def test_a_runner_github_token_alone_leaves_bug_off(self, monkeypatch, factories):
+        monkeypatch.setenv('GITHUB_TOKEN', 'runner-token')
+
         reply = await self._bug_reply(monkeypatch, '', '')
 
         assert reply == BugReportCommand.NOT_CONFIGURED

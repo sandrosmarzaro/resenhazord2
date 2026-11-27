@@ -89,9 +89,10 @@ class Settings(BaseSettings):
     owner_jids: str = ''
 
     # ,bug files GitHub issues with this fine-grained token (Issues: write on this repo
-    # only). Empty = the command replies it isn't configured. Grafana and the Sentry
-    # org only add links to the issue; empty leaves the link out.
-    github_token: str = ''
+    # only). Empty = the command replies it isn't configured. Named apart from
+    # GITHUB_TOKEN so a CI runner's own token never turns filing on. Grafana and the
+    # Sentry org only add links to the issue; empty leaves the link out.
+    github_issues_token: str = ''
     github_repository: str = 'sandrosmarzaro/resenhazord2'
     grafana_url: str = ''
     sentry_org: str = ''

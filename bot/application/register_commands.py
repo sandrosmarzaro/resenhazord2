@@ -218,8 +218,8 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
 
 def _bug_report_command(settings: Settings) -> BugReportCommand:
     issues = None
-    if settings.github_token:
-        issues = GitHubIssues(settings.github_token, settings.github_repository)
+    if settings.github_issues_token:
+        issues = GitHubIssues(settings.github_issues_token, settings.github_repository)
     redis = Redis.from_url(settings.redis_url) if settings.redis_url else None
     links = TelemetryLinks(settings.grafana_url, settings.sentry_org)
     return BugReportCommand(issues, IssueFilings(redis), links)
