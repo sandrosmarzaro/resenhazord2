@@ -943,7 +943,7 @@ class TestReplyIds:
         handler.handle.return_value = messages
         handler.handle.side_effect = error
         await CommandConsumer(broker, handler).start()
-        await broker.deliver('commands', _envelope('ping', attempts=attempts))
+        await broker.deliver(COMMANDS, _envelope('ping', attempts=attempts))
         bodies = [json.loads(body) for queue, body in broker.published if queue == 'replies']
         return broker, [message for body in bodies for message in body['messages']]
 
