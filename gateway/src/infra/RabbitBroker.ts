@@ -75,9 +75,13 @@ export default class RabbitBroker implements BrokerPort {
     }
     const { deadLetterExchange, deadLetterRoutes } = this.topology;
     await channel.assertExchange(deadLetterExchange, 'headers', { durable: true });
-    for (const [reason, queue] of Object.entries(deadLetterRoutes)) {
+    for (const [reason, destination] of Object.entries(deadLetterRoutes)) {
       const death = { 'x-match': RabbitBroker.DEATH_MATCH, 'x-last-death-reason': reason };
-      await channel.bindQueue(queue, deadLetterExchange, '', death);
+      if (this.topology.exchanges.includes(destination)) {
+        await channel.bindExchange(destination, deadLetterExchange, '', death);
+      } else {
+        await channel.bindQueue(destination, deadLetterExchange, '', death);
+      }
     }
   }
 

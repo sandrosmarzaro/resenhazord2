@@ -1,4 +1,6 @@
 import asyncio
+import itertools
+import time
 
 import aio_pika
 import pytest
@@ -7,6 +9,8 @@ from testcontainers.rabbitmq import RabbitMqContainer
 from bot.data.broker_topology import COMMANDS_QUEUE, COMMANDS_QUEUE_ARGUMENTS, DEAD_LETTER_QUEUE
 from bot.infrastructure.broker import BrokerConnectionError, RabbitBroker
 from bot.infrastructure.broker_topology import BrokerTopology
+from bot.ports.broker_port import Delivery, DeliveryRejectedError
+from tests.fixtures.short_ladder import short_ladder
 
 # What the nodes declared before the exchanges existed (ADR 0004): the topology must
 # redeclare each queue with exactly these arguments, or the broker answers
@@ -85,8 +89,8 @@ class TestRoundTrip:
         received = asyncio.Event()
         captured: list[bytes] = []
 
-        async def handler(body: bytes) -> None:
-            captured.append(body)
+        async def handler(delivery: Delivery) -> None:
+            captured.append(delivery.body)
             received.set()
 
         broker = RabbitBroker()
@@ -113,11 +117,11 @@ class TestPublishInsideConsume:
         )
         await broker.connect(rabbitmq_url)
 
-        async def relay(_: bytes) -> None:
+        async def relay(_: Delivery) -> None:
             await broker.publish('replies_q', b'reply')
 
-        async def collect(body: bytes) -> None:
-            captured.append(body)
+        async def collect(delivery: Delivery) -> None:
+            captured.append(delivery.body)
             received.set()
 
         await broker.consume('commands_q', relay)
@@ -185,8 +189,8 @@ class TestRetryQueue:
 
 
 def _record(captured: list[bytes], event: asyncio.Event):
-    async def handler(body: bytes) -> None:
-        captured.append(body)
+    async def handler(delivery: Delivery) -> None:
+        captured.append(delivery.body)
         event.set()
 
     return handler
@@ -246,6 +250,75 @@ class TestDeliveryLimit:
         assert deliveries == [b'flaky'] * (limit + 1)
 
 
+# Seconds each ladder step holds a rejected command in these tests, instead of 5 s, 30 s, 2 m.
+STEP_SECONDS = (0.2, 0.4, 0.6)
+MS_PER_SECOND = 1000
+
+
+@pytest.fixture(scope='module')
+def ladder_rabbitmq_url():
+    with RabbitMqContainer('rabbitmq:3.13') as container:
+        yield _url(container)
+
+
+class _RejectingHandler:
+    """Rejects the first `rejections` deliveries, recording each attempt and when it ran."""
+
+    def __init__(self, rejections: int) -> None:
+        self._rejections = rejections
+        self.attempts: list[int] = []
+        self.times: list[float] = []
+        self.accepted = asyncio.Event()
+
+    async def __call__(self, delivery: Delivery) -> None:
+        self.attempts.append(delivery.attempt)
+        self.times.append(time.monotonic())
+        if len(self.attempts) <= self._rejections:
+            raise DeliveryRejectedError
+        self.accepted.set()
+
+    def waits(self) -> list[float]:
+        return [later - earlier for earlier, later in itertools.pairwise(self.times)]
+
+
+class TestRetryLadder:
+    @pytest.fixture
+    async def broker(self, ladder_rabbitmq_url):
+        broker = RabbitBroker(short_ladder(*(int(s * MS_PER_SECOND) for s in STEP_SECONDS)))
+        await broker.connect(ladder_rabbitmq_url)
+        yield broker
+        await broker.close()
+
+    @pytest.mark.anyio
+    async def test_a_rejected_command_waits_its_step_then_comes_back(self, broker):
+        handler = _RejectingHandler(rejections=1)
+        await broker.consume(COMMANDS_QUEUE, handler)
+
+        await broker.publish(COMMANDS_QUEUE, b'flaky')
+        async with asyncio.timeout(10):
+            await handler.accepted.wait()
+
+        assert handler.attempts == [1, 2]
+        assert handler.waits()[0] >= STEP_SECONDS[0]
+
+    @pytest.mark.anyio
+    async def test_each_rejection_waits_longer_until_the_dlq(self, broker):
+        dead = asyncio.Event()
+        dead_letters: list[bytes] = []
+        await broker.consume(DEAD_LETTER_QUEUE, _record(dead_letters, dead))
+        handler = _RejectingHandler(rejections=len(STEP_SECONDS) + 1)
+        await broker.consume(COMMANDS_QUEUE, handler)
+
+        await broker.publish(COMMANDS_QUEUE, b'down')
+        async with asyncio.timeout(10):
+            await dead.wait()
+
+        assert handler.attempts == [1, 2, 3, 4]
+        waits = zip(handler.waits(), STEP_SECONDS, strict=True)
+        assert all(wait >= step for wait, step in waits)
+        assert dead_letters == [b'down']
+
+
 async def _crash_before_the_ack(message: aio_pika.abc.AbstractIncomingMessage) -> None:
     # A core that dies before its ack hands the command back the same way.
     await message.nack(requeue=True)
@@ -257,8 +330,8 @@ class TestConcurrency:
         release = asyncio.Event()
         fast_done = asyncio.Event()
 
-        async def handler(body: bytes) -> None:
-            if body == b'slow':
+        async def handler(delivery: Delivery) -> None:
+            if delivery.body == b'slow':
                 await release.wait()
                 return
             fast_done.set()
@@ -284,10 +357,10 @@ class TestGracefulDrain:
         release = asyncio.Event()
         finished: list[bytes] = []
 
-        async def slow_handler(body: bytes) -> None:
+        async def slow_handler(delivery: Delivery) -> None:
             started.set()
             await release.wait()
-            finished.append(body)
+            finished.append(delivery.body)
 
         broker = RabbitBroker()
         await broker.connect(rabbitmq_url)
@@ -308,7 +381,7 @@ class TestGracefulDrain:
 class TestDrainWithBrokerGone:
     @pytest.mark.anyio
     async def test_close_completes_when_the_broker_shut_down_underneath(self):
-        async def handler(_: bytes) -> None:
+        async def handler(_: Delivery) -> None:
             return None
 
         with RabbitMqContainer('rabbitmq:3.13') as container:

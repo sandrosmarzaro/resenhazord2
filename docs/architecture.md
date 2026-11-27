@@ -96,12 +96,19 @@ keeps them equal). Two durable topic exchanges are bound to the existing queues:
 | `resenhazord.events` | `reply.whatsapp` | `replies` |
 | `resenhazord.events` | `group.#` | `group_events` |
 
-The core runs commands from `commands.quorum`, a quorum queue with a delivery limit of 3
-whose dead letters go to `resenhazord.dlx`, a headers exchange that sends a
-`delivery_limit` death to `commands.dlq` ([ADR 0004](./adr/0004-ack-retry-dlq.md)). The
-gateway still publishes to the classic `commands`, which the core drains into
-`commands.quorum`. `commands.retry` (30 s TTL, dead-letters back to `commands`) and
-`commands.dlq` are declared too, still on the default exchange. Producers publish through the default
+The core runs commands from `commands.quorum`, a quorum queue with a delivery limit of 3.
+Its dead letters go to `resenhazord.dlx`, a headers exchange that routes by death reason
+([ADR 0004](./adr/0004-ack-retry-dlq.md)):
+
+| Reason | Goes to |
+|---|---|
+| `rejected` (a retry) | `resenhazord.retry`, which picks `commands.retry.5s`, `.30s` or `.2m` by routing key, and `commands.dlq` after the last step |
+| `expired` (a step ends) | `commands.quorum` |
+| `delivery_limit` (a poison command) | `commands.dlq` |
+
+The gateway still publishes to the classic `commands`, which the core drains into
+`commands.quorum`, and the old 30 s `commands.retry` drains into `commands`. Both stay
+declared until the contract step in ADR 0004. Producers publish through the default
 exchange by queue name until the migrate step of
 [ADR 0017](./adr/0017-broker-exchanges-and-routing-keys.md) moves them to routing keys.
 

@@ -27,9 +27,7 @@ from tests.fixtures.mock_broker import MockBrokerPort
 COMMANDS = CommandConsumer.COMMANDS_QUEUE
 
 
-def _envelope(
-    text: str, jid: str = 'g@g.us', attempts: int | None = None, message_id: str | None = None
-) -> bytes:
+def _envelope(text: str, jid: str = 'g@g.us', message_id: str | None = None) -> bytes:
     payload: dict = {
         'id': 'corr-1',
         'data': {
@@ -39,8 +37,6 @@ def _envelope(
             'message_id': message_id,
         },
     }
-    if attempts is not None:
-        payload['attempts'] = attempts
     return json.dumps(payload).encode()
 
 
@@ -166,10 +162,21 @@ class TestRetry:
 
         await broker.deliver(COMMANDS, _envelope('ping'))
 
-        queue, body = broker.published[0]
-        assert queue == 'commands.retry'
-        assert json.loads(body)['attempts'] == 1
-        assert 'replies' not in _queues(broker)
+        assert broker.rejected == [(COMMANDS, _envelope('ping'))]
+        assert broker.published == []
+
+    @pytest.mark.anyio
+    async def test_retry_logs_the_attempt_that_failed(self, mocker):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        handler.handle.side_effect = ExternalServiceError('api down')
+        await CommandConsumer(broker, handler).start()
+
+        with capture_logs() as logs:
+            await broker.deliver(COMMANDS, _envelope('ping'), attempt=2)
+
+        scheduled = [log for log in logs if log['event'] == 'command_retry_scheduled']
+        assert [(log['attempts'], log['error']) for log in scheduled] == [(2, 'api down')]
 
     @pytest.mark.anyio
     async def test_exhausted_retries_go_to_dlq_with_error_reply(self, mocker):
@@ -178,12 +185,10 @@ class TestRetry:
         handler.handle.side_effect = ExternalServiceError('still down')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver(COMMANDS, _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1))
+        await broker.deliver(COMMANDS, _envelope('ping'), attempt=CommandConsumer.MAX_ATTEMPTS)
 
-        queues = _queues(broker)
-        assert 'commands.dlq' in queues
-        assert 'replies' in queues
-        assert 'commands.retry' not in queues
+        assert _queues(broker) == ['commands.dlq', 'replies']
+        assert broker.rejected == []
 
     @pytest.mark.anyio
     async def test_download_error_skips_the_retry_ladder(self, mocker):
@@ -194,9 +199,8 @@ class TestRetry:
 
         await broker.deliver(COMMANDS, _envelope('ping'))
 
-        queues = _queues(broker)
-        assert 'commands.dlq' in queues
-        assert 'commands.retry' not in queues
+        assert _queues(broker) == ['commands.dlq', 'replies']
+        assert broker.rejected == []
 
     @pytest.mark.anyio
     async def test_download_error_dlq_logs_at_warning(self, mocker):
@@ -221,9 +225,7 @@ class TestRetry:
         await CommandConsumer(broker, handler).start()
 
         with capture_logs() as logs:
-            await broker.deliver(
-                COMMANDS, _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1)
-            )
+            await broker.deliver(COMMANDS, _envelope('ping'), attempt=CommandConsumer.MAX_ATTEMPTS)
 
         assert _exhausted_logs(logs) == [
             {'log_level': 'error', 'attempts': CommandConsumer.MAX_ATTEMPTS, 'error': 'still down'}
@@ -498,7 +500,7 @@ class TestMetrics:
         handler.handle.side_effect = ExternalServiceError('still down')
         await CommandConsumer(broker, handler).start()
 
-        await broker.deliver(COMMANDS, _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1))
+        await broker.deliver(COMMANDS, _envelope('ping'), attempt=CommandConsumer.MAX_ATTEMPTS)
 
         dlq.add.assert_called_once_with(1)
 
@@ -533,9 +535,9 @@ class TestRedelivery:
         handler.handle.side_effect = [ExternalServiceError('api down'), []]
         await CommandConsumer(broker, handler, inbox).start()
         await broker.deliver(COMMANDS, _envelope('ping', message_id='MSG-1'))
-        _, retry_body = broker.published[0]
+        _, retry_body = broker.rejected[0]
 
-        await broker.deliver(COMMANDS, retry_body)
+        await broker.deliver(COMMANDS, retry_body, attempt=2)
 
         assert handler.handle.await_count == 2
 
@@ -570,9 +572,9 @@ class TestRedelivery:
         handler = mocker.AsyncMock()
         handler.handle.side_effect = [ExternalServiceError('still down'), []]
         await CommandConsumer(broker, handler, inbox).start()
-        body = _envelope('ping', attempts=CommandConsumer.MAX_ATTEMPTS - 1, message_id='MSG-1')
-        await broker.deliver(COMMANDS, body)
-        replayed = {**json.loads(body), 'attempts': 0, 'replayed': True}
+        body = _envelope('ping', message_id='MSG-1')
+        await broker.deliver(COMMANDS, body, attempt=CommandConsumer.MAX_ATTEMPTS)
+        replayed = {**json.loads(body), 'replayed': True}
 
         await broker.deliver(COMMANDS, json.dumps(replayed).encode())
 
@@ -883,17 +885,16 @@ class TestQueueContract:
         }
 
     @pytest.mark.anyio
-    async def test_retry_republishes_the_envelope_with_the_attempt_count(self, mocker):
+    async def test_retry_rejects_the_delivery_as_received(self, mocker):
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
         handler.handle.side_effect = ExternalServiceError('api down')
         await CommandConsumer(broker, handler).start()
+        body = json.dumps(_full_envelope()).encode()
 
-        await broker.deliver(COMMANDS, json.dumps(_full_envelope(attempts=1)).encode())
+        await broker.deliver(COMMANDS, body, attempt=CommandConsumer.MAX_ATTEMPTS - 1)
 
-        queue, body = broker.published[0]
-        assert queue == 'commands.retry'
-        assert json.loads(body) == _full_envelope(attempts=2)
+        assert broker.rejected == [(COMMANDS, body)]
 
     @pytest.mark.anyio
     async def test_dead_letter_is_the_envelope_as_received_then_the_error_reply(self, mocker):
@@ -901,9 +902,11 @@ class TestQueueContract:
         handler = mocker.AsyncMock()
         handler.handle.side_effect = ExternalServiceError('still down')
         await CommandConsumer(broker, handler).start()
-        envelope = _full_envelope(attempts=CommandConsumer.MAX_ATTEMPTS - 1)
+        envelope = _full_envelope()
 
-        await broker.deliver(COMMANDS, json.dumps(envelope).encode())
+        await broker.deliver(
+            COMMANDS, json.dumps(envelope).encode(), attempt=CommandConsumer.MAX_ATTEMPTS
+        )
 
         (dlq_queue, dlq_body), (reply_queue, reply_body) = broker.published
         assert (dlq_queue, json.loads(dlq_body)) == ('commands.dlq', envelope)
@@ -936,14 +939,14 @@ class TestReplyIds:
 
     @staticmethod
     async def _replies(
-        mocker, messages=None, error=None, attempts=2
+        mocker, messages=None, error=None, attempt=3
     ) -> tuple[MockBrokerPort, list[dict]]:
         broker = MockBrokerPort()
         handler = mocker.AsyncMock()
         handler.handle.return_value = messages
         handler.handle.side_effect = error
         await CommandConsumer(broker, handler).start()
-        await broker.deliver(COMMANDS, _envelope('ping', attempts=attempts))
+        await broker.deliver(COMMANDS, _envelope('ping'), attempt=attempt)
         bodies = [json.loads(body) for queue, body in broker.published if queue == 'replies']
         return broker, [message for body in bodies for message in body['messages']]
 
@@ -1004,6 +1007,23 @@ class TestReplyIds:
 
     @pytest.mark.anyio
     async def test_a_scheduled_retry_stores_nothing(self, mocker, store):
-        await self._replies(mocker, error=ExternalServiceError('api down'), attempts=0)
+        await self._replies(mocker, error=ExternalServiceError('api down'), attempt=1)
 
         assert await store._redis.keys('*') == []
+
+    @pytest.mark.anyio
+    async def test_a_redelivered_command_records_its_attempt(self, mocker, store):
+        broker = MockBrokerPort()
+        handler = mocker.AsyncMock()
+        pong = BotMessage(jid='g@g.us', content=TextContent('pong'))
+        handler.handle.side_effect = [ExternalServiceError('api down'), [pong]]
+        await CommandConsumer(broker, handler).start()
+        await broker.deliver(COMMANDS, _envelope('ping'))
+        _, rejected = broker.rejected[0]
+
+        await broker.deliver(COMMANDS, rejected, attempt=2)
+
+        [(_, body)] = [(queue, body) for queue, body in broker.published if queue == 'replies']
+        [reply] = json.loads(body)['messages']
+        record = await store.find(Platform.WHATSAPP, 'g@g.us', reply['message_id'])
+        assert record['attempt'] == 2

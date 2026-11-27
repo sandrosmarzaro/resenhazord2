@@ -13,20 +13,19 @@ from bot.application.command_handler import CommandHandler
 from bot.application.command_registry import CommandRegistry
 from bot.application.register_commands import register_all_commands
 from bot.application.throttled_agent import ThrottledAgent
-from bot.data.broker_topology import DURABLE_QUEUES, RETRY_QUEUE_ARGUMENTS
 from bot.data.fifa_ratings import FIFA_RATINGS_URL
 from bot.domain.commands.add import AddCommand
 from bot.domain.commands.ban import BanCommand
 from bot.domain.constants import COMMAND_OFF_IN_CHAT
 from bot.domain.services.ytdlp import YtDlpService
 from bot.infrastructure.broker import RabbitBroker
-from bot.infrastructure.broker_topology import BrokerTopology
 from bot.infrastructure.cached_config_store import CachedConfigStore
 from bot.infrastructure.command_inbox import RedisCommandInbox
 from bot.infrastructure.database import Database
 from bot.infrastructure.models import Base
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
+from tests.fixtures.short_ladder import short_ladder
 from tests.integration.command_flow_harness import (
     ADMIN_JID,
     BOT_JID,
@@ -44,8 +43,8 @@ from tests.integration.command_flow_harness import (
 )
 
 FLOWS_DB = 'command_flows_test'
-# The real ladder waits 30 s per hop. The retry queue gets its TTL at declare time, which
-# is why this module runs its own broker.
+# The real ladder waits 5 s, 30 s and 2 m. A retry step gets its TTL at declare time,
+# which is why this module runs its own broker.
 RETRY_TTL_MS = 100
 ADMIN_ONLY = 'Só admin pode usar esse comando. 🙅'
 DEV_ONLY = 'Esse comando é apenas para desenvolvedores. 🛠️'
@@ -122,10 +121,7 @@ def handler(registry, mocker) -> CommandHandler:
 
 @pytest.fixture
 async def bot(stores, handler, flows_rabbitmq_url, redis_url, respx_mock):
-    retry = RETRY_QUEUE_ARGUMENTS | {'x-message-ttl': RETRY_TTL_MS}
-    broker = RabbitBroker(
-        BrokerTopology(queues=DURABLE_QUEUES | {CommandConsumer.RETRY_QUEUE: retry})
-    )
+    broker = RabbitBroker(short_ladder(RETRY_TTL_MS, RETRY_TTL_MS, RETRY_TTL_MS))
     await broker.connect(flows_rabbitmq_url)
     under_test = BotUnderTest(broker)
     previous = structlog.get_config()['processors']

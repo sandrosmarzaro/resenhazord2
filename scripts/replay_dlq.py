@@ -34,7 +34,8 @@ class DlqReplayer:
             queue = await channel.declare_queue(CommandConsumer.DLQ_QUEUE, durable=True)
             replayed = 0
             while message := await queue.get(fail=False):
-                envelope = {**json.loads(message.body), 'attempts': 0, 'replayed': True}
+                # A new message without the dead letter's x-death: the ladder starts over.
+                envelope = {**json.loads(message.body), 'replayed': True}
                 await channel.default_exchange.publish(
                     aio_pika.Message(
                         json.dumps(envelope).encode(),

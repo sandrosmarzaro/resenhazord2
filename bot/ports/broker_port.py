@@ -1,7 +1,20 @@
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Protocol
 
-MessageHandler = Callable[[bytes], Awaitable[None]]
+
+@dataclass(frozen=True)
+class Delivery:
+    body: bytes
+    # Counts this run: 1, plus each time this queue already rejected the message.
+    attempt: int = 1
+
+
+class DeliveryRejectedError(Exception):
+    """Rejects the delivery without requeue, so the queue's dead-letter route takes it."""
+
+
+MessageHandler = Callable[[Delivery], Awaitable[None]]
 RpcHandler = Callable[[bytes], Awaitable[bytes]]
 
 

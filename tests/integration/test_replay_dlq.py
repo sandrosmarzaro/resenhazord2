@@ -1,20 +1,28 @@
+import asyncio
 import json
 
 import aio_pika
 import pytest
 
 from bot.adapters.broker.command_consumer import CommandConsumer
+from bot.infrastructure.broker import RabbitBroker
 from bot.infrastructure.broker_topology import BrokerTopology
+from bot.ports.broker_port import Delivery
 from scripts.replay_dlq import DlqReplayer
 
 
 def _dead_letter(text: str) -> aio_pika.Message:
     envelope = {
         'id': f'corr-{text}',
-        'attempts': CommandConsumer.MAX_ATTEMPTS,
         'data': {'text': text, 'jid': 'g@g.us', 'sender_jid': 'u@s.whatsapp.net'},
     }
-    return aio_pika.Message(json.dumps(envelope).encode())
+    # What a command that ran out the ladder carries: the quorum queue rejected it 4 times.
+    death = {
+        'queue': CommandConsumer.COMMANDS_QUEUE,
+        'reason': 'rejected',
+        'count': CommandConsumer.MAX_ATTEMPTS + 1,
+    }
+    return aio_pika.Message(json.dumps(envelope).encode(), headers={'x-death': [death]})
 
 
 @pytest.fixture
@@ -66,10 +74,22 @@ class TestReplay:
         assert await _drain(connection, CommandConsumer.DLQ_QUEUE) == []
 
     @pytest.mark.anyio
-    async def test_replayed_commands_restart_the_retry_ladder(self, connection):
+    async def test_replayed_commands_restart_the_retry_ladder(self, connection, rabbitmq_url):
+        both = asyncio.Event()
+        runs: list[tuple[int, bool]] = []
+
+        async def record(delivery: Delivery) -> None:
+            runs.append((delivery.attempt, json.loads(delivery.body)['replayed']))
+            if len(runs) == len(('ping', 'pong')):
+                both.set()
+
+        broker = RabbitBroker()
+        await broker.connect(rabbitmq_url)
         await DlqReplayer(connection).replay()
 
-        commands = await _drain(connection, CommandConsumer.COMMANDS_QUEUE)
-        assert {(envelope['attempts'], envelope['replayed']) for envelope in commands} == {
-            (0, True)
-        }
+        await broker.consume(CommandConsumer.COMMANDS_QUEUE, record)
+        async with asyncio.timeout(10):
+            await both.wait()
+        await broker.close()
+
+        assert runs == [(1, True), (1, True)]
