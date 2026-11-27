@@ -104,6 +104,7 @@ class TestInstance:
     async def test_with_a_redis_url_the_store_writes_there(self, monkeypatch):
         monkeypatch.setenv('REDIS_URL', 'redis://127.0.0.1:1')
         ExecutionStore.reset()
+        store = ExecutionStore.instance()
 
         with pytest.raises(RedisConnectionError):
-            await ExecutionStore.instance().find('telegram', '-100', '1')
+            await store.find('telegram', '-100', '1')
