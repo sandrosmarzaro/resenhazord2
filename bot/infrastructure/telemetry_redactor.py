@@ -50,10 +50,11 @@ class TelemetryRedactor:
     _SECRETS: ClassVar[tuple[tuple[re.Pattern[str], str], ...]] = (
         (re.compile(r'bot\d++:[\w-]++'), f'bot{REDACTED}'),
         (re.compile(r'(?<!\d)\d{6,}+:[\w-]{30,}+'), REDACTED),
-        # A credential after its scheme word. It must hold a digit, so a plain word
-        # after "bot" or "token" in a sentence stays readable.
+        (re.compile(r'(?i)\b(bearer|basic)\s++[\w.~+/=-]{8,}+'), rf'\1 {REDACTED}'),
+        # After "bot" or "token" the credential must hold a digit, so a plain word after
+        # either in a sentence stays readable.
         (
-            re.compile(r'(?i)\b(bearer|basic|bot|token)\s++(?=[\w.~+/=-]*\d)[\w.~+/=-]{8,}+'),
+            re.compile(r'(?i)\b(bot|token)\s++(?=[\w.~+/=-]*\d)[\w.~+/=-]{8,}+'),
             rf'\1 {REDACTED}',
         ),
         # A Discord bot token: three dot-separated base64url parts.
@@ -116,11 +117,15 @@ class TelemetryRedactor:
     @classmethod
     def _hide_named_value(cls, match: re.Match[str]) -> str:
         name, separator = match.groups()
-        if not any(part in name.lower() for part in SECRET_NAME_PARTS):
-            return match.group()
         value = match.group()[match.end(2) - match.start() :]
         quote = value[0] if value[0] in '"\'' else ''
-        return f'{name}{separator}{quote}{cls.REDACTED}{quote}'
+        if any(part in name.lower() for part in SECRET_NAME_PARTS):
+            return f'{name}{separator}{quote}{cls.REDACTED}{quote}'
+        if not quote:
+            return match.group()
+        # Another name's quoted value can hold a secret pair of its own. Its text has no
+        # quote of the same kind, so the nested pass is shorter and ends.
+        return f'{name}{separator}{cls._NAMED_VALUE.sub(cls._hide_named_value, value)}'
 
     @classmethod
     def _hash_identity(cls, match: re.Match[str]) -> str:
