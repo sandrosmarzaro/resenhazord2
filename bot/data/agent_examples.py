@@ -175,6 +175,7 @@ AGENT_EXAMPLES = [
     ('manda um carro no status do grupo', ',carro status'),
     ('posta um animal no status', ',animal status'),
     ('gerenciar a lista de devs', ',dev'),
+    ('abre uma issue desse erro no github', ',bug'),
     # Bot links
     ('como adiciono o bot no discord', ',links'),
     ('link do bot', ',links'),
