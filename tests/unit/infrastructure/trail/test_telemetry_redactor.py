@@ -234,3 +234,47 @@ class TestElementRedactedBeforeItsCut:
         element = 'a' * 509 + ' token=' + 'b' * 600 + 'abc123secret'
 
         assert 'abc123secret' not in TelemetryRedactor.value([element])
+
+
+class TestWholeCredentialAfterName:
+    @pytest.mark.parametrize(
+        ('leak', 'secret'),
+        [
+            ('authorization: Bot abc.def123', 'abc.def123'),
+            ('authorization: Bearer xyz123', 'xyz123'),
+            ('token="Bearer xyz123"', 'xyz123'),
+            ("password='two secret words'", 'secret words'),
+            ('token="unclosed xyz123', 'xyz123'),
+            ('{"token": "Digest abc123"}', 'abc123'),
+        ],
+    )
+    def test_hides_the_whole_value(self, leak, secret):
+        assert secret not in TelemetryRedactor.text(leak)
+
+    def test_a_quoted_value_keeps_its_quotes(self):
+        assert TelemetryRedactor.text('token="a b"') == 'token="<redacted>"'
+
+
+class TestSchemeCredentials:
+    @pytest.mark.parametrize('scheme', ['Bot', 'Token', 'Bearer', 'Basic'])
+    def test_hides_a_credential_after_its_scheme(self, scheme):
+        assert 'abcd12345' not in TelemetryRedactor.text(f'sent with {scheme} abcd12345')
+
+    def test_keeps_a_plain_word_after_bot(self):
+        assert TelemetryRedactor.text('o bot respondeu errado') == 'o bot respondeu errado'
+
+
+class TestDiscordBotToken:
+    # Built at runtime so no scanner takes the test value for a real token.
+    TOKEN = 'A' * 24 + '.' + 'B' * 6 + '.' + 'C' * 27
+
+    def test_hides_a_discord_bot_token(self):
+        assert self.TOKEN not in TelemetryRedactor.text(f'login failed for {self.TOKEN}')
+
+    def test_a_long_dotted_run_finishes_fast(self):
+        adversarial = ('A' * 24 + '.') * 2_000
+
+        started = time.perf_counter()
+        TelemetryRedactor.text(adversarial)
+
+        assert time.perf_counter() - started < LINEAR_BUDGET_SECONDS
