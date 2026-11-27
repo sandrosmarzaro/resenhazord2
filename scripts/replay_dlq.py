@@ -1,4 +1,4 @@
-"""Send the dead-lettered commands back to the commands queue.
+"""Send the dead-lettered commands back to the quorum commands queue.
 
 Runs inside the core bot container, which reaches the edge broker:
 

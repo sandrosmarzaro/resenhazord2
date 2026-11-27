@@ -458,7 +458,7 @@ class TestUnexpectedFailure:
         }
 
         with capture_logs() as logs:
-            await broker.deliver('commands', json.dumps(envelope).encode())
+            await broker.deliver(CommandConsumer.COMMANDS_QUEUE, json.dumps(envelope).encode())
 
         assert [log['event'] for log in logs if log['log_level'] == 'error'] == [
             'command_unexpected_error'

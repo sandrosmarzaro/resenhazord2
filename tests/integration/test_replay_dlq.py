@@ -4,6 +4,7 @@ import aio_pika
 import pytest
 
 from bot.adapters.broker.command_consumer import CommandConsumer
+from bot.infrastructure.broker_topology import BrokerTopology
 from scripts.replay_dlq import DlqReplayer
 
 
@@ -20,8 +21,9 @@ def _dead_letter(text: str) -> aio_pika.Message:
 async def connection(rabbitmq_url):
     async with await aio_pika.connect(rabbitmq_url) as connection:
         channel = await connection.channel()
+        await BrokerTopology().declare(channel)
         for name in (CommandConsumer.DLQ_QUEUE, CommandConsumer.COMMANDS_QUEUE):
-            queue = await channel.declare_queue(name, durable=True)
+            queue = await channel.get_queue(name)
             await queue.purge()
         for text in ('ping', 'pong'):
             await channel.default_exchange.publish(
@@ -32,7 +34,7 @@ async def connection(rabbitmq_url):
 
 async def _drain(connection, name: str) -> list[dict]:
     channel = await connection.channel()
-    queue = await channel.declare_queue(name, durable=True)
+    queue = await channel.get_queue(name)
     envelopes = []
     while message := await queue.get(no_ack=True, fail=False):
         envelopes.append(json.loads(message.body))
@@ -55,7 +57,7 @@ class TestPreview:
 
 class TestReplay:
     @pytest.mark.anyio
-    async def test_moves_dead_letters_back_to_commands(self, connection):
+    async def test_moves_dead_letters_back_to_the_commands_queue(self, connection):
         replayed = await DlqReplayer(connection).replay()
 
         commands = await _drain(connection, CommandConsumer.COMMANDS_QUEUE)
