@@ -10,7 +10,7 @@ LINEAR_BUDGET_SECONDS = 0.5
 
 class TestSecrets:
     def test_hides_a_telegram_bot_token_in_a_url(self):
-        url = 'https://api.telegram.org/bot123456789:' 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw/getMe'
+        url = 'https://api.telegram.org/bot123456789:' + 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw/getMe'
 
         assert TelemetryRedactor.text(url) == 'https://api.telegram.org/bot<redacted>/getMe'
 
@@ -122,8 +122,8 @@ class TestProviderKeys:
             'lsv2_pt_abcdefghijklmnop1234',
             'sk-abcdefghijklmnop1234',
             'xoxb-1234-abcdefghijklmnop',
-            'AKIA' 'ABCDEFGHIJKLMNOP',
-            '123456789:' 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw',
+            'AKIA' + 'ABCDEFGHIJKLMNOP',
+            '123456789:' + 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw',
         ],
     )
     def test_hides_a_provider_key_in_free_text(self, key):
@@ -219,7 +219,7 @@ class TestMoreSecretNames:
 
 class TestPrefixedSecrets:
     def test_hides_a_telegram_token_after_a_colon(self):
-        token = '123456789:' 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw'
+        token = '123456789:' + 'AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw'
 
         assert token.split(':')[1] not in TelemetryRedactor.text(f'chat:{token}')
 
