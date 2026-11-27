@@ -1,5 +1,7 @@
 """Register all Python-side commands with the CommandRegistry."""
 
+from redis.asyncio import Redis
+
 from bot.application.agent_response import AgentResponseTranslator
 from bot.application.command_registry import CommandRegistry
 from bot.application.example_selector import ExampleSelector
@@ -13,6 +15,7 @@ from bot.domain.commands.beer import BeerCommand
 from bot.domain.commands.bible import BibleCommand
 from bot.domain.commands.birthday import BirthdayCommand
 from bot.domain.commands.borges import BorgesCommand
+from bot.domain.commands.bug_report import BugReportCommand
 from bot.domain.commands.car import CarCommand
 from bot.domain.commands.clash_royale import ClashRoyaleCommand
 from bot.domain.commands.config import ConfigCommand
@@ -61,8 +64,11 @@ from bot.domain.commands.short import ShortCommand
 from bot.domain.commands.sticker import StickerCommand
 from bot.domain.commands.torah import TorahCommand
 from bot.domain.commands.yugioh import YugiohCommand
+from bot.domain.services.bug_report.telemetry_links import TelemetryLinks
 from bot.domain.services.discord import DiscordService
 from bot.infrastructure.database import Database
+from bot.infrastructure.github_issues import GitHubIssues
+from bot.infrastructure.issue_filings import IssueFilings
 from bot.infrastructure.llm.agent_graph_nodes import AgentGraphNodes
 from bot.infrastructure.llm.graph_orchestrator import GraphAgentOrchestrator
 from bot.infrastructure.llm.langchain_provider import LangChainProvider
@@ -207,3 +213,13 @@ def _register_configured_commands(registry: CommandRegistry, settings: Settings)
     registry.register(HentaiCommand())
     registry.register(MusicCommand(jamendo_client_id=settings.jamendo_client_id))
     registry.register(BeerCommand(off_session=settings.off_session))
+    registry.register(_bug_report_command(settings))
+
+
+def _bug_report_command(settings: Settings) -> BugReportCommand:
+    issues = None
+    if settings.github_token:
+        issues = GitHubIssues(settings.github_token, settings.github_repository)
+    redis = Redis.from_url(settings.redis_url) if settings.redis_url else None
+    links = TelemetryLinks(settings.grafana_url, settings.sentry_org)
+    return BugReportCommand(issues, IssueFilings(redis), links)
