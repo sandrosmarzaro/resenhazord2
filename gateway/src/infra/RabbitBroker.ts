@@ -63,26 +63,29 @@ export default class RabbitBroker implements BrokerPort {
   // The core declares the same topology (ADR 0017), so whichever node starts first, a
   // publish never targets an exchange or queue that doesn't exist yet. Every declare is
   // idempotent; connect runs again on each WhatsApp reconnect.
+  // Declares within a group don't depend on each other; each group needs the one before.
   private async declareTopology(channel: Channel): Promise<void> {
-    for (const exchange of this.topology.exchanges) {
-      await channel.assertExchange(exchange, 'topic', { durable: true });
-    }
-    for (const [queue, args] of Object.entries(this.topology.queues)) {
-      await channel.assertQueue(queue, { durable: true, arguments: args });
-    }
-    for (const { exchange, pattern, queue } of this.topology.bindings) {
-      await channel.bindQueue(queue, exchange, pattern);
-    }
-    const { deadLetterExchange, deadLetterRoutes } = this.topology;
+    const { exchanges, queues, bindings, deadLetterExchange, deadLetterRoutes } = this.topology;
+    await Promise.all(
+      exchanges.map((exchange) => channel.assertExchange(exchange, 'topic', { durable: true })),
+    );
+    await Promise.all(
+      Object.entries(queues).map(([queue, args]) =>
+        channel.assertQueue(queue, { durable: true, arguments: args }),
+      ),
+    );
+    await Promise.all(
+      bindings.map(({ exchange, pattern, queue }) => channel.bindQueue(queue, exchange, pattern)),
+    );
     await channel.assertExchange(deadLetterExchange, 'headers', { durable: true });
-    for (const [reason, destination] of Object.entries(deadLetterRoutes)) {
-      const death = { 'x-match': RabbitBroker.DEATH_MATCH, 'x-last-death-reason': reason };
-      if (this.topology.exchanges.includes(destination)) {
-        await channel.bindExchange(destination, deadLetterExchange, '', death);
-      } else {
-        await channel.bindQueue(destination, deadLetterExchange, '', death);
-      }
-    }
+    await Promise.all(
+      Object.entries(deadLetterRoutes).map(([reason, destination]) => {
+        const death = { 'x-match': RabbitBroker.DEATH_MATCH, 'x-last-death-reason': reason };
+        return exchanges.includes(destination)
+          ? channel.bindExchange(destination, deadLetterExchange, '', death)
+          : channel.bindQueue(destination, deadLetterExchange, '', death);
+      }),
+    );
   }
 
   private async dispatch(
