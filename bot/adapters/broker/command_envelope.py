@@ -1,5 +1,6 @@
 import base64
-from typing import Any
+import secrets
+from typing import Any, ClassVar
 
 from bot.adapters.http.schemas import CommandPayload
 from bot.domain.commands.base import Platform
@@ -8,6 +9,10 @@ from bot.domain.models.message import BotMessage
 
 
 class CommandEnvelope:
+    # Baileys' own outgoing ids are 3EB0 and 18 uppercase hex digits; ours match them.
+    _MESSAGE_ID_PREFIX: ClassVar[str] = '3EB0'
+    _MESSAGE_ID_BYTES: ClassVar[int] = 9
+
     @staticmethod
     def to_command_data(data: dict[str, Any]) -> CommandData:
         parsed = CommandPayload.model_validate(data)
@@ -38,9 +43,16 @@ class CommandEnvelope:
     def reply(cls, envelope_id: str, messages: list[BotMessage]) -> dict[str, Any]:
         return {'id': envelope_id, 'messages': [cls._serialize(message) for message in messages]}
 
-    @staticmethod
-    def _serialize(message: BotMessage) -> dict[str, Any]:
+    @classmethod
+    def _serialize(cls, message: BotMessage) -> dict[str, Any]:
         payload = message.to_dict()
+        # The core names each chat reply, so the record of the command that made it is
+        # found again when a dev quotes it with ,bug. A status leaves the chat, so it
+        # gets none. An older gateway ignores the field and Baileys names it instead.
+        if not message.group_status:
+            payload['message_id'] = (
+                cls._MESSAGE_ID_PREFIX + secrets.token_hex(cls._MESSAGE_ID_BYTES).upper()
+            )
         if message.content.has_buffer:
             # Small media rides base64-inline in the reply JSON (the WS path sent it as a
             # separate binary frame); the gateway decodes it back in ReplyDeserializer.

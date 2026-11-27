@@ -22,6 +22,7 @@ from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.video_thumbnail import VideoThumbnail
+from bot.infrastructure.command_trail import CommandTrail
 from bot.infrastructure.metrics import record_lane_wait, track_in_flight
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
 from bot.ports.broker_port import BrokerPort, Delivery
@@ -118,44 +119,54 @@ class CommandConsumer:
         # connector in the core Alloy collector, split by the command.outcome
         # attribute — so no manual count/latency here. A retry leaves the span by raising
         # DeliveryRejectedError, which must not replace the status set below.
-        with _tracer.start_as_current_span(
-            'command.handle', context=parent, record_exception=False, set_status_on_exception=False
-        ) as span:
-            try:
-                messages = await self._command_handler.handle(
-                    command_data, on_match=partial(self._enter_lane, lane)
-                )
-            except ExternalServiceError as error:
-                outcome = 'external_error'
-                span.set_status(StatusCode.ERROR, type(error).__name__)
-                await self._retries.route(envelope, error, attempt)
-                await self._publish_reply(
-                    envelope, [Reply.to(command_data).text(error.user_message)]
-                )
-            except BotError as error:
-                outcome = 'bot_error'
-                await self._publish_reply(
-                    envelope, [Reply.to(command_data).text(error.user_message)]
-                )
-            # Anything else escaped the consume callback: aio_pika rejected the message
-            # without requeue, the user got no reply, and the span still said success.
-            except Exception as error:
-                outcome = 'unexpected_error'
-                # Only the type: an httpx message carries the URL, query secrets and all
-                # (the Telegram token leak, PR #204). Sentry gets the full exception.
-                span.set_status(StatusCode.ERROR, type(error).__name__)
-                logger.exception('command_unexpected_error')
-                await self._publish_reply(
-                    envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
-                )
-            else:
-                # Only WhatsApp needs a thumbnail sent: Baileys can't draw one on the edge.
-                replies = messages or []
-                for message in replies:
-                    await VideoThumbnail.attach(message)
-                await self._publish_reply(envelope, replies)
-            finally:
-                span.set_attribute('command.outcome', outcome)
+        # The trail spans the handling and the reply, so the record it stores holds the
+        # whole command and is keyed by the reply ids the gateway will send.
+        async with CommandTrail.open(
+            command_data,
+            correlation_id=envelope['id'],
+            attempt=attempt,
+        ):
+            with _tracer.start_as_current_span(
+                'command.handle',
+                context=parent,
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as span:
+                try:
+                    messages = await self._command_handler.handle(
+                        command_data, on_match=partial(self._enter_lane, lane)
+                    )
+                except ExternalServiceError as error:
+                    outcome = 'external_error'
+                    span.set_status(StatusCode.ERROR, type(error).__name__)
+                    await self._retries.route(envelope, error, attempt)
+                    await self._publish_reply(
+                        envelope, [Reply.to(command_data).text(error.user_message)]
+                    )
+                except BotError as error:
+                    outcome = 'bot_error'
+                    await self._publish_reply(
+                        envelope, [Reply.to(command_data).text(error.user_message)]
+                    )
+                # Anything else escaped the consume callback: aio_pika rejected the message
+                # without requeue, the user got no reply, and the span still said success.
+                except Exception as error:
+                    outcome = 'unexpected_error'
+                    # Only the type: an httpx message carries the URL, query secrets and all
+                    # (the Telegram token leak, PR #204). Sentry gets the full exception.
+                    span.set_status(StatusCode.ERROR, type(error).__name__)
+                    logger.exception('command_unexpected_error')
+                    await self._publish_reply(
+                        envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
+                    )
+                else:
+                    # Only WhatsApp needs a thumbnail sent: Baileys can't draw one on the edge.
+                    replies = messages or []
+                    for message in replies:
+                        await VideoThumbnail.attach(message)
+                    await self._publish_reply(envelope, replies)
+                finally:
+                    span.set_attribute('command.outcome', outcome)
 
     async def _enter_lane(self, lane: AsyncExitStack, command: Command) -> None:
         if not command.config.exclusive:
@@ -169,6 +180,10 @@ class CommandConsumer:
         # Carry the trace forward so the gateway's reply consumer can join it (Phase 4).
         inject_trace_context(reply)
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
+        for payload in reply['messages']:
+            content = payload['content']
+            summary = content.get('text') or content.get('caption') or content['type']
+            CommandTrail.remember(payload.get('message_id'), summary)
         # Marked only once the final reply is out: a crash before this line lets the
         # redelivery run again, and a scheduled retry never reaches here.
         await self._delivery.mark_answered(envelope)

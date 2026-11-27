@@ -3,7 +3,7 @@ import re
 import discord
 import structlog
 
-from bot.adapters.discord.renderer import DiscordResponseRenderer
+from bot.adapters.discord.renderer import DiscordReply, DiscordResponseRenderer
 from bot.application.command_gate import CommandGate
 from bot.application.command_registry import CommandRegistry
 from bot.application.config_service import ConfigService
@@ -13,6 +13,7 @@ from bot.domain.exceptions import BotError
 from bot.domain.models.command_data import CommandData
 from bot.domain.services.dev_list import DevListService
 from bot.infrastructure.cached_config_store import CachedConfigStore
+from bot.infrastructure.command_trail import CommandTrail
 from bot.infrastructure.metrics import record_rejection
 from bot.ports.discord_port import DiscordPort
 
@@ -21,6 +22,8 @@ logger = structlog.get_logger()
 
 class DiscordInteractionHandler:
     COMMAND_PREFIX = ','
+    ERROR_MESSAGE = 'Ocorreu um erro ao executar o comando.'
+    EMPTY_MESSAGE = 'Sem resposta do bot.'
 
     def __init__(
         self,
@@ -78,24 +81,32 @@ class DiscordInteractionHandler:
         return False
 
     async def _run_and_reply(self, port: DiscordPort, strategy, data, command_name: str) -> None:
-        try:
-            messages = await strategy.run(data)
-        except BotError as e:
-            await port.send_followup(e.user_message)
-            return
-        except Exception:
-            logger.exception('discord_command_error', command=command_name)
-            await port.send_followup('Ocorreu um erro ao executar o comando.')
-            return
+        # The trail spans the run and every followup, so the record is stored under the
+        # ids of the messages a dev can later point ,bug at.
+        async with CommandTrail.open(data):
+            try:
+                messages = await strategy.run(data)
+            except BotError as e:
+                await self._follow_up(port, DiscordReply(text=e.user_message))
+                return
+            except Exception:
+                logger.exception('discord_command_error', command=command_name)
+                await self._follow_up(port, DiscordReply(text=self.ERROR_MESSAGE))
+                return
 
-        if not messages:
-            await port.send_followup('Sem resposta do bot.')
-            return
+            if not messages:
+                await self._follow_up(port, DiscordReply(text=self.EMPTY_MESSAGE))
+                return
 
-        messages = await preprocess_messages(messages)
-        replies = await self._renderer.render_many_async(messages)
-        for reply in replies:
-            await port.send_followup(reply.text, embed=reply.embed, file=reply.file)
+            messages = await preprocess_messages(messages)
+            for reply in await self._renderer.render_many_async(messages):
+                await self._follow_up(port, reply)
+
+    @staticmethod
+    async def _follow_up(port: DiscordPort, reply: DiscordReply) -> None:
+        message_id = await port.send_followup(reply.text, embed=reply.embed, file=reply.file)
+        embed_text = reply.embed.description if reply.embed else None
+        CommandTrail.remember(message_id, reply.text or embed_text or 'file')
 
     def _build_command_text(self, command_name: str, kwargs: dict) -> str:
         registry_prefix = self._name_map.get(command_name, f'{self.COMMAND_PREFIX}{command_name}')

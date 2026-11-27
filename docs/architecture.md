@@ -386,7 +386,8 @@ decorator pattern. Python consumes it transparently through `WhatsAppPort`.
 ## Singletons
 
 Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`, all
-`configure()`d in `register_all_commands`. The agent is not a singleton:
+`configure()`d in `register_all_commands`. `ExecutionStore.instance()` holds the
+execution records `,bug` reads ([bug-reports.md](bug-reports.md)); tests default it off. The agent is not a singleton:
 `register_all_commands` builds the `GraphAgentOrchestrator` and returns it, and the
 FastAPI lifespan injects it into the WhatsApp handler (wrapped in `ThrottledAgent`),
 Discord and Telegram.

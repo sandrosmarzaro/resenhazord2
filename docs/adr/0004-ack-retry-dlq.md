@@ -106,9 +106,11 @@ the handler as `Delivery.attempt`. The envelope has no `attempts` field any more
 `MAX_ATTEMPTS` is still 3, so a caught external failure runs at 0 s, 5 s and 35 s and then
 gets the error reply while `RetryRouter` publishes it to `commands.dlq`.
 `DOWNLOAD_MAX_ATTEMPTS` is 1, so a `DownloadError` goes to the DLQ on its first failure.
-The 2 min step is the broker's own cap. Something the code rejects without counting, such
-as a bug that raises `DeliveryRejectedError` on every run, gets a fourth run after 2 min
-and then lands in the DLQ through `retry.dead` instead of looping.
+A caught failure never reaches the 2 min step, and that is on purpose: the step is the
+broker's safety net, and `MAX_ATTEMPTS` stays 3. Something the code rejects without
+counting, such as a bug that raises `DeliveryRejectedError` on every run, gets a fourth
+run after 2 min and then lands in the DLQ through `retry.dead`. No command loops through
+the ladder forever, whatever the code does.
 
 `x-delivery-limit` is the poison backstop. A command that kills the core before its ack
 comes back after every restart, and after three returns the broker dead-letters it with

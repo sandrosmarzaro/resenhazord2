@@ -12,7 +12,7 @@ grepping the call sites.
 | Field | Where it comes from | Use it to |
 |---|---|---|
 | `trace_id` | the OTel log bridge, on any record inside a span | open the trace in Tempo (Sentry's trace id is a different one) |
-| `correlation_id` | the broker envelope id, bound per delivery in `CommandConsumer` | follow one WhatsApp command across retries, the DLQ and Sentry (`correlation_id` tag) |
+| `correlation_id` | the broker envelope id, bound per delivery in `CommandConsumer` | follow one WhatsApp command across retries, the DLQ and Sentry (`correlation_id` tag). Discord and Telegram commands get a generated one as a Sentry tag only |
 | `jid`, `sender` | bound per delivery on the WhatsApp path | every log of a command in that chat |
 | `chat` | `command_completed` itself, on every platform | per-chat questions that include Discord and Telegram |
 
@@ -48,6 +48,7 @@ count, group or alert on. The other events explain one.
 | `platform_up`, `platform_failed`, `platform_retrying` | info, error, warning | `platform` | a platform adapter connected, crashed, or is backing off |
 | `dev_admin_bypass` | info | `chat`, `dev` | a dev who isn't an admin passed a `,config` check because the chat turned on `,config dev on`. The reply doesn't say so |
 | `birthday_celebration_error` | error | traceback | the midnight birthday job failed. It retries next midnight |
+| `execution_record_failed` | warning | `error` | the core couldn't store a command's execution record in Redis. The reply went out, but a `,bug` quoting it will find no record ([bug-reports.md](bug-reports.md)) |
 
 ## Queries
 

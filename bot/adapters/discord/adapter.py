@@ -39,7 +39,7 @@ class DiscordInteractionAdapter:
         *,
         embed: discord.Embed | None = None,
         file: discord.File | None = None,
-    ) -> None:
+    ) -> str:
         kwargs: dict = {}
         if text is not None:
             kwargs['content'] = text
@@ -47,4 +47,6 @@ class DiscordInteractionAdapter:
             kwargs['embed'] = embed
         if file is not None:
             kwargs['file'] = file
-        await self._interaction.followup.send(**kwargs)
+        # wait=True makes Discord return the message, whose id a later ,bug quotes.
+        message = await self._interaction.followup.send(**kwargs, wait=True)
+        return str(message.id)
