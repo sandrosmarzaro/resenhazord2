@@ -329,8 +329,9 @@ Useful metrics: **per-queue** (label `queue`) `rabbitmq_queue_messages_ready` (b
 counters exist) `rabbitmq_global_messages_received_total` (published in),
 `rabbitmq_global_messages_delivered_total` (out to consumers),
 `rabbitmq_global_messages_redelivered_total`. Our queues: `commands.quorum`, `commands`
-(classic, drained into `commands.quorum`), `commands.retry`, `commands.dlq`, `replies`,
-`group_events`, `wa_actions`, `wa_rpc`. A poison command shows up in
+(classic, drained into `commands.quorum`), `commands.retry.5s`, `commands.retry.30s`,
+`commands.retry.2m`, `commands.retry` (the old 30 s queue, empty once drained),
+`commands.dlq`, `replies`, `group_events`, `wa_actions`, `wa_rpc`. A poison command shows up in
 `rabbitmq_global_messages_dead_lettered_delivery_limit_total`.
 
 ### Queue depth (ready) by queue
@@ -340,7 +341,14 @@ sum by (queue) (rabbitmq_queue_messages_ready)
 
 ### Dead-letter / retry backlog
 ```promql
-rabbitmq_queue_messages{queue=~"commands.dlq|commands.retry"}
+rabbitmq_queue_messages{queue=~"commands\\.dlq|commands\\.retry.*"}
+```
+
+### Dead letters by reason
+```promql
+rate(rabbitmq_global_messages_dead_lettered_rejected_total[5m])        # retries into the ladder
+rate(rabbitmq_global_messages_dead_lettered_expired_total[5m])         # ladder steps ending
+rate(rabbitmq_global_messages_dead_lettered_delivery_limit_total[5m])  # poison commands
 ```
 
 ## Cross-linking logs ↔ traces

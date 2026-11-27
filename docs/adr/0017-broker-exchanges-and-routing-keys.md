@@ -62,13 +62,10 @@ Queue contracts ship expand/contract ([ADR 0006](./0006-two-node-cicd-deploy.md)
    its first publish, and the old consumer reads the same queue by name. It ships as its
    own change so the live bindings can be checked with `rabbitmqctl list_bindings` before
    any message depends on them.
-3. **Contract.** Move retry and dead-lettering off the default exchange. A
-   `resenhazord.dlx` exchange routes `command.retry` and `command.dead`. `commands.dlq`
-   only gains a binding. `commands.retry` cannot change its dead-letter arguments in
-   place, so a new retry queue that dead-letters to `resenhazord.commands` replaces it.
-   The old one stops being declared once empty, and the owner deletes it with
-   `rabbitmqctl delete_queue commands.retry`. `uv run task dlq:replay` then publishes by
-   routing key too.
+3. **Contract.** Retry and dead-lettering moved off the default exchange with the quorum
+   queue and the retry ladder: `resenhazord.dlx` and `resenhazord.retry` are described in
+   the [ADR 0004](./0004-ack-retry-dlq.md) amendment of 2026-11-27, which also lists the
+   steps left to drop the classic `commands` and `commands.retry`.
 
 The `,dl` exclusive lane (`asyncio.Lock` in `CommandConsumer`) is unchanged. A routing
 key could send `,dl` to its own queue later, but the gateway would have to know which
