@@ -116,6 +116,27 @@ describe('ReplyConsumer', () => {
     );
   });
 
+  it('sends the reply under the id the core named it with', async () => {
+    const { whatsapp, deliver } = await startConsumer();
+
+    await deliver({
+      id: 'corr-1',
+      messages: [
+        {
+          jid: 'g@g.us',
+          content: { type: 'text', text: 'pong' },
+          message_id: '3EB0ABCDEF0123456789AB',
+        },
+      ],
+    });
+
+    expect(whatsapp.sendMessage).toHaveBeenCalledWith(
+      'g@g.us',
+      { text: 'pong' },
+      { messageId: '3EB0ABCDEF0123456789AB' },
+    );
+  });
+
   it('skips the quote when the original message is no longer tracked', async () => {
     const { whatsapp, deliver } = await startConsumer();
 

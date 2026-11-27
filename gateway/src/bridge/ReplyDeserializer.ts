@@ -40,10 +40,14 @@ export default class ReplyDeserializer {
   }
 
   // Quoting belongs to ReplyConsumer: it holds the original WAMessage in flight,
-  // which Baileys requires to build the reply context. Here we only carry expiration.
+  // which Baileys requires to build the reply context. Here we carry the expiration
+  // and the id the core named the reply with, so a later ,bug that quotes it finds the
+  // command's record. A reply without one (an older core) gets an id from Baileys.
   private static options(raw: ContentDict): Message['options'] | null {
-    if (!raw.expiration) return null;
-    return { ephemeralExpiration: raw.expiration as number };
+    const options: NonNullable<Message['options']> = {};
+    if (raw.expiration) options.ephemeralExpiration = raw.expiration as number;
+    if (typeof raw.message_id === 'string') options.messageId = raw.message_id;
+    return Object.keys(options).length > 0 ? options : null;
   }
 
   private static buffer(content: ContentDict): Buffer {

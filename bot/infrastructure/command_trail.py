@@ -58,9 +58,12 @@ class CommandTrail:
             cls._CURRENT.reset(token)
             await trail._close()
 
-    def remember(self, message_id: str | None, summary: str) -> None:
-        if message_id:
-            self._replies[message_id] = TelemetryRedactor.value(summary)
+    @classmethod
+    def remember(cls, message_id: str | None, summary: str) -> None:
+        # The platform names each reply it sent; outside a command there is no trail.
+        trail = cls.current()
+        if trail is not None and message_id:
+            trail._replies[message_id] = TelemetryRedactor.value(summary)
 
     async def _close(self) -> None:
         spans, spans_dropped = self.spans.drain()
