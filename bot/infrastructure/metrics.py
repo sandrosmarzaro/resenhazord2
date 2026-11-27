@@ -11,6 +11,8 @@ installs (a proxy until then), so recording is a no-op when OTel is disabled.
 
 from opentelemetry import metrics, trace
 
+from bot.infrastructure.runtime_metrics import HostGauges
+
 _meter = metrics.get_meter(__name__)
 
 _retries = _meter.create_counter(
@@ -70,6 +72,7 @@ _lane_wait = _meter.create_histogram(
 
 def track_in_flight(delta: int) -> None:
     _in_flight.add(delta)
+    HostGauges.track_in_flight(delta)
 
 
 def record_lane_wait(milliseconds: float) -> None:

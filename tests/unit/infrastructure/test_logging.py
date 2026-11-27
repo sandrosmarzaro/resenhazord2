@@ -3,7 +3,9 @@ import logging
 import pytest
 import structlog
 
+from bot.infrastructure.command_trail import CommandTrail
 from bot.infrastructure.logging import configure_logging
+from tests.factories.command_data import GroupCommandDataFactory
 
 
 # configure_logging turns on cache_logger_on_first_use with a stdlib factory. Left in
@@ -47,3 +49,17 @@ class TestUpstreamFailures:
         structlog.get_logger().warning('command_unexpected_error', upstream='espn')
 
         failures.add.assert_not_called()
+
+
+class TestCommandTrail:
+    @pytest.mark.anyio
+    async def test_a_log_line_of_a_command_reaches_its_trail(self):
+        configure_logging()
+
+        async with CommandTrail.open(GroupCommandDataFactory(platform='whatsapp')) as trail:
+            structlog.get_logger().info('command_completed', command='moeda')
+            logs, _ = trail.logs.drain()
+
+        assert [(line['event'], line['fields']) for line in logs] == [
+            ('command_completed', {'command': 'moeda'})
+        ]

@@ -12,6 +12,7 @@ import structlog
 from structlog.types import EventDict, WrappedLogger
 
 from bot.infrastructure.metrics import record_upstream_failure
+from bot.infrastructure.trail_capture import TrailLogProcessor
 
 
 class HealthCheckFilter(logging.Filter):
@@ -95,6 +96,7 @@ def configure_logging() -> None:
         processors=[
             *_shared_processors,
             _count_upstream_failure,
+            TrailLogProcessor(),
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),

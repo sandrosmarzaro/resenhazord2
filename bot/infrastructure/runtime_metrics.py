@@ -31,14 +31,44 @@ def register_process_gauges(meter: Meter) -> None:
 
 
 def _resident_memory(_options: CallbackOptions) -> Iterable[Observation]:
+    yield Observation(_resident_bytes())
+
+
+def _resident_bytes() -> int:
     # statm's second field is the resident set, in pages.
     pages = int(Path('/proc/self/statm').read_text().split()[1])
-    yield Observation(pages * os.sysconf('SC_PAGE_SIZE'))
+    return pages * os.sysconf('SC_PAGE_SIZE')
 
 
 def _cpu_time(_options: CallbackOptions) -> Iterable[Observation]:
     usage = resource.getrusage(resource.RUSAGE_SELF)
     yield Observation(usage.ru_utime + usage.ru_stime)
+
+
+class HostGauges:
+    """The process's latest saturation readings, for a bug report to quote.
+
+    The meters only export these; a report needs the value at the moment it ran.
+    """
+
+    _in_flight: ClassVar[int] = 0
+    _loop_lag_ms: ClassVar[float] = 0.0
+
+    @classmethod
+    def track_in_flight(cls, delta: int) -> None:
+        cls._in_flight += delta
+
+    @classmethod
+    def note_loop_lag(cls, milliseconds: float) -> None:
+        cls._loop_lag_ms = milliseconds
+
+    @classmethod
+    def snapshot(cls) -> dict[str, float]:
+        return {
+            'rss_bytes': _resident_bytes(),
+            'loop_lag_ms': round(cls._loop_lag_ms, 1),
+            'in_flight': cls._in_flight,
+        }
 
 
 class LoopLagMonitor:
@@ -63,5 +93,6 @@ class LoopLagMonitor:
         loop = asyncio.get_running_loop()
         asleep_at = loop.time()
         await asyncio.sleep(self._interval)
-        late = loop.time() - asleep_at - self._interval
-        self._lag.record(max(late, 0) * self.MS_PER_SECOND)
+        late = max(loop.time() - asleep_at - self._interval, 0) * self.MS_PER_SECOND
+        self._lag.record(late)
+        HostGauges.note_loop_lag(late)
