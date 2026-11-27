@@ -1,16 +1,25 @@
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Protocol
 
-MessageHandler = Callable[[bytes], Awaitable[None]]
+
+@dataclass(frozen=True)
+class Delivery:
+    body: bytes
+    # Counts this run: 1, plus each time this queue already rejected the message.
+    attempt: int = 1
+
+
+class DeliveryRejectedError(Exception):
+    """Rejects the delivery without requeue, so the queue's dead-letter route takes it."""
+
+
+MessageHandler = Callable[[Delivery], Awaitable[None]]
 RpcHandler = Callable[[bytes], Awaitable[bytes]]
 
 
 class BrokerPort(Protocol):
     async def connect(self, url: str) -> None: ...
-
-    async def declare(self, queue: str) -> None: ...
-
-    async def declare_retry_queue(self, queue: str, ttl_ms: int, dead_letter_to: str) -> None: ...
 
     async def publish(self, queue: str, body: bytes) -> None: ...
 

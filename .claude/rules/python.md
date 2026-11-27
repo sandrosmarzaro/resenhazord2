@@ -14,6 +14,18 @@ Things that lint, format, or typecheck cannot catch. Follow PEP 8 plus the below
   methods on data classes. Keep serialization next to the data it describes.
 - **No `__init__.py`** — Python 3.3+ uses namespace packages (PEP 420); they are useless.
 
+## Imports
+
+- **No `if TYPE_CHECKING:` blocks.** PEP 649 (3.14+) already defers annotation
+  evaluation, so a type-only import is a plain import (ruff TC001–TC003 are off for
+  this reason). When the import is heavy or closes a cycle, use the 3.15 `lazy`
+  keyword (PEP 810) instead: `lazy from bot.domain.commands.base import Command  # type: ignore[syntax]`.
+  The module loads on first use of the name. Keep the bare `# type: ignore[syntax]`
+  until zuban parses `lazy`.
+- **A lazy name used at import time resolves at once**: class bases, decorators,
+  default values, module-level calls. `lazy` does not break a cycle there; move the
+  use into a function or restructure.
+
 ## Constants and data
 
 - **No magic numbers** — every numeric literal has a named constant. HTTP status

@@ -6,24 +6,31 @@ import {
   type RecoveringChannelModel,
 } from 'amqplib';
 
+import defaultTopology from '../data/BrokerTopology.json' with { type: 'json' };
 import type BrokerPort from '../ports/BrokerPort.js';
 import type { MessageHandler, RpcHandler } from '../ports/BrokerPort.js';
+import type { BrokerTopology } from '../types/brokerTopology.js';
 import logger from './Logger.js';
 
 export default class RabbitBroker implements BrokerPort {
+  // all-with-x: a plain headers match skips every header that starts with x-.
+  private static readonly DEATH_MATCH = 'all-with-x';
+
   private connection: RecoveringChannelModel | null = null;
   private channel: ConfirmChannel | null = null;
   private consumeChannel: Channel | null = null;
+
+  constructor(private readonly topology: BrokerTopology = defaultTopology) {}
 
   async connect(url: string): Promise<void> {
     this.connection = await amqpConnect(url, { recovery: true });
     this.channel = await this.connection.createConfirmChannel();
     this.consumeChannel = await this.connection.createChannel();
+    await this.declareTopology(this.channel);
   }
 
   async publish(queue: string, body: Buffer): Promise<void> {
     const channel = this.activeChannel();
-    await channel.assertQueue(queue, { durable: true });
     channel.sendToQueue(queue, body, { persistent: true });
     await channel.waitForConfirms();
   }
@@ -53,6 +60,34 @@ export default class RabbitBroker implements BrokerPort {
     }
   }
 
+  // The core declares the same topology (ADR 0017), so whichever node starts first, a
+  // publish never targets an exchange or queue that doesn't exist yet. Every declare is
+  // idempotent; connect runs again on each WhatsApp reconnect.
+  // Declares within a group don't depend on each other; each group needs the one before.
+  private async declareTopology(channel: Channel): Promise<void> {
+    const { exchanges, queues, bindings, deadLetterExchange, deadLetterRoutes } = this.topology;
+    await Promise.all(
+      exchanges.map((exchange) => channel.assertExchange(exchange, 'topic', { durable: true })),
+    );
+    await Promise.all(
+      Object.entries(queues).map(([queue, args]) =>
+        channel.assertQueue(queue, { durable: true, arguments: args }),
+      ),
+    );
+    await Promise.all(
+      bindings.map(({ exchange, pattern, queue }) => channel.bindQueue(queue, exchange, pattern)),
+    );
+    await channel.assertExchange(deadLetterExchange, 'headers', { durable: true });
+    await Promise.all(
+      Object.entries(deadLetterRoutes).map(([reason, destination]) => {
+        const death = { 'x-match': RabbitBroker.DEATH_MATCH, 'x-last-death-reason': reason };
+        return exchanges.includes(destination)
+          ? channel.bindExchange(destination, deadLetterExchange, '', death)
+          : channel.bindQueue(destination, deadLetterExchange, '', death);
+      }),
+    );
+  }
+
   private async dispatch(
     channel: Channel,
     handler: MessageHandler,
@@ -64,7 +99,7 @@ export default class RabbitBroker implements BrokerPort {
     } catch (error) {
       logger.error({ event: 'consume_handler_error', error: String(error) });
     } finally {
-      channel.ack(message);
+      this.ack(channel, message);
     }
   }
 
@@ -81,7 +116,16 @@ export default class RabbitBroker implements BrokerPort {
     } catch (error) {
       logger.error({ event: 'rpc_handler_error', error: String(error) });
     } finally {
+      this.ack(channel, message);
+    }
+  }
+
+  // A channel closed mid-handler can't ack; the broker redelivers the message after reconnect
+  private ack(channel: Channel, message: ConsumeMessage): void {
+    try {
       channel.ack(message);
+    } catch (error) {
+      logger.warn({ event: 'consume_ack_skipped', error: String(error) });
     }
   }
 

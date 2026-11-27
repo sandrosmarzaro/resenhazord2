@@ -1119,7 +1119,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "process_memory_rss_bytes",
+          "expr": "process_memory_rss_bytes{service_name=\"bot\"}",
           "legendFormat": "RSS"
         },
         {
@@ -1145,6 +1145,36 @@
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "sum(rabbitmq_queue_messages_ready{queue=\"commands.dlq\"})",
           "legendFormat": "commands.dlq"
+        }
+      ]
+    },
+    {
+      "id": 56,
+      "type": "timeseries",
+      "title": "Gateway memory (RSS / heap / external)",
+      "description": "The edge gateway process (#393). RSS rising with the heap is a JS leak; with external, Buffers; alone, the allocator. The container limit is 384 MiB.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 147 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "process_memory_rss_bytes{service_name=\"whatsapp\"}",
+          "legendFormat": "RSS"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "process_memory_heap_used_bytes{service_name=\"whatsapp\"}",
+          "legendFormat": "heap used"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "process_memory_external_bytes{service_name=\"whatsapp\"}",
+          "legendFormat": "external"
         }
       ]
     },

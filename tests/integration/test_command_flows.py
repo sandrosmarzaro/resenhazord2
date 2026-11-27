@@ -25,6 +25,7 @@ from bot.infrastructure.database import Database
 from bot.infrastructure.models import Base
 from bot.infrastructure.mongodb import MongoDBConnection
 from bot.settings import Settings
+from tests.fixtures.short_ladder import short_ladder
 from tests.integration.command_flow_harness import (
     ADMIN_JID,
     BOT_JID,
@@ -42,8 +43,8 @@ from tests.integration.command_flow_harness import (
 )
 
 FLOWS_DB = 'command_flows_test'
-# The real ladder waits 30 s per hop. The retry queue gets its TTL at declare time, which
-# is why this module runs its own broker.
+# The real ladder waits 5 s, 30 s and 2 m. A retry step gets its TTL at declare time,
+# which is why this module runs its own broker.
 RETRY_TTL_MS = 100
 ADMIN_ONLY = 'Só admin pode usar esse comando. 🙅'
 DEV_ONLY = 'Esse comando é apenas para desenvolvedores. 🛠️'
@@ -113,7 +114,6 @@ def registry(settings, mock_whatsapp, mocker) -> CommandRegistry:
 
 @pytest.fixture
 def handler(registry, mocker) -> CommandHandler:
-    mocker.patch.object(CommandConsumer, 'RETRY_TTL_MS', RETRY_TTL_MS)
     agent = mocker.AsyncMock()
     agent.run.return_value = None
     return CommandHandler(registry, ThrottledAgent(agent, None))
@@ -121,7 +121,7 @@ def handler(registry, mocker) -> CommandHandler:
 
 @pytest.fixture
 async def bot(stores, handler, flows_rabbitmq_url, redis_url, respx_mock):
-    broker = RabbitBroker()
+    broker = RabbitBroker(short_ladder(RETRY_TTL_MS, RETRY_TTL_MS, RETRY_TTL_MS))
     await broker.connect(flows_rabbitmq_url)
     under_test = BotUnderTest(broker)
     previous = structlog.get_config()['processors']

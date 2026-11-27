@@ -15,15 +15,17 @@ from bot.adapters.broker.command_envelope import CommandEnvelope
 from bot.adapters.broker.delivery_guard import DeliveryGuard
 from bot.adapters.broker.retry_router import RetryRouter
 from bot.application.command_handler import CommandHandler
+from bot.data.broker_topology import COMMANDS_QUEUE, DEAD_LETTER_QUEUE, LEGACY_COMMANDS_QUEUE
 from bot.domain.builders.reply import Reply
 from bot.domain.commands.base import Command
 from bot.domain.exceptions import BotError, ExternalServiceError
 from bot.domain.models.command_data import CommandData
 from bot.domain.models.message import BotMessage
 from bot.domain.services.video_thumbnail import VideoThumbnail
+from bot.infrastructure.command_trail import CommandTrail
 from bot.infrastructure.metrics import record_lane_wait, track_in_flight
 from bot.infrastructure.trace_propagation import extract_trace_context, inject_trace_context
-from bot.ports.broker_port import BrokerPort
+from bot.ports.broker_port import BrokerPort, Delivery
 from bot.ports.command_inbox_port import CommandInboxPort
 
 logger = structlog.get_logger()
@@ -31,13 +33,12 @@ _tracer = trace.get_tracer(__name__)
 
 
 class CommandConsumer:
-    COMMANDS_QUEUE = 'commands'
+    COMMANDS_QUEUE = COMMANDS_QUEUE
+    LEGACY_COMMANDS_QUEUE = LEGACY_COMMANDS_QUEUE
     REPLIES_QUEUE = 'replies'
-    RETRY_QUEUE = 'commands.retry'
-    DLQ_QUEUE = 'commands.dlq'
+    DLQ_QUEUE = DEAD_LETTER_QUEUE
     MAX_ATTEMPTS: ClassVar[int] = RetryRouter.MAX_ATTEMPTS
     DOWNLOAD_MAX_ATTEMPTS: ClassVar[int] = RetryRouter.DOWNLOAD_MAX_ATTEMPTS
-    RETRY_TTL_MS: ClassVar[int] = 30_000
     MS_PER_SECOND: ClassVar[int] = 1000
     UNEXPECTED_ERROR_MESSAGE: ClassVar[str] = 'Ocorreu um erro ao executar o comando.'
 
@@ -50,22 +51,21 @@ class CommandConsumer:
         self._broker = broker
         self._command_handler = command_handler
         self._delivery = DeliveryGuard(inbox)
-        self._retries = RetryRouter(broker, self.RETRY_QUEUE, self.DLQ_QUEUE)
+        self._retries = RetryRouter(broker, self.DLQ_QUEUE)
         self._exclusive_lane = asyncio.Lock()
 
     async def start(self) -> None:
-        # Declare the publish targets up front so the publishes from inside the consume
-        # callback never issue a queue-declare RPC (which would wedge the confirm). The
-        # retry queue parks a failed command for a backoff then dead-letters it back to
-        # commands; the DLQ is terminal (ADR 0004).
-        await self._broker.declare(self.REPLIES_QUEUE)
-        await self._broker.declare(self.DLQ_QUEUE)
-        await self._broker.declare_retry_queue(
-            self.RETRY_QUEUE, self.RETRY_TTL_MS, self.COMMANDS_QUEUE
-        )
+        # The broker declared the replies, retry ladder and DLQ queues at connect (ADR 0017).
+        # A rejected command waits in the ladder step for its attempt, then dead-letters
+        # back to the quorum queue; the DLQ is terminal (ADR 0004). The classic commands
+        # queue is drained into the quorum one, so every command runs under the ladder.
+        await self._broker.consume(self.LEGACY_COMMANDS_QUEUE, self._forward)
         await self._broker.consume(self.COMMANDS_QUEUE, self._handle)
 
-    async def _handle(self, body: bytes) -> None:
+    async def _forward(self, delivery: Delivery) -> None:
+        await self._broker.publish(self.COMMANDS_QUEUE, delivery.body)
+
+    async def _handle(self, delivery: Delivery) -> None:
         # A fresh Sentry isolation scope per message: set_tag mutates the scope object,
         # which the consume tasks share by reference, so the last command's tags used to
         # stamp later, unrelated events (e.g. the deploy shutdown error).
@@ -75,11 +75,11 @@ class CommandConsumer:
                 # The lane, once entered, is held until the reply is published:
                 # serializing a media reply is the memory peak, not running the command.
                 async with AsyncExitStack() as lane:
-                    await self._process(json.loads(body), lane)
+                    await self._process(json.loads(delivery.body), delivery.attempt, lane)
         finally:
             track_in_flight(-1)
 
-    async def _process(self, envelope: dict[str, Any], lane: AsyncExitStack) -> None:
+    async def _process(self, envelope: dict[str, Any], attempt: int, lane: AsyncExitStack) -> None:
         command_data = CommandEnvelope.to_command_data(envelope['data'])
 
         structlog.contextvars.clear_contextvars()
@@ -97,10 +97,14 @@ class CommandConsumer:
             if not claimed:
                 logger.info('command_duplicate_skipped')
                 return
-            await self._answer(envelope, command_data, lane)
+            await self._answer(envelope, command_data, attempt, lane)
 
     async def _answer(
-        self, envelope: dict[str, Any], command_data: CommandData, lane: AsyncExitStack
+        self,
+        envelope: dict[str, Any],
+        command_data: CommandData,
+        attempt: int,
+        lane: AsyncExitStack,
     ) -> None:
         if await self._delivery.already_answered(envelope):
             logger.info('command_redelivery_skipped')
@@ -113,40 +117,56 @@ class CommandConsumer:
         outcome = 'success'
         # RED (rate/errors/duration) is derived from this span by the spanmetrics
         # connector in the core Alloy collector, split by the command.outcome
-        # attribute — so no manual count/latency here.
-        with _tracer.start_as_current_span('command.handle', context=parent) as span:
-            try:
-                messages = await self._command_handler.handle(
-                    command_data, on_match=partial(self._enter_lane, lane)
-                )
-            except ExternalServiceError as error:
-                outcome = 'external_error'
-                span.set_status(StatusCode.ERROR, type(error).__name__)
-                await self._retry_or_fail(envelope, command_data, error)
-            except BotError as error:
-                outcome = 'bot_error'
-                await self._publish_reply(
-                    envelope, [Reply.to(command_data).text(error.user_message)]
-                )
-            # Anything else escaped the consume callback: aio_pika rejected the message
-            # without requeue, the user got no reply, and the span still said success.
-            except Exception as error:
-                outcome = 'unexpected_error'
-                # Only the type: an httpx message carries the URL, query secrets and all
-                # (the Telegram token leak, PR #204). Sentry gets the full exception.
-                span.set_status(StatusCode.ERROR, type(error).__name__)
-                logger.exception('command_unexpected_error')
-                await self._publish_reply(
-                    envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
-                )
-            else:
-                # Only WhatsApp needs a thumbnail sent: Baileys can't draw one on the edge.
-                replies = messages or []
-                for message in replies:
-                    await VideoThumbnail.attach(message)
-                await self._publish_reply(envelope, replies)
-            finally:
-                span.set_attribute('command.outcome', outcome)
+        # attribute — so no manual count/latency here. A retry leaves the span by raising
+        # DeliveryRejectedError, which must not replace the status set below.
+        # The trail spans the handling and the reply, so the record it stores holds the
+        # whole command and is keyed by the reply ids the gateway will send.
+        async with CommandTrail.open(
+            command_data,
+            correlation_id=envelope['id'],
+            attempt=attempt,
+        ):
+            with _tracer.start_as_current_span(
+                'command.handle',
+                context=parent,
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as span:
+                try:
+                    messages = await self._command_handler.handle(
+                        command_data, on_match=partial(self._enter_lane, lane)
+                    )
+                except ExternalServiceError as error:
+                    outcome = 'external_error'
+                    span.set_status(StatusCode.ERROR, type(error).__name__)
+                    await self._retries.route(envelope, error, attempt)
+                    await self._publish_reply(
+                        envelope, [Reply.to(command_data).text(error.user_message)]
+                    )
+                except BotError as error:
+                    outcome = 'bot_error'
+                    await self._publish_reply(
+                        envelope, [Reply.to(command_data).text(error.user_message)]
+                    )
+                # Anything else escaped the consume callback: aio_pika rejected the message
+                # without requeue, the user got no reply, and the span still said success.
+                except Exception as error:
+                    outcome = 'unexpected_error'
+                    # Only the type: an httpx message carries the URL, query secrets and all
+                    # (the Telegram token leak, PR #204). Sentry gets the full exception.
+                    span.set_status(StatusCode.ERROR, type(error).__name__)
+                    logger.exception('command_unexpected_error')
+                    await self._publish_reply(
+                        envelope, [Reply.to(command_data).text(self.UNEXPECTED_ERROR_MESSAGE)]
+                    )
+                else:
+                    # Only WhatsApp needs a thumbnail sent: Baileys can't draw one on the edge.
+                    replies = messages or []
+                    for message in replies:
+                        await VideoThumbnail.attach(message)
+                    await self._publish_reply(envelope, replies)
+                finally:
+                    span.set_attribute('command.outcome', outcome)
 
     async def _enter_lane(self, lane: AsyncExitStack, command: Command) -> None:
         if not command.config.exclusive:
@@ -155,17 +175,15 @@ class CommandConsumer:
         await lane.enter_async_context(self._exclusive_lane)
         record_lane_wait((time.monotonic() - queued_at) * self.MS_PER_SECOND)
 
-    async def _retry_or_fail(
-        self, envelope: dict[str, Any], command_data: CommandData, error: ExternalServiceError
-    ) -> None:
-        if await self._retries.route(envelope, error):
-            await self._publish_reply(envelope, [Reply.to(command_data).text(error.user_message)])
-
     async def _publish_reply(self, envelope: dict[str, Any], messages: list[BotMessage]) -> None:
         reply = CommandEnvelope.reply(envelope['id'], messages)
         # Carry the trace forward so the gateway's reply consumer can join it (Phase 4).
         inject_trace_context(reply)
         await self._broker.publish(self.REPLIES_QUEUE, json.dumps(reply).encode())
+        for payload in reply['messages']:
+            content = payload['content']
+            summary = content.get('text') or content.get('caption') or content['type']
+            CommandTrail.remember(payload.get('message_id'), summary)
         # Marked only once the final reply is out: a crash before this line lets the
         # redelivery run again, and a scheduled retry never reaches here.
         await self._delivery.mark_answered(envelope)

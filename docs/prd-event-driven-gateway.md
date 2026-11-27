@@ -145,7 +145,7 @@ and it sits *on top of* a broker we'd still run. It's the wrong fit here:
   actual cross-language lingua franca — the broker is the polyglot seam ([ADR 0002](./adr/0002-two-node-topology.md)).
 - **Bidirectional, topology-heavy.** This design needs direct control Celery abstracts
   away: `wa_rpc` request/reply ([ADR 0003](./adr/0003-wa-rpc-queue.md)), retry-queue +
-  DLX + DLQ with `x-death` counting ([ADR 0004](./adr/0004-ack-retry-dlq.md)), raw
+  DLX + DLQ with an attempt counter ([ADR 0004](./adr/0004-ack-retry-dlq.md)), raw
   binary media bodies, selective headers, manual ack semantics, and replies consumed by
   a *non-Celery* TS process. Celery fights all of these.
 - **Where Celery would fit** (not this): Python-only background jobs (scheduled cleanup,
@@ -219,15 +219,17 @@ all media via prefetch); `wa_rpc` carries only `add`'s lookups.
   - **Non-retryable** (`ValidationError`, `MediaNotFoundError`, bare `CommandError`,
     unknown `Exception`): send the error reply and **ack** immediately. Retrying a bad
     input or a bug only delays the user's error and wastes cycles.
-  - **Retryable** (`ExternalServiceError`, incl. `DownloadError`): dead-letter to a
-    **retry queue** with backoff TTL (e.g. 5 s → 30 s → 2 m), which dead-letters back
-    to the main queue; `x-death` tracks the attempt count. After **N attempts** the
-    transient failure has *persisted* → send the error reply and park in a terminal
-    **DLQ**. The main queue is never head-of-line blocked: a failing message leaves it
-    immediately (nack `requeue=false`), waiting out its backoff in the retry queue.
-  - **Poison protection.** The same N-attempt cap + DLQ catches a deterministic crash
-    that would otherwise loop forever under at-least-once. (`x-delivery-limit` on a
-    quorum queue is the hard backstop.)
+  - **Retryable** (`ExternalServiceError`, incl. `DownloadError`): ack and publish
+    to a **retry queue** with a fixed 30 s TTL, which dead-letters back to the main
+    queue; an `attempts` field in the envelope tracks the attempt count. After **N
+    attempts** the transient failure has *persisted* → send the error reply and park
+    in a terminal **DLQ**. The main queue is never head-of-line blocked: a failing
+    message leaves it immediately, waiting out its backoff in the retry queue. (As
+    shipped; see the 2026-11-26 amendment of [ADR 0004](./adr/0004-ack-retry-dlq.md).)
+  - **Poison protection.** The same N-attempt cap + DLQ catches a deterministic failure
+    that would otherwise loop forever under at-least-once. A crash that kills the
+    process before the ack has no cap, since the queues are classic and carry no
+    `x-delivery-limit`.
   - **Caveat:** `DownloadError` inherits retryable, but yt-dlp failures are often
     permanent (removed/geo-blocked video) — tune it to a low N (e.g. 1) so a permanent
     failure doesn't make the user wait out the full backoff ladder. Decided in
@@ -452,7 +454,7 @@ not an afterthought. Full rationale in [ADR 0005](./adr/0005-brokerport-two-laye
   directly — so unit tests mock the port we own, honouring `testing.md`'s *don't mock
   what you don't own*. Mirrors `WhatsAppPort` / `AxiosClient`.
 - **Two layers.** Unit tests mock `BrokerPort` (fast, command logic). Integration tests
-  run the thin adapter and the reliability semantics — retry/DLX/DLQ, `x-death` counting,
+  run the thin adapter and the reliability semantics — retry/DLX/DLQ, attempt counting,
   publisher confirms, `wa_rpc` timeout — against a **real ephemeral RabbitMQ**
   (testcontainers / single compose service), because a mocked channel can't prove TTL/DLX
   routing and its RED would be theatre.

@@ -11,7 +11,7 @@ def interaction(mocker):
     interaction.response.send_message = mocker.AsyncMock()
     interaction.response.defer = mocker.AsyncMock()
     interaction.followup = mocker.MagicMock()
-    interaction.followup.send = mocker.AsyncMock()
+    interaction.followup.send = mocker.AsyncMock(return_value=mocker.MagicMock(id=1234567890))
     return interaction
 
 
@@ -72,7 +72,7 @@ class TestSendMessage:
         await adapter.send_message('follow up')
 
         interaction.response.send_message.assert_not_called()
-        interaction.followup.send.assert_called_once_with(content='follow up')
+        interaction.followup.send.assert_called_once_with(content='follow up', wait=True)
 
 
 class TestDefer:
@@ -85,10 +85,14 @@ class TestDefer:
 
 class TestSendFollowup:
     @pytest.mark.anyio
+    async def test_returns_the_id_of_the_message_it_sent(self, adapter):
+        assert await adapter.send_followup('follow up text') == '1234567890'
+
+    @pytest.mark.anyio
     async def test_text_only(self, adapter, interaction):
         await adapter.send_followup('follow up text')
 
-        interaction.followup.send.assert_called_once_with(content='follow up text')
+        interaction.followup.send.assert_called_once_with(content='follow up text', wait=True)
 
     @pytest.mark.anyio
     async def test_embed_only(self, adapter, interaction):
@@ -96,7 +100,7 @@ class TestSendFollowup:
 
         await adapter.send_followup(embed=embed)
 
-        interaction.followup.send.assert_called_once_with(embed=embed)
+        interaction.followup.send.assert_called_once_with(embed=embed, wait=True)
 
     @pytest.mark.anyio
     async def test_file_only(self, adapter, interaction, mocker):
@@ -104,7 +108,7 @@ class TestSendFollowup:
 
         await adapter.send_followup(file=file)
 
-        interaction.followup.send.assert_called_once_with(file=file)
+        interaction.followup.send.assert_called_once_with(file=file, wait=True)
 
     @pytest.mark.anyio
     async def test_all_three(self, adapter, interaction, mocker):
@@ -113,4 +117,6 @@ class TestSendFollowup:
 
         await adapter.send_followup('text', embed=embed, file=file)
 
-        interaction.followup.send.assert_called_once_with(content='text', embed=embed, file=file)
+        interaction.followup.send.assert_called_once_with(
+            content='text', embed=embed, file=file, wait=True
+        )

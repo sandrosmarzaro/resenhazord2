@@ -5,7 +5,8 @@ import pytest
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-from bot.infrastructure.runtime_metrics import LoopLagMonitor, register_process_gauges
+from bot.infrastructure.metrics import track_in_flight
+from bot.infrastructure.runtime_metrics import HostGauges, LoopLagMonitor, register_process_gauges
 
 BLOCK_SECONDS = 0.05
 TICK_SECONDS = 0.01
@@ -76,3 +77,26 @@ class TestLoopLag:
 
         [point] = _points(reader, 'event_loop.lag')
         assert point.count >= 2
+
+
+class TestHostSnapshot:
+    def test_reads_the_resident_memory(self):
+        assert HostGauges.snapshot()['rss_bytes'] > 0
+
+    def test_counts_the_deliveries_in_flight(self):
+        track_in_flight(1)
+        in_flight = HostGauges.snapshot()['in_flight']
+        track_in_flight(-1)
+
+        assert in_flight == 1
+
+    @pytest.mark.anyio
+    async def test_keeps_the_last_loop_lag(self, meter):
+        monitor = LoopLagMonitor(meter, interval=TICK_SECONDS)
+
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(monitor.sample)
+            await anyio.lowlevel.checkpoint()
+            time.sleep(BLOCK_SECONDS)  # noqa: ASYNC251
+
+        assert HostGauges.snapshot()['loop_lag_ms'] >= (BLOCK_SECONDS - TICK_SECONDS) * 1000

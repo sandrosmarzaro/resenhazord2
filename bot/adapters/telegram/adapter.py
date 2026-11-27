@@ -26,15 +26,16 @@ class TelegramBotAdapter:
     def __init__(self, bot: Bot) -> None:
         self._bot = bot
 
-    async def send(self, outbound: TelegramOutbound) -> None:
+    async def send(self, outbound: TelegramOutbound) -> str:
+        # The id is what a later ,bug quoting this message finds the command by.
         if outbound.kind == TelegramKind.TEXT:
-            await self._bot.send_message(
+            message = await self._bot.send_message(
                 chat_id=outbound.chat_id,
                 text=outbound.text or '',
                 parse_mode=ParseMode.HTML,
             )
-            return
-        await self._send_media(outbound)
+            return str(message.message_id)
+        return await self._send_media(outbound)
 
     async def send_typing(self, chat_id: int) -> None:
         await self._bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
@@ -48,7 +49,7 @@ class TelegramBotAdapter:
         member = await self._bot.get_chat_member(chat_id, user_id)
         return member.status in self._ADMIN_STATUSES
 
-    async def _send_media(self, outbound: TelegramOutbound) -> None:
+    async def _send_media(self, outbound: TelegramOutbound) -> str:
         method = getattr(self._bot, f'send_{outbound.kind.value}')
         kwargs: dict[str, Any] = {
             'chat_id': outbound.chat_id,
@@ -57,7 +58,8 @@ class TelegramBotAdapter:
         if outbound.text and outbound.kind != TelegramKind.STICKER:
             kwargs['caption'] = outbound.text
             kwargs['parse_mode'] = ParseMode.HTML
-        await method(**kwargs)
+        message = await method(**kwargs)
+        return str(message.message_id)
 
     @staticmethod
     def _resolve_media(outbound: TelegramOutbound) -> str | InputFile | bytes:

@@ -12,6 +12,7 @@ from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.domain.commands.ban import BanCommand
 from bot.domain.models.command_data import CommandData
 from bot.infrastructure.broker import RabbitBroker
+from bot.ports.broker_port import Delivery
 
 BOT_JID = '5500000000001@s.whatsapp.net'
 OWNER_JID = '5527900000001@s.whatsapp.net'
@@ -61,8 +62,8 @@ class Watched:
 
 
 class Collected(Watched):
-    async def capture(self, body: bytes) -> None:
-        self.append(json.loads(body))
+    async def capture(self, delivery: Delivery) -> None:
+        self.append(json.loads(delivery.body))
 
     def by_id(self, correlation_id: str) -> list[dict[str, Any]]:
         return [body for body in self.items if body['id'] == correlation_id]

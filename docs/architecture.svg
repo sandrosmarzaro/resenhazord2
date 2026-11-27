@@ -94,7 +94,7 @@
   <text class="muted" x="345" y="318">to edge</text>
   <text class="line" x="345" y="336">replies · wa_actions · wa_rpc</text>
   <text class="muted" x="345" y="362">retry ladder</text>
-  <text class="line" x="345" y="380">commands.retry → commands</text>
+  <text class="line" x="345" y="380">retry.5s · 30s · 2m → commands.quorum</text>
   <text class="line" x="345" y="398">commands.dlq when spent</text>
   <text class="muted" x="345" y="432">Prometheus plugin :15692</text>
 

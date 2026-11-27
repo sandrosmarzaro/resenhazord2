@@ -16,6 +16,7 @@ from bot.domain.commands.base import (
     Platform,
 )
 from bot.domain.models.message import BotMessage
+from tests.factories.command_data import PrivateCommandDataFactory
 
 if TYPE_CHECKING:
     from bot.domain.models.command_data import CommandData
@@ -67,6 +68,7 @@ def make_update(
     chat_type: str = ChatType.PRIVATE,
     chat_id: int = DEFAULT_CHAT_ID,
     entities: tuple[MessageEntity, ...] | None = None,
+    reply_to: Message | None = None,
 ) -> Update:
     user = User(id=DEFAULT_USER_ID, first_name='TestUser', is_bot=False)
     chat = Chat(id=chat_id, type=chat_type)
@@ -84,6 +86,7 @@ def make_update(
         from_user=user,
         text=text,
         entities=entities,
+        reply_to_message=reply_to,
     )
     return Update(update_id=1, message=message)
 
@@ -123,7 +126,9 @@ def patch_registry(mocker, *, strategy=None, by_name=None):
 
 
 def stub_agent(mocker, agent, *, returns_text: str):
-    agent.run.return_value = mocker.MagicMock(text=returns_text)
+    agent.run.return_value = PrivateCommandDataFactory(
+        text=returns_text, platform=Platform.TELEGRAM
+    )
     return agent
 
 

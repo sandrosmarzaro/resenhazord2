@@ -5,7 +5,8 @@ from typing import ClassVar
 import aio_pika
 import structlog
 
-from bot.ports.broker_port import MessageHandler, RpcHandler
+from bot.infrastructure.broker_topology import BrokerTopology
+from bot.ports.broker_port import Delivery, DeliveryRejectedError, MessageHandler, RpcHandler
 
 logger = structlog.get_logger()
 
@@ -17,6 +18,7 @@ class BrokerConnectionError(Exception):
 class RabbitBroker:
     PREFETCH_COUNT = 4
     DRAIN_GRACE_SECONDS = 20.0
+    REJECTED: ClassVar[str] = 'rejected'
     # Raised by a consumer cancel once the broker is gone: a forced close, or an RPC
     # timeout on a channel whose transport already died.
     BROKER_GONE_ERRORS: ClassVar[tuple[type[Exception], ...]] = (
@@ -24,7 +26,8 @@ class RabbitBroker:
         aio_pika.exceptions.ChannelInvalidStateError,
     )
 
-    def __init__(self) -> None:
+    def __init__(self, topology: BrokerTopology = BrokerTopology()) -> None:
+        self._topology = topology
         self._publish_connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._consume_connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._publish_channel: aio_pika.abc.AbstractChannel | None = None
@@ -46,29 +49,12 @@ class RabbitBroker:
             # Up to four commands run at once, so a slow ,dl no longer holds every chat's
             # reply; exclusive commands (CommandConfig.exclusive) still run one at a time.
             await self._consume_channel.set_qos(prefetch_count=self.PREFETCH_COUNT)
+            # Declare the topology once here, never on the publish hot path: a declare RPC
+            # issued from inside a consume callback wedges the channel's next
+            # publisher-confirm. Publishing assumes every target already exists.
+            await self._topology.declare(self._publish_channel)
         except (OSError, aio_pika.exceptions.AMQPError) as error:
             raise BrokerConnectionError(str(error)) from error
-
-    async def declare(self, queue: str) -> None:
-        # Declare topology once at startup, never on the publish hot path: a
-        # Queue.Declare RPC issued from inside a consume callback wedges the channel's
-        # next publisher-confirm. Publishing assumes the queue already exists.
-        channel = self._active(self._publish_channel)
-        await channel.declare_queue(queue, durable=True)
-
-    async def declare_retry_queue(self, queue: str, ttl_ms: int, dead_letter_to: str) -> None:
-        # A message parked here waits ttl_ms, then dead-letters (default exchange) to
-        # dead_letter_to — the backoff hop of the retry ladder (ADR 0004).
-        channel = self._active(self._publish_channel)
-        await channel.declare_queue(
-            queue,
-            durable=True,
-            arguments={
-                'x-message-ttl': ttl_ms,
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': dead_letter_to,
-            },
-        )
 
     async def publish(self, queue: str, body: bytes) -> None:
         channel = self._active(self._publish_channel)
@@ -78,8 +64,9 @@ class RabbitBroker:
 
     async def consume(self, queue: str, handler: MessageHandler) -> None:
         channel = self._active(self._consume_channel)
-        declared = await channel.declare_queue(queue, durable=True)
-        tag = await declared.consume(self._make_callback(handler))
+        arguments = self._topology.arguments(queue)
+        declared = await channel.declare_queue(queue, durable=True, arguments=arguments)
+        tag = await declared.consume(self._make_callback(queue, handler))
         self._consumers.append((declared, tag))
 
     async def rpc_call(self, queue: str, body: bytes) -> bytes:
@@ -143,19 +130,39 @@ class RabbitBroker:
             raise RuntimeError(message)
         return channel
 
-    def _make_callback(self, handler: MessageHandler):
+    def _make_callback(self, queue: str, handler: MessageHandler):
         async def on_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
             self._in_flight += 1
             self._idle.clear()
             try:
                 async with message.process():
-                    await handler(message.body)
+                    await handler(Delivery(message.body, self._attempt(message, queue)))
+            except DeliveryRejectedError:
+                # process() already rejected it without requeue.
+                logger.debug('delivery_rejected', queue=queue)
             finally:
                 self._in_flight -= 1
                 if self._in_flight == 0:
                     self._idle.set()
 
         return on_message
+
+    @classmethod
+    def _attempt(cls, message: aio_pika.abc.AbstractIncomingMessage, queue: str) -> int:
+        # x-death keeps one entry per (queue, reason) with a count, so this queue's
+        # rejections are the attempts already run. A republished body (the legacy drain,
+        # a DLQ replay) carries no headers and starts over.
+        deaths = message.headers.get('x-death')
+        if not isinstance(deaths, list):
+            return 1
+        return 1 + sum(
+            death['count']
+            for death in deaths
+            if isinstance(death, dict)
+            and death['queue'] == queue
+            and death['reason'] == cls.REJECTED
+            and isinstance(death['count'], int)
+        )
 
     @staticmethod
     def _rpc_response(correlation_id: str, future: asyncio.Future[bytes]):

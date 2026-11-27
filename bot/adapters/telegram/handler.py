@@ -139,11 +139,14 @@ class TelegramUpdateHandler:
     def _build_command_data(
         cls, message: Message, chat: Chat, user: User, text: str, *, is_admin: bool | None = None
     ) -> CommandData:
+        quoted = message.reply_to_message
         return CommandData(
             text=text,
             jid=str(chat.id),
             sender_jid=str(user.id),
             message_id=str(message.message_id),
+            quoted_message_id=str(quoted.message_id) if quoted else None,
+            quoted_text=quoted.text if quoted else None,
             is_group=chat.type in cls.GROUP_CHAT_TYPES,
             push_name=user.full_name,
             platform=Platform.TELEGRAM,

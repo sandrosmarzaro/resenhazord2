@@ -7,11 +7,16 @@ from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.broker import RabbitBroker
+from bot.ports.broker_port import Delivery
 
 
 class TestCommandPathOverBroker:
     @pytest.mark.anyio
-    async def test_command_round_trips_to_a_published_reply(self, rabbitmq_url, mocker):
+    # The gateway still publishes to the classic queue, which the core drains.
+    @pytest.mark.parametrize(
+        'queue', [CommandConsumer.COMMANDS_QUEUE, CommandConsumer.LEGACY_COMMANDS_QUEUE]
+    )
+    async def test_command_round_trips_to_a_published_reply(self, rabbitmq_url, mocker, queue):
         handler = mocker.AsyncMock()
         handler.handle.return_value = [BotMessage(jid='g@g.us', content=TextContent('pong'))]
 
@@ -22,14 +27,14 @@ class TestCommandPathOverBroker:
         replies: list[bytes] = []
         replied = asyncio.Event()
 
-        async def capture(body: bytes) -> None:
-            replies.append(body)
+        async def capture(delivery: Delivery) -> None:
+            replies.append(delivery.body)
             replied.set()
 
         await broker.consume(CommandConsumer.REPLIES_QUEUE, capture)
 
         envelope = {'id': 'corr-1', 'data': {'text': 'ping', 'jid': 'g@g.us', 'sender_jid': 'u@s'}}
-        await broker.publish(CommandConsumer.COMMANDS_QUEUE, json.dumps(envelope).encode())
+        await broker.publish(queue, json.dumps(envelope).encode())
 
         async with asyncio.timeout(10):
             await replied.wait()

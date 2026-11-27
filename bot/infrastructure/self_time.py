@@ -50,13 +50,13 @@ class SelfTimeProcessor(SpanProcessor):
                 siblings = self._children.get(span.parent.span_id)
                 if siblings is not None:
                     siblings.append((start, end))
-        busy = self._union(children, start)
+        busy = self.busy_time(children, start)
         self._histogram.record(
             (end - start - busy) / self.NS_PER_MS, {'span.name': span.name, 'work.kind': kind}
         )
 
     @staticmethod
-    def _union(intervals: list[tuple[int, int]], parent_start: int) -> int:
+    def busy_time(intervals: list[tuple[int, int]], parent_start: int) -> int:
         # Every child here ended while the parent was open, so only its start needs
         # clamping to the parent window.
         total, reached = 0, parent_start

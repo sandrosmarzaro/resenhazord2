@@ -16,7 +16,7 @@ resenhazord2/
       command_handler.py         Dispatches a parsed command
       command_registry.py        Singleton list of registered Command instances
       register_commands.py       Wires every command into the registry at startup
-    data/                        Lookup tables, emoji maps, static datasets
+    data/                        Lookup tables, emoji maps, static datasets, broker topology
     domain/
       builders/reply.py          Fluent Reply.to(data).text(...) API
       commands/                  56 command implementations (base.py + subclasses)
@@ -81,6 +81,36 @@ through the app's own engine before any platform starts.
    `ReplyConsumer` deserializes them and pushes them to Baileys. WhatsApp side-effects
    mid-command ride `wa_actions` (fire-and-forget writes) and `wa_rpc` (on_whatsapp,
    group_metadata). See [prd-event-driven-gateway.md](./prd-event-driven-gateway.md).
+
+### Broker topology
+
+Both nodes declare the same topology when the broker connects, from
+`bot/data/broker_topology.py` and `gateway/src/data/BrokerTopology.json` (a unit test
+keeps them equal). Two durable topic exchanges are bound to the existing queues:
+
+| Exchange | Binding | Queue |
+|---|---|---|
+| `resenhazord.commands` | `command.#` | `commands` |
+| `resenhazord.commands` | `wa.action.#` | `wa_actions` |
+| `resenhazord.commands` | `wa.rpc.#` | `wa_rpc` |
+| `resenhazord.events` | `reply.whatsapp` | `replies` |
+| `resenhazord.events` | `group.#` | `group_events` |
+
+The core runs commands from `commands.quorum`, a quorum queue with a delivery limit of 3.
+Its dead letters go to `resenhazord.dlx`, a headers exchange that routes by death reason
+([ADR 0004](./adr/0004-ack-retry-dlq.md)):
+
+| Reason | Goes to |
+|---|---|
+| `rejected` (a retry) | `resenhazord.retry`, which picks `commands.retry.5s`, `.30s` or `.2m` by routing key, and `commands.dlq` after the last step |
+| `expired` (a step ends) | `commands.quorum` |
+| `delivery_limit` (a poison command) | `commands.dlq` |
+
+The gateway still publishes to the classic `commands`, which the core drains into
+`commands.quorum`, and the old 30 s `commands.retry` drains into `commands`. Both stay
+declared until the contract step in ADR 0004. Producers publish through the default
+exchange by queue name until the migrate step of
+[ADR 0017](./adr/0017-broker-exchanges-and-routing-keys.md) moves them to routing keys.
 
 ### Discord
 
@@ -356,7 +386,8 @@ decorator pattern. Python consumes it transparently through `WhatsAppPort`.
 ## Singletons
 
 Python: `CommandRegistry.instance()`, `MongoDBConnection`, `HttpClient`, all
-`configure()`d in `register_all_commands`. The agent is not a singleton:
+`configure()`d in `register_all_commands`. `ExecutionStore.instance()` holds the
+execution records `,bug` reads ([bug-reports.md](bug-reports.md)); tests default it off. The agent is not a singleton:
 `register_all_commands` builds the `GraphAgentOrchestrator` and returns it, and the
 FastAPI lifespan injects it into the WhatsApp handler (wrapped in `ThrottledAgent`),
 Discord and Telegram.

@@ -38,7 +38,7 @@ process. So the broker-level safety nets do not catch this.
 **Decision: `wa_rpc` requests carry an explicit timeout. A timeout raises a retryable
 error** (an `ExternalServiceError` subclass — from the bot's view the gateway is an
 external service across the broker) **that flows into the [ADR 0004](./0004-ack-retry-dlq.md)
-retryable path**: nack → retry queue with backoff → the whole `add` reprocesses once the
+retryable path**: ack and republish to the retry queue → the whole `add` reprocesses once the
 gateway is back. `add` is set-semantic (`$addToSet`), so reprocessing is idempotent.
 Reuses existing machinery — no new mechanism. (The exact timeout / N may be tuned in
 implementation; gateway-down typically resolves in seconds, so it need not use the long
