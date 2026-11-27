@@ -3,7 +3,9 @@ import { connect } from 'amqplib';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import logger from '../../src/infra/Logger.js';
+import defaultTopology from '../../src/data/BrokerTopology.json' with { type: 'json' };
 import RabbitBroker from '../../src/infra/RabbitBroker.js';
+import type { BrokerTopology } from '../../src/types/brokerTopology.js';
 
 // What the nodes declared before the exchanges existed (ADR 0004): the topology must
 // redeclare each queue with exactly these arguments, or the broker answers
@@ -178,6 +180,86 @@ describe('RabbitBroker', () => {
     await publisher.close();
   });
 });
+
+describe('RabbitBroker retry ladder', () => {
+  // Milliseconds each step holds a rejected command here, instead of 5 s, 30 s, 2 m.
+  const STEP_MS = [200, 400, 600];
+  const LADDER = ['commands.retry.5s', 'commands.retry.30s', 'commands.retry.2m'];
+  let container: StartedRabbitMQContainer;
+  let url: string;
+
+  beforeAll(async () => {
+    container = await new RabbitMQContainer('rabbitmq:3.13').start();
+    url = container.getAmqpUrl();
+  }, 120_000);
+
+  afterAll(async () => {
+    await container.stop();
+  });
+
+  function shortLadder(): BrokerTopology {
+    const queues: BrokerTopology['queues'] = { ...defaultTopology.queues };
+    LADDER.forEach((queue, step) => {
+      queues[queue] = { ...queues[queue], 'x-message-ttl': STEP_MS[step] };
+    });
+    return { ...defaultTopology, queues };
+  }
+
+  it('brings a rejected command back to the commands queue after its step', async () => {
+    const broker = new RabbitBroker(shortLadder());
+    await broker.connect(url);
+    const core = await rejectingCore(url, 1);
+
+    await publishTo(url, '', 'commands.quorum');
+    const runs = await core.accepted;
+
+    await core.close();
+    await broker.close();
+    expect(runs).toHaveLength(2);
+    expect(runs[1] - runs[0]).toBeGreaterThanOrEqual(STEP_MS[0]);
+  });
+
+  it('sends a command rejected past the last step to the DLQ', async () => {
+    const broker = new RabbitBroker(shortLadder());
+    await broker.connect(url);
+    await purge(url, 'commands.dlq');
+    const core = await rejectingCore(url, Infinity);
+
+    await publishTo(url, '', 'commands.quorum');
+    const deadLetter = await waitForOne(url, 'commands.dlq');
+
+    await core.close();
+    await broker.close();
+    expect(deadLetter).toBe('roteado');
+    expect(core.runs).toHaveLength(LADDER.length + 1);
+  });
+});
+
+// Stands in for the core: rejects the first `rejections` deliveries without requeue, as
+// RetryRouter does for a retryable failure, then acks.
+async function rejectingCore(url: string, rejections: number) {
+  const connection = await connect(url);
+  const channel = await connection.createChannel();
+  const runs: number[] = [];
+  const accepted = new Promise<number[]>((resolve) => {
+    void channel.consume('commands.quorum', (message) => {
+      if (!message) return;
+      runs.push(performance.now());
+      if (runs.length <= rejections) {
+        channel.nack(message, false, false);
+        return;
+      }
+      channel.ack(message);
+      resolve(runs);
+    });
+  });
+  // Closing the channel first waits until the broker has taken the last ack.
+  const close = async () => {
+    await channel.close();
+    await connection.close();
+  };
+  return { runs, accepted, close };
+}
 
 async function rpcRequest(url: string, queue: string, payload: unknown): Promise<unknown> {
   const connection = await connect(url);

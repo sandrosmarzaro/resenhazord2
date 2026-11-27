@@ -10,6 +10,6 @@ export interface BrokerTopology {
   deadLetterExchange: string;
   queues: Record<string, Record<string, number | string>>;
   bindings: BrokerBinding[];
-  // Death reason → the queue it goes to. A reason without a route is dropped.
+  // Death reason → the queue or exchange it goes to. A reason without a route is dropped.
   deadLetterRoutes: Record<string, string>;
 }

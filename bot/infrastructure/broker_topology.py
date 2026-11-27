@@ -38,9 +38,10 @@ class BrokerTopology:
         dead_letters = await channel.declare_exchange(
             DEAD_LETTER_EXCHANGE, aio_pika.ExchangeType.HEADERS, durable=True
         )
+        destinations = {**exchanges, **queues}
         for reason, destination in self.dead_letter_routes.items():
             # Same empty key as the gateway's bind, so the two nodes make one binding, not two.
-            await queues[destination].bind(
+            await destinations[destination].bind(
                 dead_letters,
                 '',
                 arguments={'x-match': self.DEATH_MATCH, 'x-last-death-reason': reason},
