@@ -1,9 +1,10 @@
-from bot.ports.broker_port import MessageHandler
+from bot.ports.broker_port import Delivery, DeliveryRejectedError, MessageHandler
 
 
 class MockBrokerPort:
     def __init__(self) -> None:
         self.published: list[tuple[str, bytes]] = []
+        self.rejected: list[tuple[str, bytes]] = []
         self.connected_urls: list[str] = []
         self.rpc_calls: list[tuple[str, bytes]] = []
         self.rpc_response: bytes = b'{}'
@@ -25,5 +26,8 @@ class MockBrokerPort:
     async def close(self) -> None:
         return None
 
-    async def deliver(self, queue: str, body: bytes) -> None:
-        await self._handlers[queue](body)
+    async def deliver(self, queue: str, body: bytes, attempt: int = 1) -> None:
+        try:
+            await self._handlers[queue](Delivery(body, attempt))
+        except DeliveryRejectedError:
+            self.rejected.append((queue, body))

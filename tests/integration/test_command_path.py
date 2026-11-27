@@ -7,6 +7,7 @@ from bot.adapters.broker.command_consumer import CommandConsumer
 from bot.domain.models.contents.text_content import TextContent
 from bot.domain.models.message import BotMessage
 from bot.infrastructure.broker import RabbitBroker
+from bot.ports.broker_port import Delivery
 
 
 class TestCommandPathOverBroker:
@@ -26,8 +27,8 @@ class TestCommandPathOverBroker:
         replies: list[bytes] = []
         replied = asyncio.Event()
 
-        async def capture(body: bytes) -> None:
-            replies.append(body)
+        async def capture(delivery: Delivery) -> None:
+            replies.append(delivery.body)
             replied.set()
 
         await broker.consume(CommandConsumer.REPLIES_QUEUE, capture)

@@ -4,7 +4,7 @@ import structlog
 
 from bot.domain.services.group_welcome import GroupWelcomeService
 from bot.domain.services.steal_group import StealGroupService
-from bot.ports.broker_port import BrokerPort
+from bot.ports.broker_port import BrokerPort, Delivery
 
 logger = structlog.get_logger()
 
@@ -24,9 +24,9 @@ class GroupEventConsumer:
     async def start(self) -> None:
         await self._broker.consume(self.QUEUE, self._handle)
 
-    async def _handle(self, body: bytes) -> None:
+    async def _handle(self, delivery: Delivery) -> None:
         try:
-            data = json.loads(body)
+            data = json.loads(delivery.body)
             handler = self._handlers.get(data.get('action'))
             if handler is None:
                 return

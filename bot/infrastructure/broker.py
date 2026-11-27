@@ -6,7 +6,7 @@ import aio_pika
 import structlog
 
 from bot.infrastructure.broker_topology import BrokerTopology
-from bot.ports.broker_port import MessageHandler, RpcHandler
+from bot.ports.broker_port import Delivery, DeliveryRejectedError, MessageHandler, RpcHandler
 
 logger = structlog.get_logger()
 
@@ -18,6 +18,7 @@ class BrokerConnectionError(Exception):
 class RabbitBroker:
     PREFETCH_COUNT = 4
     DRAIN_GRACE_SECONDS = 20.0
+    REJECTED: ClassVar[str] = 'rejected'
     # Raised by a consumer cancel once the broker is gone: a forced close, or an RPC
     # timeout on a channel whose transport already died.
     BROKER_GONE_ERRORS: ClassVar[tuple[type[Exception], ...]] = (
@@ -65,7 +66,7 @@ class RabbitBroker:
         channel = self._active(self._consume_channel)
         arguments = self._topology.arguments(queue)
         declared = await channel.declare_queue(queue, durable=True, arguments=arguments)
-        tag = await declared.consume(self._make_callback(handler))
+        tag = await declared.consume(self._make_callback(queue, handler))
         self._consumers.append((declared, tag))
 
     async def rpc_call(self, queue: str, body: bytes) -> bytes:
@@ -129,19 +130,39 @@ class RabbitBroker:
             raise RuntimeError(message)
         return channel
 
-    def _make_callback(self, handler: MessageHandler):
+    def _make_callback(self, queue: str, handler: MessageHandler):
         async def on_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
             self._in_flight += 1
             self._idle.clear()
             try:
                 async with message.process():
-                    await handler(message.body)
+                    await handler(Delivery(message.body, self._attempt(message, queue)))
+            except DeliveryRejectedError:
+                # process() already rejected it without requeue.
+                logger.debug('delivery_rejected', queue=queue)
             finally:
                 self._in_flight -= 1
                 if self._in_flight == 0:
                     self._idle.set()
 
         return on_message
+
+    @classmethod
+    def _attempt(cls, message: aio_pika.abc.AbstractIncomingMessage, queue: str) -> int:
+        # x-death keeps one entry per (queue, reason) with a count, so this queue's
+        # rejections are the attempts already run. A republished body (the legacy drain,
+        # a DLQ replay) carries no headers and starts over.
+        deaths = message.headers.get('x-death')
+        if not isinstance(deaths, list):
+            return 1
+        return 1 + sum(
+            death['count']
+            for death in deaths
+            if isinstance(death, dict)
+            and death['queue'] == queue
+            and death['reason'] == cls.REJECTED
+            and isinstance(death['count'], int)
+        )
 
     @staticmethod
     def _rpc_response(correlation_id: str, future: asyncio.Future[bytes]):
