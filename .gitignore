@@ -30,3 +30,7 @@ mutants/
 *.pem
 ssh-key-*
 secrets/
+
+# Browser cookie exports for yt-dlp (session credentials)
+cookies*.txt
+*cookies*.json
